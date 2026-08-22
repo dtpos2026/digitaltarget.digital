@@ -66,7 +66,19 @@ export interface InternalNote {
 // and the whole UI unchanged.
 // ===========================================================================
 
-// The table's CHECK constraint allows only 'in' | 'out' | 'owner' | 'support'.
+/**
+ * ===== v1.26.7 — this comment used to be wrong, and that was the bug =====
+ *
+ * It claimed the CHECK constraint allowed 'in' | 'out' | 'owner' | 'support'.
+ * The constraint actually live on the database allowed only
+ * ('in','out','inbound','outbound'), so EVERY message this function produced
+ * was rejected with 23514 — both directions, text and images alike. The table
+ * held zero rows: no support message had ever been stored.
+ *
+ * The constraint is widened in migration 20260822170000 to accept what this
+ * sends. sideFromDir() below already reads both vocabularies, so historic
+ * 'in'/'out' rows keep working.
+ */
 function dirFromSide(from: SupportFrom): 'owner' | 'support' {
   return from === 'owner' ? 'owner' : 'support';
 }

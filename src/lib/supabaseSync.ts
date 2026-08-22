@@ -60,11 +60,21 @@ export async function registerThisDevice(
   platform?: string, appVersion?: string,
   meta?: Record<string, unknown>, ip?: string | null,
 ): Promise<DeviceRegistration> {
+  // ===== v1.26.8 — one physical machine, one approved device =====
+  // hardwareId lives in localStorage, which is scoped to the browser PROFILE,
+  // so the same PC in Chrome, Edge and Firefox used to register three times
+  // and ask for approval three times. describeDevice() adds a low-entropy
+  // machine fingerprint the server can use to merge those into one row — and
+  // returns Electron's real installation id instead when the shell exposes it.
+  const { describeDevice } = await import('./deviceIdentity');
+  const ident = await describeDevice(hardwareId);
   const { data, error } = await sb().rpc('register_device', {
-    p_hardware_id: hardwareId, p_label: label, p_branch_id: branchId,
+    p_hardware_id: ident.hardwareId, p_label: label, p_branch_id: branchId,
     p_platform: platform ?? null, p_app_version: appVersion ?? null,
-    p_meta: (meta ?? {}) as any, p_ip: ip ?? null,
-  });
+    p_meta: { ...(meta ?? {}), nativeMachineId: ident.native } as any,
+    p_ip: ip ?? null,
+    p_fingerprint: ident.fingerprint || null,
+  } as any);
   if (error) throw error;
   const d = data as any;
   setSyncDeviceId(d.device_id);
