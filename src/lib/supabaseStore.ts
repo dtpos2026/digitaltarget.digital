@@ -131,6 +131,30 @@ export function isDocStoreCollection(col: string): boolean {
   return DOC_STORE_COLLECTIONS.has(col);
 }
 
+/**
+ * ===== v1.26.0 — tables that carry a `deleted_at` tombstone =====
+ *
+ * A delete must be a FACT that replicates, not an absence that has to be
+ * guessed at. Eleven of these tables used to be hard-DELETEd; a second device
+ * then read the collection, saw the row simply missing, and could not tell
+ * "deleted elsewhere" from "my copy has not been pushed yet". The union merge
+ * assumed the second, re-added the row and pushed it back up — so a delete
+ * made on one till undid itself within a minute.
+ *
+ * With a tombstone the server says *deleted*, and every device can apply it.
+ *
+ * This one set now drives all three places that used to disagree: the delete
+ * verb (soft vs hard), the read filter, and the tombstone-aware merge read.
+ */
+export const SOFT_DELETE = new Set<string>([
+  'categories', 'menu_items', ...DOC_TABLES,
+  // Bills keep their row (admin history) but stop loading into the POS.
+  'orders', 'order_items', 'order_payments',
+  // v1.26.0 — previously hard-deleted, so their deletions never replicated.
+  'dining_tables', 'floors', 'kitchens', 'inventory_items', 'inventory_categories',
+  'customers', 'branches', 'deals', 'promo_codes', 'payment_accounts', 'shifts',
+]);
+
 export function tableFor(col: string): string | null {
   if (NOT_GENERICALLY_SYNCABLE.has(col)) return null;
   return TABLE_FOR[col] ?? null;
@@ -271,6 +295,16 @@ export const ALLOWED_COLUMNS: Record<string, Set<string>> = {
     'expected_cash', 'variance', 'status']),
   inventory_categories: new Set(['id', 'tenant_id', 'name', 'sort_order']),
 };
+
+/**
+ * v1.26.0 — every allow-listed table gained `updated_at` / `deleted_at`.
+ * Leaving them out of the allow-list meant rowToDb() dropped them, so a
+ * tombstone written locally could never be pushed.
+ */
+for (const cols of Object.values(ALLOWED_COLUMNS)) {
+  cols.add('updated_at');
+  cols.add('deleted_at');
+}
 
 
 /**
@@ -454,15 +488,16 @@ function readTenantId(): string | null {
 
 // ----- Document-store helpers (module_documents) ---------------------------
 
-async function docStoreLoad(kind: string): Promise<any[]> {
+async function docStoreLoad(kind: string, includeDeleted = false): Promise<any[]> {
   const tenantId = readTenantId();
   if (!tenantId) return [];
-  const { data, error } = await sb()
+  let request = sb()
     .from('module_documents')
-    .select('doc_id, data, updated_at')
+    .select('doc_id, data, updated_at, deleted_at')
     .eq('tenant_id', tenantId)
-    .eq('kind', kind)
-    .is('deleted_at', null);
+    .eq('kind', kind);
+  if (!includeDeleted) request = request.is('deleted_at', null);
+  const { data, error } = await request;
   if (error) {
     console.error(`[supabase] load ${kind} (module_documents) failed`, error.message);
     throw error;
@@ -471,6 +506,7 @@ async function docStoreLoad(kind: string): Promise<any[]> {
     ...(r.data && typeof r.data === 'object' ? r.data : {}),
     id: (r.data?.id as string) || r.doc_id,
     _updatedAt: r.updated_at ? new Date(r.updated_at).getTime() : Date.now(),
+    ...(r.deleted_at ? { deleted: true, deletedAt: new Date(r.deleted_at).getTime() } : {}),
   }));
 }
 
@@ -514,8 +550,23 @@ async function docStoreDelete(kind: string, ids: string[]): Promise<string[]> {
  * this branch, so no client-side filter is needed — and could not be trusted
  * anyway. The tenant filter below is belt-and-braces, not the control.
  */
-export async function sbLoadCollection(col: string): Promise<any[]> {
-  if (isDocStoreCollection(col)) return docStoreLoad(col);
+export interface LoadOptions {
+  /**
+   * Return tombstoned rows too, flagged `deleted: true`.
+   *
+   * The merge path needs them. It compares the cloud against the local cache
+   * and must be able to distinguish "deleted on another device" (drop it)
+   * from "not in the cloud at all" (keep it — it may be an unsynced write).
+   * Filtering tombstones out of the read collapses those two into one and is
+   * exactly why deletions used to resurrect themselves.
+   *
+   * The plain UI read path leaves this off and never sees a deleted row.
+   */
+  includeDeleted?: boolean;
+}
+
+export async function sbLoadCollection(col: string, opts: LoadOptions = {}): Promise<any[]> {
+  if (isDocStoreCollection(col)) return docStoreLoad(col, opts.includeDeleted);
   const table = tableFor(col);
   const tenantId = readTenantId();
 
@@ -525,10 +576,7 @@ export async function sbLoadCollection(col: string): Promise<any[]> {
   let request = sb().from(table).select('*').eq('tenant_id', tenantId);
   // Day Close soft-deletes bills so the admin keeps the history on the
   // server, but a closed day must never load back into the till.
-  if (
-    table === 'categories' || table === 'menu_items' || DOC_TABLES.has(table) ||
-    table === 'orders' || table === 'order_items' || table === 'order_payments'
-  ) request = request.is('deleted_at', null);
+  if (SOFT_DELETE.has(table) && !opts.includeDeleted) request = request.is('deleted_at', null);
   const { data, error } = await request;
   if (error) {
     console.error(`[supabase] load ${col} (${table}) failed`, error.message);
@@ -540,14 +588,66 @@ export async function sbLoadCollection(col: string): Promise<any[]> {
   return (data ?? []).map((r: any) => rowFromDb(r, table));
 }
 
-/** Load many collections in parallel. Returns a partial AppData shape. */
-export async function sbLoadAll(cols: readonly string[]): Promise<Record<string, any[]>> {
+/**
+ * Load many collections in parallel. Returns a partial AppData shape: a
+ * collection whose read FAILED is absent from the result, never present and
+ * empty. The caller must treat an absent key as "unknown, keep what you have"
+ * — an empty array here would look like a legitimately empty collection and
+ * overwrite good local data.
+ */
+export async function sbLoadAll(
+  cols: readonly string[], opts: LoadOptions = {},
+): Promise<Record<string, any[]>> {
   const out: Record<string, any[]> = {};
   await Promise.all(cols.map(async (col) => {
-    try { out[col] = await sbLoadCollection(col); }
+    try { out[col] = await sbLoadCollection(col, opts); }
     catch { /* leave the key absent so the caller keeps its local copy */ }
   }));
   return out;
+}
+
+/**
+ * Tables whose UNIQUE constraint is a business identity rather than a
+ * surrogate id. Two devices can legitimately produce the same one.
+ */
+const NATURAL_KEY: Record<string, string[]> = {
+  customers:   ['tenant_id', 'phone'],
+  promo_codes: ['tenant_id', 'code'],
+};
+
+function isUniqueViolation(error: any): boolean {
+  return error?.code === '23505'
+    || /duplicate key value violates unique constraint/i.test(error?.message || '');
+}
+
+/**
+ * Resolve a unique-constraint rejection by merging into the row that already
+ * holds the key. Returns true when the write has been completed.
+ */
+async function mergeOnNaturalKey(
+  table: string, row: Record<string, any>, error: any,
+): Promise<boolean> {
+  const key = NATURAL_KEY[table];
+  if (!key || !isUniqueViolation(error)) return false;
+  // Every key column must actually carry a value — merging on a NULL would
+  // target an arbitrary row.
+  if (key.some(k => row[k] === null || row[k] === undefined || row[k] === '')) return false;
+
+  // The surviving row keeps its own primary key; ours would violate it.
+  const patch = { ...row };
+  delete patch.id;
+
+  const { error: mergeError } = await sb()
+    .from(table).upsert(patch, { onConflict: key.join(',') });
+  if (mergeError) {
+    console.error(`[supabase] natural-key merge on ${table} failed`, mergeError.message);
+    return false;
+  }
+  console.warn(
+    `[supabase] ${table}: a row with the same ${key.slice(1).join('+')} already existed ` +
+    '(created on another device) — merged into it instead of creating a duplicate',
+  );
+  return true;
 }
 
 /** Write one row. Upsert on id, so a retry is idempotent. */
@@ -570,6 +670,24 @@ export async function sbSaveItem(col: string, id: string, data: any): Promise<vo
 
   const { error } = await sb().from(table).upsert(row, { onConflict: 'id' });
   if (error) {
+    // ===== v1.26.0 — two devices, one natural key =====
+    // Some tables carry a UNIQUE constraint besides the primary key:
+    // customers(tenant, phone), promo_codes(tenant, code). Two tills that
+    // each create "the same" customer offline mint DIFFERENT local ids, so
+    // the id-keyed upsert tries to INSERT a second row and Postgres rejects
+    // it with 23505.
+    //
+    // That rejection used to be terminal in slow motion: the op retried six
+    // times, then went to the dead-letter queue, and the record never reached
+    // the cloud at all. The operator saw a customer on one till and nowhere
+    // else, with no error.
+    //
+    // Re-aiming the upsert at the natural key merges into the row that is
+    // already there instead of fighting it. One record, both devices, nothing
+    // dropped — which is what the constraint was expressing in the first place.
+    const merged = await mergeOnNaturalKey(table, row, error);
+    if (merged) return;
+
     // ===== Two tills, one number =====
     // A bill created offline carries a number minted by its own device. If
     // another till already used it, the per-branch unique index rejects this
@@ -599,18 +717,6 @@ export async function sbSaveItem(col: string, id: string, data: any): Promise<vo
 }
 
 
-/**
- * Remove one row.
- *
- * Tables with a `deleted_at` column are SOFT deleted: a hard delete cannot be
- * replayed safely to a device that was offline when it happened, and it also
- * destroys history the reports still need.
- */
-const SOFT_DELETE = new Set([
-  'categories', 'menu_items', ...DOC_TABLES,
-  // Bills keep their row (admin history) but stop loading into the POS.
-  'orders', 'order_items', 'order_payments',
-]);
 
 export async function sbDeleteItem(col: string, id: string): Promise<void> {
   if (isDocStoreCollection(col)) { await docStoreDelete(col, [id]); return; }
@@ -687,22 +793,49 @@ export async function sbResetOrderCounter(startAt = 0): Promise<void> {
 
 const ALL_BRANCHES = '00000000-0000-0000-0000-000000000000';
 
+/**
+ * ===== v1.26.0 — settings carry their server timestamp =====
+ *
+ * Settings were the one collection with NO version of any kind, so the merge
+ * had nothing to compare and the cloud copy simply overwrote the local one on
+ * every refresh. A branding change made while offline was therefore discarded
+ * the moment the connection came back — the operator watched their restaurant
+ * name and logo revert, with no error anywhere.
+ *
+ * `updated_at` already exists on the row and a trigger advances it. Returning
+ * it as `_updatedAt` lets settings use the same last-write-wins rule as every
+ * other collection.
+ */
 export async function sbLoadSettings(): Promise<Record<string, any> | null> {
-  const tenantId = authTenantId();
+  const tenantId = readTenantId();
   if (!tenantId) return null;
   const { data, error } = await sb()
-    .from('tenant_settings').select('settings')
+    .from('tenant_settings').select('settings, updated_at')
     .eq('tenant_id', tenantId).eq('branch_id', ALL_BRANCHES).maybeSingle();
   if (error) { console.error('[supabase] load settings failed', error.message); return null; }
-  return (data?.settings as Record<string, any>) ?? null;
+  const settings = (data?.settings as Record<string, any>) ?? null;
+  if (!settings) return null;
+  return {
+    ...settings,
+    _updatedAt: data?.updated_at ? new Date(data.updated_at as string).getTime() : 0,
+  };
 }
 
 export async function sbSaveSettings(s: Record<string, any>): Promise<void> {
   const tenantId = authTenantId();
   if (!tenantId) throw new Error('Restaurant identity is not ready; settings were not uploaded');
+  // `_updatedAt` is a local merge stamp, not restaurant data — never store it.
+  // The column is the authority; keeping a copy inside the jsonb would let a
+  // stale device's clock decide the winner.
+  const payload = { ...s };
+  delete (payload as any)._updatedAt;
   const { error } = await sb().from('tenant_settings')
-    .upsert({ tenant_id: tenantId, branch_id: ALL_BRANCHES, settings: s },
-            { onConflict: 'tenant_id,branch_id' });
+    .upsert({
+      tenant_id: tenantId, branch_id: ALL_BRANCHES, settings: payload,
+      // touch_updated_at only fires on UPDATE; stamp it so a first INSERT is
+      // not left looking older than every subsequent edit.
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'tenant_id,branch_id' });
   if (error) { console.error('[supabase] save settings failed', error.message); throw error; }
 
   // Keep the platform's restaurant master record aligned with the owner-facing
@@ -722,7 +855,7 @@ export async function sbSaveSettings(s: Record<string, any>): Promise<void> {
   //
   // The master name is a convenience mirror. A stale mirror is a small
   // problem; discarding the operator's branding is a large one.
-  const restaurantName = typeof s.name === 'string' ? s.name.trim() : '';
+  const restaurantName = typeof payload.name === 'string' ? payload.name.trim() : '';
   if (restaurantName) {
     const { error: tenantError } = await sb().rpc('update_own_tenant_name', {
       p_name: restaurantName,

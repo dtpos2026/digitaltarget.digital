@@ -19,6 +19,7 @@ import { localDb } from './localDb';
 import type { Shift } from './shifts';
 import { buildRefund, type Refund, type RefundRequest } from './refunds';
 import { normalizeForDisplay, dedupeById } from './dataIntegrity';
+import { mergeCollection } from './syncMerge';
 import { shouldDeferCloudWrite, enqueueDeferredOp, registerDeferredFlusher, installDeferredSyncTriggers, stopDeferredSyncTriggers, deferredPendingCount, onDeferredSyncChange } from './deferredSync';
 import { onOrderRenumbered } from './orderNumbers';
 import {
@@ -87,12 +88,27 @@ async function loadHeavyCollectionsInBackground(): Promise<void> {
   try {
     if (useSupabaseBackend()) {
       const { sbLoadAll } = await import('./supabaseStore');
-      const out = await sbLoadAll(HEAVY_COLLECTIONS as readonly string[]);
+      const out = await sbLoadAll(HEAVY_COLLECTIONS as readonly string[], { includeDeleted: true });
       if (!cachedData || getTenantId() !== tid) return;
       const stamped = (cachedData as any)?._tenantId;
       if (stamped && tid && stamped !== tid) return;
+      // ===== v1.26.0 — this used to overwrite, not merge =====
+      // HEAVY_COLLECTIONS is the history: orders, ledger, transactions,
+      // attendance, day closes. Assigning the cloud rows straight over the
+      // cache discarded every local row the cloud had not seen yet — bills
+      // taken while offline, in the exact collections where losing one costs
+      // money. The same three-way merge the critical path uses applies here.
+      const pendingIds = await pendingOpKeys();
       for (const [name, rows] of Object.entries(out)) {
-        if (Array.isArray(rows)) (cachedData as any)[name] = rows;
+        if (!Array.isArray(rows)) continue;
+        const { rows: merged, requeue } = mergeCollection(
+          name, rows, ((cachedData as any)[name] || []) as any[], pendingIds,
+        );
+        (cachedData as any)[name] = merged.filter((r: any) => !r?.deleted);
+        for (const id of requeue) enqueueDeferredOp(name, id, 'set');
+        if (requeue.length) {
+          console.warn(`[store] ${name}: ${requeue.length} local row(s) missing from the cloud — re-queued for upload`);
+        }
       }
       saveLocal(cachedData);
       emitDataChange('*');
@@ -169,42 +185,47 @@ function refreshCloudStoreInBackground() {
       //
       // Wait for the queue to be genuinely readable. If it is not, keep the
       // local rows: a stale duplicate is recoverable, a deleted order is not.
-      let pendingIds: Set<string> | null = null;
-      try {
-        const { whenDeferredQueueReady, getDeferredOps } = await import('./deferredSync');
-        if (await whenDeferredQueueReady()) {
-          pendingIds = new Set(getDeferredOps().map(o => `${o.col}:${o.entityId}`));
-        }
-      } catch { /* leave null — the merge below then keeps local rows */ }
+      const pendingIds = await pendingOpKeys();
+      const loaded = loadedCollections(remote);
 
       if (local) {
         for (const name of CRITICAL_COLLECTIONS) {
-          const remoteRows = ((remote as any)[name] || []) as any[];
-          const localRows = ((local as any)[name] || []) as any[];
-          const byId = new Map<string, any>();
-          for (const row of remoteRows) if (row?.id) byId.set(row.id, row);
-          for (const row of localRows) {
-            if (!row?.id) continue;
-            const cloudRow = byId.get(row.id);
-            const localAt = Number(row?._updatedAt || 0);
-            const cloudAt = Number(cloudRow?._updatedAt || 0);
-            if (!cloudRow) {
-              // pendingIds === null means the queue could not be read. Falling
-              // back to keeping the row restores pre-v1.25.20 behaviour, which
-              // is over-inclusive but never destructive.
-              const keep = pendingIds === null || pendingIds.has(`${name}:${row.id}`);
-              if (keep) byId.set(row.id, row);
-              continue;
-            }
-            if (localAt > cloudAt) byId.set(row.id, row);
+          // ===== v1.26.0 — a collection that did not load is not an empty one =====
+          // Merging against a collection whose read failed compares every
+          // local row against nothing at all. Leave it exactly as it was.
+          if (loaded && !loaded.has(name)) {
+            (remote as any)[name] = (local as any)[name] || [];
+            continue;
           }
-          (remote as any)[name] = Array.from(byId.values());
+          const { rows, requeue } = mergeCollection(
+            name,
+            ((remote as any)[name] || []) as any[],
+            ((local as any)[name] || []) as any[],
+            pendingIds,
+          );
+          (remote as any)[name] = rows;
+          for (const id of requeue) enqueueDeferredOp(name, id, 'set');
+          if (requeue.length) {
+            console.warn(`[store] ${name}: ${requeue.length} local row(s) missing from the cloud — re-queued for upload`);
+          }
         }
       }
+      // Whatever survived the merge, no tombstone may reach the UI.
+      stripTombstones(remote);
       // A settings save may finish while this older cloud request is still in
       // flight. Never let that stale response remove a newly saved name/logo.
       if (local?.settings && settingsRevision !== settingsRevisionAtStart) {
         remote.settings = local.settings;
+      } else if (local?.settings) {
+        // ===== v1.26.0 — branding edited offline used to be thrown away =====
+        // Settings were the only collection with no version at all, so the
+        // cloud copy overwrote the local one unconditionally. A restaurant
+        // name or logo changed while offline reverted the instant the
+        // connection returned, and nothing reported it. Both sides now carry
+        // `_updatedAt`, so the newer one wins here as it does everywhere else.
+        const localAt = Number((local.settings as any)?._updatedAt || 0);
+        const remoteAt = Number((remote.settings as any)?._updatedAt || 0);
+        if (localAt > remoteAt) remote.settings = local.settings;
       }
       stampTenant(remote);
       cachedData = remote;
@@ -936,28 +957,46 @@ function scheduleSnapshotFlush() {
 let sbRealtimeChannel: any = null;
 let sbRealtimeGeneration = 0;
 const sbPendingReload = new Set<string>();
+/** Sentinels in the reload set — not collections, so they cannot collide. */
+const SETTINGS_RELOAD_KEY = '::settings';
+const DOCS_RELOAD_KEY = '::module_documents';
 let sbReloadTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Read the pending-op keys, or null when the durable queue could not be read.
+ *
+ * null is NOT "nothing is pending" — it is "I do not know", and every caller
+ * must treat it as a reason to keep local rows rather than drop them.
+ */
+async function pendingOpKeys(): Promise<Set<string> | null> {
+  try {
+    const { whenDeferredQueueReady, getDeferredOps } = await import('./deferredSync');
+    if (!(await whenDeferredQueueReady())) return null;
+    return new Set(getDeferredOps().map(o => `${o.col}:${o.entityId}`));
+  } catch { return null; }
+}
 
 async function sbReloadCollections(names: string[]) {
   const { sbLoadCollection } = await import('./supabaseStore');
   const d = loadData();
+  const pendingIds = await pendingOpKeys();
   let touched = false;
   for (const name of names) {
     try {
-      const rows = await sbLoadCollection(name);
+      // includeDeleted — the merge needs the tombstones, not just the survivors.
+      const rows = await sbLoadCollection(name, { includeDeleted: true });
       const localRows: any[] = ((d as any)[name] || []) as any[];
-      // A realtime-triggered empty read is never a reason to wipe local rows.
+      // A read that succeeds but comes back completely empty for a collection
+      // that has local rows is still treated as suspect (a mis-scoped tenant
+      // returns zero rows without raising an error). Genuine deletions arrive
+      // as tombstones inside `rows`, so this guard no longer blocks them.
       if (!rows.length && localRows.length) continue;
-      const byId = new Map<string, any>();
-      for (const r of rows) if (r?.id) byId.set(r.id, r);
-      for (const local of localRows) {
-        if (!local?.id) continue;
-        const remote = byId.get(local.id);
-        if (!remote || Number(local._updatedAt || 0) > Number(remote._updatedAt || 0)) {
-          byId.set(local.id, local);
-        }
+      const { rows: merged, requeue } = mergeCollection(name, rows, localRows, pendingIds);
+      (d as any)[name] = merged;
+      for (const id of requeue) enqueueDeferredOp(name, id, 'set');
+      if (requeue.length) {
+        console.warn(`[store] ${name}: ${requeue.length} local row(s) missing from the cloud — re-queued for upload`);
       }
-      (d as any)[name] = Array.from(byId.values());
       touched = true;
       emitDataChange(name);
     } catch (e) {
@@ -965,6 +1004,30 @@ async function sbReloadCollections(names: string[]) {
     }
   }
   if (touched) saveLocal(d);
+}
+
+/**
+ * Settings changed on another device — branding, logo, restaurant name, tax
+ * rules, module toggles. Never subscribed before, so a second till only ever
+ * picked these up by being restarted.
+ */
+async function sbReloadSettings() {
+  try {
+    const { sbLoadSettings } = await import('./supabaseStore');
+    const remote = await sbLoadSettings();
+    if (!remote) return;
+    const d = loadData();
+    const localAt = Number((d.settings as any)?._updatedAt || 0);
+    const remoteAt = Number((remote as any)._updatedAt || 0);
+    // A local edit still waiting to upload must not be overwritten by the
+    // older server copy it is about to replace.
+    if (localAt > remoteAt) return;
+    d.settings = { ...(d.settings as any), ...remote } as any;
+    saveLocal(d);
+    emitDataChange('settings');
+  } catch (e) {
+    console.warn('[store] settings realtime reload failed', e);
+  }
 }
 
 export function stopSupabaseRealtime() {
@@ -995,21 +1058,54 @@ export function startSupabaseRealtime() {
       }
 
       const channel = sb().channel(`tenant:${tenantId}`);
+
+      const scheduleReload = (col: string) => {
+        sbPendingReload.add(col);
+        if (sbReloadTimer) return;
+        sbReloadTimer = setTimeout(() => {
+          sbReloadTimer = null;
+          const names = Array.from(sbPendingReload);
+          sbPendingReload.clear();
+          const wantsSettings = names.includes(SETTINGS_RELOAD_KEY);
+          const wantsDocs = names.includes(DOCS_RELOAD_KEY);
+          const cols = names.filter(n => n !== SETTINGS_RELOAD_KEY && n !== DOCS_RELOAD_KEY);
+          if (cols.length) void sbReloadCollections(cols);
+          if (wantsSettings) void sbReloadSettings();
+          if (wantsDocs) {
+            void import('./cloudDocs').then(m => m.hydrateCloudDocs()).catch(() => {});
+          }
+        }, 400);
+      };
+
       for (const table of colForTable.keys()) {
         channel.on('postgres_changes',
           { event: '*', schema: 'public', table, filter: `tenant_id=eq.${tenantId}` },
-          () => {
-            const col = colForTable.get(table)!;
-            sbPendingReload.add(col);
-            if (sbReloadTimer) return;
-            sbReloadTimer = setTimeout(() => {
-              sbReloadTimer = null;
-              const names = Array.from(sbPendingReload);
-              sbPendingReload.clear();
-              void sbReloadCollections(names);
-            }, 400);
-          });
+          () => scheduleReload(colForTable.get(table)!));
       }
+
+      // ===== v1.26.0 — the two tables nothing was listening to =====
+      //
+      // tenant_settings holds the restaurant name, the logo, every branding
+      // and Admin Panel setting. module_documents holds the waiter and rider
+      // rosters plus eighteen more modules (promotions, variations, wallet,
+      // campaigns, delivery zones, daily wages, the blocked-customer list).
+      //
+      // Neither was in the subscription, so "Device A changes the logo, Device
+      // B sees it" was never going to happen: B only picked those up by being
+      // restarted, and the blocked-customer list — a fraud control — was
+      // effectively per-device.
+      channel.on('postgres_changes',
+        { event: '*', schema: 'public', table: 'tenant_settings', filter: `tenant_id=eq.${tenantId}` },
+        () => scheduleReload(SETTINGS_RELOAD_KEY));
+      channel.on('postgres_changes',
+        { event: '*', schema: 'public', table: 'module_documents', filter: `tenant_id=eq.${tenantId}` },
+        () => {
+          scheduleReload(DOCS_RELOAD_KEY);
+          // waiters/riders live in module_documents but are ordinary store
+          // collections, so they go through the normal collection reload too.
+          scheduleReload('waiters');
+          scheduleReload('riders');
+        });
       if (generation !== sbRealtimeGeneration) {
         try { sb().removeChannel(channel); } catch {}
         return;
@@ -1114,6 +1210,34 @@ async function migrateLegacyDocIfPresent() {
   }
 }
 
+/**
+ * Which collections a cloud load actually reached. Anything not listed is
+ * UNKNOWN — never "empty" — and callers must leave the local copy alone.
+ * Carried on the snapshot itself so it cannot drift from the data it describes.
+ */
+const LOADED_KEY = '_loadedCollections';
+
+function markLoadedCollections(data: any, names: readonly string[]): void {
+  Object.defineProperty(data, LOADED_KEY, {
+    value: new Set(names), enumerable: false, configurable: true, writable: true,
+  });
+}
+
+function loadedCollections(data: any): Set<string> | null {
+  const v = data?.[LOADED_KEY];
+  return v instanceof Set ? v : null;
+}
+
+/** Drop tombstoned rows from a snapshot that is about to be used as-is. */
+function stripTombstones(data: any): void {
+  for (const name of ARRAY_COLLECTIONS) {
+    const arr = data?.[name];
+    if (Array.isArray(arr) && arr.some((r: any) => r?.deleted)) {
+      data[name] = arr.filter((r: any) => !r?.deleted);
+    }
+  }
+}
+
 async function cloudLoadAll(names: readonly ArrayKey[] = ARRAY_COLLECTIONS): Promise<AppData> {
   // ===== v1.18.0 — Supabase read path =====
   // Returns only the collections that loaded successfully. A collection whose
@@ -1124,7 +1248,9 @@ async function cloudLoadAll(names: readonly ArrayKey[] = ARRAY_COLLECTIONS): Pro
   if (useSupabaseBackend()) {
     const { sbLoadAll, sbLoadSettings } = await import('./supabaseStore');
     const [cols, settings] = await Promise.all([
-      sbLoadAll(names as readonly string[]),
+      // Tombstones come down too: the caller's merge needs to know which rows
+      // were DELETED elsewhere, not merely which ones survived.
+      sbLoadAll(names as readonly string[], { includeDeleted: true }),
       sbLoadSettings(),
     ]);
     // Start from an empty runtime shape. Starting from seedData() here made a
@@ -1133,6 +1259,23 @@ async function cloudLoadAll(names: readonly ArrayKey[] = ARRAY_COLLECTIONS): Pro
     const out: any = emptyRuntimeData();
     for (const [k, v] of Object.entries(cols)) out[k] = v;
     if (settings) out.settings = { ...(out.settings || {}), ...settings };
+
+    // ===== v1.26.0 — "absent" and "empty" were the same thing, and should not be =====
+    //
+    // sbLoadAll deliberately OMITS a collection whose read failed, so the
+    // caller can keep its local copy. But this function then started from
+    // emptyRuntimeData(), which pre-fills every collection with [] — so the
+    // omission was immediately overwritten by an empty array that looks
+    // exactly like a successful read of an empty collection.
+    //
+    // The caller could not tell the difference, so a single timed-out request
+    // for `menuItems` presented as "the restaurant has no menu", and the merge
+    // below then dropped the local rows to match. One flaky response could
+    // empty a till.
+    //
+    // Recording what actually loaded is the whole fix: a collection not in
+    // this set means UNKNOWN, and unknown must never overwrite anything.
+    markLoadedCollections(out, Object.keys(cols));
 
     // ===== v1.19.9 — THE CRASH THAT BROKE THE WHOLE POS =====
     // The Firebase path calls ensureFields() before returning; this one did
@@ -1255,6 +1398,7 @@ async function cloudLoadAll(names: readonly ArrayKey[] = ARRAY_COLLECTIONS): Pro
   }
 
   ensureFields(out);
+  markLoadedCollections(out, names as readonly string[]);
   if (loadedOrdersFromCloud) backfillPublicOrderLookups(out.orders || []);
   return out as AppData;
 }
@@ -1348,6 +1492,7 @@ export async function initStore(): Promise<void> {
           }
         }
       } catch {}
+      stripTombstones(data);
       stampTenant(data);
       cachedData = data;
       // NOTE: localStorage cache is intentionally NOT written yet — heavy

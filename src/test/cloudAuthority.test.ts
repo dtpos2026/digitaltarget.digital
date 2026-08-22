@@ -26,43 +26,48 @@
 import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
+// The REAL rule, not a copy of it. This file used to re-implement the merge
+// and then police the original with string matching on store.ts — which pins
+// the spelling, not the behaviour.
+import { mergeCollection as merge } from '../lib/syncMerge';
+
+/** Rows only — most cases here do not care about the re-queue list. */
+function mergeCollection(
+  name: string, remote: any[], local: any[], pendingIds: Set<string> | null,
+): any[] {
+  return merge(name, remote, local, pendingIds).rows;
+}
 
 const storeSrc = fs.readFileSync(
   path.join(process.cwd(), 'src', 'lib', 'store.ts'), 'utf8');
 
-/**
- * The merge rule, extracted so it can be exercised directly. It must stay in
- * step with refreshCloudStoreInBackground(); the source assertions below guard
- * that it does.
- */
-function mergeCollection(
-  name: string,
-  remoteRows: any[],
-  localRows: any[],
-  pendingIds: Set<string> | null,
-): any[] {
-  const byId = new Map<string, any>();
-  for (const row of remoteRows) if (row?.id) byId.set(row.id, row);
-  for (const row of localRows) {
-    if (!row?.id) continue;
-    const cloudRow = byId.get(row.id);
-    const localAt = Number(row?._updatedAt || 0);
-    const cloudAt = Number(cloudRow?._updatedAt || 0);
-    if (!cloudRow) {
-      const keep = pendingIds === null || pendingIds.has(`${name}:${row.id}`);
-      if (keep) byId.set(row.id, row);
-      continue;
-    }
-    if (localAt > cloudAt) byId.set(row.id, row);
-  }
-  return Array.from(byId.values());
-}
-
+// ============================================================================
+// v1.26.0 — a deletion is a TOMBSTONE, not an absence
+//
+// Until this release eleven tables were hard-DELETEd, so "deleted on another
+// device" reached this merge as "the cloud does not have this row" — the exact
+// same input as "my copy has not been pushed yet". The merge had to guess:
+//
+//   guess "deleted"  -> unsynced bills destroyed        (shipped as v1.25.20)
+//   guess "unsynced" -> deletions resurrect and re-push (shipped before that)
+//
+// Both were reported as data loss, because both were. The fix is not a better
+// guess; it is to stop guessing. `deleted_at` makes the deletion a fact that
+// travels with the row, and absence can then always be handled the safe way.
+// ============================================================================
 describe('a row deleted on another device stays deleted', () => {
-  it('does not resurrect a local row the cloud no longer has', () => {
+  it('drops a local row the cloud has tombstoned', () => {
     const local = [{ id: 'a', name: 'Deleted Elsewhere', _updatedAt: 5000 }];
-    const out = mergeCollection('menuItems', [], local, new Set());
-    expect(out).toHaveLength(0);
+    const remote = [{ id: 'a', deleted: true, deletedAt: 6000 }];
+    expect(mergeCollection('menuItems', remote, local, new Set())).toHaveLength(0);
+  });
+
+  it('applies the tombstone even when the local edit is newer', () => {
+    // Deleting is an edit too. A stale local timestamp must not veto it, or
+    // the device that deleted the row would see it come back.
+    const local = [{ id: 'a', name: 'Edited Locally', _updatedAt: 999999 }];
+    const remote = [{ id: 'a', deleted: true, deletedAt: 1 }];
+    expect(mergeCollection('menuItems', remote, local, new Set())).toHaveLength(0);
   });
 
   it('resurrecting it WOULD have happened under the old rule', () => {
@@ -76,18 +81,31 @@ describe('a row deleted on another device stays deleted', () => {
   });
 });
 
-describe('a genuinely unsynced local row is preserved', () => {
+describe('a local row the cloud has never seen is never thrown away', () => {
   it('keeps a row that is still queued for push', () => {
     const local = [{ id: 'b', name: 'Created Offline', _updatedAt: 9000 }];
-    const out = mergeCollection('menuItems', [], local, new Set(['menuItems:b']));
-    expect(out).toHaveLength(1);
-    expect(out[0].name).toBe('Created Offline');
+    const out = merge('menuItems', [], local, new Set(['menuItems:b']));
+    expect(out.rows).toHaveLength(1);
+    expect(out.rows[0].name).toBe('Created Offline');
+    expect(out.requeue).toEqual([]);          // already queued — leave it alone
+  });
+
+  it('keeps AND re-queues a row that is not in the queue either', () => {
+    // Absent from the cloud and absent from the queue means the push never
+    // happened. Dropping it loses the record; keeping it quietly is how a bill
+    // lives on one till forever. Keep it and put it back on the queue.
+    const local = [{ id: 'b', name: 'Never Pushed', _updatedAt: 9000 }];
+    const out = merge('menuItems', [], local, new Set());
+    expect(out.rows).toHaveLength(1);
+    expect(out.requeue).toEqual(['b']);
   });
 
   it('scopes the pending key by collection, not id alone', () => {
-    // 'orders:b' pending must not rescue 'menuItems:b'.
+    // 'orders:b' pending must not be read as covering 'menuItems:b'.
     const local = [{ id: 'b', _updatedAt: 9000 }];
-    expect(mergeCollection('menuItems', [], local, new Set(['orders:b']))).toHaveLength(0);
+    const out = merge('menuItems', [], local, new Set(['orders:b']));
+    expect(out.rows).toHaveLength(1);
+    expect(out.requeue).toEqual(['b']);
   });
 });
 
@@ -159,16 +177,18 @@ describe('an unreadable sync queue must never cause data loss', () => {
   });
 
   it('an EMPTY set is not the same as an unread queue', () => {
-    // Empty set = queue read, genuinely nothing pending -> cloud wins.
-    expect(mergeCollection('orders', [], [{ id: 'o1', _updatedAt: 1 }], new Set()))
-      .toHaveLength(0);
-    // null = never read -> keep, because we cannot tell deletion from backlog.
-    expect(mergeCollection('orders', [], [{ id: 'o1', _updatedAt: 1 }], null))
-      .toHaveLength(1);
+    // Both keep the row — nothing is dropped on absence any more. What differs
+    // is the repair: an empty set is a TRUSTWORTHY "not queued", so the row is
+    // re-queued. null means the queue is unreadable, and enqueueing into a
+    // queue that cannot be read would achieve nothing.
+    expect(merge('orders', [], [{ id: 'o1', _updatedAt: 1 }], new Set()).requeue)
+      .toEqual(['o1']);
+    expect(merge('orders', [], [{ id: 'o1', _updatedAt: 1 }], null).requeue)
+      .toEqual([]);
   });
 
   it('the shipped merge waits for the queue instead of reading it blind', () => {
     expect(storeSrc).toContain('whenDeferredQueueReady');
-    expect(storeSrc).toContain('pendingIds === null');
+    expect(storeSrc).toContain('pendingOpKeys');
   });
 });
