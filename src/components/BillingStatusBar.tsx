@@ -19,6 +19,7 @@ import { getDeviceId } from '@/lib/tenant';
 import {
   getSyncMode, setSyncMode, deferredPendingCount, flushDeferredOps,
   isFlushing, onDeferredSyncChange, type SyncMode,
+  deferredDeadLetterCount, getDeadLetterOps, requeueDeadLetter,
 } from '@/lib/deferredSync';
 import { RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
@@ -40,11 +41,27 @@ export default function BillingStatusBar() {
   const [syncMode, setSyncModeState] = useState<SyncMode>(getSyncMode());
   const [deferred, setDeferred] = useState(deferredPendingCount());
   const [flushing, setFlushing] = useState(false);
+  // v1.26.0 — writes that ran out of retries. Nothing used to show these, so a
+  // change that could not be uploaded just stopped being mentioned.
+  const [stuck, setStuck] = useState(deferredDeadLetterCount());
   useEffect(() => onDeferredSyncChange(() => {
     setSyncModeState(getSyncMode());
     setDeferred(deferredPendingCount());
     setFlushing(isFlushing());
+    setStuck(deferredDeadLetterCount());
   }), []);
+  useEffect(() => { const t = setInterval(() => setStuck(deferredDeadLetterCount()), 5000); return () => clearInterval(t); }, []);
+
+  const retryStuck = async () => {
+    const ops = await getDeadLetterOps();
+    if (!ops.length) { setStuck(0); toast.info('Nothing is stuck'); return; }
+    for (const op of ops) await requeueDeadLetter(op.id);
+    setStuck(deferredDeadLetterCount());
+    toast.info(`Retrying ${ops.length} stuck change${ops.length === 1 ? '' : 's'}…`);
+    const r = await flushDeferredOps();
+    if (r.flushed) toast.success(`${r.flushed} uploaded`);
+    else if (r.skipped) toast.error('No internet — they stay saved on this device');
+  };
   const toggleMode = () => {
     const next: SyncMode = getSyncMode() === 'auto' ? 'manual' : 'auto';
     setSyncMode(next);
@@ -102,6 +119,17 @@ export default function BillingStatusBar() {
       {/* Status pill row — inline next to header bell, no longer hidden behind cart */}
       <div className="flex items-center gap-1.5">
         <Pill {...syncPill} title="Cloud Sync" />
+        {stuck > 0 && (
+          <button
+            onClick={retryStuck}
+            title={`${stuck} change(s) could not be uploaded after repeated attempts. They are saved on this device. Click to retry.`}
+            className={`${PILL_BASE} text-red-700 bg-red-50 border-red-200 transition-colors hover:bg-red-100`}
+            style={{ pointerEvents: 'auto' }}
+          >
+            <AlertTriangle className="h-3 w-3" />
+            Stuck ({stuck})
+          </button>
+        )}
         {/* v1.5.4 — sync mode toggle + manual Sync Now */}
         <button
           onClick={toggleMode}

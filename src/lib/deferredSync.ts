@@ -98,6 +98,18 @@ export function shouldDeferCloudWrite(): boolean {
 // persists it to durable storage. Boot rehydrates from durable storage.
 let mem: Map<string, DeferredOp> = new Map();
 let memReady = false;
+/**
+ * How many ops have exhausted their retries and been parked.
+ *
+ * ===== v1.26.0 — nothing ever showed this =====
+ * After MAX_ATTEMPTS an op is moved to the dead-letter store, and the comment
+ * below says it "is exposed in the audit panel". No panel ever read it:
+ * getDeadLetterOps() had no caller outside the tests. So the one path the
+ * design leaves for a permanently failing write ended in silence — a bill or a
+ * price change that could not be uploaded simply stopped being mentioned, and
+ * the operator had no way to learn it had happened.
+ */
+let deadLetterCount = 0;
 let persistTimer: any = null;
 let persistInFlight: Promise<void> | null = null;
 
@@ -217,6 +229,9 @@ async function ensureLoaded(): Promise<void> {
       catch { rows = []; }
     }
 
+    try { deadLetterCount = (await localDb.getRows('deferredOpsDeadLetter')).length; }
+    catch { deadLetterCount = 0; }
+
     for (const r of rows) mem.set(r.id, r);
     for (const m of migrated) if (!mem.has(m.id)) mem.set(m.id, m);
     if (migrated.length) schedulePersist();
@@ -281,6 +296,22 @@ export function getDeferredOps(): DeferredOp[] {
   return Array.from(mem.values()).sort((a, b) => a.firstEnqueuedAt - b.firstEnqueuedAt);
 }
 
+/** How many ops are parked in the dead-letter store. Drives the UI warning. */
+export function deferredDeadLetterCount(): number { return deadLetterCount; }
+
+type DeadLetterListener = (count: number, latest: DeferredOp[]) => void;
+const deadLetterListeners = new Set<DeadLetterListener>();
+
+/**
+ * Called when ops are parked after exhausting their retries. This is the last
+ * point at which anything can tell the operator that a write is not going to
+ * arrive on its own; if no one listens, the failure is silent.
+ */
+export function onDeadLetter(l: DeadLetterListener): () => void {
+  deadLetterListeners.add(l);
+  return () => deadLetterListeners.delete(l);
+}
+
 /** v1.8.0 — dead-letter API for audit and manual recovery. */
 export async function getDeadLetterOps(): Promise<DeferredOp[]> {
   try { return await localDb.getRows<DeferredOp>('deferredOpsDeadLetter'); }
@@ -294,6 +325,7 @@ export async function requeueDeadLetter(opId: string): Promise<boolean> {
     const row = rows.find(r => r.id === opId);
     if (!row) return false;
     await localDb.deleteRow('deferredOpsDeadLetter', opId);
+    deadLetterCount = Math.max(0, deadLetterCount - 1);
     await ensureLoaded();
     mem.set(row.id, { ...row, attempts: 0, lastError: undefined, at: Date.now() });
     schedulePersist();
@@ -304,7 +336,12 @@ export async function requeueDeadLetter(opId: string): Promise<boolean> {
 
 /** Permanently discard a dead-lettered op (operator explicitly abandons it). */
 export async function discardDeadLetter(opId: string): Promise<boolean> {
-  try { await localDb.deleteRow('deferredOpsDeadLetter', opId); return true; }
+  try {
+    await localDb.deleteRow('deferredOpsDeadLetter', opId);
+    deadLetterCount = Math.max(0, deadLetterCount - 1);
+    emit();
+    return true;
+  }
   catch { return false; }
 }
 
@@ -327,6 +364,7 @@ export async function flushDeferredOps(): Promise<{
   emit();
   let flushed = 0;
   let deadLettered = 0;
+  const parked: DeferredOp[] = [];
   let firstError: string | undefined;
   const now = Date.now();
   try {
@@ -387,6 +425,8 @@ export async function flushDeferredOps(): Promise<{
             try { await localDb.putRow('deferredOpsDeadLetter' as any, { ...cur, deadLetteredAt: Date.now() }); } catch { /* ignore */ }
             mem.delete(item.id);
             deadLettered++;
+            deadLetterCount++;
+            parked.push(cur);
           }
         }
       }
@@ -397,11 +437,17 @@ export async function flushDeferredOps(): Promise<{
     // returned with the durable queue still listing ops that had already been
     // uploaded — and a reload inside that window replayed them. Force the
     // pending write out and wait for it, so a completed flush is a fact on
-    // disk before the caller is told it finished.
+    // disk before the caller is told it finished. Both halves are needed:
+    // waitForQueuePersist() alone no-ops when nothing is armed, which would
+    // leave the just-uploaded ops sitting in the durable queue.
+    schedulePersist();
     await waitForQueuePersist();
   } finally {
     _flushing = false;
     emit();
+  }
+  if (parked.length) {
+    deadLetterListeners.forEach(l => { try { l(deadLetterCount, parked); } catch { /* ignore */ } });
   }
   return { flushed, remaining: deferredPendingCount(), skipped: false, error: firstError, deadLettered };
 }
@@ -448,7 +494,7 @@ export function stopDeferredSyncTriggers(): void {
   // the pending write ran. Force the write out first. It is fire-and-forget —
   // the caller must not block — but it is issued against the OLD queue, which
   // is captured by persistNow() synchronously enough to be correct here.
-  if (mem.size) void waitForQueuePersist();
+  if (mem.size) { schedulePersist(); void waitForQueuePersist(); }
   // Reset memory — new tenant will rehydrate from its own IndexedDB rows.
   mem = new Map();
   memReady = false;

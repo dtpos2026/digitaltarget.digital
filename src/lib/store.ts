@@ -20,6 +20,7 @@ import type { Shift } from './shifts';
 import { buildRefund, type Refund, type RefundRequest } from './refunds';
 import { normalizeForDisplay, dedupeById } from './dataIntegrity';
 import { mergeCollection } from './syncMerge';
+import { onDeadLetter } from './deferredSync';
 import { shouldDeferCloudWrite, enqueueDeferredOp, registerDeferredFlusher, installDeferredSyncTriggers, stopDeferredSyncTriggers, deferredPendingCount, onDeferredSyncChange } from './deferredSync';
 import { onOrderRenumbered } from './orderNumbers';
 import {
@@ -292,7 +293,25 @@ if (typeof window !== 'undefined') {
     // tenant switch (one restaurant login/logout cycle = one zombie timer).
     // On multi-tenant SaaS deployments this piled up over a session.
     try { stopDeferredSyncTriggers(); } catch {}
-    try { installDeferredSyncTriggers(); } catch {}
+    try { installDeferredSyncTriggers();
+
+// ===== v1.26.0 — a write that gives up must say so =====
+// After six failed attempts an op is parked in the dead-letter store. Nothing
+// read that store, so the one path the design leaves for a permanently failing
+// write ended in silence: a bill or a price change that could not be uploaded
+// simply stopped being mentioned. The record is still on the device and still
+// recoverable — but only if somebody knows to look.
+onDeadLetter((count, parked) => {
+  const what = Array.from(new Set(parked.map(o => o.col))).join(', ');
+  console.error('[sync] parked after repeated failures:', parked);
+  try {
+    toast.error(
+      `${count} change${count === 1 ? '' : 's'} could not be uploaded (${what}). ` +
+      'They are saved on this device — press Sync Now, or contact support.',
+      { duration: 30000 },
+    );
+  } catch { /* toast unavailable */ }
+}); } catch {}
     // v1.9.0: PRA queue is per-tenant too — stop the old restaurant's
     // driver and let the new tenant rehydrate its own pending invoices.
     try { stopPraQueue(); } catch {}

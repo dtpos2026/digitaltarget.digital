@@ -158,3 +158,55 @@ describe('a failed flush keeps the work', () => {
     expect(deferred.deferredPendingCount()).toBe(0);
   }, 20000);
 });
+
+
+describe('the durable queue reflects what actually happened', () => {
+  it('a completed flush is a fact on disk before it reports success', async () => {
+    // THE BUG: flushDeferredOps() awaited persistInFlight, but schedulePersist()
+    // only ARMS a 150ms timer, so persistInFlight was null and the await did
+    // nothing. The function returned with the durable queue still listing ops
+    // that had already been uploaded — and a reload inside that window replayed
+    // every one of them.
+    const { localDb } = await import('@/lib/localDb');
+    setOnline(false);
+    store.saveOrder(makeOrder('ord-persist', 404));
+    setOnline(true);
+
+    await deferred.flushDeferredOps();
+    expect(server.writes).toContain('orders:ord-persist');
+    // No extra waiting: the queue on disk must ALREADY be empty.
+    expect(await localDb.getRows('deferredOps')).toHaveLength(0);
+  }, 20000);
+
+  it('a write that runs out of retries is announced, not just parked', async () => {
+    // After MAX_ATTEMPTS an op is moved to the dead-letter store. Nothing read
+    // that store, so the one path the design leaves for a permanently failing
+    // write ended in silence.
+    const parked: string[] = [];
+    const off = deferred.onDeadLetter((_n, ops) => parked.push(...ops.map(o => o.id)));
+
+    setOnline(false);
+    store.saveOrder(makeOrder('ord-doomed', 505));
+    setOnline(true);
+    server.down = true;
+
+    // Six attempts, winding the backoff clock forward each round.
+    for (let i = 0; i < 7 && deferred.deferredPendingCount() > 0; i++) {
+      for (const op of deferred.getDeferredOps()) (op as any).at = 0;
+      await deferred.flushDeferredOps();
+    }
+    off();
+
+    expect(parked).toContain('orders::ord-doomed');
+    expect(deferred.deferredDeadLetterCount()).toBeGreaterThan(0);
+    // Parked is not lost: the record is still recoverable.
+    const dead = await deferred.getDeadLetterOps();
+    expect(dead.some(o => o.entityId === 'ord-doomed')).toBe(true);
+
+    // And the operator can put it back.
+    server.down = false;
+    await deferred.requeueDeadLetter('orders::ord-doomed');
+    await deferred.flushDeferredOps();
+    expect(server.writes).toContain('orders:ord-doomed');
+  }, 30000);
+});
