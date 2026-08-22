@@ -12,7 +12,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "dist": "node scripts/build.mjs",
-    "deploy": "node scripts/build.mjs && wrangler pages deploy dist --project-name dt-pos"
+    "deploy": "node scripts/build.mjs && wrangler pages deploy dist --project-name dt-pos",
+    "test:sync": "node scripts/synctest/two-browser.mjs"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",
@@ -103,10 +104,12 @@
     "globals": "^15.15.0",
     "happy-dom": "^20.11.2",
     "nitro": "3.0.260603-beta",
+    "playwright": "^1.62.1",
     "prettier": "^3.7.3",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.56.1",
     "vite": "^8.2.0",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.11",
+    "ws": "^8.21.3"
   }
 }

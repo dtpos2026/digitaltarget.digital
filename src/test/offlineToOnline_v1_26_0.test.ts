@@ -37,6 +37,7 @@ const sbSaveSettings = vi.fn(async (s: any) => {
 });
 
 vi.mock('@/lib/supabaseStore', async () => ({
+  cloudId: (await vi.importActual<any>('@/lib/supabaseStore')).cloudId,
   sbSaveItem, sbDeleteItem, sbSaveSettings,
   sbLoadCollection: async () => [], sbLoadAll: async () => ({}),
   sbLoadSettings: async () => null,

@@ -43,15 +43,39 @@ export interface MergeResult {
  * With `deleted_at` tombstones the deletion is a fact carried on the row, so
  * absence can be handled the safe way every time.
  *
+ * ===== v1.26.9 — the two sides do not always agree on the id =====
+ *
+ * Tables without a `data` document (menu items, categories, customers, tables)
+ * are keyed in the cloud by a DERIVED uuid: cloudId('mi-1') is a stable uuid,
+ * and the original local id cannot travel back. So the device that CREATED a
+ * record keeps 'mi-1' while the cloud — and every other device — knows it as
+ * that uuid.
+ *
+ * Comparing raw ids therefore reports the record as "absent from the cloud" on
+ * the very device that just pushed it, which had two consequences, both found
+ * by the two-browser test:
+ *
+ *   1. The creating device kept its local copy AND adopted the cloud copy, so
+ *      the same menu item appeared TWICE on that till after a refresh.
+ *   2. It was re-queued on every refresh, so the sync queue never emptied and
+ *      the whole menu was re-pushed forever.
+ *
+ * `cloudIdOf` lets the merge recognise that 'mi-1' and its uuid are one
+ * record. The local id is kept, so anything already referencing it locally
+ * stays valid, and the newer of the two copies wins as usual.
+ *
  * @param pendingIds keys (`col:id`) already in the durable queue, or null when
  *        the queue could not be read. null means "I do not know", NOT "nothing
  *        is pending" — so nothing is dropped and nothing is re-queued.
+ * @param cloudIdOf maps a local id to the id the cloud keys it under. Omit for
+ *        collections whose ids already match on both sides.
  */
 export function mergeCollection(
   name: string,
   remoteRows: readonly any[],
   localRows: readonly any[],
   pendingIds: Set<string> | null,
+  cloudIdOf?: (localId: string) => string,
 ): MergeResult {
   const byId = new Map<string, any>();
   const tombstoned = new Set<string>();
@@ -64,10 +88,21 @@ export function mergeCollection(
   const requeue: string[] = [];
   for (const local of localRows) {
     if (!local?.id) continue;
-    if (tombstoned.has(local.id)) continue;                 // (1) deleted elsewhere
-    const remote = byId.get(local.id);
+    // The id this record is keyed under in the cloud, which is not always the
+    // id it is keyed under here.
+    const cloudKey = cloudIdOf ? cloudIdOf(local.id) : local.id;
+    if (tombstoned.has(local.id) || tombstoned.has(cloudKey)) continue;   // (1) deleted elsewhere
+
+    const remote = byId.get(local.id) ?? byId.get(cloudKey);
     if (remote) {                                           // (2) both sides have it
-      if (Number(local._updatedAt || 0) > Number(remote._updatedAt || 0)) {
+      if (remote.id !== local.id) {
+        // One record under two ids. Collapse to a single row, keeping the
+        // LOCAL id so anything already pointing at it here stays valid.
+        byId.delete(remote.id);
+        byId.set(local.id, Number(local._updatedAt || 0) >= Number(remote._updatedAt || 0)
+          ? local
+          : { ...remote, id: local.id });
+      } else if (Number(local._updatedAt || 0) > Number(remote._updatedAt || 0)) {
         byId.set(local.id, local);
       }
       continue;

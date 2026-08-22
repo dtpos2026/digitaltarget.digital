@@ -100,10 +100,11 @@ async function loadHeavyCollectionsInBackground(): Promise<void> {
       // taken while offline, in the exact collections where losing one costs
       // money. The same three-way merge the critical path uses applies here.
       const pendingIds = await pendingOpKeys();
+      const cloudIdFor = await loadCloudIdFn();
       for (const [name, rows] of Object.entries(out)) {
         if (!Array.isArray(rows)) continue;
         const { rows: merged, requeue } = mergeCollection(
-          name, rows, ((cachedData as any)[name] || []) as any[], pendingIds,
+          name, rows, ((cachedData as any)[name] || []) as any[], pendingIds, cloudIdFor,
         );
         (cachedData as any)[name] = merged.filter((r: any) => !r?.deleted);
         for (const id of requeue) enqueueDeferredOp(name, id, 'set');
@@ -187,6 +188,7 @@ function refreshCloudStoreInBackground() {
       // Wait for the queue to be genuinely readable. If it is not, keep the
       // local rows: a stale duplicate is recoverable, a deleted order is not.
       const pendingIds = await pendingOpKeys();
+      const cloudIdFor = await loadCloudIdFn();
       const loaded = loadedCollections(remote);
       // No marker at all (the Firestore path, or an older snapshot) means we
       // cannot tell — and "cannot tell" must never overwrite saved settings.
@@ -221,6 +223,7 @@ function refreshCloudStoreInBackground() {
             ((remote as any)[name] || []) as any[],
             ((local as any)[name] || []) as any[],
             pendingIds,
+            cloudIdFor,
           );
           (remote as any)[name] = rows;
           for (const id of requeue) enqueueDeferredOp(name, id, 'set');
@@ -1026,6 +1029,17 @@ function scheduleSnapshotFlush() {
 // and cannot resurrect a locally newer edit.
 let sbRealtimeChannel: any = null;
 let sbRealtimeGeneration = 0;
+/** Reconnect attempts since the channel was last healthy (reset on SUBSCRIBED). */
+let sbRealtimeRetry = 0;
+/**
+ * The generation whose channel is live or currently being built. Guards against
+ * two callers each building a channel, WITHOUT blocking a rebuild that a real
+ * stop() asked for — a stop bumps the generation, so the next start proceeds.
+ */
+let sbRealtimeStartedFor = -1;
+/** Tears down the live channel using the client reference it was built with. */
+let sbRealtimeDispose: (() => void) | null = null;
+const SB_REALTIME_MAX_RETRY = 8;
 const sbPendingReload = new Set<string>();
 /** Sentinels in the reload set — not collections, so they cannot collide. */
 const SETTINGS_RELOAD_KEY = '::settings';
@@ -1038,6 +1052,19 @@ let sbReloadTimer: ReturnType<typeof setTimeout> | null = null;
  * null is NOT "nothing is pending" — it is "I do not know", and every caller
  * must treat it as a reason to keep local rows rather than drop them.
  */
+/**
+ * The id the cloud keys a record under, which is not always the id this device
+ * uses. Resolved lazily because supabaseStore is dynamically imported, and
+ * cached because the merge calls it once per row.
+ */
+let _cloudIdFn: ((id: string) => string) | null = null;
+async function loadCloudIdFn(): Promise<(id: string) => string> {
+  if (_cloudIdFn) return _cloudIdFn;
+  const { cloudId } = await import('./supabaseStore');
+  _cloudIdFn = cloudId;
+  return cloudId;
+}
+
 async function pendingOpKeys(): Promise<Set<string> | null> {
   try {
     const { whenDeferredQueueReady, getDeferredOps } = await import('./deferredSync');
@@ -1050,6 +1077,7 @@ async function sbReloadCollections(names: string[]) {
   const { sbLoadCollection } = await import('./supabaseStore');
   const d = loadData();
   const pendingIds = await pendingOpKeys();
+  const cloudIdFor = await loadCloudIdFn();
   let touched = false;
   for (const name of names) {
     try {
@@ -1061,7 +1089,7 @@ async function sbReloadCollections(names: string[]) {
       // returns zero rows without raising an error). Genuine deletions arrive
       // as tombstones inside `rows`, so this guard no longer blocks them.
       if (!rows.length && localRows.length) continue;
-      const { rows: merged, requeue } = mergeCollection(name, rows, localRows, pendingIds);
+      const { rows: merged, requeue } = mergeCollection(name, rows, localRows, pendingIds, cloudIdFor);
       (d as any)[name] = merged;
       for (const id of requeue) enqueueDeferredOp(name, id, 'set');
       if (requeue.length) {
@@ -1102,15 +1130,38 @@ async function sbReloadSettings() {
 
 export function stopSupabaseRealtime() {
   sbRealtimeGeneration += 1;
-  if (!sbRealtimeChannel) return;
-  try { sbRealtimeChannel.unsubscribe(); } catch {}
+  const channel = sbRealtimeChannel;
   sbRealtimeChannel = null;
+  if (!channel) return;
+  // ===== v1.26.9 — unsubscribe() alone LEAKS the channel =====
+  //
+  // unsubscribe() leaves the channel object registered on the Supabase client.
+  // The client dispatches every incoming change to EVERY registered channel
+  // that matches the topic, so a leaked channel keeps a second, stale set of
+  // postgres_changes bindings alive on the same socket. startRealtimeListeners
+  // runs more than once during a normal boot, so a till ended up with two (or
+  // more) subscriptions to the same 31 tables: every write reloaded every
+  // collection twice, and the ids the server had handed the LIVE channel were
+  // no longer the ones it was being sent.
+  //
+  // removeChannel() unsubscribes AND deregisters, which is what was meant.
+  // Disposal is a closure captured when the channel was built, so stopping is
+  // synchronous and needs no import of its own.
+  const dispose = sbRealtimeDispose;
+  sbRealtimeDispose = null;
+  if (dispose) { try { dispose(); } catch {} return; }
+  try { channel.unsubscribe(); } catch {}
 }
 
 export function startSupabaseRealtime() {
   if (typeof window === 'undefined') return;
+  // Idempotent: startRealtimeListeners() runs from more than one place during
+  // boot, and building a second channel for a tenant that already has a live
+  // one is what produced the duplicate subscriptions above.
+  if (sbRealtimeStartedFor === sbRealtimeGeneration) return;
   stopSupabaseRealtime();
   const generation = sbRealtimeGeneration;
+  sbRealtimeStartedFor = generation;
   (async () => {
     try {
       const { sb, currentTenantId } = await import('./supabase');
@@ -1180,8 +1231,40 @@ export function startSupabaseRealtime() {
         try { sb().removeChannel(channel); } catch {}
         return;
       }
-      channel.subscribe();
+      // ===== v1.26.9 — a realtime channel that fails must not fail SILENTLY =====
+      //
+      // subscribe() was called with no status callback, so every way this can
+      // go wrong (CHANNEL_ERROR, TIMED_OUT, the socket dropping) ended with the
+      // POS simply never receiving another change — no error, no retry, no way
+      // for anyone to tell. That is indistinguishable from "sync is broken",
+      // and it stays broken until the app is restarted.
+      //
+      // Now the status is reported, and a dead channel is rebuilt on a capped
+      // backoff so a till that loses its websocket at 7pm is live again by
+      // 7:01 instead of at the next restart.
+      channel.subscribe((status: string, err?: unknown) => {
+        if (generation !== sbRealtimeGeneration) return;
+        if (status === 'SUBSCRIBED') {
+          sbRealtimeRetry = 0;
+          console.log('[store] realtime subscribed');
+          return;
+        }
+        if (status !== 'CHANNEL_ERROR' && status !== 'TIMED_OUT' && status !== 'CLOSED') return;
+        console.warn(`[store] realtime ${status}`, err ?? '');
+        if (sbRealtimeRetry >= SB_REALTIME_MAX_RETRY) return;
+        const wait = Math.min(30000, 1000 * 2 ** sbRealtimeRetry);
+        sbRealtimeRetry += 1;
+        setTimeout(() => {
+          if (generation !== sbRealtimeGeneration) return;
+          stopSupabaseRealtime();      // clears the dead channel so start() rebuilds
+          startSupabaseRealtime();
+        }, wait);
+      });
       sbRealtimeChannel = channel;
+      sbRealtimeDispose = () => {
+        try { sb().removeChannel(channel); }
+        catch { try { channel.unsubscribe(); } catch {} }
+      };
     } catch (e) {
       console.warn('[store] Supabase realtime failed', e);
     }

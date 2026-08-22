@@ -16,20 +16,28 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const TENANT = '11111111-1111-1111-1111-111111111111';
 
 interface Sub { table: string; filter: string; cb: (p: any) => void }
-const subs: Sub[] = [];
+let subs: Sub[] = [];
 let subscribed = false;
 
-const channel = {
-  on(_evt: string, cfg: any, cb: (p: any) => void) {
-    subs.push({ table: cfg.table, filter: cfg.filter, cb });
-    return channel;
-  },
-  subscribe() { subscribed = true; return channel; },
-  unsubscribe() { subscribed = false; },
-};
+// A FRESH channel per channel() call, as the real client gives out. Sharing one
+// object let a channel that was abandoned mid-build keep writing into the same
+// subscription list as the live one, so the assertions saw a mixture of the two.
+// Only a channel that actually subscribes becomes the one under inspection.
+function makeChannel() {
+  const own: Sub[] = [];
+  const c: any = {
+    on(_evt: string, cfg: any, cb: (p: any) => void) {
+      own.push({ table: cfg.table, filter: cfg.filter, cb });
+      return c;
+    },
+    subscribe(_status?: (s: string, e?: unknown) => void) { subscribed = true; subs = own; return c; },
+    unsubscribe() { subscribed = false; },
+  };
+  return c;
+}
 
 vi.mock('@/lib/supabase', async () => ({
-  sb: () => ({ channel: () => channel, removeChannel: () => {} }),
+  sb: () => ({ channel: () => makeChannel(), removeChannel: () => {} }),
   currentTenantId: () => TENANT,
   currentBranchId: () => null,
   isSupabaseConfigured: () => true,
@@ -39,6 +47,7 @@ const loadSettings = vi.fn<any>(async () => ({ name: 'From Device A', _updatedAt
 const loadCollection = vi.fn<any>(async () => []);
 
 vi.mock('@/lib/supabaseStore', async () => ({
+  cloudId: (await vi.importActual<any>('@/lib/supabaseStore')).cloudId,
   TABLE_FOR: { menuItems: 'menu_items', categories: 'categories', orders: 'orders',
                waiters: 'user_profiles', riders: 'user_profiles' },
   sbLoadSettings: (...a: any[]) => loadSettings(...(a as [])),
@@ -59,7 +68,7 @@ const fire = (t: string) => tableOf(t).forEach(s => s.cb({ eventType: 'UPDATE' }
 const settle = () => new Promise(r => setTimeout(r, 700));
 
 beforeEach(() => {
-  subs.length = 0;
+  subs = [];
   loadSettings.mockReset(); loadCollection.mockReset(); hydrateCloudDocs.mockClear();
   loadSettings.mockResolvedValue({ name: 'From Device A', _updatedAt: 9_000_000 } as any);
   loadCollection.mockResolvedValue([] as any);
@@ -67,6 +76,10 @@ beforeEach(() => {
   localStorage.setItem('desi-pos-data', JSON.stringify({
     orders: [], menuItems: [], categories: [], tables: [], settings: { name: 'Local' },
   }));
+  // startSupabaseRealtime() is idempotent by design — a second call while a
+  // channel is already live is a no-op, because boot used to build two. A test
+  // that wants a fresh channel has to stop the old one, exactly as the app does.
+  store.stopSupabaseRealtime();
   store.startSupabaseRealtime();
 });
 

@@ -29,7 +29,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const sbLoadAll = vi.fn(async () => ({}) as any);
 const sbLoadSettings = vi.fn(async () => null as any);
 
-vi.mock('@/lib/supabaseStore', () => ({
+vi.mock('@/lib/supabaseStore', async () => ({
+  // cloudId is the real one: the merge uses it to recognise its own rows under
+  // the deterministic uuid the cloud keys them by, so a stub would hide that.
+  cloudId: (await vi.importActual<any>('@/lib/supabaseStore')).cloudId,
   sbLoadAll: (...a: any[]) => sbLoadAll(...(a as [])),
   sbLoadSettings: (...a: any[]) => sbLoadSettings(...(a as [])),
   sbLoadCollection: async () => { throw new Error('offline'); },

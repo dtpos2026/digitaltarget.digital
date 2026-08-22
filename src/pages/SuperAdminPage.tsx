@@ -81,6 +81,16 @@ interface DeviceRow {
   tenantId: string;
   deviceId: string;
   hardwareId?: string;
+  /** Which branch this device is registered against (devices.branch_id). */
+  branchId?: string;
+  branchName?: string;
+  /**
+   * v1.26.8 — the machine hint that lets one physical PC be one device even
+   * when it is opened in several browsers. Surfaced so the operator can see
+   * WHY a single row covers more than one browser profile, and audit it.
+   */
+  fingerprint?: string;
+  mergedProfiles?: string[];
   lastLoginAt?: any;
   loginCount?: number;
   userId?: string;
@@ -113,6 +123,8 @@ interface DeviceRow {
   macAddresses?: string[];
   lat?: number;
   lng?: number;
+  /** Reported accuracy radius in metres, when the browser supplied one. */
+  accuracyM?: number;
   lastActiveAt?: any;
   lastActiveMs?: number;
   loginAt?: any;
@@ -312,7 +324,7 @@ export default function SuperAdminPage({ onLogout }: Props) {
     const [tRes, pRes, dRes, bRes] = await Promise.all([
       sb().from('tenants').select('id,name,slug,plan,plan_expires_at,is_active,created_at,custom_device_limit'),
       sb().from('pending_owners').select('email,tenant_id,claimed_at'),
-      sb().from('devices').select('id,tenant_id,branch_id,device_label,hardware_id,platform,app_version,approved,blocked,blocked_at,last_seen_at,lat,lng,ip,meta,last_login_at,login_count'),
+      sb().from('devices').select('id,tenant_id,branch_id,device_label,hardware_id,fingerprint,platform,app_version,approved,blocked,blocked_at,last_seen_at,lat,lng,accuracy_m,ip,meta,last_login_at,login_count'),
       sb().from('branches').select('id,tenant_id,name,lat,lng,is_active'),
     ]);
     if (tRes.error) throw tRes.error;
@@ -339,6 +351,12 @@ export default function SuperAdminPage({ onLogout }: Props) {
     const nameByTid: Record<string, string> = {};
     for (const r of list) nameByTid[r.tenantId] = r.restaurantName || r.email || r.tenantId;
 
+    // devices.branch_id was fetched but never resolved, so the Devices screen
+    // could not say which branch a device belonged to — the one field a
+    // multi-branch operator needs most when deciding whether to approve it.
+    const branchNameById: Record<string, string> = {};
+    for (const b of ((bRes.data ?? []) as any[])) branchNameById[b.id] = b.name;
+
     const dList: DeviceRow[] = ((dRes.data ?? []) as any[]).map(d => ({
       tenantId: d.tenant_id,
       deviceId: d.id,
@@ -349,8 +367,13 @@ export default function SuperAdminPage({ onLogout }: Props) {
       platform: d.platform,
       appVersion: d.app_version,
       lastSeen: d.last_seen_at,
-      lat: d.lat, lng: d.lng,
+      lat: d.lat, lng: d.lng, accuracyM: d.accuracy_m ?? undefined,
       hardwareId: d.hardware_id,
+      branchId: d.branch_id ?? undefined,
+      branchName: d.branch_id ? branchNameById[d.branch_id] : undefined,
+      fingerprint: d.fingerprint ?? undefined,
+      mergedProfiles: Array.isArray(d.meta?.mergedProfiles) ? d.meta.mergedProfiles : undefined,
+      userId: d.meta?.userId ?? d.meta?.osUser ?? undefined,
       ip: d.ip ?? d.meta?.ip,
       city: d.meta?.city, region: d.meta?.region, country: d.meta?.country, isp: d.meta?.isp,
       browser: d.meta?.browser, browserVersion: d.meta?.browserVersion,
@@ -1389,17 +1412,31 @@ function SuperAdminLiveMap({ devices, restaurants }: { devices: DeviceRow[]; res
 
   // Devices: use own GPS if present, otherwise fallback to restaurant GPS so
   // green/gray dot still appears on the map even when device GPS was skipped.
+  // ===== v1.26.9 — a pin must not claim a position the device never sent =====
+  //
+  // A device with no location of its own was silently drawn at the RESTAURANT's
+  // coordinates, with nothing in the popup saying so. That is not a small
+  // cosmetic issue: it shows a device sitting at an address it never reported,
+  // which is exactly the kind of thing someone would act on. The fallback is
+  // still useful — it puts the device roughly where it probably is — but it
+  // has to be labelled as an assumption rather than a reading.
+  //
+  // Browser geolocation is network/wifi-derived indoors and is accurate to
+  // tens or hundreds of metres, so even a real reading is reported as
+  // approximate, never as GPS.
   const mapped = devices
     .map(d => {
-      let lat = typeof d.lat === 'number' ? d.lat : undefined;
-      let lng = typeof d.lng === 'number' ? d.lng : undefined;
-      if (lat == null || lng == null) {
+      const own = typeof d.lat === 'number' && typeof d.lng === 'number';
+      let lat = own ? d.lat : undefined;
+      let lng = own ? d.lng : undefined;
+      let positionSource: 'device' | 'restaurant' = 'device';
+      if (!own) {
         const r = restByTid.get(d.tenantId);
-        if (r) { lat = r.lat; lng = r.lng; }
+        if (r) { lat = r.lat; lng = r.lng; positionSource = 'restaurant'; }
       }
-      return (lat != null && lng != null) ? { ...d, lat, lng } : null;
+      return (lat != null && lng != null) ? { ...d, lat, lng, positionSource } : null;
     })
-    .filter((d) => d != null) as DeviceRow[];
+    .filter((d) => d != null) as (DeviceRow & { positionSource: 'device' | 'restaurant' })[];
   const onlineCount = mapped.filter(d => isOnline(tsToMs(d.lastActiveAt))).length;
   const deviceMarkers: MapMarker[] = mapped.map((d, idx) => {
     const on = isOnline(tsToMs(d.lastActiveAt));
@@ -1408,14 +1445,26 @@ function SuperAdminLiveMap({ devices, restaurants }: { devices: DeviceRow[]; res
     const jitter = (i: number) => (((i * 37) % 11) - 5) * 0.00015;
     return {
       id: 'dev-' + d.tenantId + d.deviceId, lat: d.lat! + jitter(idx), lng: d.lng! + jitter(idx + 7),
-      title: d.deviceName || d.deviceId, color: on ? 'green' : 'gray',
-      popupHtml: `<div style="font-family:system-ui;font-size:12px;min-width:220px">
+      title: d.deviceName || d.deviceId,
+      // Blocked reads as a state the operator must notice, not as "offline".
+      color: d.blocked ? 'red' : on ? 'green' : 'gray',
+      popupHtml: `<div style="font-family:system-ui;font-size:12px;min-width:240px">
         <div style="font-weight:700;font-size:13px">📱 ${escape(d.restaurantName || d.tenantId)}</div>
         <div style="color:#555;margin-bottom:4px">${escape(d.deviceName || d.browser || '')}</div>
+        ${d.branchName ? `<div>🏬 Branch: <strong>${escape(d.branchName)}</strong></div>` : ''}
         <div>Status: <strong style="color:${on ? '#16a34a' : '#6b7280'}">${on ? '🟢 Online' : '⚪ Offline'}</strong></div>
-        ${d.ip ? `<div>📡 ${escape(d.ip)}</div>` : ''}
+        <div>Approval: <strong style="color:${d.blocked ? '#dc2626' : d.approved ? '#16a34a' : '#d97706'}">${d.blocked ? '⛔ Blocked' : d.approved ? '✔ Approved' : '⏳ Pending'}</strong></div>
+        ${d.ip ? `<div>📡 ${escape(d.ip)} <span style="color:#999">(network metadata, not identity)</span></div>` : ''}
         ${(d.city || d.country) ? `<div>📍 ${escape([d.city, d.country].filter(Boolean).join(', '))}</div>` : ''}
-        ${last ? `<div style="color:#666">Last: ${new Date(last).toLocaleString()}</div>` : ''}
+        ${d.positionSource === 'restaurant'
+          ? `<div style="margin-top:5px;padding:4px 6px;background:#fef3c7;border-radius:4px;color:#92400e">
+               ⚠ This device reported no location. The pin shows the <strong>restaurant's</strong> address, not the device's position.
+             </div>`
+          : `<div style="margin-top:5px;color:#666">
+               Approximate location${d.accuracyM ? ` · &plusmn;${Math.round(d.accuracyM)} m` : ''}
+               <span style="color:#999">(browser/network derived, not GPS)</span>
+             </div>`}
+        ${last ? `<div style="color:#666;margin-top:3px">Last: ${new Date(last).toLocaleString()}</div>` : ''}
       </div>`,
     };
   });
@@ -1648,6 +1697,14 @@ function DeviceRowView({ d, children, selectable, checked, onToggle }: {
             </div>
 
             <div className="mt-2 flex flex-wrap gap-1.5">
+              {d.branchName && <Chip tone="blue">🏬 {d.branchName}</Chip>}
+              {/* v1.26.8 — one physical machine can now be one device even when
+                  staff open it in several browsers. Show that plainly, so a
+                  single row covering three profiles is explained rather than
+                  mysterious. */}
+              {d.mergedProfiles && d.mergedProfiles.length > 0 && (
+                <Chip tone="cyan">🔗 {d.mergedProfiles.length + 1} browser profiles · same machine</Chip>
+              )}
               {d.deviceType && <Chip tone="violet">{d.deviceType === 'mobile' ? '📱 Mobile' : d.deviceType === 'tablet' ? '📲 Tablet' : '🖥️ PC / Laptop'}</Chip>}
               {d.platform && <Chip tone={d.platform === 'electron' ? 'green' : undefined}>{d.platform === 'electron' ? '⚡ Desktop App' : '🌐 Web Browser'}</Chip>}
               {d.browser && <Chip>🌐 {d.browser}{d.browserVersion ? ` ${d.browserVersion.split('.')[0]}` : ''}</Chip>}
