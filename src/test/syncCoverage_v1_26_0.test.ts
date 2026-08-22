@@ -220,3 +220,22 @@ describe('a stored asset URL does not expire', () => {
     expect(storageSrc).toContain("createSignedUrl(path, 3600)");
   });
 });
+
+// ---------------------------------------------------------------------------
+describe('a shift reaches the cloud whole', () => {
+  it('carries the full record alongside the typed columns', () => {
+    // ALLOWED_COLUMNS.shifts lists fifteen columns; the app's Shift also has
+    // staffName, staffEmail, payIns, payOuts, actualEndingCash and notes. All
+    // six were dropped here — every cash movement and the counted closing cash
+    // among them — so a shift arrived at the database as a shell.
+    expect(migrations).toContain('alter table public.shifts add column if not exists data jsonb');
+    expect(supabaseStoreSrc).toContain("if (col === 'shifts')");
+    expect(supabaseStoreSrc).toContain("const typed = allowListedRow('shifts', data);");
+  });
+
+  it('reads the columns AND the document back, not one or the other', () => {
+    // Rows written before this change have data IS NULL and must still read
+    // through the column path unharmed.
+    expect(supabaseStoreSrc).toContain("if (table && table !== 'orders') return { ...columnsFromDb(row), ...payload };");
+  });
+});

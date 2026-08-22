@@ -154,3 +154,68 @@ describe('order document persistence', () => {
     expect(restored.payments).toEqual([]);
   });
 });
+
+// ============================================================
+// v1.26.1 — a shift used to arrive at the cloud as a shell
+//
+// ALLOWED_COLUMNS.shifts lists the fifteen columns the table has, and rowToDb
+// drops everything else. The app's Shift also carries staffName, staffEmail,
+// payIns, payOuts, actualEndingCash and notes — none of which are columns.
+// So every cash pay-in and pay-out, the counted closing cash, and the name of
+// whoever ran the till were discarded at this boundary. Nothing errored. On a
+// second device the shift existed but the cash-drawer report could not be
+// reconstructed from it.
+// ============================================================
+describe('a shift survives the round trip to the database and back', () => {
+  const shift = {
+    id: 'shift-1',
+    deviceId: 'till-2',
+    staffId: 'u-9',
+    staffName: 'Ayesha',
+    staffEmail: 'ayesha@example.com',
+    openedAt: '2026-08-22T09:00:00.000Z',
+    closedAt: '2026-08-22T17:00:00.000Z',
+    startingCash: 5000,
+    payIns: [{ id: 'm1', at: '2026-08-22T11:00:00.000Z', amount: 2000, reason: 'Float top-up', by: 'Ayesha' }],
+    payOuts: [{ id: 'm2', at: '2026-08-22T15:00:00.000Z', amount: 800, reason: 'Bank drop', by: 'Ayesha' }],
+    actualEndingCash: 12450,
+    status: 'closed' as const,
+    notes: 'Drawer short by 50',
+    _updatedAt: 1_700_000_000_000,
+  };
+
+  it('keeps the cash movements, the counted cash, the staff and the notes', () => {
+    const row = rowToDb('shifts', shift);
+    const back = rowFromDb({ ...row, id: 'shift-1', updated_at: '2026-08-22T17:00:00.000Z' }, 'shifts');
+
+    expect(back.payIns).toHaveLength(1);
+    expect(back.payIns[0].amount).toBe(2000);
+    expect(back.payOuts).toHaveLength(1);
+    expect(back.payOuts[0].reason).toBe('Bank drop');
+    expect(back.actualEndingCash).toBe(12450);
+    expect(back.staffName).toBe('Ayesha');
+    expect(back.notes).toBe('Drawer short by 50');
+  });
+
+  it('still fills the typed columns the unique index and reports read', () => {
+    // idx_one_open_shift is a partial unique index on (tenant, branch, device)
+    // WHERE status = 'open'. If status stopped being a real column, two tills
+    // could hold an open shift on the same device.
+    const row = rowToDb('shifts', shift);
+    expect(row.status).toBe('closed');
+    expect(row.device_id ?? row.deviceId).toBeDefined();
+    expect(row.starting_cash).toBe(5000);
+  });
+
+  it('reads a pre-v1.26.1 row, which has no document at all, unchanged', () => {
+    const legacy = {
+      id: 'shift-0', device_id: 'till-1', status: 'open',
+      starting_cash: 3000, opened_at: '2026-08-01T09:00:00.000Z',
+      updated_at: '2026-08-01T09:00:00.000Z', data: null,
+    };
+    const back = rowFromDb(legacy, 'shifts');
+    expect(back.status).toBe('open');
+    expect(back.startingCash).toBe(3000);
+    expect(back.id).toBe('shift-0');
+  });
+});

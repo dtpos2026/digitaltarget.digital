@@ -381,6 +381,23 @@ export function rowToDb(col: string, data: Record<string, any>): Record<string, 
       is_active: data.isActive !== false,
     };
   }
+  if (col === 'shifts') {
+    // ===== v1.26.0 — a shift used to arrive at the cloud as a shell =====
+    // ALLOWED_COLUMNS.shifts lists the fifteen columns the table has, and
+    // rowToDb drops everything else. The app's Shift carries staffName,
+    // staffEmail, payIns, payOuts, actualEndingCash and notes — NONE of which
+    // are columns. So every cash pay-in and pay-out, the counted closing cash,
+    // and the name of whoever ran the till were silently discarded at this
+    // boundary. On a second device the shift existed but was empty, and the
+    // cash-drawer report could not be reconstructed.
+    //
+    // The typed columns stay (the one-open-shift unique index and the reports
+    // read them); the full record now rides alongside in `data`, the same way
+    // an order does.
+    const typed = allowListedRow('shifts', data);
+    typed.data = { ...data, id: data.id };
+    return typed;
+  }
   const table = TABLE_FOR[col];
   if (table && DOC_TABLES.has(table)) {
     return {
@@ -389,6 +406,11 @@ export function rowToDb(col: string, data: Record<string, any>): Record<string, 
       deleted_at: data.deletedAt ? new Date(data.deletedAt).toISOString() : null,
     };
   }
+  return allowListedRow(table, data);
+}
+
+/** Map an app record onto the real columns of `table`, dropping the rest. */
+function allowListedRow(table: string | undefined, data: Record<string, any>): Record<string, any> {
   const out: Record<string, any> = {};
   const allowed = table ? ALLOWED_COLUMNS[table] : undefined;
   for (const [k, v] of Object.entries(data ?? {})) {
@@ -417,25 +439,12 @@ export function rowToDb(col: string, data: Record<string, any>): Record<string, 
 }
 
 
-export function rowFromDb(row: Record<string, any>, table?: string): Record<string, any> {
-  if (row && row.data && typeof row.data === 'object' && !Array.isArray(row.data)) {
-    const payload = { ...row.data } as Record<string, any>;
-    payload.id = payload.id || row.id;
-    if (row.branch_id) payload.branchId = row.branch_id;
-    payload.createdAt = payload.createdAt || row.created_at || new Date().toISOString();
-    payload._updatedAt = row.updated_at ? new Date(row.updated_at).getTime() : Number(payload._updatedAt || 0);
-    if (row.deleted_at) { payload.deleted = true; payload.deletedAt = new Date(row.deleted_at).getTime(); }
-    if (table && DOC_TABLES.has(table)) return payload;
-    payload.orderNumber = row.order_number ?? payload.orderNumber;
-    payload.status = row.status || payload.status || 'running';
-    payload.grandTotal = Number(row.total ?? payload.grandTotal) || 0;
-    payload.items = Array.isArray(payload.items) ? payload.items : [];
-    payload.payments = Array.isArray(payload.payments) ? payload.payments : [];
-    return payload;
-  }
+/** The plain column-to-camelCase mapping, with no document overlay. */
+function columnsFromDb(row: Record<string, any>): Record<string, any> {
   const out: Record<string, any> = {};
   for (const [k, v] of Object.entries(row ?? {})) {
     if (v === null) continue;
+    if (k === 'data') continue;               // handled by the document overlay
     out[toCamel(k)] = v;
   }
   // store.ts sorts and merges on _updatedAt; derive it from updated_at so the
@@ -449,6 +458,33 @@ export function rowFromDb(row: Record<string, any>, table?: string): Record<stri
     out.deleted = Boolean(row.deleted_at);
     out.deletedAt = row.deleted_at ? new Date(row.deleted_at).getTime() : undefined;
   }
+  return out;
+}
+
+export function rowFromDb(row: Record<string, any>, table?: string): Record<string, any> {
+  if (row && row.data && typeof row.data === 'object' && !Array.isArray(row.data)) {
+    const payload = { ...row.data } as Record<string, any>;
+    payload.id = payload.id || row.id;
+    if (row.branch_id) payload.branchId = row.branch_id;
+    payload.createdAt = payload.createdAt || row.created_at || new Date().toISOString();
+    payload._updatedAt = row.updated_at ? new Date(row.updated_at).getTime() : Number(payload._updatedAt || 0);
+    if (row.deleted_at) { payload.deleted = true; payload.deletedAt = new Date(row.deleted_at).getTime(); }
+    if (table && DOC_TABLES.has(table)) return payload;
+    // ===== v1.26.0 — a table can have BOTH typed columns and a document =====
+    // `shifts` keeps its typed columns (the one-open-shift unique index and the
+    // reports read them) AND the full record, because the allow-list was
+    // dropping the staff name, both cash-movement lists, the counted closing
+    // cash and the notes — everything a shift is actually for. The columns are
+    // the index; the document is the record.
+    if (table && table !== 'orders') return { ...columnsFromDb(row), ...payload };
+    payload.orderNumber = row.order_number ?? payload.orderNumber;
+    payload.status = row.status || payload.status || 'running';
+    payload.grandTotal = Number(row.total ?? payload.grandTotal) || 0;
+    payload.items = Array.isArray(payload.items) ? payload.items : [];
+    payload.payments = Array.isArray(payload.payments) ? payload.payments : [];
+    return payload;
+  }
+  const out = columnsFromDb(row);
   // Defensive defaults for legacy/partially migrated order rows. UI modules
   // can safely render them while newer writes repair their full payload.
   if ('order_number' in row || 'total' in row) {

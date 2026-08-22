@@ -140,3 +140,23 @@ begin
     raise notice 'realtime enabled for %', t;
   end loop;
 end $$;
+
+-- ---------------------------------------------------------------------------
+-- 5. v1.26.1 — a shift is more than its fifteen columns.
+--
+-- public.shifts has typed columns for the drawer totals, but the app's Shift
+-- record also carries staffName, staffEmail, payIns, payOuts, actualEndingCash
+-- and notes — none of which are columns. rowToDb() drops anything not on the
+-- allow-list, so every cash pay-in and pay-out, the counted closing cash and
+-- the name of whoever ran the till were discarded on the way to the database.
+-- Nothing errored; the shift row simply arrived empty, and a second device
+-- could not reconstruct the cash-drawer report.
+--
+-- Nullable with NO default on purpose: existing rows keep data IS NULL, which
+-- the client reads through its original column path, so nothing changes for
+-- them until they are next written.
+-- ---------------------------------------------------------------------------
+alter table public.shifts add column if not exists data jsonb;
+
+comment on column public.shifts.data is
+  'Full POS shift record (cash movements, staff, notes). Typed columns remain the query index.';
