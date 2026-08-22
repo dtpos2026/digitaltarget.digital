@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="ur" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DT POS System</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#0f172a;color:#e2e8f0;display:flex;height:100vh;overflow:hidden;direction:ltr}
+.sidebar{width:100px;background:#1e293b;display:flex;flex-direction:column;gap:4px;padding:8px;overflow-y:auto}
+.cat-btn{padding:10px 6px;border:none;border-radius:8px;background:#334155;color:#e2e8f0;cursor:pointer;font-size:11px;text-align:center;transition:.2s}
+.cat-btn:hover,.cat-btn.active{background:#3b82f6;color:#fff}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.search-bar{padding:10px;background:#1e293b}
+.search-bar input{width:100%;padding:10px 14px;border-radius:8px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:14px;outline:none}
+.items-grid{flex:1;display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;padding:10px;overflow-y:auto;align-content:start}
+.item-card{background:#1e293b;border:1px solid #334155;border-radius:10px;padding:14px 10px;text-align:center;cursor:pointer;transition:.2s}
+.item-card:hover{border-color:#3b82f6;transform:scale(1.03)}
+.item-name{font-size:13px;font-weight:600;margin-bottom:4px}
+.item-price{font-size:15px;color:#22d3ee;font-weight:700}
+.cart-panel{width:340px;background:#1e293b;display:flex;flex-direction:column;border-left:1px solid #334155}
+.cart-header{padding:12px;font-size:16px;font-weight:700;border-bottom:1px solid #334155;display:flex;justify-content:space-between;align-items:center}
+.cart-header button{background:#ef4444;color:#fff;border:none;padding:4px 12px;border-radius:6px;cursor:pointer;font-size:12px}
+.cart-items{flex:1;overflow-y:auto;padding:8px}
+.cart-item{display:flex;align-items:center;gap:8px;padding:8px;background:#0f172a;border-radius:8px;margin-bottom:6px}
+.cart-item .name{flex:1;font-size:13px}
+.cart-item .qty-controls{display:flex;align-items:center;gap:6px}
+.cart-item .qty-controls button{width:26px;height:26px;border:none;border-radius:6px;background:#334155;color:#e2e8f0;cursor:pointer;font-size:14px;font-weight:700}
+.cart-item .qty{font-size:14px;font-weight:600;min-width:20px;text-align:center}
+.cart-item .price{font-size:13px;color:#22d3ee;font-weight:600;min-width:60px;text-align:right}
+.cart-item .remove{background:none;border:none;color:#ef4444;cursor:pointer;font-size:16px}
+.cart-summary{padding:12px;border-top:1px solid #334155}
+.summary-row{display:flex;justify-content:space-between;padding:4px 0;font-size:13px}
+.summary-row.total{font-size:18px;font-weight:700;color:#22d3ee;border-top:1px solid #334155;padding-top:8px;margin-top:4px}
+.cart-actions{padding:10px;display:flex;gap:8px}
+.cart-actions button{flex:1;padding:12px;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;transition:.2s}
+.btn-pay{background:#22c55e;color:#fff}.btn-pay:hover{background:#16a34a}
+.btn-hold{background:#f59e0b;color:#fff}.btn-hold:hover{background:#d97706}
+.btn-print{background:#3b82f6;color:#fff}.btn-print:hover{background:#2563eb}
+.order-type{padding:8px 12px;display:flex;gap:6px;border-bottom:1px solid #334155}
+.order-type button{flex:1;padding:8px;border:1px solid #334155;border-radius:6px;background:transparent;color:#e2e8f0;cursor:pointer;font-size:12px;font-weight:600}
+.order-type button.active{background:#3b82f6;border-color:#3b82f6;color:#fff}
+.empty-cart{text-align:center;padding:40px 20px;color:#64748b;font-size:14px}
+.top-bar{display:flex;justify-content:space-between;align-items:center;padding:8px 14px;background:#1e293b;border-bottom:1px solid #334155}
+.top-bar .logo{font-size:18px;font-weight:800;color:#3b82f6}
+.top-bar .info{font-size:12px;color:#94a3b8}
+.nav-btns{display:flex;gap:6px}
+.nav-btns button{padding:6px 14px;border:1px solid #334155;border-radius:6px;background:transparent;color:#e2e8f0;cursor:pointer;font-size:12px}
+.nav-btns button:hover{background:#334155}
+/* Modal */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;justify-content:center;align-items:center}
+.modal-overlay.show{display:flex}
+.modal{background:#1e293b;border-radius:12px;padding:24px;min-width:350px;max-width:90vw;max-height:90vh;overflow-y:auto}
+.modal h3{margin-bottom:16px;font-size:18px}
+.modal table{width:100%;border-collapse:collapse;font-size:13px}
+.modal th,.modal td{padding:6px 8px;text-align:left;border-bottom:1px solid #334155}
+.modal .close-btn{margin-top:16px;padding:10px 24px;background:#3b82f6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px}
+.bills-card{background:#0f172a;border-radius:8px;padding:12px;margin-bottom:8px;cursor:pointer;border:1px solid #334155}
+.bills-card:hover{border-color:#3b82f6}
+.bills-card .row{display:flex;justify-content:space-between;font-size:13px}
+.status-badge{padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
+.status-running{background:#22c55e33;color:#22c55e}
+.status-hold{background:#f59e0b33;color:#f59e0b}
+.status-paid{background:#3b82f633;color:#3b82f6}
+@media(max-width:768px){.sidebar{width:70px}.sidebar .cat-btn{font-size:9px;padding:8px 4px}.cart-panel{width:100%;position:fixed;bottom:0;left:0;right:0;height:50vh;z-index:50;display:none}.cart-panel.open{display:flex}.items-grid{grid-template-columns:repeat(auto-fill,minmax(100px,1fr))}}
+</style>
+</head>
+<body>
+
+<div class="sidebar" id="catSidebar"></div>
+
+<div class="main">
+  <div class="top-bar">
+    <span class="logo">🍽️ DT POS</span>
+    <span class="info" id="dateInfo"></span>
+    <div class="nav-btns">
+      <button onclick="showBills()">📋 Bills</button>
+      <button onclick="showReport()">📊 Report</button>
+      <button onclick="exportBackup()">💾 Backup</button>
+      <button id="importBtn" onclick="document.getElementById('importFile').click()">📂 Restore</button>
+      <input type="file" id="importFile" accept=".json" style="display:none" onchange="importBackup(event)">
+    </div>
+  </div>
+  <div class="search-bar"><input type="text" placeholder="🔍 Search menu..." id="searchInput" oninput="renderItems()"></div>
+  <div class="items-grid" id="itemsGrid"></div>
+</div>
+
+<div class="cart-panel" id="cartPanel">
+  <div class="cart-header">
+    <span>🛒 Cart (<span id="cartCount">0</span>)</span>
+    <button onclick="clearCart()">Clear</button>
+  </div>
+  <div class="order-type">
+    <button class="active" onclick="setOrderType('takeaway',this)">Takeaway</button>
+    <button onclick="setOrderType('dine-in',this)">Dine-in</button>
+    <button onclick="setOrderType('delivery',this)">Delivery</button>
+  </div>
+  <div class="cart-items" id="cartItems"><div class="empty-cart">Cart is empty</div></div>
+  <div class="cart-summary" id="cartSummary"></div>
+  <div class="cart-actions">
+    <button class="btn-pay" onclick="processOrder('paid')">💰 Pay</button>
+    <button class="btn-hold" onclick="processOrder('hold')">⏸ Hold</button>
+    <button class="btn-print" onclick="printReceipt()">🖨 Print</button>
+  </div>
+</div>
+
+<!-- Bills Modal -->
+<div class="modal-overlay" id="billsModal">
+  <div class="modal" style="min-width:500px">
+    <h3>📋 Running & Hold Bills</h3>
+    <div id="billsList"></div>
+    <button class="close-btn" onclick="closeModal('billsModal')">Close</button>
+  </div>
+</div>
+
+<!-- Report Modal -->
+<div class="modal-overlay" id="reportModal">
+  <div class="modal">
+    <h3>📊 Today's Report</h3>
+    <div id="reportContent"></div>
+    <button class="close-btn" onclick="closeModal('reportModal')">Close</button>
+  </div>
+</div>
+
+<script>
+// ========== DATA ==========
+const STORE_KEY = 'dt-pos-standalone';
+
+const defaultData = {
+  categories: [
+    {id:'c1',name:'🍗 BBQ'},{id:'c2',name:'🍛 Desi'},{id:'c3',name:'🍔 Fast Food'},
+    {id:'c4',name:'🥤 Drinks'},{id:'c5',name:'🍰 Desserts'},{id:'c6',name:'🥗 Sides'}
+  ],
+  menuItems: [
+    {id:'m1',name:'Chicken Tikka',price:350,catId:'c1'},
+    {id:'m2',name:'Seekh Kabab',price:200,catId:'c1'},
+    {id:'m3',name:'Malai Boti',price:400,catId:'c1'},
+    {id:'m4',name:'BBQ Platter',price:1200,catId:'c1'},
+    {id:'m5',name:'Biryani',price:250,catId:'c2'},
+    {id:'m6',name:'Karahi Gosht',price:1800,catId:'c2'},
+    {id:'m7',name:'Nihari',price:350,catId:'c2'},
+    {id:'m8',name:'Haleem',price:300,catId:'c2'},
+    {id:'m9',name:'Dal Chawal',price:180,catId:'c2'},
+    {id:'m10',name:'Zinger Burger',price:450,catId:'c3'},
+    {id:'m11',name:'Chicken Shawarma',price:250,catId:'c3'},
+    {id:'m12',name:'Loaded Fries',price:350,catId:'c3'},
+    {id:'m13',name:'Club Sandwich',price:400,catId:'c3'},
+    {id:'m14',name:'Pepsi',price:80,catId:'c4'},
+    {id:'m15',name:'Fresh Juice',price:150,catId:'c4'},
+    {id:'m16',name:'Lassi',price:120,catId:'c4'},
+    {id:'m17',name:'Green Tea',price:100,catId:'c4'},
+    {id:'m18',name:'Gulab Jamun',price:150,catId:'c5'},
+    {id:'m19',name:'Kheer',price:200,catId:'c5'},
+    {id:'m20',name:'Raita',price:80,catId:'c6'},
+    {id:'m21',name:'Naan',price:30,catId:'c6'},
+    {id:'m22',name:'Paratha',price:50,catId:'c6'},
+  ],
+  orders: [],
+  orderCounter: 0
+};
+
+function loadStore() {
+  try { const d = localStorage.getItem(STORE_KEY); if(d) return JSON.parse(d); } catch(e){}
+  const d = JSON.parse(JSON.stringify(defaultData));
+  saveStore(d);
+  return d;
+}
+function saveStore(d) { localStorage.setItem(STORE_KEY, JSON.stringify(d)); }
+
+let store = loadStore();
+let cart = [];
+let activeCat = 'all';
+let orderType = 'takeaway';
+let lastOrder = null;
+
+// ========== RENDER ==========
+function renderCategories() {
+  const el = document.getElementById('catSidebar');
+  let html = '<button class="cat-btn active" onclick="filterCat(\'all\',this)">📋 All</button>';
+  store.categories.forEach(c => {
+    html += `<button class="cat-btn" onclick="filterCat('${c.id}',this)">${c.name}</button>`;
+  });
+  el.innerHTML = html;
+}
+
+function renderItems() {
+  const search = document.getElementById('searchInput').value.toLowerCase();
+  const grid = document.getElementById('itemsGrid');
+  let items = store.menuItems;
+  if(activeCat !== 'all') items = items.filter(i => i.catId === activeCat);
+  if(search) items = items.filter(i => i.name.toLowerCase().includes(search));
+  grid.innerHTML = items.map(i => `
+    <div class="item-card" onclick="addToCart('${i.id}')">
+      <div class="item-name">${i.name}</div>
+      <div class="item-price">Rs ${i.price}</div>
+    </div>
+  `).join('') || '<div class="empty-cart">No items found</div>';
+}
+
+function renderCart() {
+  const el = document.getElementById('cartItems');
+  const summary = document.getElementById('cartSummary');
+  document.getElementById('cartCount').textContent = cart.length;
+  
+  if(!cart.length) {
+    el.innerHTML = '<div class="empty-cart">Cart is empty</div>';
+    summary.innerHTML = '';
+    return;
+  }
+  
+  el.innerHTML = cart.map((c,i) => `
+    <div class="cart-item">
+      <span class="name">${c.name}</span>
+      <div class="qty-controls">
+        <button onclick="changeQty(${i},-1)">−</button>
+        <span class="qty">${c.qty}</span>
+        <button onclick="changeQty(${i},1)">+</button>
+      </div>
+      <span class="price">Rs ${c.price * c.qty}</span>
+      <button class="remove" onclick="removeFromCart(${i})">✕</button>
+    </div>
+  `).join('');
+  
+  const subtotal = cart.reduce((s,c) => s + c.price * c.qty, 0);
+  summary.innerHTML = `
+    <div class="summary-row"><span>Subtotal</span><span>Rs ${subtotal}</span></div>
+    <div class="summary-row total"><span>Total</span><span>Rs ${subtotal}</span></div>
+  `;
+}
+
+// ========== ACTIONS ==========
+function filterCat(id, btn) {
+  activeCat = id;
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderItems();
+}
+
+function setOrderType(type, btn) {
+  orderType = type;
+  document.querySelectorAll('.order-type button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function addToCart(itemId) {
+  const item = store.menuItems.find(i => i.id === itemId);
+  if(!item) return;
+  const existing = cart.find(c => c.id === item.id);
+  if(existing) existing.qty++;
+  else cart.push({id:item.id, name:item.name, price:item.price, qty:1});
+  renderCart();
+}
+
+function changeQty(index, delta) {
+  cart[index].qty += delta;
+  if(cart[index].qty <= 0) cart.splice(index, 1);
+  renderCart();
+}
+
+function removeFromCart(index) { cart.splice(index, 1); renderCart(); }
+function clearCart() { cart = []; renderCart(); }
+
+function processOrder(status) {
+  if(!cart.length) { alert('Cart is empty!'); return; }
+  store.orderCounter++;
+  const total = cart.reduce((s,c) => s + c.price * c.qty, 0);
+  const order = {
+    id: 'ord_' + Date.now(),
+    number: store.orderCounter,
+    type: orderType,
+    status: status,
+    items: cart.map(c => ({...c})),
+    subtotal: total,
+    total: total,
+    createdAt: new Date().toISOString(),
+    paidAt: status === 'paid' ? new Date().toISOString() : null
+  };
+  store.orders.push(order);
+  saveStore(store);
+  lastOrder = order;
+  cart = [];
+  renderCart();
+  alert(`✅ Order #${order.number} — ${status.toUpperCase()}\nTotal: Rs ${total}`);
+}
+
+function printReceipt() {
+  const order = lastOrder;
+  if(!order && !cart.length) { alert('No order to print'); return; }
+  const o = order || {number:'--',type:orderType,items:cart,total:cart.reduce((s,c)=>s+c.price*c.qty,0),createdAt:new Date().toISOString()};
+  const w = window.open('','','width=320,height=600');
+  w.document.write(`<html><head><style>
+    body{font-family:monospace;width:280px;margin:0 auto;padding:10px;font-size:12px}
+    h2{text-align:center;margin:4px 0}
+    .line{border-top:1px dashed #000;margin:6px 0}
+    table{width:100%;border-collapse:collapse}
+    td{padding:2px 0}
+    .right{text-align:right}
+    .center{text-align:center}
+    .bold{font-weight:700}
+  </style></head><body>
+    <h2>DT POS</h2>
+    <p class="center">Order #${o.number} | ${o.type}</p>
+    <p class="center">${new Date(o.createdAt).toLocaleString()}</p>
+    <div class="line"></div>
+    <table>${o.items.map(i=>`<tr><td>${i.name} x${i.qty}</td><td class="right">Rs ${i.price*i.qty}</td></tr>`).join('')}</table>
+    <div class="line"></div>
+    <table><tr class="bold"><td>TOTAL</td><td class="right">Rs ${o.total}</td></tr></table>
+    <div class="line"></div>
+    <p class="center">Thank you! Visit again</p>
+  </body></html>`);
+  w.document.close();
+  w.print();
+}
+
+// ========== BILLS ==========
+function showBills() {
+  const el = document.getElementById('billsList');
+  const bills = store.orders.filter(o => o.status === 'running' || o.status === 'hold');
+  if(!bills.length) { el.innerHTML = '<p style="color:#64748b">No running/hold bills</p>'; }
+  else {
+    el.innerHTML = bills.map(b => `
+      <div class="bills-card">
+        <div class="row"><span><b>#${b.number}</b> — ${b.type}</span><span class="status-badge status-${b.status}">${b.status}</span></div>
+        <div class="row"><span>${new Date(b.createdAt).toLocaleString()}</span><span><b>Rs ${b.total}</b></span></div>
+        <div style="margin-top:8px;display:flex;gap:6px">
+          <button onclick="payBill('${b.id}')" style="padding:4px 12px;background:#22c55e;color:#fff;border:none;border-radius:6px;cursor:pointer">Pay</button>
+          <button onclick="cancelBill('${b.id}')" style="padding:4px 12px;background:#ef4444;color:#fff;border:none;border-radius:6px;cursor:pointer">Cancel</button>
+        </div>
+      </div>
+    `).join('');
+  }
+  document.getElementById('billsModal').classList.add('show');
+}
+
+function payBill(id) {
+  const o = store.orders.find(x => x.id === id);
+  if(o) { o.status = 'paid'; o.paidAt = new Date().toISOString(); saveStore(store); showBills(); }
+}
+function cancelBill(id) {
+  const o = store.orders.find(x => x.id === id);
+  if(o) { o.status = 'cancelled'; saveStore(store); showBills(); }
+}
+
+// ========== REPORT ==========
+function showReport() {
+  const today = new Date().toISOString().slice(0,10);
+  const todayOrders = store.orders.filter(o => o.createdAt && o.createdAt.slice(0,10) === today);
+  const paid = todayOrders.filter(o => o.status === 'paid');
+  const totalSales = paid.reduce((s,o) => s + o.total, 0);
+  
+  document.getElementById('reportContent').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+      <div style="background:#0f172a;padding:14px;border-radius:8px;text-align:center">
+        <div style="font-size:24px;font-weight:800;color:#22c55e">Rs ${totalSales}</div>
+        <div style="font-size:12px;color:#94a3b8">Total Sales</div>
+      </div>
+      <div style="background:#0f172a;padding:14px;border-radius:8px;text-align:center">
+        <div style="font-size:24px;font-weight:800;color:#3b82f6">${paid.length}</div>
+        <div style="font-size:12px;color:#94a3b8">Orders</div>
+      </div>
+    </div>
+    ${paid.length ? `<table>
+      <tr style="color:#94a3b8"><th style="text-align:left">Order</th><th>Type</th><th style="text-align:right">Amount</th></tr>
+      ${paid.map(o => `<tr><td>#${o.number}</td><td>${o.type}</td><td style="text-align:right;color:#22d3ee">Rs ${o.total}</td></tr>`).join('')}
+    </table>` : '<p style="color:#64748b">No paid orders today</p>'}
+  `;
+  document.getElementById('reportModal').classList.add('show');
+}
+
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+// ========== BACKUP ==========
+function exportBackup() {
+  const json = JSON.stringify(store, null, 2);
+  const blob = new Blob([json], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `dt-pos-backup-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  alert('✅ Backup exported!');
+}
+
+function importBackup(e) {
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      store = JSON.parse(reader.result);
+      saveStore(store);
+      alert('✅ Data restored! Refreshing...');
+      location.reload();
+    } catch(err) { alert('❌ Invalid backup file'); }
+  };
+  reader.readAsText(file);
+}
+
+// ========== INIT ==========
+document.getElementById('dateInfo').textContent = new Date().toLocaleDateString('en-PK',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+renderCategories();
+renderItems();
+renderCart();
+
+// Close modals on overlay click
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if(e.target === m) m.classList.remove('show'); });
+});
+</script>
+</body>
+</html>

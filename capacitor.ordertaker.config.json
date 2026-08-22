@@ -1,0 +1,21 @@
+{
+  "appId": "com.digitaltarget.dtordertaker",
+  "appName": "DT Order Taker",
+  "webDir": "dist",
+  "android": {
+    "path": "android/OrderTaker"
+  },
+  "server": {
+    "androidScheme": "https",
+    "url": "https://digitaltarget.digital/#/order-taker",
+    "cleartext": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "backgroundColor": "#3C096C",
+      "androidSplashResourceName": "splash",
+      "launchShowDuration": 800
+    },
+    "Geolocation": {}
+  }
+}

@@ -1,0 +1,8 @@
+# SPA fallback — every unknown path serves index.html so client-side routing
+# works on a hard refresh or a shared deep link. Firebase Hosting did this with
+# the "rewrites" block in firebase.json; Cloudflare needs it here.
+#
+# /assets/* is deliberately excluded above by being a real file: a missing
+# chunk must return 404, not index.html. Serving HTML in place of JavaScript
+# turns a clear "file not found" into a baffling syntax error.
+/*    /index.html   200

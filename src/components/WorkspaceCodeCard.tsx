@@ -1,0 +1,116 @@
+// Shows the restaurant's Workspace Code so the admin can hand it to staff.
+// The code only helps the shared DT Rider / DT Order Taker apps tell two
+// restaurants apart when a username is reused — it is NOT a credential.
+import { useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { getTenantId } from '@/lib/tenant';
+import { Button } from '@/components/ui/button';
+import { Copy, KeyRound, Users, BookOpen, CheckCircle2, ArrowRight } from 'lucide-react';
+import { toast } from 'sonner';
+import { Link } from '@/lib/hash-router';
+
+export default function WorkspaceCodeCard() {
+  const [code, setCode] = useState<string | null>(null);
+
+  useEffect(() => {
+    const tid = getTenantId();
+    if (!tid) return;
+    let cancelled = false;
+    (async () => {
+      // Direct read works for cloud-signed-in owners.
+      const { data } = await supabase
+        .from('tenants')
+        .select('workspace_code')
+        .eq('id', tid)
+        .maybeSingle();
+      let wc = (data as { workspace_code?: string } | null)?.workspace_code ?? null;
+      if (!wc) {
+        // Fallback for local/staff sessions with no cloud session yet.
+        const { data: rpc } = await supabase.rpc('get_workspace_code', { _tenant_id: tid });
+        wc = (rpc as string | null) ?? null;
+      }
+      if (!cancelled) setCode(wc);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  if (!code) return null;
+
+
+  const steps = [
+    { text: 'Open DT Rider / DT Order Taker app on staff phone.', },
+    { text: 'Enter username and password (or phone + PIN).', },
+    { text: 'If the app asks for Workspace Code, type this code exactly.', },
+  ];
+
+  return (
+    <div className="mb-4 rounded-xl border-2 border-gold bg-gradient-to-br from-card to-[hsl(var(--gold-soft))] shadow-gold p-4">
+      <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+        {/* Icon + title block */}
+        <div className="flex items-center gap-3">
+          <div className="h-12 w-12 rounded-xl bg-gradient-gold text-primary flex items-center justify-center shadow-gold shrink-0">
+            <KeyRound className="h-6 w-6" />
+          </div>
+          <div>
+            <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Workspace Code</div>
+            <div className="font-mono text-2xl font-extrabold tracking-[0.25em] text-primary">{code}</div>
+          </div>
+        </div>
+
+        {/* Steps */}
+        <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-2">
+          {steps.map((s, i) => (
+            <div key={i} className="flex items-start gap-2 bg-background/70 rounded-lg px-3 py-2 border border-primary/10">
+              <div className="h-5 w-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-[10px] font-extrabold shrink-0 mt-0.5">
+                {i + 1}
+              </div>
+              <p className="text-[11px] leading-tight text-foreground/90">{s.text}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Actions */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-primary/40 text-primary hover:bg-primary/10 font-bold"
+            onClick={() => {
+              void navigator.clipboard?.writeText(code);
+              toast.success('Workspace Code copied');
+            }}
+          >
+            <Copy className="h-3.5 w-3.5 mr-1" /> Copy
+          </Button>
+          <Link to="/users">
+            <Button
+              size="sm"
+              className="bg-gradient-gold text-primary shadow-gold font-bold w-full sm:w-auto"
+            >
+              <Users className="h-3.5 w-3.5 mr-1" /> Manage Staff
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      {/* Footer links / notes */}
+      <div className="mt-3 pt-3 border-t border-gold/40 flex flex-wrap items-center gap-3 text-[11px]">
+        <div className="flex items-center gap-1.5 text-muted-foreground">
+          <CheckCircle2 className="h-3.5 w-3.5 text-status-success" />
+          <span>Code is required only when the same username exists at multiple restaurants.</span>
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          <a
+            href="/docs/DT-MULTISAAS-APPS.md"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 font-semibold text-primary hover:text-gold hover:underline"
+          >
+            <BookOpen className="h-3.5 w-3.5" /> APK Setup Guide
+          </a>
+          <ArrowRight className="h-3 w-3 text-muted-foreground" />
+        </div>
+      </div>
+    </div>
+  );
+}

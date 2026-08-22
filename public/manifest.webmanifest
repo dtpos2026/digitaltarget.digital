@@ -1,0 +1,25 @@
+{
+  "name": "DT POS \u2014 Rider App",
+  "short_name": "DT Rider",
+  "description": "Digital Target POS \u2014 Rider portal for live deliveries",
+  "start_url": "./#/rider-portal",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#3C096C",
+  "theme_color": "#3c096c",
+  "icons": [
+    {
+      "src": "/pwa-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/pwa-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

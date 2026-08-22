@@ -1,0 +1,5 @@
+@import "tailwindcss" source(none);
+@import "./index.css";
+
+@source "../src";
+@config "../tailwind.config.ts";
