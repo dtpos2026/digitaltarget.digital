@@ -206,6 +206,10 @@ export default function TrackOrderPage() {
 function OrderStatus({ order, settings, onBack, tick }: { order: Order; settings: any; onBack: () => void; tick: number }) {
   const status = order.deliveryStatus || 'pending';
   const kStatus = order.kitchenStatus || 'pending';
+  // A tracked order comes from an RPC, so it never passed through the row
+  // mapper that defaults these arrays. Rendering `order.items.length` on the
+  // raw payload is what produced "Cannot read properties of undefined".
+  const items = Array.isArray(order.items) ? order.items : [];
   const isDineIn = !!(order as any).tableLabel || (order as any).orderType === 'dine-in' || (order as any).type === 'dine-in';
 
   // Build timeline steps — dine-in skips delivery and ends at "Served"
@@ -321,9 +325,14 @@ function OrderStatus({ order, settings, onBack, tick }: { order: Order; settings
 
       {/* Items summary */}
       <div className="bg-card border rounded-2xl shadow-card p-4">
-        <h3 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground mb-2">Items ({order.items.length})</h3>
+        {/* The tracked order arrives from an RPC, not a table read, so it is
+            normalised by normalizeTrackedOrder(). Reading it through a local
+            const as well keeps this render safe even if that ever changes —
+            `order.items.length` on an undefined array is the exact crash this
+            page shipped with. */}
+        <h3 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground mb-2">Items ({items.length})</h3>
         <div className="space-y-1.5">
-          {order.items.map(i => (
+          {items.map(i => (
             <div key={i.id} className="flex justify-between text-xs">
               <span>{i.name} <span className="text-muted-foreground">× {i.quantity}</span></span>
               <span className="font-semibold">{money(i.lineTotal)}</span>

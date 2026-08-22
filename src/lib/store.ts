@@ -188,9 +188,27 @@ function refreshCloudStoreInBackground() {
       // local rows: a stale duplicate is recoverable, a deleted order is not.
       const pendingIds = await pendingOpKeys();
       const loaded = loadedCollections(remote);
+      // No marker at all (the Firestore path, or an older snapshot) means we
+      // cannot tell — and "cannot tell" must never overwrite saved settings.
+      const settingsLoaded = !!loaded && loaded.has(SETTINGS_LOADED_KEY);
 
       if (local) {
-        for (const name of CRITICAL_COLLECTIONS) {
+        // ===== v1.26.2 — the other 21 collections were being silently emptied =====
+        //
+        // This loop ran over CRITICAL_COLLECTIONS only, but `remote` starts
+        // from emptyRuntimeData(), which pre-fills EVERY collection with [].
+        // So orders, transactions, ledger, day closes, attendance, refunds and
+        // the rest were never merged and never even looked at — they were
+        // simply replaced with [] and then written to localStorage.
+        //
+        // Online that self-corrects, because loadHeavyCollectionsInBackground()
+        // refills them a moment later. OFFLINE it does not: that call fails
+        // too, so a refresh with no connection wiped every bill on the device.
+        // Reproduced in a browser before fixing.
+        //
+        // Iterating all of them is the fix: a collection this refresh did not
+        // ask for is "not loaded", and not-loaded always means keep local.
+        for (const name of ARRAY_COLLECTIONS) {
           // ===== v1.26.0 — a collection that did not load is not an empty one =====
           // Merging against a collection whose read failed compares every
           // local row against nothing at all. Leave it exactly as it was.
@@ -218,15 +236,31 @@ function refreshCloudStoreInBackground() {
       if (local?.settings && settingsRevision !== settingsRevisionAtStart) {
         remote.settings = local.settings;
       } else if (local?.settings) {
-        // ===== v1.26.0 — branding edited offline used to be thrown away =====
-        // Settings were the only collection with no version at all, so the
-        // cloud copy overwrote the local one unconditionally. A restaurant
-        // name or logo changed while offline reverted the instant the
-        // connection returned, and nothing reported it. Both sides now carry
-        // `_updatedAt`, so the newer one wins here as it does everywhere else.
-        const localAt = Number((local.settings as any)?._updatedAt || 0);
-        const remoteAt = Number((remote.settings as any)?._updatedAt || 0);
-        if (localAt > remoteAt) remote.settings = local.settings;
+        // ===== v1.26.2 — "my restaurant name and logo vanish on refresh" =====
+        //
+        // cloudLoadAll() starts from emptyRuntimeData(), whose `settings` is
+        // the DEFAULTS. sbLoadSettings() returns null both when the tenant has
+        // no settings row AND when the read simply failed — offline, a timeout,
+        // a slow cold start. Those are not the same thing, but this code could
+        // not tell them apart, so a failed read installed default settings over
+        // a perfectly good saved copy and persisted them to localStorage.
+        //
+        // That is the reported bug exactly: the branding is correct, you
+        // refresh, and it is gone — while the real values sit safe in the
+        // database the whole time.
+        //
+        // A settings read that did not produce a row is now "unknown", and
+        // unknown keeps what the device already has.
+        if (!settingsLoaded) {
+          remote.settings = local.settings;
+        } else {
+          // ===== v1.26.0 — branding edited offline used to be thrown away =====
+          // Both sides carry `_updatedAt`, so the newer one wins here as it
+          // does everywhere else.
+          const localAt = Number((local.settings as any)?._updatedAt || 0);
+          const remoteAt = Number((remote.settings as any)?._updatedAt || 0);
+          if (localAt > remoteAt) remote.settings = local.settings;
+        }
       }
       stampTenant(remote);
       cachedData = remote;
@@ -1252,6 +1286,8 @@ async function migrateLegacyDocIfPresent() {
  * Carried on the snapshot itself so it cannot drift from the data it describes.
  */
 const LOADED_KEY = '_loadedCollections';
+/** Marks that the settings document itself was genuinely read. */
+const SETTINGS_LOADED_KEY = '::settingsLoaded';
 
 function markLoadedCollections(data: any, names: readonly string[]): void {
   Object.defineProperty(data, LOADED_KEY, {
@@ -1311,7 +1347,9 @@ async function cloudLoadAll(names: readonly ArrayKey[] = ARRAY_COLLECTIONS): Pro
     //
     // Recording what actually loaded is the whole fix: a collection not in
     // this set means UNKNOWN, and unknown must never overwrite anything.
-    markLoadedCollections(out, Object.keys(cols));
+    // 'settings' rides the same "did this actually load?" set. It is not an
+    // ArrayKey, so it can never collide with a collection name.
+    markLoadedCollections(out, [...Object.keys(cols), ...(settings ? [SETTINGS_LOADED_KEY] : [])]);
 
     // ===== v1.19.9 — THE CRASH THAT BROKE THE WHOLE POS =====
     // The Firebase path calls ensureFields() before returning; this one did
@@ -1434,7 +1472,10 @@ async function cloudLoadAll(names: readonly ArrayKey[] = ARRAY_COLLECTIONS): Pro
   }
 
   ensureFields(out);
-  markLoadedCollections(out, names as readonly string[]);
+  markLoadedCollections(out, [
+    ...(names as readonly string[]),
+    ...(sSnap && sSnap.exists() ? [SETTINGS_LOADED_KEY] : []),
+  ]);
   if (loadedOrdersFromCloud) backfillPublicOrderLookups(out.orders || []);
   return out as AppData;
 }
@@ -1939,9 +1980,13 @@ export async function getOrderFromCloudById(orderId: string): Promise<Order | nu
       const tenantId = getTenantId();
       if (!tenantId) return null;
       const { trackPublicOrder } = await import('./publicPortal.functions');
-      return await trackPublicOrder({ data: {
+      const { normalizeTrackedOrder } = await import('./trackedOrder');
+      // NEVER cast the RPC result straight to Order: it is an RPC, so it does
+      // not pass through rowFromDb, and a missing `items` array took the whole
+      // tracker down with "Cannot read properties of undefined".
+      return normalizeTrackedOrder(await trackPublicOrder({ data: {
         tenantId, orderId, orderNumber: null, phoneLast4: null, tableLabel: null,
-      } }) as Order | null;
+      } }));
     } catch (e) {
       console.error('[store] public order id lookup failed', e);
       return getOrders().find(o => o.id === orderId) || null;
@@ -1971,10 +2016,11 @@ export async function getOrderFromCloudByLookup(orderNo: string | number, phoneL
       const orderNumber = Number(orderNo);
       if (!tenantId || !Number.isInteger(orderNumber) || orderNumber <= 0) return null;
       const { trackPublicOrder } = await import('./publicPortal.functions');
-      return await trackPublicOrder({ data: {
+      const { normalizeTrackedOrder } = await import('./trackedOrder');
+      return normalizeTrackedOrder(await trackPublicOrder({ data: {
         tenantId, orderId: null, orderNumber,
         phoneLast4: phoneLast4 || null, tableLabel: tableLabel || null,
-      } }) as Order | null;
+      } }));
     } catch (e) {
       console.error('[store] public order number lookup failed', e);
       return null;
