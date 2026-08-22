@@ -82,15 +82,23 @@ export async function uploadTenantImage(file: File, prefix: string): Promise<str
       if (sErr) throw sErr;
       return data.signedUrl;
     }
-    // This workspace requires private buckets. A signed URL keeps the image
-    // readable after refresh without exposing every restaurant's files.
-    const { data, error: signedError } = await sb().storage.from(bucket)
-      .createSignedUrl(path, 60 * 60 * 24 * 365);
-    if (signedError || !data?.signedUrl) {
-      if (bucket === 'branding') throw new Error(`Cloud logo link failed: ${signedError?.message || 'No URL returned'}`);
+    // ===== v1.26.0 — menu photos and logos must not expire =====
+    //
+    // This used to mint a SIGNED url with a one-year expiry and store it on
+    // the menu row / in the settings document. The `branding` and
+    // `menu-images` buckets are both PUBLIC, so the signature bought nothing —
+    // and a URL that expires is the wrong shape for a value that is persisted
+    // and replicated to every device. A year after upload every menu image and
+    // every restaurant logo would break at once, on all tills simultaneously,
+    // and re-uploading each item would be the only repair.
+    //
+    // A public bucket has a permanent public URL. Use it.
+    const pub = sb().storage.from(bucket).getPublicUrl(path);
+    if (!pub?.data?.publicUrl) {
+      if (bucket === 'branding') throw new Error('Cloud logo link failed: no URL returned');
       return blobToDataUrl(await compressImage(file, 600, 0.72).catch(() => file));
     }
-    return data.signedUrl;
+    return pub.data.publicUrl;
   }
 
   // Local-mode (Firebase disabled): compress + store as a data URL.

@@ -1,1 +1,4 @@
-project_id = "grtrixkbcponjmomgmat"
+# The live project. This pointed at "grtrixkbcponjmomgmat", which does not
+# exist on this account — so every Supabase CLI command run from the repo
+# (db pull, db push, migration status) targeted nothing.
+project_id = "drpzxzpvkpqfxcjbwypo"

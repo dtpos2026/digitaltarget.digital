@@ -898,13 +898,13 @@ export async function sbUploadImage(
   if (error) throw error;
 
   if (kind === 'menu' || kind === 'branding') {
-    // Every bucket is private, so a public URL would 400 on the customer
-    // menu. Sign for a year: the URL is stored on the record and must keep
-    // working long after the upload session ends.
-    const { data, error: pErr } = await sb().storage
-      .from(bucket).createSignedUrl(path, 60 * 60 * 24 * 365);
-    if (pErr) throw pErr;
-    return data.signedUrl;
+    // These two buckets are public, and the URL is persisted on the record and
+    // replicated to every device — so it must never expire. A signed URL with
+    // a one-year lifetime would break every menu photo and logo at once, a
+    // year after upload. See storage.ts for the same reasoning.
+    const pub = sb().storage.from(bucket).getPublicUrl(path);
+    if (!pub?.data?.publicUrl) throw new Error(`could not build a public URL for ${bucket}`);
+    return pub.data.publicUrl;
   }
   // Employee CNIC photos and support attachments must never be publicly
   // addressable — signed, one hour.

@@ -391,8 +391,14 @@ export async function flushDeferredOps(): Promise<{
         }
       }
     }
-    schedulePersist();
-    if (persistInFlight) await persistInFlight;
+    // ===== v1.26.0 — this awaited a write it had not started =====
+    // schedulePersist() only ARMS a 150ms timer, so persistInFlight was still
+    // null here and the await was a no-op. flushDeferredOps() therefore
+    // returned with the durable queue still listing ops that had already been
+    // uploaded — and a reload inside that window replayed them. Force the
+    // pending write out and wait for it, so a completed flush is a fact on
+    // disk before the caller is told it finished.
+    await waitForQueuePersist();
   } finally {
     _flushing = false;
     emit();
