@@ -53,6 +53,16 @@ const isMirroredValue = (k: string): k is MirroredValueKey =>
 
 const RETRY_KEY = 'dt-cloud-docs-retry';
 const SNAP_KEY = (k: string) => `dt-cloud-docs-snap:${k}`;
+/**
+ * When each record was last changed ON THIS DEVICE.
+ *
+ * hydrateCloudDocs() used to let the cloud copy win unconditionally, so an
+ * edit made offline was overwritten by the older server copy at the next boot
+ * — the same class of silent loss that settings had. These modules keep no
+ * `_updatedAt` of their own, so the local change time is recorded here and
+ * compared against the row's server `updated_at`.
+ */
+const LOCALAT_KEY = (k: string) => `dt-cloud-docs-localat:${k}`;
 
 interface PendingRow { kind: string; doc_id: string; data: any; deleted: boolean; at: number }
 
@@ -99,7 +109,8 @@ async function pushRows(rows: PendingRow[]): Promise<boolean> {
       .upsert(payload, { onConflict: 'tenant_id,kind,doc_id' });
     if (error) throw error;
     return true;
-  } catch {
+  } catch (e) {
+    console.warn('[cloudDocs] push failed — kept for retry', e);
     queue(rows);
     return false;
   }
@@ -129,7 +140,13 @@ export function mirrorList(key: string, items: any[]): void {
   }
 
   writeJson(SNAP_KEY(key), next);
-  if (changed.length) void pushRows(changed);
+  if (!changed.length) return;
+  // Remember WHEN this device changed each record, so a later hydrate can tell
+  // whether the server's copy is actually newer than ours.
+  const localAt = readJson<Record<string, number>>(LOCALAT_KEY(key), {});
+  for (const r of changed) localAt[r.doc_id] = now;
+  writeJson(LOCALAT_KEY(key), localAt);
+  void pushRows(changed);
 }
 
 /**
@@ -150,13 +167,26 @@ export function mirrorValue(key: string, value: unknown): void {
 }
 
 
-/** Retry anything that could not reach the cloud earlier. */
+/**
+ * Retry anything that could not reach the cloud earlier.
+ *
+ * ===== v1.26.0 — this used to empty the buffer BEFORE sending =====
+ * The old order was: read the buffer, write [] over it, then push. Closing the
+ * tab (or losing the connection at the wrong moment) between the write and the
+ * push destroyed the batch — pushRows() can only re-queue rows if it is still
+ * running. Nothing is removed now until the server has accepted it, and rows
+ * queued while the push was in flight are preserved by matching on identity
+ * rather than by overwriting the whole buffer.
+ */
 export async function flushCloudDocs(): Promise<void> {
   const all = readJson<PendingRow[]>(RETRY_KEY, []);
   if (!all.length || !ready()) return;
-  writeJson(RETRY_KEY, []);
   const ok = await pushRows(all);
-  if (!ok) return; // pushRows re-queued them
+  if (!ok) return;   // still unsent — the buffer is untouched, so nothing is lost
+  const sent = new Set(all.map(r => `${r.kind}\u0000${r.doc_id}\u0000${r.at}`));
+  const remaining = readJson<PendingRow[]>(RETRY_KEY, [])
+    .filter(r => !sent.has(`${r.kind}\u0000${r.doc_id}\u0000${r.at}`));
+  writeJson(RETRY_KEY, remaining);
 }
 
 /**
@@ -181,21 +211,59 @@ export async function hydrateCloudDocs(): Promise<void> {
     }
 
     for (const key of MIRRORED_KEYS) {
-      const rows = byKind.get(key);
-      if (!rows || !rows.length) continue;
+      const rows = byKind.get(key) ?? [];
       const local = readJson<any[]>(key, []);
+      if (!rows.length && !local.length) continue;
+      const localAt = readJson<Record<string, number>>(LOCALAT_KEY(key), {});
+
       const merged = new Map<string, any>();
       for (const it of local) if (it?.id) merged.set(String(it.id), it);
+
+      // Records the cloud confirmed and we adopted — only these may have their
+      // signature banked below.
+      const fromCloud = new Set<string>();
+
       for (const row of rows) {
-        if (row.deleted_at) merged.delete(String(row.doc_id));
-        else merged.set(String(row.doc_id), { id: row.doc_id, ...(row.data || {}) });
+        const id = String(row.doc_id);
+        const cloudAt = row.updated_at ? new Date(row.updated_at).getTime() : 0;
+        // ===== v1.26.0 — the cloud used to win unconditionally =====
+        // An edit made on this device while offline was replaced by the older
+        // server copy at the next boot, and nothing said so. Deletions get the
+        // same rule: a tombstone is an edit, and the newer edit wins.
+        if (Number(localAt[id] || 0) > cloudAt && merged.has(id)) continue;
+        if (row.deleted_at) merged.delete(id);
+        else merged.set(id, { id: row.doc_id, ...(row.data || {}) });
+        fromCloud.add(id);
       }
+
       const list = Array.from(merged.values());
       writeJson(key, list);
-      // Refresh the signature snapshot so hydration does not re-push everything.
-      const snap: Record<string, string> = {};
-      for (const it of list) snap[String(it.id)] = JSON.stringify(it);
+
+      // ===== v1.26.0 — hydration used to silence records it had never sent =====
+      // The snapshot was rebuilt from the MERGED list, so a local record the
+      // cloud had never seen — one whose push failed — got its signature
+      // banked as though it had synced. mirrorList() then saw it as unchanged
+      // and never offered it again: permanently stranded on one device, and
+      // permanently invisible.
+      //
+      // Only a record the SERVER confirmed may be marked as in sync. Everything
+      // else is pushed right now, which is what should have happened before.
+      const snap = readJson<Record<string, string>>(SNAP_KEY(key), {});
+      const now = Date.now();
+      const toPush: PendingRow[] = [];
+      for (const it of list) {
+        const id = String(it.id);
+        if (fromCloud.has(id)) { snap[id] = JSON.stringify(it); continue; }
+        delete snap[id];
+        toPush.push({ kind: key, doc_id: id, data: it, deleted: false, at: localAt[id] || now });
+      }
+      for (const id of Object.keys(snap)) if (!merged.has(id)) delete snap[id];
       writeJson(SNAP_KEY(key), snap);
+      if (toPush.length) {
+        console.warn(`[cloudDocs] ${key}: ${toPush.length} record(s) exist only on this device — uploading`);
+        void pushRows(toPush);
+      }
+
       try { window.dispatchEvent(new CustomEvent('dt-wages-changed')); } catch { /* no-op */ }
       try { window.dispatchEvent(new CustomEvent('dt-blocklist-changed')); } catch { /* no-op */ }
     }

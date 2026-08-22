@@ -115,11 +115,29 @@ const CRITICAL_COLS = new Set([
   'inventory', 'stockLogs', 'shifts', 'dayCloses',
 ]);
 
+/**
+ * ===== v1.26.0 — the queue used to erase itself to save itself =====
+ *
+ * This was `clear()` followed by one `putRow()` per op. Two problems, and the
+ * first is the one that matters:
+ *
+ *  1. Between the clear and the last put, the durable copy of the queue is
+ *     EMPTY or partial. A refresh, a crash or a power cut in that window — on
+ *     a till, during a rush, which is exactly when the queue is longest —
+ *     took every pending order with it. The queue exists to survive precisely
+ *     that event.
+ *
+ *  2. localDb.putRow() is a read-modify-write of the WHOLE collection array,
+ *     so persisting n ops cost n array reads and n array writes: O(n²) work on
+ *     the hot path, growing with the length of the outage.
+ *
+ * The whole queue is one array, so write it as one array. `writeAll` replaces
+ * the durable copy in a single storage operation — there is no interval in
+ * which the stored queue is shorter than the real one.
+ */
 async function persistNow(): Promise<void> {
   try {
-    const rows = Array.from(mem.values()).map(op => ({ ...op, id: op.id }));
-    await localDb.clear('deferredOps');
-    for (const r of rows) await localDb.putRow('deferredOps', r);
+    await localDb.writeAll('deferredOps', Array.from(mem.values()));
   } catch (e) {
     console.warn('[deferredSync] durable persist failed (will retry)', e);
   }
@@ -417,6 +435,14 @@ export function stopDeferredSyncTriggers(): void {
     _onlineHandler = null;
   }
   _installed = false;
+  // ===== v1.26.0 — do not drop unpersisted work on the way out =====
+  // This is called on tenant switch and on logout. Non-critical ops sit in a
+  // 150ms debounce window before reaching disk, so an operator who edited the
+  // menu and immediately logged out lost those ops: `mem` was replaced before
+  // the pending write ran. Force the write out first. It is fire-and-forget —
+  // the caller must not block — but it is issued against the OLD queue, which
+  // is captured by persistNow() synchronously enough to be correct here.
+  if (mem.size) void waitForQueuePersist();
   // Reset memory — new tenant will rehydrate from its own IndexedDB rows.
   mem = new Map();
   memReady = false;

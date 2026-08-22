@@ -121,6 +121,18 @@ export const localDb = {
     const rows = await readCol(col);
     await writeCol(col, rows.filter((r) => r.id !== id));
   },
+  /**
+   * Replace a whole collection in ONE storage operation.
+   *
+   * putRow() is a read-modify-write of the entire array, so writing n rows
+   * costs O(n²) and — worse — a caller that cleared first left the durable
+   * copy empty for the whole loop. Anything that persists a complete list
+   * (the sync queue does, on every flush) must use this instead: there is no
+   * window in which the stored collection is shorter than the real one.
+   */
+  async writeAll<T extends Row = Row>(col: Collection, rows: T[]): Promise<void> {
+    await writeCol(col, rows);
+  },
   async clear(col: Collection): Promise<void> {
     await writeCol(col, []);
   },

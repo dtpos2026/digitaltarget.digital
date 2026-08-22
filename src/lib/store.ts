@@ -536,6 +536,16 @@ registerDeferredFlusher(async (col, id, op) => {
   // The normal cloud helpers intentionally recover by re-queuing a failed
   // online write. A queue flusher must instead let the error escape; otherwise
   // deferredSync believes the operation succeeded and deletes it permanently.
+  if (col === SETTINGS_COL) {
+    // Settings are a single document, not a row in a collection, so they need
+    // their own read-back. Everything else about the op — backoff, ordering,
+    // dead-lettering, the audit panel — is identical.
+    if (useSupabaseBackend()) {
+      const { sbSaveSettings } = await import('./supabaseStore');
+      await sbSaveSettings(loadData().settings as any);
+    }
+    return;
+  }
   if (useSupabaseBackend()) {
     const { sbDeleteItem, sbSaveItem } = await import('./supabaseStore');
     if (op === 'delete') { await sbDeleteItem(col, id); return; }
@@ -715,6 +725,13 @@ async function cloudSaveSettings(s: RestaurantSettings): Promise<void> {
       const { sbSaveSettings } = await import('./supabaseStore');
       await sbSaveSettings(s as any);
     } catch (e) {
+      // ===== v1.26.0 — settings were the one thing with no retry at all =====
+      // Every other module preserves a failed write in the durable queue.
+      // Settings just reported the error and gave up, and saveSettings()
+      // swallowed it — so a restaurant name, logo or tax change made while
+      // the connection was down was gone for good, with the UI showing it
+      // saved. Queue it like everything else.
+      enqueueDeferredOp(SETTINGS_COL, SETTINGS_ID, 'set');
       reportCloudError('save settings', e);
       throw e;
     }
@@ -2745,18 +2762,41 @@ export function getSettings(): RestaurantSettings {
 }
 let settingsSyncTimer: any = null;
 let settingsRevision = 0;
+
+/**
+ * Settings ride the same durable queue as every collection, under a reserved
+ * pseudo-collection. One document, so one fixed id — repeated edits coalesce
+ * onto it exactly as repeated edits of one menu item do.
+ */
+const SETTINGS_COL = 'settings';
+const SETTINGS_ID = '__settings__';
+
+/**
+ * Stamp the local settings copy so the merge can compare it against the
+ * server's `updated_at`. Without this, settings were the only collection with
+ * no version at all and the cloud copy simply overwrote the local one — which
+ * is how a branding change made offline reverted the moment the connection
+ * came back.
+ */
+function stampSettings(s: RestaurantSettings): RestaurantSettings {
+  return { ...(s as any), _updatedAt: Date.now() } as RestaurantSettings;
+}
+
 export function saveSettings(s: RestaurantSettings) {
   const d = loadData();
-  d.settings = s;
+  const stamped = stampSettings(s);
+  d.settings = stamped;
   settingsRevision += 1;
   saveLocal(d);
   emitDataChange('settings');
-  // Debounce Firestore writes — typing in Settings shouldn't hit cloud per keystroke
+  // Debounce cloud writes — typing in Settings shouldn't hit the network per keystroke
   if (useCloudStore()) {
     if (settingsSyncTimer) clearTimeout(settingsSyncTimer);
     settingsSyncTimer = setTimeout(() => {
       settingsSyncTimer = null;
-      void cloudSaveSettings(s).catch(() => { /* already reported centrally */ });
+      // Offline or manual-sync mode: straight to the queue, same as billing.
+      if (shouldDeferCloudWrite()) { enqueueDeferredOp(SETTINGS_COL, SETTINGS_ID, 'set'); return; }
+      void cloudSaveSettings(stamped).catch(() => { /* queued + reported by cloudSaveSettings */ });
     }, 600);
   }
 }
@@ -2768,7 +2808,8 @@ export function saveSettings(s: RestaurantSettings) {
  */
 export async function saveSettingsNow(s: RestaurantSettings): Promise<void> {
   const d = loadData();
-  d.settings = s;
+  const stamped = stampSettings(s);
+  d.settings = stamped;
   settingsRevision += 1;
   saveLocal(d);
   emitDataChange('settings');
@@ -2778,7 +2819,14 @@ export async function saveSettingsNow(s: RestaurantSettings): Promise<void> {
     settingsSyncTimer = null;
   }
   if (!useCloudStore()) throw new Error('Restaurant cloud session is not ready');
-  await cloudSaveSettings(s);
+  // The caller reports success or failure to the operator, so this still
+  // throws — but the write is on the queue first, so a reported failure means
+  // "not uploaded YET", never "discarded".
+  if (shouldDeferCloudWrite()) {
+    enqueueDeferredOp(SETTINGS_COL, SETTINGS_ID, 'set');
+    throw new Error('Saved on this device — it will upload as soon as you are back online');
+  }
+  await cloudSaveSettings(stamped);
 }
 
 
