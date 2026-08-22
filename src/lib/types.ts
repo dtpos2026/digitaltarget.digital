@@ -479,6 +479,17 @@ export interface DiningTable {
   seats: number;
   status: TableStatus;
   currentOrderId?: string;
+  /**
+   * Which branch this table physically stands in.
+   *
+   * ===== v1.26.4 — the column existed; the model did not =====
+   * dining_tables.branch_id has always been a real column, is in
+   * ALLOWED_COLUMNS, and is written on every sync — but it was absent from
+   * this interface, so nothing in the app could read it. Tables were therefore
+   * treated as restaurant-wide: a QR order could not tell which branch its
+   * table belonged to, and two branches with a "Table 5" were indistinguishable.
+   */
+  branchId?: string;
   floorId?: string;     // optional — which floor this table belongs to
   x?: number;           // layout coords for floor map (px within container)
   y?: number;
@@ -492,6 +503,8 @@ export interface Floor {
   id: string;
   name: string;         // e.g. "Ground", "First Floor", "Outdoor", "Car Dining"
   sortOrder: number;
+  /** Branch this floor belongs to. floors.branch_id exists and is synced. */
+  branchId?: string;
 }
 
 

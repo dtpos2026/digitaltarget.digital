@@ -70,6 +70,32 @@ begin
     raise exception 'restaurant not available' using errcode = '42501';
   end if;
 
+  if jsonb_typeof(p_order->'items') <> 'array'
+     or jsonb_array_length(p_order->'items') = 0 then
+    raise exception 'order has no items' using errcode = '22023';
+  end if;
+
+  v_table := nullif(p_order->>'tableLabel', '');
+  v_type  := coalesce(nullif(p_order->>'orderType', ''), 'takeaway');
+
+  -- ===== v1.26.4 — the table decides the branch, not the caller =====
+  -- A dine-in QR carries only the table, and the client used to default a
+  -- multi-branch tenant to its FIRST branch — so Table 5 in Branch 2 filed its
+  -- order against Branch 1: wrong kitchen, wrong floor map, wrong branch sales.
+  -- The client now derives the branch from the table, but the client is an
+  -- anonymous customer's browser and cannot be trusted with it.
+  -- dining_tables.branch_id is the authority, and only tables belonging to THIS
+  -- restaurant are considered. The ownership check below still runs on whatever
+  -- this produces, so an unknown or foreign table cannot smuggle a branch in.
+  if nullif(p_order->>'tableId', '') is not null then
+    select dt.branch_id into v_branch
+      from dining_tables dt
+     where dt.tenant_id = p_tenant
+       and dt.id = (p_order->>'tableId')::uuid
+       and dt.deleted_at is null;
+    if v_branch is null then v_branch := p_branch; end if;
+  end if;
+
   if v_branch is null then
     select id into v_branch from branches
      where tenant_id = p_tenant order by sort_order limit 1;
@@ -81,14 +107,6 @@ begin
                      where id = v_branch and tenant_id = p_tenant) then
     raise exception 'branch not valid for this restaurant' using errcode = '22023';
   end if;
-
-  if jsonb_typeof(p_order->'items') <> 'array'
-     or jsonb_array_length(p_order->'items') = 0 then
-    raise exception 'order has no items' using errcode = '22023';
-  end if;
-
-  v_table := nullif(p_order->>'tableLabel', '');
-  v_type  := coalesce(nullif(p_order->>'orderType', ''), 'takeaway');
 
   -- Honour the source the customer portal actually sent. Anything unrecognised
   -- falls back to the same rule OnlineOrderPage uses, so the order still lands

@@ -103,7 +103,7 @@ export default function OnlineOrderPage() {
   const [cartOpen, setCartOpen] = useState(false);
 
   // QR Dine-in mode (when scanned from a table QR — declared early so other effects can use it)
-  const [dineIn] = useState<{ table: string; floor?: string } | null>(() => {
+  const [dineIn] = useState<{ table: string; floor?: string; branch?: string } | null>(() => {
     try {
       const h = typeof window !== 'undefined' ? window.location.hash : '';
       const qIdx = h.indexOf('?');
@@ -111,7 +111,9 @@ export default function OnlineOrderPage() {
       const qs = new URLSearchParams(h.slice(qIdx + 1));
       const table = qs.get('table');
       if (!table) return null;
-      return { table, floor: qs.get('floor') || undefined };
+      // `branch` is optional and backwards compatible: older QR codes do not
+      // carry it, and the table's own branch is used instead.
+      return { table, floor: qs.get('floor') || undefined, branch: qs.get('branch') || undefined };
     } catch { return null; }
   });
 
@@ -414,14 +416,39 @@ export default function OnlineOrderPage() {
         }
       } catch {}
 
-      // Match dine-in QR table to a real DiningTable (by id or name, case-insensitive)
+      // ===== v1.26.4 — a QR order used to be filed against the wrong branch =====
+      //
+      // A dine-in QR carries only ?table=…&floor=…, and the branch effect above
+      // defaulted a multi-branch tenant to branches[0] "for dine-in QR (no
+      // prompt)". So a customer scanning Table 5 in Branch 2 had their order
+      // filed against Branch 1 — wrong kitchen, wrong floor map, wrong branch
+      // sales. The table name lookup was unscoped too, so "Table 5" could match
+      // a different branch's Table 5 outright.
+      //
+      // dining_tables.branch_id is the authority: a table belongs to exactly one
+      // branch, and the customer is physically at that table. Resolve the table
+      // first, then take the branch from it.
       let matchedTable: ReturnType<typeof getTables>[number] | undefined;
       if (dineIn) {
         const all = getTables();
         const key = dineIn.table.trim().toLowerCase();
-        matchedTable = all.find(t => t.id === dineIn.table)
-          || all.find(t => (t.name || '').trim().toLowerCase() === key);
+        const inBranch = (t: { branchId?: string }) =>
+          !dineIn.branch || t.branchId === dineIn.branch;
+        const byName = (t: { name?: string }) => (t.name || '').trim().toLowerCase() === key;
+        matchedTable =
+          // An id is unambiguous across every branch.
+          all.find(t => t.id === dineIn.table)
+          // Otherwise prefer a name match inside the branch the QR names.
+          || all.find(t => byName(t) && inBranch(t))
+          || all.find(byName);
+        if (!matchedTable) {
+          console.warn('[order] QR table not found in this restaurant', dineIn.table);
+        }
       }
+      // The table decides the branch; the picker only decides it when there is
+      // no table to ask.
+      const effectiveBranchId =
+        (dineIn ? (matchedTable?.branchId || dineIn.branch) : null) || branchId || null;
 
       // FIX: order.id is written to the Postgres `orders.id uuid` column on
       // sync — a local-only `ord-...` string is not a valid uuid and made
@@ -476,13 +503,13 @@ export default function OnlineOrderPage() {
           customerCity: city.trim() || undefined,
           distanceFromRestaurantKm,
         } : undefined,
-        branchId: branchId || undefined,
+        branchId: effectiveBranchId || undefined,
       };
       const tenantId = getTenantId();
       if (!tenantId) throw new Error('Restaurant link is missing');
       const submitted = await submitPublicOrder({ data: {
         tenantId,
-        branchId: branchId || null,
+        branchId: effectiveBranchId,
         order: order as unknown as Record<string, unknown>,
       } });
       order.id = submitted.id;

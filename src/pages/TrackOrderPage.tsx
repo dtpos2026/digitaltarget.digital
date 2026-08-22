@@ -210,7 +210,14 @@ function OrderStatus({ order, settings, onBack, tick }: { order: Order; settings
   // mapper that defaults these arrays. Rendering `order.items.length` on the
   // raw payload is what produced "Cannot read properties of undefined".
   const items = Array.isArray(order.items) ? order.items : [];
-  const isDineIn = !!(order as any).tableLabel || (order as any).orderType === 'dine-in' || (order as any).type === 'dine-in';
+  // OrderType is 'dining' | 'takeaway' | 'delivery' | 'foodpanda' — 'dine-in'
+  // is not a member, so both of those comparisons were dead and only the
+  // tableLabel fallback ever fired. A dine-in order without a table label was
+  // therefore shown the delivery timeline.
+  const isDineIn = !!(order as any).tableLabel
+    || (order as any).orderType === 'dining'
+    || (order as any).orderType === 'dine-in'
+    || (order as any).type === 'dine-in';
 
   // Build timeline steps — dine-in skips delivery and ends at "Served"
   const steps = isDineIn ? [

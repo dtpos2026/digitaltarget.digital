@@ -123,3 +123,80 @@ describe('the POS writer fills the same columns the website writer does', () => 
     expect(row.subtotal).toBe(0);
   });
 });
+
+// ============================================================================
+// v1.26.4 — a QR order used to be filed against the wrong branch
+//
+// A dine-in QR carries only ?table=…&floor=…. OnlineOrderPage's branch effect
+// says "Default to first branch for dine-in QR (no prompt)", so a customer
+// scanning Table 5 in Branch 2 had their order filed against Branch 1: wrong
+// kitchen, wrong floor map, wrong branch sales. The table-name lookup was
+// unscoped too, so "Table 5" could match another branch's Table 5 outright.
+//
+// dining_tables.branch_id is the authority — a table belongs to exactly one
+// branch and the customer is standing at it. Verified against the live
+// database in a rolled-back transaction: the caller claimed one branch, the
+// table belonged to another, and the order was filed against the table's.
+// ============================================================================
+describe('a table order stays with its own branch', () => {
+  const page = fs.readFileSync(
+    path.join(process.cwd(), 'src', 'pages', 'OnlineOrderPage.tsx'), 'utf8');
+
+  it('takes the branch from the matched table, not the picker', () => {
+    expect(page).toContain('const effectiveBranchId =');
+    expect(page).toContain('matchedTable?.branchId');
+  });
+
+  it('sends that branch to the backend rather than the default one', () => {
+    expect(page).toContain('branchId: effectiveBranchId,');
+    expect(page).toContain('branchId: effectiveBranchId || undefined,');
+  });
+
+  it('prefers a table in the branch the QR names when names collide', () => {
+    expect(page).toContain('byName(t) && inBranch(t)');
+  });
+
+  it('the QR may carry an explicit branch, and older QR codes still work', () => {
+    expect(page).toContain("branch: qs.get('branch') || undefined");
+  });
+
+  it('the backend re-derives the branch instead of trusting the browser', () => {
+    // The caller is an anonymous customer's browser.
+    expect(placeOrder).toContain('from dining_tables dt');
+    expect(placeOrder).toContain('dt.tenant_id = p_tenant');
+  });
+
+  it('an unknown or foreign table cannot smuggle a branch through', () => {
+    // Whatever the lookup produces still passes the ownership check.
+    const afterLookup = placeOrder.slice(placeOrder.indexOf('from dining_tables dt'));
+    expect(afterLookup).toContain('branch not valid for this restaurant');
+  });
+});
+
+describe('the model knows which branch a table is in', () => {
+  const types = fs.readFileSync(path.join(process.cwd(), 'src', 'lib', 'types.ts'), 'utf8');
+  const diningTable = types.slice(types.indexOf('export interface DiningTable'),
+                                  types.indexOf('export interface Floor'));
+
+  it('DiningTable carries branchId', () => {
+    // The column has always existed and is synced; the interface omitted it,
+    // so nothing in the app could read it and tables looked restaurant-wide.
+    expect(diningTable).toContain('branchId?: string;');
+  });
+
+  it('Floor carries branchId too', () => {
+    const floor = types.slice(types.indexOf('export interface Floor'));
+    expect(floor.slice(0, 400)).toContain('branchId?: string;');
+  });
+});
+
+describe('the tracker recognises a dine-in order', () => {
+  const tracker = fs.readFileSync(
+    path.join(process.cwd(), 'src', 'pages', 'TrackOrderPage.tsx'), 'utf8');
+
+  it("matches 'dining', which is what OrderType actually is", () => {
+    // It compared against 'dine-in', which is not a member of the union, so
+    // only the tableLabel fallback ever fired.
+    expect(tracker).toContain("(order as any).orderType === 'dining'");
+  });
+});
