@@ -324,6 +324,21 @@ export function rowToDb(col: string, data: Record<string, any>): Record<string, 
       order_number: Number.isFinite(Number(data.orderNumber)) ? Number(data.orderNumber) : null,
       status: data.status || 'running',
       total: Number(data.grandTotal) || 0,
+      // ===== v1.26.3 — the two writers used to fill different columns =====
+      // This path wrote `total` and left grand_total/subtotal/discount/tax at
+      // 0. public_place_order (the customer website) did the exact opposite.
+      // So every reader that picked one source — the order tracker, and any
+      // report querying the typed columns rather than the document — showed 0
+      // for half the orders in the table, depending only on where the order
+      // came from. The typed columns exist to be a queryable index OF the
+      // document, so they are now written from it.
+      subtotal: Number(data.subtotal) || 0,
+      discount: Number(data.discount) || 0,
+      tax: Number(data.tax) || 0,
+      grand_total: Number(data.grandTotal) || 0,
+      order_type: data.orderType || null,
+      source: data.source || 'pos',
+      table_label: data.tableName || data.tableLabel || null,
       data: { ...data, id: data.id },
       client_seq: Number(data._updatedAt || data.clientSeq || Date.now()),
       deleted_at: data.deletedAt ? new Date(data.deletedAt).toISOString() : null,
