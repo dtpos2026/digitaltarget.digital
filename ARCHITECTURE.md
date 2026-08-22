@@ -140,15 +140,69 @@ Yehi sab se khatarnaak qism thi — koi error nahi, bas data ghayab:
 
 ---
 
+## 6b. v1.26.0 — multi-device sync (jo ab theek hua)
+
+Upar wale masle **push** ke thay: data cloud tak pohanchta nahi tha. v1.26.0
+ne **pull** ka masla theek kiya — data cloud tak pohanch raha tha, lekin
+doosri device tak nahi.
+
+**Realtime publication mein sirf 7 tables thin.** Client ~28 tables sun raha
+tha. Sirf `orders` aur `dining_tables` kaam kar rahe thay. Menu, categories,
+customers, inventory, branches, deals, promos, shifts — in par koi event hi
+nahi aata tha. Doosri till ko naya data sirf restart par milta tha.
+
+`tenant_settings` (branding, logo, restaurant ka naam) aur `module_documents`
+(waiters, riders, promotions, wallet, zones, wages, blocked customers) to
+subscription mein thin hi nahi. Isi liye "logo change kiya, doosri device par
+nahi aaya".
+
+**16 tables ka `updated_at` kabhi barhta hi nahi tha.** Column maujood tha,
+lekin trigger nahi — value hamesha INSERT wali rehti thi. Merge isi se
+faisla karta hai, is liye device A ka *edited* record device B ke *untouched*
+record se **purana** lagta tha, aur B jeet jata tha. 5 aur tables mein column
+hi nahi tha (stamp = 0, local hamesha jeetta).
+
+**11 tables hard-DELETE hoti thin.** "Doosri device par delete hua" client tak
+"cloud mein nahi hai" ban kar pohanchta tha — bilkul wohi shakal jo "abhi push
+nahi hua" ki hai. Merge ko andaza lagana parta tha:
+
+- andaza "deleted" → offline bane bills mit jate the
+- andaza "unsynced" → deletions wapas zinda ho kar dobara push ho jati thin
+
+Dono ship huay. Ab `deleted_at` tombstone hai, to deletion ek **haqiqat** hai jo
+replicate hoti hai — aur "cloud mein nahi hai" ka hamesha mehfooz jawab diya
+ja sakta hai: record rakho aur queue mein wapas daal do.
+
+**Settings ki koi retry nahi thi.** Har module failed write ko durable queue
+mein rakhta hai; settings sirf error report kar ke chhor deti thin, aur
+`saveSettings` us error ko nigal jata tha. Internet band ho to naam/logo/tax
+ki tabdeeli **hamesha ke liye** gayab, aur UI "saved" dikhata tha.
+
+**Dead-letter khamoshi thi.** 6 nakam koshishon ke baad op park ho jati hai.
+Comment kehta hai "audit panel mein nazar aata hai" — koi panel ise parhta hi
+nahi tha. Ab toast aata hai aur status bar mein laal **"Stuck (n)"** pill hai
+jise daba kar dobara koshish hoti hai.
+
+---
+
 ## 7. Ab bhi jo maloom masle hain
 
 **`payIns` / `payOuts`** — shift ke cash movements ab bhi Supabase nahi jate.
 `public.cash_movements` table maujood hai lekin code use nahi karta. Paisay ka
 hisaab hai, is liye aap ki ijazat ke baghair nahi chheda.
 
-**20 functions repo mein nahi** — live Supabase mein hain, `supabase/migrations`
+**28 functions repo mein nahi** — live Supabase mein hain, `supabase/migrations`
 mein nahi. Aaj kuch nahi tootega, lekin ye repo backend dobara nahi bana sakta.
-Hal: `supabase db pull`.
+`config.toml` ghalat project par lagi thi (is liye CLI kuch karta hi nahi tha) —
+ab theek hai. Hal: `supabase db pull`. Tafseel:
+`supabase/migrations/README.md`.
+
+**`order_items` / `order_payments` tables khali hain** — poora order
+`orders.data` jsonb mein hai. `supabaseSync.ts` ka engine (apply_sync_batch,
+pull_orders_delta, cursors) mojood hai lekin `installSupabaseFlusher()` kabhi
+call nahi hota, is liye wo poora raasta **dead code** hai. Chhera nahi gaya:
+business logic theek chal rahi hai, aur ise badalna sync fix nahi balke
+re-architecture hota.
 
 **Do-browser testing** — main nahi kar sakta, aap ko karna hoga.
 
