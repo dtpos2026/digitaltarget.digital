@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { getOrders, getCurrentUser, getSettings } from '@/lib/store';
+import { getOrders, getCurrentUser, getSettings, getBranches } from '@/lib/store';
 import { getAllHistoricalOrders, clearArchivedOrders, getArchivedOrders } from '@/lib/orderArchive';
 import { Order } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -28,6 +28,17 @@ export default function AdminSalesHistoryPage() {
   });
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [cashierFilter, setCashierFilter] = useState<string>('all');
+  const [branchFilter, setBranchFilter] = useState<string>('all');
+
+  // Branch names for the filter, the summary and the detail column. Orders
+  // carry branchId; without this the page could only ever show one blended
+  // number for a multi-branch restaurant.
+  const branches = useMemo(() => getBranches(), []);
+  const branchName = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const b of branches) m.set(b.id, b.name);
+    return (id?: string) => (id ? (m.get(id) || 'Unknown branch') : 'No branch');
+  }, [branches]);
 
   const allOrders = useMemo<Order[]>(() => getAllHistoricalOrders(getOrders()), [range.startMs, range.endMs]);
 
@@ -39,8 +50,9 @@ export default function AdminSalesHistoryPage() {
       })
       .filter(o => typeFilter === 'all' ? true : o.orderType === typeFilter)
       .filter(o => cashierFilter === 'all' ? true : (o.cashierName || 'Unknown') === cashierFilter)
+      .filter(o => branchFilter === 'all' ? true : (o.branchId || '') === branchFilter)
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [allOrders, range.startMs, range.endMs, typeFilter, cashierFilter]);
+  }, [allOrders, range.startMs, range.endMs, typeFilter, cashierFilter, branchFilter]);
 
   // Unique cashier list (across the date range, before cashier filter is applied)
   const cashierList = useMemo(() => {
@@ -96,8 +108,23 @@ export default function AdminSalesHistoryPage() {
     const cashierRows = Object.entries(byCashier)
       .map(([name, v]) => ({ name, ...v }))
       .sort((a, b) => b.total - a.total);
-    return { paidCount: paid.length, totalCount: filtered.length, revenue, discounts, tax, byType, byDay, itemRows, cashierRows };
-  }, [filtered]);
+    // BRANCH-WISE aggregation. This is the "Branch 1 today / Branch 2 today"
+    // view: gross, discounts and net side by side per branch, over whatever
+    // date range is selected.
+    const byBranch: Record<string, { count: number; gross: number; discounts: number; tax: number }> = {};
+    for (const o of paid) {
+      const k = o.branchId || '';
+      if (!byBranch[k]) byBranch[k] = { count: 0, gross: 0, discounts: 0, tax: 0 };
+      byBranch[k].count++;
+      byBranch[k].gross += o.grandTotal || 0;
+      byBranch[k].discounts += o.discount || 0;
+      byBranch[k].tax += o.tax || 0;
+    }
+    const branchRows = Object.entries(byBranch)
+      .map(([id, v]) => ({ id, name: branchName(id || undefined), ...v }))
+      .sort((a, b) => b.gross - a.gross);
+    return { paidCount: paid.length, totalCount: filtered.length, revenue, discounts, tax, byType, byDay, itemRows, cashierRows, branchRows };
+  }, [filtered, branchName]);
 
   if (!isAdmin) {
     return (
@@ -248,16 +275,32 @@ export default function AdminSalesHistoryPage() {
 
       <Card className="p-4 mb-4 no-print">
         <DateTimeRangeFilter value={range} onChange={setRange} className="mb-3" />
-        <div className="grid grid-cols-2 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <div>
+            <label className="text-xs text-muted-foreground">Branch</label>
+            <Select value={branchFilter} onValueChange={setBranchFilter}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Branches</SelectItem>
+                {branches.map(b => (
+                  <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div>
             <label className="text-xs text-muted-foreground">Order Type</label>
             <Select value={typeFilter} onValueChange={setTypeFilter}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All</SelectItem>
-                <SelectItem value="dine-in">Dine-In</SelectItem>
+                {/* OrderType is 'dining' | 'takeaway' | 'delivery' | 'foodpanda'.
+                    This said "dine-in", which is not a member, so the Dine-In
+                    filter matched no order at all and silently showed nothing. */}
+                <SelectItem value="dining">Dine-In</SelectItem>
                 <SelectItem value="takeaway">Takeaway</SelectItem>
                 <SelectItem value="delivery">Delivery</SelectItem>
+                <SelectItem value="foodpanda">Foodpanda</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -282,6 +325,42 @@ export default function AdminSalesHistoryPage() {
         <h1 className="text-2xl font-bold">{settings.name || ''}</h1>
         <p className="text-sm">Sales Report — {new Date(range.startMs).toLocaleString()} to {new Date(range.endMs).toLocaleString()}</p>
       </div>
+
+      {/* Branch-wise sales. The whole point of a multi-branch report: what each
+          branch took over the selected range, side by side, rather than one
+          blended number. Hidden for a single-branch restaurant, where it would
+          only repeat the totals above. */}
+      {stats.branchRows.length > 1 && (
+        <Card className="p-4 mb-4">
+          <h3 className="font-semibold mb-2">By Branch</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-muted-foreground border-b">
+                  <th className="py-2">Branch</th>
+                  <th className="text-right">Paid Orders</th>
+                  <th className="text-right">Gross</th>
+                  <th className="text-right">Discounts</th>
+                  <th className="text-right">Tax</th>
+                  <th className="text-right">Net</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stats.branchRows.map(b => (
+                  <tr key={b.id || 'none'} className="border-b">
+                    <td className="py-1 font-medium">{b.name}</td>
+                    <td className="text-right tabular-nums">{b.count}</td>
+                    <td className="text-right tabular-nums">{fmtMoney(b.gross)}</td>
+                    <td className="text-right tabular-nums">{fmtMoney(b.discounts)}</td>
+                    <td className="text-right tabular-nums">{fmtMoney(b.tax)}</td>
+                    <td className="text-right tabular-nums font-semibold">{fmtMoney(b.gross - b.discounts)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
         <Card className="p-4"><div className="text-xs text-muted-foreground">Revenue (Paid)</div><div className="text-2xl font-bold">{fmtMoney(stats.revenue)}</div></Card>
@@ -392,7 +471,7 @@ export default function AdminSalesHistoryPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-muted-foreground border-b">
-                <th className="py-2">Date</th><th>Order #</th><th>Type</th><th>Table</th><th>Waiter</th><th>Status</th><th className="text-right">Total</th>
+                <th className="py-2">Date</th><th>Branch</th><th>Order #</th><th>Type</th><th>Table</th><th>Waiter</th><th>Status</th><th className="text-right">Total</th>
               </tr>
             </thead>
             <tbody>
@@ -401,6 +480,7 @@ export default function AdminSalesHistoryPage() {
                 return (
                   <tr key={o.id} className="border-b">
                     <td className="py-1">{d.toLocaleDateString()} {d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                    <td>{branchName(o.branchId)}</td>
                     <td>{o.orderNumber ?? '—'}</td>
                     <td className="capitalize">{o.orderType || ''}</td>
                     <td>{o.tableName || ''}</td>
@@ -410,7 +490,7 @@ export default function AdminSalesHistoryPage() {
                   </tr>
                 );
               })}
-              {filtered.length === 0 && <tr><td colSpan={7} className="text-center text-muted-foreground py-6">No orders in this range</td></tr>}
+              {filtered.length === 0 && <tr><td colSpan={8} className="text-center text-muted-foreground py-6">No orders in this range</td></tr>}
             </tbody>
           </table>
         </div>
