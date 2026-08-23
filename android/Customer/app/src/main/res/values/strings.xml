@@ -1,0 +1,9 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">DT Customer</string>
+    <string name="title_activity_main">DT Customer</string>
+    <string name="package_name">com.digitaltarget.dtcustomer</string>
+    <string name="custom_url_scheme">com.digitaltarget.dtcustomer</string>
+    <string name="order_channel_name">Order updates</string>
+    <string name="order_channel_description">Alerts when your order is accepted, ready and on the way.</string>
+</resources>

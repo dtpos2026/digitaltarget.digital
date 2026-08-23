@@ -28,7 +28,16 @@ const migrations = fs.readdirSync(path.join(process.cwd(), 'supabase', 'migratio
   .map(f => fs.readFileSync(path.join(process.cwd(), 'supabase', 'migrations', f), 'utf8'))
   .join('\n');
 
-const placeOrder = migrations.slice(migrations.indexOf('create or replace function public.public_place_order'));
+// Bounded at the function's own terminator. Slicing to end-of-file swept in
+// every migration that sorts after this one, so an unrelated file mentioning
+// 'pending' (the notification outbox has a status by that name) failed an
+// assertion about public_place_order's INSERT.
+const placeOrderStart = migrations.indexOf('create or replace function public.public_place_order');
+const placeOrderEnd = migrations.indexOf('$$;', placeOrderStart);
+const placeOrder = migrations.slice(
+  placeOrderStart,
+  placeOrderEnd > placeOrderStart ? placeOrderEnd + 3 : undefined,
+);
 
 describe('an online order reaches the till in a shape it can use', () => {
   it('writes the POS document, not just order_items rows', () => {

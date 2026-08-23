@@ -14,12 +14,16 @@ import { openWhatsApp, normalizePhone as normWaPhone } from '@/lib/whatsapp';
 import { computeDistance } from '@/lib/delivery';
 import { addServiceCall } from '@/lib/serviceCalls';
 import WhatsAppFloat from '@/components/WhatsAppFloat';
+import CustomerProfilePanel from '@/components/CustomerProfilePanel';
+import CustomerOrderTracker from '@/components/CustomerOrderTracker';
+import { attachPushHandlers, clearPushToken } from '@/lib/pushNotifications';
 import LeafletMap from '@/components/LeafletMap';
 import { submitPublicOrder } from '@/lib/publicPortal.functions';
 import {
   customerSignup, customerLogin, customerMe, customerLogout, customerOrders,
   customerUpdate, getCachedProfile, getCustomerToken,
-  type CustomerProfile, type CustomerOrderSummary,
+  requestOtp, verifyOtp,
+  type CustomerProfile, type CustomerOrderSummary, type SavedAddress,
 } from '@/lib/customerAccount';
 import {
   loadCustomerAppConfig, getCachedAppConfig, applyCustomerAppTheme, featureOn,
@@ -171,6 +175,12 @@ export default function OnlineOrderPage() {
   const [account, setAccount] = useState<OnlineAccount | null>(null);
   const [loginOpen, setLoginOpen] = useState(false);
   const [ordersOpen, setOrdersOpen] = useState(false);
+  // The full server row, kept alongside the flattened `account` the rest of
+  // this page was written against. The profile panel edits this one.
+  const [profile, setProfile] = useState<CustomerProfile | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+  // Which of the customer's own orders the live tracker is showing.
+  const [trackOrderId, setTrackOrderId] = useState<string | null>(null);
   const [loginName, setLoginName] = useState('');
   const [loginPhone, setLoginPhone] = useState('');
   const [loginPin, setLoginPin] = useState('');
@@ -179,7 +189,11 @@ export default function OnlineOrderPage() {
   const [loginDob, setLoginDob] = useState('');
   const [loginBusy, setLoginBusy] = useState(false);
   const [loginError, setLoginError] = useState('');
-  const [loginMode, setLoginMode] = useState<'phone' | 'pin' | 'signup'>('phone');
+  const [loginMode, setLoginMode] = useState<'phone' | 'pin' | 'signup' | 'otp'>('phone');
+  // v1.28.0 — proof that this phone was verified, required only to CLAIM a
+  // profile the restaurant already holds for the number.
+  const [otpCode, setOtpCode] = useState('');
+  const [claimToken, setClaimToken] = useState('');
   // Order history now comes from the server, so it follows the customer rather
   // than the browser they happen to be using.
   const [serverOrders, setServerOrders] = useState<CustomerOrderSummary[]>([]);
@@ -320,18 +334,29 @@ export default function OnlineOrderPage() {
     let cancelled = false;
     (async () => {
       const cached = getCachedProfile();
-      if (cached && !cancelled) setAccount(fromProfile(cached));
-      const profile = await customerMe();
+      if (cached && !cancelled) { setAccount(fromProfile(cached)); setProfile(cached); }
+      const fresh = await customerMe();
       if (cancelled) return;
-      if (profile) {
-        setAccount(fromProfile(profile));
+      if (fresh) {
+        setAccount(fromProfile(fresh));
+        setProfile(fresh);
         setServerOrders(await customerOrders());
       } else if (!cached) {
+        setProfile(null);
         setServerOrders([]);
       }
     })();
     return () => { cancelled = true; };
   }, [ready]);
+
+  // A tapped notification carries the order it is about, so open that order
+  // rather than dropping the customer on the home screen. No-op on the web.
+  useEffect(() => {
+    void attachPushHandlers((orderId) => {
+      setTrackOrderId(orderId);
+      setOrdersOpen(true);
+    });
+  }, []);
 
   // Refresh history when the panel opens or an order was just placed.
   useEffect(() => {
@@ -760,6 +785,60 @@ export default function OnlineOrderPage() {
   }
 
 
+  // Signup is reachable from two places — the form, and again once the customer
+  // has proved the number by OTP — so the submit lives here rather than inline.
+  const doSignup = async (tokenOverride?: string) => {
+    if (!loginName.trim()) { setLoginError('Enter your name'); return; }
+    if (normalizePhone(loginPhone).length < 10) { setLoginError('Enter a valid mobile number'); return; }
+    if (loginPin.length < 4) { setLoginError('Create a PIN of at least 4 digits'); return; }
+    const tid = getTenantId();
+    if (!tid) { setLoginError('This restaurant is not available right now.'); return; }
+    setLoginBusy(true);
+    const r = await customerSignup({
+      tenantId: tid,
+      phone: loginPhone.trim(),
+      pin: loginPin,
+      name: loginName.trim(),
+      email: loginEmail.trim() || undefined,
+      address: address.trim() || undefined,
+      dateOfBirth: loginDob || undefined,
+      gender: loginGender || undefined,
+      claimToken: tokenOverride || claimToken || undefined,
+      lat: lat ?? undefined,
+      lng: lng ?? undefined,
+    });
+    setLoginBusy(false);
+    if (!r.ok) {
+      setLoginError(r.message);
+      // Already registered is not an error to argue with — send them to the
+      // PIN they already have.
+      if (r.reason === 'already_registered') { setLoginPin(''); setLoginMode('pin'); return; }
+      // The restaurant already holds a profile for this number, carrying
+      // somebody's address and order history. Prove the number owns it before
+      // handing it over.
+      if (r.reason === 'verification_required') {
+        setLoginError('');
+        setLoginBusy(true);
+        const sent = await requestOtp(tid, loginPhone.trim());
+        setLoginBusy(false);
+        if (!sent.ok) { setLoginError(sent.message); return; }
+        setOtpCode(''); setClaimToken('');
+        setLoginMode('otp');
+      }
+      return;
+    }
+    const acc = fromProfile(r.customer);
+    setAccount(acc); setProfile(r.customer);
+    setName(acc.name); setPhone(acc.phone);
+    if (acc.address) setAddress(acc.address);
+    setServerOrders(await customerOrders(tid));
+    setLoginOpen(false); setLoginMode('phone');
+    setLoginName(''); setLoginPhone(''); setLoginPin(''); setLoginEmail(''); setLoginDob(''); setLoginGender('');
+    setOtpCode(''); setClaimToken('');
+    toast.success('Account created! Welcome 🎉');
+  };
+
+
   return (
     <div className="min-h-screen bg-background">
       {featureOn(appConfig, 'whatsapp') && (
@@ -814,6 +893,18 @@ export default function OnlineOrderPage() {
             </div>
           </div>
           <div className="flex items-center gap-1.5">
+            {account && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setProfileOpen(true)}
+                className="h-8"
+                title="My profile and saved addresses"
+              >
+                <User className="h-4 w-4 sm:mr-1" />
+                <span className="hidden sm:inline truncate max-w-[90px]">{account.name || 'Profile'}</span>
+              </Button>
+            )}
             {account && featureOn(appConfig, 'history') ? (
               <Button variant="secondary" size="sm" onClick={() => setOrdersOpen(true)} className="h-8">
                 <ClipboardList className="h-4 w-4 mr-1" />
@@ -823,7 +914,7 @@ export default function OnlineOrderPage() {
                   <span className="ml-1 h-4 min-w-[16px] px-1 rounded-full bg-gold text-foreground text-[10px] font-extrabold flex items-center justify-center">{myOrders.length}</span>
                 )}
               </Button>
-            ) : (
+            ) : account ? null : (
               <Button variant="secondary" size="sm" onClick={() => setLoginOpen(true)} className="h-8">
                 <LogIn className="h-4 w-4 mr-1" /> Login
               </Button>
@@ -1262,7 +1353,10 @@ export default function OnlineOrderPage() {
             <div className="flex items-center justify-between">
               <h2 className="text-base font-extrabold flex items-center gap-2">
                 <LogIn className="h-4 w-4 text-primary" />
-                {loginMode === 'phone' ? 'Login / Sign Up' : loginMode === 'pin' ? 'Enter PIN' : 'Create Account'}
+                {loginMode === 'phone' ? 'Login / Sign Up'
+                  : loginMode === 'pin' ? 'Enter PIN'
+                  : loginMode === 'otp' ? 'Verify Your Number'
+                  : 'Create Account'}
               </h2>
               <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => { setLoginOpen(false); setLoginMode('phone'); }}><X className="h-4 w-4" /></Button>
             </div>
@@ -1316,7 +1410,7 @@ export default function OnlineOrderPage() {
                     setLoginBusy(false);
                     if (!r.ok) { setLoginError(r.message); setLoginPin(''); return; }
                     const acc = fromProfile(r.customer);
-                    setAccount(acc);
+                    setAccount(acc); setProfile(r.customer);
                     setName(acc.name); setPhone(acc.phone);
                     if (acc.address) setAddress(acc.address);
                     if (acc.city) setCity(acc.city);
@@ -1325,6 +1419,7 @@ export default function OnlineOrderPage() {
                     setServerOrders(await customerOrders(tid));
                     setLoginOpen(false); setLoginMode('phone');
                     setLoginName(''); setLoginPhone(''); setLoginPin(''); setLoginEmail(''); setLoginDob(''); setLoginGender('');
+                    setOtpCode(''); setClaimToken('');
                     toast.success(`Welcome back, ${acc.name || 'friend'}!`);
                   }}
                 >
@@ -1382,52 +1477,123 @@ export default function OnlineOrderPage() {
                 <Button
                   className="w-full h-10"
                   disabled={loginBusy}
-                  onClick={async () => {
-                    if (!loginName.trim()) { setLoginError('Enter your name'); return; }
-                    if (normalizePhone(loginPhone).length < 10) { setLoginError('Enter a valid mobile number'); return; }
-                    if (loginPin.length < 4) { setLoginError('Create a PIN of at least 4 digits'); return; }
-                    const tid = getTenantId();
-                    if (!tid) { setLoginError('This restaurant is not available right now.'); return; }
-                    setLoginBusy(true);
-                    const r = await customerSignup({
-                      tenantId: tid,
-                      phone: loginPhone.trim(),
-                      pin: loginPin,
-                      name: loginName.trim(),
-                      email: loginEmail.trim() || undefined,
-                      address: address.trim() || undefined,
-                      dateOfBirth: loginDob || undefined,
-                      gender: loginGender || undefined,
-                      lat: lat ?? undefined,
-                      lng: lng ?? undefined,
-                    });
-                    setLoginBusy(false);
-                    if (!r.ok) {
-                      setLoginError(r.message);
-                      // Already registered is not an error to argue with — send
-                      // them to the PIN they already have.
-                      if (r.reason === 'already_registered') { setLoginPin(''); setLoginMode('pin'); }
-                      return;
-                    }
-                    const acc = fromProfile(r.customer);
-                    setAccount(acc);
-                    setName(acc.name); setPhone(acc.phone);
-                    if (acc.address) setAddress(acc.address);
-                    setServerOrders(await customerOrders(tid));
-                    setLoginOpen(false); setLoginMode('phone');
-                    setLoginName(''); setLoginPhone(''); setLoginPin(''); setLoginEmail(''); setLoginDob(''); setLoginGender('');
-                    toast.success('Account created! Welcome 🎉');
-                  }}
+                  onClick={() => { void doSignup(); }}
                 >
                   {loginBusy ? 'Creating…' : 'Create Account'}
                 </Button>
                 <button className="text-[11px] text-primary underline w-full text-center" onClick={() => { setLoginError(''); setLoginMode('phone'); }}>← Back</button>
               </>
             )}
+
+            {loginMode === 'otp' && (
+              <>
+                <p className="text-[11px] text-muted-foreground">
+                  This number already has a profile with <b>{settings.name || 'the restaurant'}</b>.
+                  We sent a 6-digit code to <b>{loginPhone}</b> — enter it to claim the account and keep the order history on it.
+                </p>
+                <Input
+                  placeholder="••••••"
+                  value={otpCode}
+                  onChange={e => { setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6)); setLoginError(''); }}
+                  className="h-12 text-center text-2xl tracking-[0.4em] font-bold"
+                  inputMode="numeric"
+                  maxLength={6}
+                  autoFocus
+                />
+                {loginError && <p className="text-[11px] text-destructive font-semibold">{loginError}</p>}
+                <Button
+                  className="w-full h-10"
+                  disabled={loginBusy}
+                  onClick={async () => {
+                    if (otpCode.length < 6) { setLoginError('Enter the 6-digit code'); return; }
+                    const tid = getTenantId();
+                    if (!tid) { setLoginError('This restaurant is not available right now.'); return; }
+                    setLoginBusy(true);
+                    const v = await verifyOtp(tid, loginPhone.trim(), otpCode);
+                    setLoginBusy(false);
+                    if (!v.ok) {
+                      setLoginError(v.message);
+                      // A burnt or expired code can never be retyped into a
+                      // working one — clear it so they request a fresh one.
+                      if (v.reason === 'expired' || v.reason === 'too_many_attempts') setOtpCode('');
+                      return;
+                    }
+                    setClaimToken(v.claimToken);
+                    setLoginError('');
+                    // The proof is single-use and short-lived, so finish the
+                    // signup straight away rather than making them tap again.
+                    await doSignup(v.claimToken);
+                  }}
+                >
+                  {loginBusy ? 'Verifying…' : 'Verify & Continue'}
+                </Button>
+                <div className="flex items-center justify-between">
+                  <button className="text-[11px] text-primary underline" onClick={() => { setLoginError(''); setOtpCode(''); setClaimToken(''); setLoginMode('signup'); }}>← Back</button>
+                  <button
+                    className="text-[11px] text-primary underline disabled:opacity-50"
+                    disabled={loginBusy}
+                    onClick={async () => {
+                      const tid = getTenantId();
+                      if (!tid) return;
+                      setLoginBusy(true);
+                      const sent = await requestOtp(tid, loginPhone.trim());
+                      setLoginBusy(false);
+                      if (!sent.ok) { setLoginError(sent.message); return; }
+                      setLoginError(''); setOtpCode('');
+                      toast.success('Code sent again');
+                    }}
+                  >
+                    Resend code
+                  </button>
+                </div>
+                <p className="text-[10px] text-muted-foreground text-center">
+                  Already know your PIN?{' '}
+                  <button className="text-primary underline" onClick={() => { setLoginError(''); setOtpCode(''); setClaimToken(''); setLoginPin(''); setLoginMode('pin'); }}>Log in instead</button>
+                </p>
+              </>
+            )}
           </div>
         </div>
       )}
 
+
+      {/* Live order & rider tracking, for the customer's own orders */}
+      <CustomerOrderTracker
+        orderId={trackOrderId}
+        tenantId={getTenantId()}
+        onClose={() => setTrackOrderId(null)}
+      />
+
+      {/* Profile & saved addresses */}
+      <CustomerProfilePanel
+        open={profileOpen}
+        onClose={() => setProfileOpen(false)}
+        tenantId={getTenantId()}
+        profile={profile}
+        onSaved={(p) => {
+          setProfile(p);
+          const acc = fromProfile(p);
+          setAccount(acc);
+          setName(acc.name); setPhone(acc.phone);
+        }}
+        onUseAddress={(a: SavedAddress) => {
+          setAddress(a.address);
+          if (a.city) setCity(a.city);
+          if (a.lat != null) setLat(a.lat);
+          if (a.lng != null) setLng(a.lng);
+          toast.success(`Delivering to ${a.label}`);
+        }}
+        onLogout={async () => {
+          await clearPushToken(getTenantId());
+          await customerLogout();
+          saveAccountLS(null);
+          setAccount(null);
+          setProfile(null);
+          setServerOrders([]);
+          setProfileOpen(false);
+          toast.success('Logged out');
+        }}
+      />
 
       {/* My Orders modal */}
       {ordersOpen && account && (
@@ -1442,9 +1608,11 @@ export default function OnlineOrderPage() {
                 </div>
               </div>
               <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive" onClick={async () => {
+                await clearPushToken(getTenantId());
                 await customerLogout();
                 saveAccountLS(null);
                 setAccount(null);
+                setProfile(null);
                 setServerOrders([]);
                 setOrdersOpen(false);
                 toast.success('Logged out');
@@ -1456,7 +1624,9 @@ export default function OnlineOrderPage() {
               {myOrders.length === 0 ? (
                 <p className="text-center text-xs text-muted-foreground py-12">No orders yet. Place your first order!</p>
               ) : myOrders.map(o => {
-                const st = o.deliveryStatus || 'pending';
+                const st = o.deliveryStatus || o.kitchenStatus || 'pending';
+                // Still moving: neither delivered nor cancelled.
+                const live = !o.deliveredAt && st !== 'delivered' && st !== 'cancelled';
                 const stColor = st === 'delivered' ? 'bg-status-success/15 text-status-success'
                   : st === 'cancelled' ? 'bg-destructive/15 text-destructive'
                   : st === 'onway' || st === 'rider_picked' ? 'bg-blue-500/15 text-blue-600'
@@ -1479,6 +1649,15 @@ export default function OnlineOrderPage() {
                       <span className="text-[10px] text-muted-foreground">{o.items.length} items</span>
                       <span className="text-sm font-extrabold">{money(o.grandTotal)}</span>
                     </div>
+                    <Button
+                      variant={live ? 'default' : 'secondary'}
+                      size="sm"
+                      className="w-full h-8 text-[11px]"
+                      onClick={() => setTrackOrderId(o.id)}
+                    >
+                      <MapPin className="h-3.5 w-3.5 mr-1" />
+                      {live ? 'Track live' : 'View details'}
+                    </Button>
                   </div>
                 );
               })}

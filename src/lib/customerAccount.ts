@@ -36,6 +36,8 @@ export interface CustomerProfile {
   loyaltyPoints: number;
   totalOrders: number;
   lastOrderAt: string | null;
+  /** Whether a device is registered for push. Never the token itself. */
+  pushEnabled: boolean;
 }
 
 export interface SavedAddress {
@@ -57,13 +59,45 @@ export interface CustomerOrderSummary {
   createdAt: string;
   branchId: string | null;
   riderName: string | null;
+  // v1.28.0 — the live state. The panel read `deliveryStatus` long before the
+  // RPC returned it, so every order showed as "pending".
+  kitchenStatus?: string | null;
+  deliveryStatus?: string | null;
+  dispatchedAt?: string | null;
+  deliveredAt?: string | null;
+  items: Array<{ name?: string; quantity?: number; lineTotal?: number }>;
+}
+
+/** One order's live detail, for the tracking panel. */
+export interface CustomerOrderTrack {
+  id: string;
+  orderNumber: number;
+  status: string;
+  orderType: string | null;
+  grandTotal: number;
+  createdAt: string;
+  kitchenStatus: string | null;
+  deliveryStatus: string | null;
+  dispatchedAt: string | null;
+  deliveredAt: string | null;
+  cancelledAt: string | null;
+  /** Only present while the delivery is in flight. */
+  riderName: string | null;
+  riderPhone: string | null;
+  etaMinutes: number | null;
+  rider: { lat: number; lng: number; pingedAt?: string | null } | null;
+  customer: { lat: number; lng: number } | null;
+  branch: { lat: number; lng: number } | null;
   items: Array<{ name?: string; quantity?: number; lineTotal?: number }>;
 }
 
 type Failure =
   | 'app_disabled' | 'bad_phone' | 'weak_pin' | 'name_required'
   | 'already_registered' | 'blocked' | 'bad_credentials' | 'locked'
-  | 'no_session' | 'offline' | 'unknown';
+  | 'no_session' | 'offline' | 'unknown'
+  // v1.28.0 — phone verification
+  | 'verification_required' | 'too_many_requests' | 'too_many_attempts'
+  | 'bad_code' | 'expired';
 
 export type AccountResult =
   | { ok: true; customer: CustomerProfile }
@@ -82,6 +116,12 @@ const MESSAGES: Record<Failure, string> = {
   no_session:        'Please sign in again.',
   offline:           'You are offline. Connect to sign in.',
   unknown:           'Something went wrong. Please try again.',
+  verification_required:
+    'This number already has an account with the restaurant. Verify the number to claim it.',
+  too_many_requests: 'Too many codes requested. Wait a few minutes and try again.',
+  too_many_attempts: 'Too many wrong codes. Request a new one.',
+  bad_code:          'That code is not right.',
+  expired:           'That code has expired. Request a new one.',
 };
 
 const TOKEN_PREFIX = 'dt-customer-token:';
@@ -143,6 +183,7 @@ function normalize(raw: any): CustomerProfile {
     loyaltyPoints: Number(raw?.loyaltyPoints ?? 0),
     totalOrders: Number(raw?.totalOrders ?? 0),
     lastOrderAt: raw?.lastOrderAt ?? null,
+    pushEnabled: raw?.pushEnabled === true,
   };
 }
 
@@ -184,6 +225,15 @@ export async function customerSignup(input: {
   gender?: 'male' | 'female' | '';
   lat?: number;
   lng?: number;
+  /**
+   * Proof that this phone was verified, from verifyOtp().
+   *
+   * Required only when CLAIMING a profile the restaurant already created from
+   * a past order — that record carries the diner's address and history, and
+   * knowing their number is not proof of holding it. A brand-new signup needs
+   * nothing: there is nothing there to take.
+   */
+  claimToken?: string;
 }): Promise<AccountResult> {
   try {
     const raw = await call('public_customer_signup', {
@@ -197,10 +247,48 @@ export async function customerSignup(input: {
       p_lat: input.lat ?? null,
       p_lng: input.lng ?? null,
       p_gender: input.gender || null,
+      p_claim_token: input.claimToken ?? null,
     });
     return settle(raw, input.tenantId);
   } catch (e: any) {
     return fail(e?.message === 'offline' ? 'offline' : 'unknown');
+  }
+}
+
+/**
+ * Ask the restaurant to send a verification code to this number.
+ *
+ * The code is never returned here — it leaves the database only through the
+ * delivery outbox, which no browser can read.
+ */
+export async function requestOtp(tenantId: string, phone: string): Promise<
+  { ok: true; expiresAt: string } | { ok: false; reason: Failure; message: string }
+> {
+  try {
+    const raw = await call('public_customer_request_otp', { p_tenant: tenantId, p_phone: phone });
+    if (raw?.ok) return { ok: true, expiresAt: String(raw.expiresAt ?? '') };
+    const reason = (raw?.reason ?? 'unknown') as Failure;
+    return { ok: false, reason, message: MESSAGES[reason] ?? MESSAGES.unknown };
+  } catch (e: any) {
+    const reason: Failure = e?.message === 'offline' ? 'offline' : 'unknown';
+    return { ok: false, reason, message: MESSAGES[reason] };
+  }
+}
+
+/** Exchange a correct code for a single-use claim proof. */
+export async function verifyOtp(tenantId: string, phone: string, code: string): Promise<
+  { ok: true; claimToken: string } | { ok: false; reason: Failure; message: string }
+> {
+  try {
+    const raw = await call('public_customer_verify_otp', {
+      p_tenant: tenantId, p_phone: phone, p_code: code,
+    });
+    if (raw?.ok) return { ok: true, claimToken: String(raw.claimToken ?? '') };
+    const reason = (raw?.reason ?? 'unknown') as Failure;
+    return { ok: false, reason, message: MESSAGES[reason] ?? MESSAGES.unknown };
+  } catch (e: any) {
+    const reason: Failure = e?.message === 'offline' ? 'offline' : 'unknown';
+    return { ok: false, reason, message: MESSAGES[reason] };
   }
 }
 
@@ -282,6 +370,10 @@ export async function customerOrders(tenantId?: string | null, limit = 30): Prom
       createdAt: String(o.createdAt ?? ''),
       branchId: o.branchId ?? null,
       riderName: o.riderName ?? null,
+      kitchenStatus: o.kitchenStatus ?? null,
+      deliveryStatus: o.deliveryStatus ?? null,
+      dispatchedAt: o.dispatchedAt ?? null,
+      deliveredAt: o.deliveredAt ?? null,
       items: Array.isArray(o.items) ? o.items : [],
     }));
   } catch {
@@ -310,4 +402,74 @@ export async function customerLogout(tenantId?: string | null): Promise<void> {
   if (!token) return;
   // Best effort: the local session is already gone either way.
   try { await call('public_customer_logout', { p_token: token }); } catch { /* ignore */ }
+}
+
+
+/**
+ * Live tracking for one of the signed-in customer's own orders.
+ *
+ * The server checks ownership; there is nothing to filter here. A rider
+ * position only comes back while the delivery is actually in flight.
+ */
+export async function customerOrderTrack(
+  orderId: string, tenantId?: string | null,
+): Promise<CustomerOrderTrack | null> {
+  const token = getCustomerToken(tenantId);
+  if (!token) return null;
+  try {
+    const raw = await call('public_customer_order_track', { p_token: token, p_order: orderId });
+    if (!raw?.ok) {
+      if (raw?.reason === 'no_session') signOutLocal(tenantId);
+      return null;
+    }
+    const o = raw.order ?? {};
+    const pt = (v: any) =>
+      v && v.lat != null && v.lng != null ? { lat: Number(v.lat), lng: Number(v.lng) } : null;
+    const rider = pt(o.rider);
+    return {
+      id: String(o.id ?? orderId),
+      orderNumber: Number(o.orderNumber ?? 0),
+      status: String(o.status ?? ''),
+      orderType: o.orderType ?? null,
+      grandTotal: Number(o.grandTotal ?? 0),
+      createdAt: String(o.createdAt ?? ''),
+      kitchenStatus: o.kitchenStatus ?? null,
+      deliveryStatus: o.deliveryStatus ?? null,
+      dispatchedAt: o.dispatchedAt ?? null,
+      deliveredAt: o.deliveredAt ?? null,
+      cancelledAt: o.cancelledAt ?? null,
+      riderName: o.riderName ?? null,
+      riderPhone: o.riderPhone ?? null,
+      etaMinutes: o.etaMinutes == null ? null : Number(o.etaMinutes),
+      rider: rider ? { ...rider, pingedAt: o.rider?.pingedAt ?? null } : null,
+      customer: pt(o.customer),
+      branch: pt(o.branch),
+      items: Array.isArray(o.items) ? o.items : [],
+    };
+  } catch {
+    return null;
+  }
+}
+
+
+/**
+ * Store (or clear, with an empty string) this device's push token on the
+ * signed-in customer's row. The server writes only the row that owns the
+ * session token.
+ */
+export async function customerPushToken(
+  pushToken: string, tenantId?: string | null,
+): Promise<{ ok: true } | { ok: false; reason: Failure; message: string }> {
+  const token = getCustomerToken(tenantId);
+  if (!token) return { ok: false, reason: 'no_session', message: MESSAGES.no_session };
+  try {
+    const raw = await call('public_customer_push_token', { p_token: token, p_push: pushToken });
+    if (raw?.ok) return { ok: true };
+    const reason = (raw?.reason ?? 'unknown') as Failure;
+    if (reason === 'no_session') signOutLocal(tenantId);
+    return { ok: false, reason, message: MESSAGES[reason] ?? MESSAGES.unknown };
+  } catch (e: any) {
+    const reason: Failure = e?.message === 'offline' ? 'offline' : 'unknown';
+    return { ok: false, reason, message: MESSAGES[reason] };
+  }
 }

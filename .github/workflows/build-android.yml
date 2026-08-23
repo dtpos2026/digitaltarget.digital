@@ -1,0 +1,145 @@
+# ============================================================================
+# Build the white-label DT Customer APK on a runner that can reach Google.
+#
+# The Android Gradle Plugin, the Android platform and build-tools are served
+# only from dl.google.com; Maven Central mirrors the plugin no further than
+# 2.3.0 (2017). Any build environment without access to that host cannot
+# assemble an APK at all — it fails while resolving the plugin, long before
+# compiling anything. A GitHub-hosted runner has the Android SDK preinstalled
+# and unrestricted access, so the real build happens here.
+#
+# ONE APK PER RESTAURANT
+# The customer app is white-label: each restaurant gets its own package id,
+# name and opening route. Those come from the workflow inputs; the tenant id
+# is a starting route, not a security boundary — isolation is enforced by the
+# database, where every public_customer_* function is scoped to the tenant it
+# is handed. See supabase/migrations for the guards.
+#
+# PUSH NOTIFICATIONS
+# FCM needs a google-services.json from the restaurant's Firebase project.
+# Provide it as the GOOGLE_SERVICES_JSON secret (base64). Without it the APK
+# still builds and runs — Capacitor's app/build.gradle applies the Google
+# Services plugin only when the file is present — but push registration will
+# report that the build has no messaging support rather than failing silently.
+# ============================================================================
+name: Build Android customer APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      tenant_id:
+        description: 'Tenant UUID the APK opens into (blank = restaurant picker)'
+        required: false
+        default: ''
+      app_id:
+        description: 'Android package id, e.g. com.digitaltarget.dtcustomer'
+        required: false
+        default: 'com.digitaltarget.dtcustomer'
+      app_name:
+        description: 'App name shown under the launcher icon'
+        required: false
+        default: 'DT Customer'
+      release:
+        description: 'Build a signed release APK instead of debug'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # The `secrets` context is not available inside a step's `if:`. Mapping it
+    # to `env` here is what makes "only when the restaurant has Firebase"
+    # expressible at all.
+    env:
+      GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The Supabase keys compiled into the bundle are the PUBLISHABLE keys —
+      # the same ones the website already serves to every browser. The
+      # service-role key must never exist in CI.
+      - name: Build the web bundle for this restaurant
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          DT_APP_TENANT: ${{ github.event.inputs.tenant_id }}
+        run: npm run build:app
+
+      - name: Brand the Capacitor config
+        env:
+          APP_ID: ${{ github.event.inputs.app_id }}
+          APP_NAME: ${{ github.event.inputs.app_name }}
+        run: node scripts/brand-app.mjs
+
+      - name: Restore the Android project
+        run: npx cap sync android
+
+      # Present only when the restaurant has a Firebase project. Absent is a
+      # supported state, not an error.
+      - name: Install google-services.json
+        if: env.GOOGLE_SERVICES_JSON != ''
+        run: |
+          printf '%s' "$GOOGLE_SERVICES_JSON" | base64 -d > android/Customer/app/google-services.json
+          echo "google-services.json installed"
+
+      - name: Assemble debug APK
+        if: ${{ github.event.inputs.release != 'true' }}
+        working-directory: android/Customer
+        run: ./gradlew --no-daemon assembleDebug
+
+      - name: Decode the release keystore
+        if: ${{ github.event.inputs.release == 'true' }}
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "::error::A release build needs ANDROID_KEYSTORE_BASE64. Unsigned release APKs cannot be installed."
+            exit 1
+          fi
+          echo "$KEYSTORE_B64" | base64 -d > android/Customer/app/release.keystore
+
+      - name: Assemble release APK
+        if: ${{ github.event.inputs.release == 'true' }}
+        working-directory: android/Customer
+        env:
+          DT_KEYSTORE_PATH: release.keystore
+          DT_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          DT_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          DT_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew --no-daemon assembleRelease
+
+      - name: Verify the APK exists
+        run: |
+          set -e
+          APK=$(find android/Customer/app/build/outputs/apk -name '*.apk' | head -1)
+          if [ -z "$APK" ]; then
+            echo "::error::No APK was produced."
+            exit 1
+          fi
+          ls -l "$APK"
+          echo "APK_PATH=$APK" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dt-customer-apk
+          path: android/Customer/app/build/outputs/apk/**/*.apk
+          if-no-files-found: error
