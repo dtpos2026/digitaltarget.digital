@@ -16,9 +16,13 @@ import { addServiceCall } from '@/lib/serviceCalls';
 import WhatsAppFloat from '@/components/WhatsAppFloat';
 import LeafletMap from '@/components/LeafletMap';
 import { submitPublicOrder } from '@/lib/publicPortal.functions';
+import {
+  customerSignup, customerLogin, customerMe, customerLogout, customerOrders,
+  customerUpdate, getCachedProfile, getCustomerToken,
+  type CustomerProfile, type CustomerOrderSummary,
+} from '@/lib/customerAccount';
 
 const ACCOUNT_KEY = 'dt-online-account-v1';
-const ACCOUNTS_REGISTRY_KEY = 'dt-online-accounts-v2'; // phone-keyed registry
 const BRANCH_KEY_PREFIX = 'dt-online-branch-v1:';
 type OnlineAccount = {
   name: string;
@@ -31,6 +35,24 @@ type OnlineAccount = {
   lng?: number;
   locationCapturedAt?: string;
 };
+/**
+ * The server profile in the shape this page already reads.
+ *
+ * Everything below — checkout prefill, the greeting, the orders panel — was
+ * written against OnlineAccount. Mapping here keeps that code untouched while
+ * the account itself moves to the server.
+ */
+function fromProfile(p: CustomerProfile): OnlineAccount {
+  return {
+    name: p.name ?? '',
+    phone: p.phone ?? '',
+    address: p.address ?? undefined,
+    city: p.city ?? undefined,
+    lat: p.lat ?? undefined,
+    lng: p.lng ?? undefined,
+  };
+}
+
 function loadAccount(): OnlineAccount | null {
   try { const raw = localStorage.getItem(ACCOUNT_KEY); return raw ? JSON.parse(raw) : null; } catch { return null; }
 }
@@ -38,30 +60,18 @@ function saveAccountLS(a: OnlineAccount | null) {
   if (a) localStorage.setItem(ACCOUNT_KEY, JSON.stringify(a));
   else localStorage.removeItem(ACCOUNT_KEY);
 }
-function loadRegistry(): Record<string, OnlineAccount> {
-  try { const raw = localStorage.getItem(ACCOUNTS_REGISTRY_KEY); return raw ? JSON.parse(raw) : {}; } catch { return {}; }
-}
-function saveRegistry(reg: Record<string, OnlineAccount>) {
-  try { localStorage.setItem(ACCOUNTS_REGISTRY_KEY, JSON.stringify(reg)); } catch {}
-  try { void import('@/lib/cloudDocs').then(m => m.mirrorValue(ACCOUNTS_REGISTRY_KEY, reg)); } catch {}
-}
-function upsertRegistry(a: OnlineAccount) {
-  const reg = loadRegistry();
-  const key = normalizePhone(a.phone);
-  reg[key] = { ...(reg[key] || {}), ...a };
-  saveRegistry(reg);
-}
-function findRegistry(phone: string): OnlineAccount | null {
-  const reg = loadRegistry();
-  return reg[normalizePhone(phone)] || null;
-}
-// Simple SHA-256 hash (browser-native) for PIN
-async function hashPin(pin: string): Promise<string> {
-  try {
-    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('dt-pos:' + pin));
-    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
-  } catch { return 'plain:' + pin; }
-}
+/**
+ * ===== The shared registry is gone, on purpose =====
+ *
+ * `dt-online-accounts-v2` held EVERY customer of a restaurant in one
+ * localStorage object — name, phone, address and PIN hash — and mirrored the
+ * whole thing to a cloud document. Any customer who opened the site carried
+ * every other customer's details in their browser.
+ *
+ * Accounts now live on the server, one customer per row, reachable only with
+ * that customer's own session token. What stays on the device is the block
+ * below: this person's own last-used details, so checkout can prefill.
+ */
 function branchKey() { return BRANCH_KEY_PREFIX + (getTenantId() || 'default'); }
 function loadBranchId(): string | null { try { return localStorage.getItem(branchKey()); } catch { return null; } }
 function saveBranchIdLS(id: string | null) {
@@ -160,9 +170,15 @@ export default function OnlineOrderPage() {
   const [loginName, setLoginName] = useState('');
   const [loginPhone, setLoginPhone] = useState('');
   const [loginPin, setLoginPin] = useState('');
+  const [loginEmail, setLoginEmail] = useState('');
   const [loginGender, setLoginGender] = useState<'male' | 'female' | ''>('');
+  const [loginDob, setLoginDob] = useState('');
+  const [loginBusy, setLoginBusy] = useState(false);
+  const [loginError, setLoginError] = useState('');
   const [loginMode, setLoginMode] = useState<'phone' | 'pin' | 'signup'>('phone');
-  const [existingAccount, setExistingAccount] = useState<OnlineAccount | null>(null);
+  // Order history now comes from the server, so it follows the customer rather
+  // than the browser they happen to be using.
+  const [serverOrders, setServerOrders] = useState<CustomerOrderSummary[]>([]);
 
   // Customer form
   const [name, setName] = useState('');
@@ -244,13 +260,63 @@ export default function OnlineOrderPage() {
   const [placing, setPlacing] = useState(false);
   const [placedOrder, setPlacedOrder] = useState<Order | null>(null);
 
+  /**
+   * The customer's orders.
+   *
+   * The server list is authoritative: it is every order this person has placed,
+   * from any device, at any branch. The local scan stays as the offline
+   * fallback — it only ever contains what this browser placed itself, which is
+   * exactly the limitation an account is meant to remove.
+   */
   const myOrders = useMemo(() => {
     if (!ready || !account) return [] as Order[];
+    if (serverOrders.length) {
+      return serverOrders.map(o => ({
+        id: o.id,
+        orderNumber: o.orderNumber,
+        status: o.status,
+        orderType: o.orderType,
+        source: o.source,
+        grandTotal: o.grandTotal,
+        createdAt: o.createdAt,
+        items: o.items,
+        payments: [],
+        customer: { name: account.name, phone: account.phone },
+        rider: o.riderName ? { name: o.riderName } : undefined,
+      })) as unknown as Order[];
+    }
     const np = normalizePhone(account.phone);
     return getOrders()
       .filter(o => o.source === 'website' && normalizePhone(o.customer?.phone || '') === np)
       .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
-  }, [ready, account, placedOrder, ordersOpen]);
+  }, [ready, account, serverOrders, placedOrder, ordersOpen]);
+
+  // Restore the signed-in customer, and keep their history fresh.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const cached = getCachedProfile();
+      if (cached && !cancelled) setAccount(fromProfile(cached));
+      const profile = await customerMe();
+      if (cancelled) return;
+      if (profile) {
+        setAccount(fromProfile(profile));
+        setServerOrders(await customerOrders());
+      } else if (!cached) {
+        setServerOrders([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [ready]);
+
+  // Refresh history when the panel opens or an order was just placed.
+  useEffect(() => {
+    if (!account) return;
+    if (!ordersOpen && !placedOrder) return;
+    let cancelled = false;
+    void customerOrders().then(o => { if (!cancelled && o.length) setServerOrders(o); });
+    return () => { cancelled = true; };
+  }, [ordersOpen, placedOrder, account]);
 
   const visibleItems = useMemo(() => {
     let list = menuItems;
@@ -528,9 +594,11 @@ export default function OnlineOrderPage() {
         } catch {}
       }
       if (promoApplied?.code) incrementPromoUsage(promoApplied.code);
-      // Auto-create / refresh local account so order history works (skip in dine-in QR mode)
+      // Remember this device's details for next time, and — when the customer
+      // is signed in — send the same details to their real profile. The order
+      // itself is already linked to that profile by the database.
       if (!dineIn && phone.trim()) {
-        const prev: Partial<OnlineAccount> = findRegistry(phone.trim()) || account || {};
+        const prev: Partial<OnlineAccount> = account || {};
         const acc: OnlineAccount = {
           ...prev,
           name: name.trim(),
@@ -546,8 +614,16 @@ export default function OnlineOrderPage() {
           })() : {}),
         };
         saveAccountLS(acc);
-        upsertRegistry(acc);
         setAccount(acc);
+        if (getCustomerToken()) {
+          void customerUpdate({
+            name: acc.name,
+            address: acc.address,
+            city: acc.city,
+            lat: acc.lat,
+            lng: acc.lng,
+          });
+        }
       }
       setPlacedOrder(order);
       setCart([]);
@@ -1169,72 +1245,84 @@ export default function OnlineOrderPage() {
                 <Button
                   className="w-full h-10"
                   onClick={() => {
-                    if (normalizePhone(loginPhone).length < 10) { toast.error('Valid number'); return; }
-                    const found = findRegistry(loginPhone);
-                    if (found && found.pin) {
-                      setExistingAccount(found);
-                      setLoginMode('pin');
-                    } else {
-                      setLoginMode('signup');
-                      if (found?.name) setLoginName(found.name);
-                    }
+                    if (normalizePhone(loginPhone).length < 10) { toast.error('Enter a valid mobile number'); return; }
+                    // The server deliberately will not say whether a number is
+                    // registered — that would let anyone find out who orders
+                    // from this restaurant. So the customer tells us instead.
+                    setLoginError('');
+                    setLoginMode('pin');
                   }}
                 >
                   Continue →
                 </Button>
+                <button className="text-[11px] text-primary underline w-full text-center" onClick={() => { setLoginError(''); setLoginMode('signup'); }}>
+                  First time here? Create an account
+                </button>
               </>
             )}
 
-            {loginMode === 'pin' && existingAccount && (
+            {loginMode === 'pin' && (
               <>
-                <p className="text-[11px] text-muted-foreground">Welcome back, <b>{existingAccount.name}</b>! Enter your 4-digit PIN.</p>
+                <p className="text-[11px] text-muted-foreground">Enter the PIN for <b>{loginPhone}</b>.</p>
                 <Input
                   placeholder="••••"
                   value={loginPin}
-                  onChange={e => setLoginPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  onChange={e => { setLoginPin(e.target.value.replace(/\D/g, '').slice(0, 6)); setLoginError(''); }}
                   className="h-12 text-center text-2xl tracking-[0.5em] font-bold"
                   inputMode="numeric"
                   type="password"
-                  maxLength={4}
+                  maxLength={6}
                   autoFocus
                 />
+                {loginError && <p className="text-[11px] text-destructive font-semibold">{loginError}</p>}
                 <Button
                   className="w-full h-10"
+                  disabled={loginBusy}
                   onClick={async () => {
-                    if (loginPin.length !== 4) { toast.error('4-digit PIN'); return; }
-                    const h = await hashPin(loginPin);
-                    if (h !== existingAccount.pin) { toast.error('Galat PIN'); setLoginPin(''); return; }
-                    saveAccountLS(existingAccount);
-                    setAccount(existingAccount);
-                    setName(existingAccount.name); setPhone(existingAccount.phone);
-                    if (existingAccount.address) setAddress(existingAccount.address);
-                    if (existingAccount.city) setCity(existingAccount.city);
-                    if (existingAccount.lat != null) setLat(existingAccount.lat);
-                    if (existingAccount.lng != null) setLng(existingAccount.lng);
+                    if (loginPin.length < 4) { setLoginError('Enter your PIN'); return; }
+                    const tid = getTenantId();
+                    if (!tid) { setLoginError('This restaurant is not available right now.'); return; }
+                    setLoginBusy(true);
+                    const r = await customerLogin(tid, loginPhone, loginPin);
+                    setLoginBusy(false);
+                    if (!r.ok) { setLoginError(r.message); setLoginPin(''); return; }
+                    const acc = fromProfile(r.customer);
+                    setAccount(acc);
+                    setName(acc.name); setPhone(acc.phone);
+                    if (acc.address) setAddress(acc.address);
+                    if (acc.city) setCity(acc.city);
+                    if (acc.lat != null) setLat(acc.lat);
+                    if (acc.lng != null) setLng(acc.lng);
+                    setServerOrders(await customerOrders(tid));
                     setLoginOpen(false); setLoginMode('phone');
-                    setLoginName(''); setLoginPhone(''); setLoginPin(''); setLoginGender('');
-                    toast.success(`Welcome back, ${existingAccount.name}!`);
+                    setLoginName(''); setLoginPhone(''); setLoginPin(''); setLoginEmail(''); setLoginDob(''); setLoginGender('');
+                    toast.success(`Welcome back, ${acc.name || 'friend'}!`);
                   }}
                 >
-                  Login
+                  {loginBusy ? 'Signing in…' : 'Login'}
                 </Button>
-                <button className="text-[11px] text-primary underline w-full text-center" onClick={() => setLoginMode('phone')}>← Change number</button>
+                <div className="flex items-center justify-between">
+                  <button className="text-[11px] text-primary underline" onClick={() => { setLoginError(''); setLoginMode('phone'); }}>← Change number</button>
+                  <button className="text-[11px] text-primary underline" onClick={() => { setLoginError(''); setLoginMode('signup'); }}>Create an account</button>
+                </div>
               </>
             )}
 
             {loginMode === 'signup' && (
               <>
-                <p className="text-[11px] text-muted-foreground">Create an account. Your details are saved for next time.</p>
+                <p className="text-[11px] text-muted-foreground">Create your account. Your details and order history follow you to any device.</p>
                 <Input placeholder="Full Name" value={loginName} onChange={e => setLoginName(e.target.value)} className="h-10 text-sm" />
-                <Input placeholder="Mobile Number" value={loginPhone} onChange={e => setLoginPhone(e.target.value)} className="h-10 text-sm" inputMode="numeric" disabled />
+                <Input placeholder="Mobile / WhatsApp Number" value={loginPhone} onChange={e => setLoginPhone(e.target.value)} className="h-10 text-sm" inputMode="numeric" />
+                <Input placeholder="Email (optional)" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} className="h-10 text-sm" type="email" />
+                <Input placeholder="Delivery Address" value={address} onChange={e => setAddress(e.target.value)} className="h-10 text-sm" />
                 <div>
-                  <label className="text-[11px] font-bold text-muted-foreground">Gender</label>
+                  <label className="text-[11px] font-bold text-muted-foreground">Gender (optional)</label>
                   <div className="grid grid-cols-2 gap-2 mt-1">
                     {(['male', 'female'] as const).map(g => (
                       <button
                         key={g}
                         type="button"
-                        onClick={() => setLoginGender(g)}
+                        onClick={() => setLoginGender(loginGender === g ? '' : g)}
                         className={`h-10 rounded-xl border-2 font-bold text-xs transition-all ${
                           loginGender === g ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border hover:border-primary/50'
                         }`}
@@ -1245,42 +1333,66 @@ export default function OnlineOrderPage() {
                   </div>
                 </div>
                 <div>
-                  <label className="text-[11px] font-bold text-muted-foreground">Create 4-digit PIN</label>
+                  <label className="text-[11px] font-bold text-muted-foreground">Date of Birth</label>
+                  <Input value={loginDob} onChange={e => setLoginDob(e.target.value)} className="h-10 text-sm mt-1" type="date" max={new Date().toISOString().slice(0, 10)} />
+                  <p className="text-[10px] text-muted-foreground mt-1">So the restaurant can send you a birthday offer.</p>
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-muted-foreground">Create a PIN (4–6 digits)</label>
                   <Input
                     placeholder="••••"
                     value={loginPin}
-                    onChange={e => setLoginPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                    onChange={e => { setLoginPin(e.target.value.replace(/\D/g, '').slice(0, 6)); setLoginError(''); }}
                     className="h-12 text-center text-2xl tracking-[0.5em] font-bold mt-1"
                     inputMode="numeric"
                     type="password"
-                    maxLength={4}
+                    maxLength={6}
                   />
                 </div>
+                {loginError && <p className="text-[11px] text-destructive font-semibold">{loginError}</p>}
                 <Button
                   className="w-full h-10"
+                  disabled={loginBusy}
                   onClick={async () => {
-                    if (!loginName.trim()) { toast.error('Naam likhein'); return; }
-                    if (!loginGender) { toast.error('Select a gender'); return; }
-                    if (loginPin.length !== 4) { toast.error('Create a 4-digit PIN'); return; }
-                    const pinHash = await hashPin(loginPin);
-                    const acc: OnlineAccount = {
-                      name: loginName.trim(),
+                    if (!loginName.trim()) { setLoginError('Enter your name'); return; }
+                    if (normalizePhone(loginPhone).length < 10) { setLoginError('Enter a valid mobile number'); return; }
+                    if (loginPin.length < 4) { setLoginError('Create a PIN of at least 4 digits'); return; }
+                    const tid = getTenantId();
+                    if (!tid) { setLoginError('This restaurant is not available right now.'); return; }
+                    setLoginBusy(true);
+                    const r = await customerSignup({
+                      tenantId: tid,
                       phone: loginPhone.trim(),
-                      pin: pinHash,
-                      gender: loginGender,
-                    };
-                    upsertRegistry(acc);
-                    saveAccountLS(acc);
+                      pin: loginPin,
+                      name: loginName.trim(),
+                      email: loginEmail.trim() || undefined,
+                      address: address.trim() || undefined,
+                      dateOfBirth: loginDob || undefined,
+                      gender: loginGender || undefined,
+                      lat: lat ?? undefined,
+                      lng: lng ?? undefined,
+                    });
+                    setLoginBusy(false);
+                    if (!r.ok) {
+                      setLoginError(r.message);
+                      // Already registered is not an error to argue with — send
+                      // them to the PIN they already have.
+                      if (r.reason === 'already_registered') { setLoginPin(''); setLoginMode('pin'); }
+                      return;
+                    }
+                    const acc = fromProfile(r.customer);
                     setAccount(acc);
                     setName(acc.name); setPhone(acc.phone);
+                    if (acc.address) setAddress(acc.address);
+                    setServerOrders(await customerOrders(tid));
                     setLoginOpen(false); setLoginMode('phone');
-                    setLoginName(''); setLoginPhone(''); setLoginPin(''); setLoginGender('');
+                    setLoginName(''); setLoginPhone(''); setLoginPin(''); setLoginEmail(''); setLoginDob(''); setLoginGender('');
                     toast.success('Account created! Welcome 🎉');
                   }}
                 >
-                  Create Account
+                  {loginBusy ? 'Creating…' : 'Create Account'}
                 </Button>
-                <button className="text-[11px] text-primary underline w-full text-center" onClick={() => setLoginMode('phone')}>← Back</button>
+                <button className="text-[11px] text-primary underline w-full text-center" onClick={() => { setLoginError(''); setLoginMode('phone'); }}>← Back</button>
               </>
             )}
           </div>
@@ -1300,7 +1412,14 @@ export default function OnlineOrderPage() {
                   <p className="text-[10px] text-muted-foreground truncate">{account.name} · {account.phone}</p>
                 </div>
               </div>
-              <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive" onClick={() => { saveAccountLS(null); setAccount(null); setOrdersOpen(false); toast.success('Logged out'); }}>
+              <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive" onClick={async () => {
+                await customerLogout();
+                saveAccountLS(null);
+                setAccount(null);
+                setServerOrders([]);
+                setOrdersOpen(false);
+                toast.success('Logged out');
+              }}>
                 <LogOut className="h-3.5 w-3.5 mr-1" /> Logout
               </Button>
             </div>

@@ -48,13 +48,23 @@ export default function DashboardPage() {
 
 
   // Online customer accounts (gender analytics)
+  //
+  // v1.27.0 — this read the `dt-online-accounts-v2` localStorage blob, which
+  // only ever held accounts created in THIS browser. Customer accounts are on
+  // the server now, so the split is drawn from the real customer list and is
+  // the same on every till. The legacy blob is still folded in so a restaurant
+  // does not lose the history it collected before the move.
   const onlineAccounts = useMemo(() => {
+    const fromServer = customers
+      .filter(c => (c as any).gender === 'male' || (c as any).gender === 'female')
+      .map(c => ({ gender: (c as any).gender as 'male' | 'female' }));
+    if (fromServer.length) return fromServer;
     try {
       const raw = localStorage.getItem('dt-online-accounts-v2');
       const reg = raw ? JSON.parse(raw) : {};
       return Object.values(reg) as Array<{ gender?: 'male' | 'female' }>;
     } catch { return []; }
-  }, []);
+  }, [customers]);
   const genderSplit = useMemo(() => {
     let male = 0, female = 0, unknown = 0;
     for (const a of onlineAccounts) {

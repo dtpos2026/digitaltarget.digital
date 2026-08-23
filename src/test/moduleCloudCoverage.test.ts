@@ -21,10 +21,9 @@ describe('no module is left device-only', () => {
     expect(read('src/lib/blocklist.ts')).toContain('mirrorList');
   });
 
-  it('single-value modules (template, portal accounts, signatures) are mirrored', () => {
+  it('single-value modules (template, signatures) are mirrored', () => {
     for (const k of [
       'pos-marketing-template',
-      'dt-online-accounts-v2',
       'dt-admin-signature-dataurl',
       'dt-admin-stamp-dataurl',
       'dt-admin-agreement-custom',
@@ -33,9 +32,24 @@ describe('no module is left device-only', () => {
     }
   });
 
+  // v1.27.0 — customer accounts are no longer a mirrored blob.
+  //
+  // `dt-online-accounts-v2` held EVERY customer of a restaurant in one
+  // localStorage object, PIN hashes included, and pushed the whole thing to a
+  // cloud document. This suite's rule is "no module is left device-only", and
+  // accounts now satisfy it far better: one row per customer in the customers
+  // table, reachable only with that customer's own session token.
+  it('customer accounts live on the server, not in a mirrored blob', () => {
+    const page = read('src/pages/OnlineOrderPage.tsx');
+    expect(page).not.toContain('ACCOUNTS_REGISTRY_KEY');
+    expect(page).not.toContain('upsertRegistry');
+    expect(page).toContain('customerLogin');
+    expect(page).toContain('customerSignup');
+    expect(read('src/lib/customerAccount.ts')).toContain('public_customer_login');
+  });
+
   it('the writers actually call the mirror', () => {
     expect(read('src/lib/store.ts')).toContain('mirrorValue(MARKETING_TPL_KEY');
-    expect(read('src/pages/OnlineOrderPage.tsx')).toContain('mirrorValue(ACCOUNTS_REGISTRY_KEY');
     expect(read('src/components/ClientAgreementDialog.tsx')).toContain('mirrorValue(SIG_KEY');
   });
 

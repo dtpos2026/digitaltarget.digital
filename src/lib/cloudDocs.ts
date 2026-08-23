@@ -34,7 +34,10 @@ export type MirroredKey = typeof MIRRORED_KEYS[number];
  */
 export const MIRRORED_VALUE_KEYS = [
   'pos-marketing-template',      // WhatsApp/SMS campaign template
-  'dt-online-accounts-v2',       // customer portal accounts registry
+  // v1.27.0 — 'dt-online-accounts-v2' was removed from this list. It carried
+  // EVERY customer of a restaurant, PIN hashes included, in one document.
+  // Customer accounts are rows in `customers` now, reached through the
+  // public_customer_* RPCs with a per-customer session token.
   'dt-admin-signature-dataurl',  // agreement signature
   'dt-admin-stamp-dataurl',      // agreement stamp
   'dt-admin-agreement-custom',   // custom agreement text
