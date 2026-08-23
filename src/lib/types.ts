@@ -203,6 +203,9 @@ export interface Customer {
   lng?: number;
   locationLabel?: string;
   locationCapturedAt?: string;
+  /** v1.27.0 — collected by the customer app; used for birthday campaigns. */
+  dateOfBirth?: string;
+  gender?: 'male' | 'female';
 }
 
 export type CustomerGrade = 'platinum' | 'gold' | 'silver' | 'regular';

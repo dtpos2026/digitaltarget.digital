@@ -270,7 +270,18 @@ export const ALLOWED_COLUMNS: Record<string, Set<string>> = {
   kitchens: new Set(['id', 'tenant_id', 'branch_id', 'name', 'printer_role', 'is_active', 'updated_at']),
   customers: new Set(['id', 'tenant_id', 'name', 'phone', 'address', 'city', 'lat', 'lng',
     'loyalty_points', 'credit_balance', 'total_orders', 'total_spent', 'last_order_at',
-    'is_blocked', 'pin_hash', 'created_at', 'updated_at',
+    'is_blocked', 'created_at', 'updated_at',
+    // v1.27.0 — the POS may edit these; they are ordinary CRM fields.
+    'email', 'date_of_birth', 'gender',
+    // NOT in this list, deliberately:
+    //   pin_hash          the customer's own app PIN. It is set by
+    //                     public_customer_signup() inside Postgres and no
+    //                     client has any business overwriting it. It used to
+    //                     be here, when the customer "PIN" was a localStorage
+    //                     hash and meant nothing.
+    //   pin_attempts, pin_locked_until   the brute-force lockout. A client
+    //                     that could write these could clear its own lockout.
+    //   push_token        set through the customer's own session.
     // v1.25.19 — these were being silently dropped. `addresses` is the
     // customer's saved delivery addresses; a delivery POS losing those is
     // not a cosmetic loss.

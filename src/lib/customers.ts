@@ -126,3 +126,75 @@ export function composeFullAddress(c: Partial<CustomerProfile>): string {
   ].filter(Boolean);
   return parts.join(', ');
 }
+
+// ============================================================================
+// Birthdays — v1.27.0
+//
+// The customer app collects a date of birth, and the point of collecting it is
+// that the restaurant can act on it. These live here, in the CRM module, rather
+// than in the app: a birthday list is worth just as much to the counter and to
+// a marketing campaign as it is to the app that gathered the date.
+//
+// Everything is month/day. A birthday is an anniversary, not a date, and the
+// year is only ever useful for age.
+// ============================================================================
+
+/** Days until the next occurrence of this birthday. 0 means today. */
+export function daysUntilBirthday(dateOfBirth?: string | null, from: Date = new Date()): number | null {
+  if (!dateOfBirth) return null;
+  const dob = new Date(dateOfBirth);
+  if (Number.isNaN(dob.getTime())) return null;
+
+  const today = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  let next = new Date(today.getFullYear(), dob.getMonth(), dob.getDate());
+  // 29 February in a common year is marked on the 1st of March.
+  if (dob.getMonth() === 1 && dob.getDate() === 29 && next.getMonth() !== 1) {
+    next = new Date(today.getFullYear(), 2, 1);
+  }
+  if (next < today) {
+    next = new Date(today.getFullYear() + 1, next.getMonth(), next.getDate());
+  }
+  return Math.round((next.getTime() - today.getTime()) / 86400000);
+}
+
+export function isBirthdayToday(dateOfBirth?: string | null, from: Date = new Date()): boolean {
+  return daysUntilBirthday(dateOfBirth, from) === 0;
+}
+
+/** Age on their next birthday, or null when the year is unknown or implausible. */
+export function ageOnNextBirthday(dateOfBirth?: string | null, from: Date = new Date()): number | null {
+  if (!dateOfBirth) return null;
+  const dob = new Date(dateOfBirth);
+  if (Number.isNaN(dob.getTime())) return null;
+  const days = daysUntilBirthday(dateOfBirth, from);
+  if (days == null) return null;
+  const year = from.getFullYear() + (days > 0 && new Date(from.getFullYear(), dob.getMonth(), dob.getDate()) < from ? 1 : 0);
+  const age = year - dob.getFullYear();
+  return age > 0 && age < 130 ? age : null;
+}
+
+export interface BirthdayCustomer<T> {
+  customer: T;
+  daysUntil: number;
+  age: number | null;
+}
+
+/**
+ * Everyone whose birthday falls within the next `days`, soonest first.
+ *
+ * `days = 0` is "today only", which is the campaign a restaurant actually
+ * sends; a week's notice is what a manager plans with.
+ */
+export function birthdaysWithin<T extends { dateOfBirth?: string }>(
+  customers: readonly T[],
+  days = 7,
+  from: Date = new Date(),
+): Array<BirthdayCustomer<T>> {
+  const out: Array<BirthdayCustomer<T>> = [];
+  for (const c of customers) {
+    const d = daysUntilBirthday(c.dateOfBirth, from);
+    if (d == null || d > days) continue;
+    out.push({ customer: c, daysUntil: d, age: ageOnNextBirthday(c.dateOfBirth, from) });
+  }
+  return out.sort((a, b) => a.daysUntil - b.daysUntil);
+}

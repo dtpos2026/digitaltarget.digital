@@ -13,7 +13,7 @@ import { Phone, MapPin, Search, Trash2, Edit3, Trophy, Truck, Users, Clock, Mess
 import { toast } from 'sonner';
 import { normalizePhone, openWhatsApp } from '@/lib/whatsapp';
 import CustomerIntelligenceCard from '@/components/CustomerIntelligenceCard';
-import { gradeColor } from '@/lib/customers';
+import { gradeColor, birthdaysWithin, daysUntilBirthday, ageOnNextBirthday } from '@/lib/customers';
 import * as XLSX from 'xlsx';
 
 function diffMinutes(a?: string, b?: string): number | null {
@@ -25,6 +25,7 @@ function diffMinutes(a?: string, b?: string): number | null {
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<CustomerProfile[]>(getCustomers());
   const [search, setSearch] = useState('');
+  const [birthdaysOnly, setBirthdaysOnly] = useState(false);
   const [editing, setEditing] = useState<CustomerProfile | null>(null);
   const [viewing, setViewing] = useState<CustomerProfile | null>(null);
   const orders = useMemo(() => getOrders(), []);
@@ -32,13 +33,22 @@ export default function CustomersPage() {
 
   const refresh = () => setCustomers(getCustomers());
 
+  // Who to send a birthday offer to. The customer app collects the date; this
+  // is the point of collecting it.
+  const birthdaySoon = useMemo(() => birthdaysWithin(customers as any[], 7), [customers]);
+  const birthdayIds = useMemo(
+    () => new Set(birthdaySoon.map(b => (b.customer as any).id)),
+    [birthdaySoon],
+  );
+
   const filtered = useMemo(() => {
     const s = search.trim().toLowerCase();
     return customers
       .slice()
       .sort((a, b) => (b.lastOrderAt || '').localeCompare(a.lastOrderAt || ''))
-      .filter(c => !s || c.name.toLowerCase().includes(s) || c.phone.includes(s));
-  }, [customers, search]);
+      .filter(c => !s || c.name.toLowerCase().includes(s) || c.phone.includes(s))
+      .filter(c => !birthdaysOnly || birthdayIds.has(c.id));
+  }, [customers, search, birthdaysOnly, birthdayIds]);
 
   const top = useMemo(() => customers.slice().sort((a, b) => b.totalSpent - a.totalSpent).slice(0, 20), [customers]);
 
@@ -153,6 +163,24 @@ export default function CustomersPage() {
             <Search className="h-4 w-4 absolute left-3 top-2.5 text-muted-foreground" />
             <Input placeholder="Search by name or phone..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
           </div>
+
+          {birthdaySoon.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setBirthdaysOnly(v => !v)}
+              className={`w-full text-left rounded-lg border px-3 py-2 transition-colors ${
+                birthdaysOnly ? 'border-primary bg-primary/10' : 'border-border hover:bg-muted/50'
+              }`}
+            >
+              <span className="text-sm font-semibold">
+                🎂 {birthdaySoon.length} birthday{birthdaySoon.length === 1 ? '' : 's'} in the next 7 days
+              </span>
+              <span className="block text-[11px] text-muted-foreground">
+                {birthdaySoon.filter(b => b.daysUntil === 0).length} today ·{' '}
+                {birthdaysOnly ? 'showing only these — tap to show everyone' : 'tap to see who'}
+              </span>
+            </button>
+          )}
           {filtered.length === 0 && (
             <Card className="p-8 text-center text-sm text-muted-foreground">
               No customers yet. Customers are auto-saved when delivery orders are paid.
@@ -173,6 +201,16 @@ export default function CustomersPage() {
                      {c.grade && (
                        <Badge className={`${gradeColor(c.grade)} text-[9px] uppercase`}>{c.grade}</Badge>
                      )}
+                     {(() => {
+                       const d = daysUntilBirthday((c as any).dateOfBirth);
+                       if (d == null || d > 7) return null;
+                       const age = ageOnNextBirthday((c as any).dateOfBirth);
+                       return (
+                         <Badge className="bg-primary/15 text-primary border border-primary/40 text-[9px]">
+                           🎂 {d === 0 ? 'Today' : `${d}d`}{age ? ` · ${age}` : ''}
+                         </Badge>
+                       );
+                     })()}
                      {(c.loyaltyPoints || 0) > 0 && (
                        <Badge className="bg-gold/15 text-gold border border-gold/40 text-[9px]">
                          🏆 {c.loyaltyPoints} pts
