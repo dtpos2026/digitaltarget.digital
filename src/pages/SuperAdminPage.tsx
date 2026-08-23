@@ -27,6 +27,7 @@ import ClientAgreementDialog from '@/components/ClientAgreementDialog';
 import SuperAdminMessages from '@/components/SuperAdminMessages';
 import SuperAdminReports from '@/components/SuperAdminReports';
 import PackagesManager from '@/components/PackagesManager';
+import CustomerAppsManager from '@/components/CustomerAppsManager';
 import PlansManager from '@/components/PlansManager';
 import BrandSignaturePanel from '@/components/BrandSignaturePanel';
 import MarketingContactsPanel from '@/components/MarketingContactsPanel';
@@ -147,7 +148,7 @@ interface RestaurantLocation {
 interface Props { onLogout: () => void; }
 
 export default function SuperAdminPage({ onLogout }: Props) {
-  const [tab, setTab] = useState<'restaurants' | 'clients' | 'reports' | 'packages' | 'plans' | 'messages' | 'devices' | 'map' | 'team' | 'releases' | 'cleanup' | 'monitor'>('restaurants');
+  const [tab, setTab] = useState<'restaurants' | 'clients' | 'reports' | 'packages' | 'plans' | 'messages' | 'devices' | 'map' | 'team' | 'releases' | 'cleanup' | 'monitor' | 'customerApps'>('restaurants');
   const [rows, setRows] = useState<IndexRow[]>([]);
   const [devices, setDevices] = useState<DeviceRow[]>([]);
   const [restaurants, setRestaurants] = useState<RestaurantLocation[]>([]);
@@ -921,6 +922,7 @@ export default function SuperAdminPage({ onLogout }: Props) {
                 { id: 'reports', label: 'Reports & Ledger', icon: <Receipt className="h-4 w-4" /> },
                 { id: 'packages', label: 'Packages', icon: <Package className="h-4 w-4" /> },
                 { id: 'plans', label: 'Plans', icon: <Package className="h-4 w-4" /> },
+                { id: 'customerApps', label: 'Customer Apps', icon: <Smartphone className="h-4 w-4" /> },
                 { id: 'devices', label: 'Devices', icon: <Smartphone className="h-4 w-4" />, badge: totalPendingD },
                 { id: 'map', label: 'Live Map', icon: <MapPin className="h-4 w-4" /> },
                 { id: 'team', label: 'Team', icon: <Users className="h-4 w-4" /> },
@@ -1163,6 +1165,13 @@ export default function SuperAdminPage({ onLogout }: Props) {
             plan: r.plan,
             planExpiryAt: r.planExpiryAt,
           }))} />
+        ) : tab === 'customerApps' ? (
+          <CustomerAppsManager
+            restaurants={rows.map(r => ({
+              tenantId: r.tenantId || r.id,
+              name: r.restaurantName || r.email || (r.tenantId || r.id),
+            }))}
+          />
         ) : tab === 'packages' ? (
           <div className="space-y-4">
             <BrandSignaturePanel />

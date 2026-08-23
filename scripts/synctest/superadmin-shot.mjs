@@ -64,6 +64,14 @@ await post('devices', [
     last_login_at: '2026-08-22T22:00:00Z', login_count: 1 },
 ]);
 await post('super_admins', [{ id: 'sa1', email: 'owner@dtpos.test', can_manage_team: true, is_active: true }]);
+await post('customer_apps', [{
+  tenant_id: T1, enabled: true, app_name: 'Tami Express', logo_url: 'https://example.com/logo.png',
+  icon_url: 'https://example.com/icon.png', theme: { primary: '#e11d48', mode: 'dark' },
+  whatsapp_number: '923001234567',
+  features: { ordering: true, tracking: true, history: true, offers: true, support: true, whatsapp: true, loyalty: false },
+  app_version: '1.2.0', min_supported_version: '1.0.0', update_url: 'https://example.com/app.apk',
+  update_required: false,
+}]);
 
 const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--no-proxy-server'] });
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
@@ -92,9 +100,15 @@ await page.waitForTimeout(4000);
 const heading = await page.locator('body').innerText();
 console.log('--- first 300 chars of page ---\n' + heading.slice(0, 300));
 
-for (const [tab, file] of [['Devices', 'superadmin-devices.png'], ['Live Map', 'superadmin-map.png']]) {
+for (const [tab, file] of [['Customer Apps', 'superadmin-customer-apps.png']]) {
   const btn = page.getByRole('button', { name: new RegExp('^' + tab, 'i') }).first();
-  if (await btn.count()) { await btn.click(); await page.waitForTimeout(3500); }
+  if (await btn.count()) {
+    await btn.click();
+    await page.waitForTimeout(2500);
+    // Expand the first restaurant so the whole configuration form is visible.
+    const row = page.getByText('Tami Restaurant').first();
+    if (await row.count()) { await row.click(); await page.waitForTimeout(1200); }
+  }
   else console.log(`  (no "${tab}" tab button found)`);
   await page.screenshot({ path: join(root, 'scripts/synctest', file), fullPage: true });
   console.log('shot ->', file);
