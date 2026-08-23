@@ -13,7 +13,8 @@
     "format": "prettier --write .",
     "dist": "node scripts/build.mjs",
     "deploy": "node scripts/build.mjs && wrangler pages deploy dist --project-name dt-pos",
-    "test:sync": "node scripts/synctest/two-browser.mjs"
+    "test:sync": "node scripts/synctest/two-browser.mjs",
+    "build:desktop": "node scripts/build-desktop.mjs"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",
