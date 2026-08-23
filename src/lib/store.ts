@@ -1946,6 +1946,54 @@ export function getOrders(): Order[] {
  * @returns the newly-loaded orders (already merged into the local cache)
  */
 export async function loadHistoricalOrders(fromMs: number, toMs?: number): Promise<Order[]> {
+  // ===== v1.27.1 — this had no Supabase branch at all =====
+  //
+  // It went straight to the local-only path on a Supabase restaurant, so the
+  // Admin sales and audit reports could never pull a closed day back from the
+  // cloud — they only ever showed what happened to be on THIS device. Combined
+  // with Day Close deleting the rows, that is how a restaurant's history came
+  // to exist in one browser's localStorage and nowhere else.
+  //
+  // Archived bills are the whole point of the query, so they are included here
+  // and nowhere else: the till's own loads still leave them out.
+  if (useSupabaseBackend() && useCloudStore()) {
+    try {
+      const { sbLoadCollection } = await import('./supabaseStore');
+      const rows = await sbLoadCollection('orders', { includeArchived: true }) as Order[];
+      const inRange = rows.filter(o => {
+        const t = new Date((o as any).paidAt || o.createdAt).getTime();
+        return Number.isFinite(t) && t >= fromMs && (!toMs || t <= toMs);
+      });
+
+      // Merge without letting a stale local copy demote a settled bill — the
+      // same rule the live snapshot merger uses.
+      const d = loadData();
+      const byId = new Map(d.orders.map(o => [o.id, o]));
+      for (const remote of inRange) {
+        const local = byId.get(remote.id);
+        if (!local) continue;   // archived bills stay OUT of the till's cache
+        const lFinal = isOrderFinal(local);
+        const rFinal = isOrderFinal(remote);
+        if (lFinal && !rFinal) continue;
+        if (rFinal && !lFinal) { byId.set(remote.id, remote); continue; }
+        if (Number((remote as any)._updatedAt || 0) >= Number((local as any)._updatedAt || 0)) {
+          byId.set(remote.id, remote);
+        }
+      }
+      d.orders = Array.from(byId.values());
+      saveLocal(d);
+      emitDataChange('orders');
+      return inRange;
+    } catch (e) {
+      console.warn('[store] loadHistoricalOrders (supabase) failed', e);
+      // Fall through to the local copy rather than showing an empty report.
+      return getOrders().filter(o => {
+        const t = new Date(o.createdAt).getTime();
+        return t >= fromMs && (!toMs || t <= toMs);
+      });
+    }
+  }
+
   if (!useFirestore()) {
     // Local-only mode — nothing extra to load; return whatever matches locally.
     return getOrders().filter(o => {
@@ -2597,6 +2645,68 @@ export async function resetOrderCounter(startAt = 0): Promise<boolean> {
  * Offline is treated as a failure on purpose: deleting locally while the
  * server still holds the orders is precisely what makes them reappear.
  */
+/**
+ * Close the day on these bills WITHOUT deleting them.
+ *
+ * ===== WHY THIS EXISTS =====
+ * Day Close used to call deleteOrdersBulk() for paid bills. That tombstones the
+ * row in the cloud, which syncs to every device, leaving the restaurant's
+ * takings in exactly one place: `dt-pos-order-archive::<tenant>` in one
+ * browser's localStorage — capped at 400 days and 20,000 orders, and HALVED
+ * when the quota is hit. A new till, a reinstall or a cleared browser had no
+ * sales history at all, and neither did the database.
+ *
+ * Archiving keeps the row in full on the server and only stops it loading into
+ * the till. Operational reports start from zero for the new day; the Admin
+ * sales and audit reports still see every bill.
+ *
+ * Same contract as deleteOrdersBulk: offline is a failure, and nothing is
+ * cleared locally until the server confirms — otherwise the next sync brings it
+ * straight back and the day never looks closed.
+ */
+export async function archiveOrdersBulk(
+  ids: string[],
+): Promise<{ archived: number; failed: number; offline: boolean; error?: string }> {
+  const unique = Array.from(new Set(ids.filter(Boolean)));
+  if (unique.length === 0) return { archived: 0, failed: 0, offline: false };
+
+  // Keep the device's own copy before anything moves, so a till that is the
+  // only witness to today's trade still has it if the write fails.
+  try {
+    const { archiveOrders } = await import('./orderArchive');
+    const byId = new Set(unique);
+    archiveOrders(loadData().orders.filter(o => byId.has(o.id)));
+  } catch { /* the server copy is the one that matters */ }
+
+  if (useSupabaseBackend() && useCloudStore()) {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      return { archived: 0, failed: unique.length, offline: true, error: 'Device offline' };
+    }
+    try {
+      const { sbArchiveMany } = await import('./supabaseStore');
+      const done = await sbArchiveMany('orders', unique);
+      const gone = new Set(done);
+      const d = loadData();
+      d.orders = d.orders.filter(o => !gone.has(o.id));
+      saveLocal(d);
+      emitDataChange('orders');
+      return { archived: done.length, failed: unique.length - done.length, offline: false };
+    } catch (e: any) {
+      reportCloudError('archive orders', e);
+      return { archived: 0, failed: unique.length, offline: false, error: e?.message || String(e) };
+    }
+  }
+
+  // No cloud configured: the local archive above IS the record, and nothing can
+  // resurrect these rows, so clearing them locally is safe.
+  const d = loadData();
+  const idSet = new Set(unique);
+  d.orders = d.orders.filter(o => !idSet.has(o.id));
+  saveLocal(d);
+  emitDataChange('orders');
+  return { archived: unique.length, failed: 0, offline: false };
+}
+
 export async function deleteOrdersBulk(
   ids: string[],
 ): Promise<{ deleted: number; failed: number; offline: boolean; error?: string }> {

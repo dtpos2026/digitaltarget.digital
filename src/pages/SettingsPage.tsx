@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { currencySymbol, currencyOptions, getCurrencyDef, formatMoney } from '@/lib/currency';
-import { getSettings, saveSettings, saveSettingsNow, getTables, saveTable, deleteTable, getFloors, saveFloor, deleteFloor, getKitchens, saveKitchen, deleteKitchen, getWaiters, saveWaiter, deleteWaiter, getRiders, saveRider, deleteRider, genId, getOrders, deleteOrder, deleteOrdersBulk, resetOrderCounter, exportData, getCategories, getCurrentUser, clearCollectionsForDayClose } from '@/lib/store';
+import { getSettings, saveSettings, saveSettingsNow, getTables, saveTable, deleteTable, getFloors, saveFloor, deleteFloor, getKitchens, saveKitchen, deleteKitchen, getWaiters, saveWaiter, deleteWaiter, getRiders, saveRider, deleteRider, genId, getOrders, deleteOrder, deleteOrdersBulk, archiveOrdersBulk, resetOrderCounter, exportData, getCategories, getCurrentUser, clearCollectionsForDayClose } from '@/lib/store';
 import { RestaurantSettings, DiningTable, Floor, Kitchen, Waiter, Rider, ReceiptTextStyle } from '@/lib/types';
+import { buildDayClosePreflight, countUnsyncedOrders, type DayClosePreflight } from '@/lib/dayClosePreflight';
 import { getDayCloseConfig, saveDayCloseConfig, DayCloseConfig, DAY_CLOSE_MODULES, getPendingDayCloseRequests, addPendingDayCloseRequest, clearPendingDayCloseRequests, PendingDayCloseRequest } from '@/lib/dayCloseConfig';
 import { userHasAccess } from '@/lib/permissions';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -106,6 +107,8 @@ export default function SettingsPage() {
   const [printers, setPrinters] = useState<{ name: string; isDefault: boolean }[]>([]);
   const [currentTheme, setCurrentTheme] = useState<ThemeId>(getActiveTheme());
   const [dayCloseCfg, setDayCloseCfg] = useState<DayCloseConfig>(() => getDayCloseConfig());
+  // What Day Close is about to do, computed when the dialog opens.
+  const [preflight, setPreflight] = useState<DayClosePreflight | null>(null);
   const [pendingRequests, setPendingRequests] = useState<PendingDayCloseRequest[]>(() => getPendingDayCloseRequests());
   const [savingSettings, setSavingSettings] = useState(false);
   const settingsAutoSaveReady = useRef(false);
@@ -122,6 +125,15 @@ export default function SettingsPage() {
   }, [settings]);
   // Selections stick — saved the moment a box is ticked.
   useEffect(() => { saveDayCloseConfig(dayCloseCfg); }, [dayCloseCfg]);
+
+  useEffect(() => {
+    if (!showDayClose) { setPreflight(null); return; }
+    let cancelled = false;
+    void countUnsyncedOrders().then(pending => {
+      if (!cancelled) setPreflight(buildDayClosePreflight(getOrders(), pending));
+    });
+    return () => { cancelled = true; };
+  }, [showDayClose]);
   const currentUser = getCurrentUser();
   const isAdmin = currentUser?.role === 'admin';
   const canDayClose = isAdmin || userHasAccess(currentUser, 'day-close');
@@ -273,6 +285,19 @@ export default function SettingsPage() {
       toast.error('Only Admin can finalize Day Close');
       return;
     }
+    // A bill taken and paid on this till that has not reached the server exists
+    // NOWHERE else. Clearing it from the till before the queue drains is how a
+    // real sale disappears, so this stops rather than warns.
+    const pendingOrders = await countUnsyncedOrders();
+    if (pendingOrders !== 0) {
+      toast.error(
+        pendingOrders < 0
+          ? 'Cannot close the day: the offline queue could not be read. Try again in a moment.'
+          : `Cannot close the day: ${pendingOrders} bill(s) have not reached the server yet. They would be lost. Wait for sync to finish.`,
+      );
+      return;
+    }
+
     const cfg = dayCloseCfg;
     const closeId = `dc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const dateStr = new Date().toISOString().slice(0, 10);
@@ -332,19 +357,34 @@ export default function SettingsPage() {
       }
     });
 
-    // v1.5.1 — awaited BULK delete. Previously this loop called deleteOrder()
-    // which fires its cloud delete without awaiting, so Day Close reported
-    // success while deletes were still in flight; any that failed left the
-    // order on the server and the realtime listener brought it straight back
-    // ("day close par data zero nahi hota"). Now we wait for the server to
-    // confirm, and tell the admin the truth if it didn't.
-    const delResult = await deleteOrdersBulk(toDelete);
+    // ===== v1.27.1 — Day Close ARCHIVES. It no longer deletes. =====
+    //
+    // This called deleteOrdersBulk(), which tombstones the row in the cloud and
+    // syncs that delete to every device. The only surviving copy of the
+    // restaurant's takings was `dt-pos-order-archive::<tenant>` in ONE
+    // browser's localStorage — capped at 400 days and 20,000 orders, and halved
+    // on a quota error. A new till, a reinstall or a cleared browser had no
+    // sales history, and neither did the database.
+    //
+    // On this restaurant that had already destroyed 30 paid bills worth
+    // PKR 42,498. They have been recovered as archived history.
+    //
+    // Archiving keeps every row in full on the server and only stops it loading
+    // into the till, so operational reports still start from zero for the new
+    // day while the Admin sales and audit reports keep everything. Void and
+    // cancelled bills are archived too — they cost nothing to keep and the
+    // audit trail is worth more than the row.
+    //
+    // v1.5.1's rule still holds and matters more than ever: AWAIT the server,
+    // and clear nothing locally that the server did not confirm, or the
+    // realtime listener brings it straight back and the day never looks closed.
+    const delResult = await archiveOrdersBulk(toDelete);
     if (delResult.offline) {
-      toast.error('No internet — Day Close stopped. Nothing was deleted (it would have come back). Try again once you are online.');
+      toast.error('No internet — Day Close stopped. Nothing was changed. Try again once you are online.');
       return;
     }
     if (delResult.failed > 0) {
-      toast.error(`${delResult.failed} orders could not be deleted from the cloud — they may reappear. ${delResult.error || ''}`);
+      toast.error(`${delResult.failed} orders could not be archived on the server — they may reappear. ${delResult.error || ''}`);
     }
 
     // 4. Reset tables (optional)
@@ -406,7 +446,7 @@ export default function SettingsPage() {
     const cloudMsg = cfg.autoBackup ? (cloudOk ? ' · Cloud backup saved ☁️' : ' · Cloud backup FAILED (local OK)') : '';
     // Report what the SERVER actually confirmed, not what we intended.
     const modMsg = modCleared ? ` · ${modCleared} module records reset to 0` : '';
-    toast.success(`Day closed. ${delResult.deleted} orders cleared.${modMsg}${cloudMsg}`);
+    toast.success(`Day closed. ${delResult.archived} bills moved to history (nothing deleted).${modMsg}${cloudMsg}`);
   };
 
 
@@ -3720,11 +3760,51 @@ export default function SettingsPage() {
           </DialogTitle></DialogHeader>
           <div className="space-y-3">
             <p className="text-xs text-muted-foreground">
-              کیا آپ واقعی دن بند کرنا چاہتے ہیں؟ تمام آرڈرز ڈیلیٹ ہو جائیں گے اور بیک اپ آٹو ڈاؤنلوڈ ہوگا۔
+              کیا آپ واقعی دن بند کرنا چاہتے ہیں؟ بل ہسٹری میں چلے جائیں گے (ڈیلیٹ نہیں ہوں گے) اور بیک اپ آٹو ڈاؤنلوڈ ہوگا۔
             </p>
+
+            {preflight && (
+              <div className="rounded-lg border bg-muted/40 p-3 space-y-2 text-xs">
+                <div className="flex items-baseline justify-between">
+                  <span className="font-semibold">{preflight.total} bill(s) move to history</span>
+                  <span className="font-bold text-primary">{formatMoney(preflight.value)}</span>
+                </div>
+                <div className="text-[11px] text-muted-foreground">
+                  {preflight.byStatus.paid} paid · {preflight.byStatus.running} running/hold ·{' '}
+                  {preflight.byStatus.credit} credit · {preflight.byStatus.voided} void
+                </div>
+                <div className="text-[11px] text-status-success">
+                  Nothing is deleted. Every bill stays in the Admin sales and audit reports.
+                </div>
+
+                {preflight.paidWithoutPaymentRecord > 0 && (
+                  <div className="rounded border border-status-warning/50 bg-status-warning/10 p-2 text-[11px]">
+                    <b>{preflight.paidWithoutPaymentRecord} paid bill(s) have no payment record.</b>{' '}
+                    Their money counts in the sales total but nothing says how it was
+                    received, so cash-vs-card will not reconcile. Worth checking now.
+                  </div>
+                )}
+
+                {!preflight.safe && (
+                  <div className="rounded border border-destructive/50 bg-destructive/10 p-2 text-[11px]">
+                    <b>
+                      {preflight.unsyncedOrders < 0
+                        ? 'The offline queue could not be read.'
+                        : `${preflight.unsyncedOrders} bill(s) have not reached the server.`}
+                    </b>{' '}
+                    Day Close is blocked until they sync — closing now would lose them.
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1" onClick={() => setShowDayClose(false)}>Cancel</Button>
-              <Button className="flex-1 bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={handleDayClose}>
+              <Button
+                className="flex-1 bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={handleDayClose}
+                disabled={!!preflight && !preflight.safe}
+              >
                 Confirm Day Close
               </Button>
             </div>

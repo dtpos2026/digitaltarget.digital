@@ -353,6 +353,9 @@ export function rowToDb(col: string, data: Record<string, any>): Record<string, 
       data: { ...data, id: data.id },
       client_seq: Number(data._updatedAt || data.clientSeq || Date.now()),
       deleted_at: data.deletedAt ? new Date(data.deletedAt).toISOString() : null,
+      // v1.27.1 — Close Day sets this instead of deleting. The row stays in
+      // full; only the operational screens stop reading it.
+      archived_at: data.archivedAt ? new Date(data.archivedAt).toISOString() : null,
     };
   }
   if (col === 'categories') {
@@ -508,6 +511,7 @@ export function rowFromDb(row: Record<string, any>, table?: string): Record<stri
     payload.grandTotal = Number(row.total ?? payload.grandTotal) || 0;
     payload.items = Array.isArray(payload.items) ? payload.items : [];
     payload.payments = Array.isArray(payload.payments) ? payload.payments : [];
+    payload.archivedAt = row.archived_at ? new Date(row.archived_at).getTime() : undefined;
     return payload;
   }
   const out = columnsFromDb(row);
@@ -625,6 +629,14 @@ export interface LoadOptions {
    * The plain UI read path leaves this off and never sees a deleted row.
    */
   includeDeleted?: boolean;
+  /**
+   * v1.27.1 — load bills from days that have been closed.
+   *
+   * Off by default: a till must not carry a year of history in memory, which
+   * is the reason Day Close used to delete them outright. The Admin sales and
+   * audit reports turn it on when they need the history.
+   */
+  includeArchived?: boolean;
 }
 
 export async function sbLoadCollection(col: string, opts: LoadOptions = {}): Promise<any[]> {
@@ -639,6 +651,9 @@ export async function sbLoadCollection(col: string, opts: LoadOptions = {}): Pro
   // Day Close soft-deletes bills so the admin keeps the history on the
   // server, but a closed day must never load back into the till.
   if (SOFT_DELETE.has(table) && !opts.includeDeleted) request = request.is('deleted_at', null);
+  // A closed day stays on the server in full, but must not load back into the
+  // till — that is the whole point of closing it.
+  if (table === 'orders' && !opts.includeArchived) request = request.is('archived_at', null);
   const { data, error } = await request;
   if (error) {
     console.error(`[supabase] load ${col} (${table}) failed`, error.message);
@@ -808,6 +823,46 @@ export async function sbDeleteItem(col: string, id: string): Promise<void> {
  * Returns the ids the server confirmed, so the caller only clears locally
  * what really went, and nothing can sync back down afterwards.
  */
+/**
+ * Mark bills as belonging to a day that has been closed.
+ *
+ * This is Day Close's write, and it is deliberately NOT a delete. The row keeps
+ * every column — items, payments, totals, paidAt — and simply stops loading
+ * into the till. Deleting instead is what left the only copy of a restaurant's
+ * takings in one browser's localStorage.
+ *
+ * @returns the ids the SERVER confirmed. A caller must not clear anything
+ *          locally for an id that is not in this list, or the next sync brings
+ *          it straight back.
+ */
+export async function sbArchiveMany(col: string, ids: string[]): Promise<string[]> {
+  const table = tableFor(col);
+  const tenantId = authTenantId();
+  const unique = Array.from(new Set(ids.filter(Boolean)));
+  if (!table || !unique.length) return [];
+  if (!tenantId) throw new Error('Restaurant identity is not ready; archive will retry');
+
+  const stamp = new Date().toISOString();
+  const done: string[] = [];
+  const CHUNK = 100;
+  for (let i = 0; i < unique.length; i += CHUNK) {
+    const slice = unique.slice(i, i + CHUNK);
+    const { error } = await sb().from(table)
+      .update({ archived_at: stamp })
+      .in('id', slice.map(cloudId))
+      .eq('tenant_id', tenantId)
+      // Never re-stamp a day that was already closed: the original close date
+      // is the one the audit report groups by.
+      .is('archived_at', null);
+    if (error) {
+      console.error(`[supabase] archive ${col} failed`, error.message);
+      throw error;
+    }
+    done.push(...slice);
+  }
+  return done;
+}
+
 export async function sbDeleteMany(col: string, ids: string[]): Promise<string[]> {
   if (isDocStoreCollection(col)) return docStoreDelete(col, ids);
   const table = tableFor(col);
