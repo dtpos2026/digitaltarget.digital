@@ -322,11 +322,13 @@ export default function SuperAdminPage({ onLogout }: Props) {
     const { sb } = await import('@/lib/supabase');
 
     // Tenants + their owner email (pending or claimed).
-    const [tRes, pRes, dRes, bRes] = await Promise.all([
+    const [tRes, pRes, dRes, bRes, sRes] = await Promise.all([
       sb().from('tenants').select('id,name,slug,plan,plan_expires_at,is_active,created_at,custom_device_limit'),
       sb().from('pending_owners').select('email,tenant_id,claimed_at'),
       sb().from('devices').select('id,tenant_id,branch_id,device_label,hardware_id,fingerprint,platform,app_version,approved,blocked,blocked_at,last_seen_at,lat,lng,accuracy_m,ip,meta,last_login_at,login_count'),
-      sb().from('branches').select('id,tenant_id,name,lat,lng,is_active'),
+      sb().from('branches').select('id,tenant_id,name,lat,lng,is_active,address,phone'),
+      // The logo and phone live in the restaurant's own settings document.
+      sb().from('tenant_settings').select('tenant_id,data'),
     ]);
     if (tRes.error) throw tRes.error;
 
@@ -368,6 +370,11 @@ export default function SuperAdminPage({ onLogout }: Props) {
       platform: d.platform,
       appVersion: d.app_version,
       lastSeen: d.last_seen_at,
+      // v1.27.1 — every online check on this page reads lastActiveAt, and the
+      // Supabase mapping only ever set lastSeen. So the Live Map, the device
+      // badges and the monitor all showed "offline" for every device on every
+      // Supabase deployment, no matter how recently it had checked in.
+      lastActiveAt: d.last_seen_at,
       lat: d.lat, lng: d.lng, accuracyM: d.accuracy_m ?? undefined,
       hardwareId: d.hardware_id,
       branchId: d.branch_id ?? undefined,
@@ -387,9 +394,48 @@ export default function SuperAdminPage({ onLogout }: Props) {
     dList.sort((a, b) => Number(a.approved) - Number(b.approved));
     setDevices(dList);
 
-    // Branch GPS is fetched above but this build has no locations state to
-    // hold it, so it is intentionally not surfaced here rather than invented.
-    void bRes;
+    // ===== v1.27.1 — the Live Map had no restaurants on it, ever =====
+    //
+    // This said "no locations state to hold it" and threw the branch GPS away.
+    // The state existed; only the Firebase loader ever filled it, and Firebase
+    // is stubbed out in this build — so on every Supabase deployment the map
+    // showed devices floating with no restaurant pin behind them.
+    //
+    // Same rule the Firebase path used: the first active branch that has
+    // coordinates is the restaurant's position, falling back to the legacy
+    // settings.restaurantLat/Lng for a single-branch shop that never created
+    // a branch row.
+    const settingsByTid: Record<string, any> = {};
+    for (const r of ((sRes.data ?? []) as any[])) settingsByTid[r.tenant_id] = r.data ?? {};
+
+    const branchesByTid: Record<string, any[]> = {};
+    for (const b of ((bRes.data ?? []) as any[])) {
+      (branchesByTid[b.tenant_id] ||= []).push(b);
+    }
+
+    const locs: RestaurantLocation[] = [];
+    for (const row of list) {
+      const tid = row.tenantId;
+      const st = settingsByTid[tid] ?? {};
+      const branch = (branchesByTid[tid] ?? []).find(
+        b => typeof b.lat === 'number' && typeof b.lng === 'number' && b.is_active !== false,
+      );
+      const lat = branch?.lat ?? (typeof st.restaurantLat === 'number' ? st.restaurantLat : null);
+      const lng = branch?.lng ?? (typeof st.restaurantLng === 'number' ? st.restaurantLng : null);
+      if (lat == null || lng == null) continue;   // nothing to pin — say so, do not guess
+      locs.push({
+        tenantId: tid,
+        name: st.name || row.restaurantName || tid,
+        lat, lng,
+        label: branch?.name || st.restaurantLocationLabel,
+        city: st.city,
+        address: branch?.address || st.address,
+        phone: branch?.phone || st.phone1,
+        logo: st.appLogo || st.logo || st.webPortalLogo || '',
+        plan: row.plan || 'trial',
+      });
+    }
+    setRestaurants(locs);
   };
 
   const load = async () => {
@@ -1478,17 +1524,49 @@ function SuperAdminLiveMap({ devices, restaurants }: { devices: DeviceRow[]; res
     };
   });
 
+  // ===== v1.27.1 — a restaurant is "online" when one of ITS devices is =====
+  //
+  // The map already knew which devices were online and which restaurant each
+  // belonged to, but never joined the two, so every restaurant pin was the same
+  // violet whether the shop was trading or had been dark for a week. That is
+  // the one thing a monitoring screen exists to show.
+  const statusByTenant = new Map<string, { online: number; total: number; lastSeen: number }>();
+  for (const d of devices) {
+    const cur = statusByTenant.get(d.tenantId) ?? { online: 0, total: 0, lastSeen: 0 };
+    cur.total += 1;
+    const seen = tsToMs(d.lastActiveAt);
+    if (isOnline(seen)) cur.online += 1;
+    if (seen > cur.lastSeen) cur.lastSeen = seen;
+    statusByTenant.set(d.tenantId, cur);
+  }
+  const statusOf = (tid: string) => statusByTenant.get(tid) ?? { online: 0, total: 0, lastSeen: 0 };
+
+  const liveRestaurants = restaurants
+    .map(r => ({ r, s: statusOf(r.tenantId) }))
+    .sort((a, b) =>
+      (b.s.online > 0 ? 1 : 0) - (a.s.online > 0 ? 1 : 0)
+      || b.s.lastSeen - a.s.lastSeen
+      || a.r.name.localeCompare(b.r.name));
+  const onlineRestaurants = liveRestaurants.filter(x => x.s.online > 0).length;
+
   const restaurantMarkers: MapMarker[] = restaurants.map(r => {
     const planName = getPlan(r.plan).name;
+    const st = statusOf(r.tenantId);
+    const live = st.online > 0;
+    // Green means trading right now. Grey means the shop is dark — an
+    // always-green pin would make the whole screen meaningless.
+    const ring = live ? '#16a34a' : '#94a3b8';
     const logoHtml = r.logo
       ? `<img src="${escape(r.logo)}" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'" />`
       : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:22px;background:linear-gradient(135deg,#7c3aed,#c026d3);color:#fff;font-weight:800">${escape((r.name || '?').charAt(0).toUpperCase())}</div>`;
     const iconHtml = `
       <div style="display:flex;flex-direction:column;align-items:center;font-family:system-ui;pointer-events:auto">
-        <div style="background:#fff;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;color:#3c096c;box-shadow:0 2px 6px rgba(0,0,0,.25);white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis;border:1px solid rgba(124,58,237,.3)">${escape(r.name)}</div>
-        <div style="width:2px;height:4px;background:#7c3aed"></div>
-        <div style="width:46px;height:46px;border-radius:50%;background:#fff;border:3px solid #7c3aed;box-shadow:0 4px 10px rgba(0,0,0,.35);overflow:hidden">${logoHtml}</div>
-        <div style="width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:10px solid #7c3aed;margin-top:-1px"></div>
+        <div style="background:#fff;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;color:#0f172a;box-shadow:0 2px 6px rgba(0,0,0,.25);white-space:nowrap;max-width:150px;overflow:hidden;text-overflow:ellipsis;border:1px solid ${ring}55">
+          <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${ring};margin-right:4px;vertical-align:middle"></span>${escape(r.name)}
+        </div>
+        <div style="width:2px;height:4px;background:${ring}"></div>
+        <div style="width:46px;height:46px;border-radius:50%;background:#fff;border:3px solid ${ring};box-shadow:0 4px 10px rgba(0,0,0,.35);overflow:hidden">${logoHtml}</div>
+        <div style="width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:10px solid ${ring};margin-top:-1px"></div>
       </div>`;
     return {
       id: 'rest-' + r.tenantId, lat: r.lat, lng: r.lng,
@@ -1502,11 +1580,13 @@ function SuperAdminLiveMap({ devices, restaurants }: { devices: DeviceRow[]; res
           <div>
             <div style="font-weight:700;font-size:14px;color:#3c096c">🏪 ${escape(r.name)}</div>
             <div style="font-size:10px;color:#7c3aed;font-weight:600;text-transform:uppercase">${escape(planName)} Plan</div>
+            <div style="font-size:11px;font-weight:700;color:${ring}">${live ? `🟢 Online — ${st.online} of ${st.total} device(s)` : st.total ? '⚪ Offline' : '⚪ No device yet'}</div>
           </div>
         </div>
         ${r.label ? `<div style="color:#555">${escape(r.label)}</div>` : ''}
         ${r.address ? `<div style="color:#666;margin-top:4px">📍 ${escape(r.address)}</div>` : ''}
         ${r.phone ? `<div style="color:#666">📞 ${escape(r.phone)}</div>` : ''}
+        ${st.lastSeen ? `<div style="color:#666">🕒 Last seen ${escape(new Date(st.lastSeen).toLocaleString())}</div>` : ''}
         <div style="margin-top:4px;font-size:10px;color:#888">Tenant: ${escape(r.tenantId.slice(0, 10))}…</div>
       </div>`,
     } as MapMarker;
@@ -1515,18 +1595,72 @@ function SuperAdminLiveMap({ devices, restaurants }: { devices: DeviceRow[]; res
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-        <div className="bg-card border rounded-lg p-3"><div className="text-[10px] uppercase text-muted-foreground flex items-center gap-1"><Store className="h-3 w-3 text-violet-600"/>Restaurants</div><div className="text-xl font-extrabold text-violet-600">{restaurants.length}</div></div>
+        <div className="bg-card border rounded-lg p-3"><div className="text-[10px] uppercase text-muted-foreground flex items-center gap-1"><Store className="h-3 w-3 text-green-600"/>Restaurants Online</div><div className="text-xl font-extrabold text-green-600">{onlineRestaurants}<span className="text-sm font-semibold text-muted-foreground"> / {restaurants.length}</span></div></div>
         <div className="bg-card border rounded-lg p-3"><div className="text-[10px] uppercase text-muted-foreground">Devices on Map</div><div className="text-xl font-extrabold">{mapped.length}</div></div>
         <div className="bg-card border rounded-lg p-3"><div className="text-[10px] uppercase text-muted-foreground flex items-center gap-1"><Wifi className="h-3 w-3 text-green-600"/>Online Now</div><div className="text-xl font-extrabold text-green-600">{onlineCount}</div></div>
         <div className="bg-card border rounded-lg p-3"><div className="text-[10px] uppercase text-muted-foreground">Offline</div><div className="text-xl font-extrabold">{mapped.length - onlineCount}</div></div>
       </div>
-      <div className="flex items-center gap-3 text-[11px] text-muted-foreground px-1">
-        <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-violet-600" /> Restaurant (logo + name)</span>
+      <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground px-1">
+        <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-green-600" /> Restaurant trading now</span>
+        <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-slate-400" /> Restaurant dark</span>
         <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-green-500" /> Device online</span>
         <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-gray-400" /> Device offline</span>
       </div>
-      <div className="bg-card border rounded-xl p-2 overflow-hidden">
-        <LeafletMap markers={markers} height={560} />
+
+      {/* Map and roster side by side. On a wall screen the roster is the thing
+          that is actually read; the map answers "where" once you have picked a
+          name out of it. */}
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="bg-card border rounded-xl p-2 overflow-hidden">
+          <LeafletMap markers={markers} height={620} />
+        </div>
+
+        <div className="bg-card border rounded-xl flex flex-col overflow-hidden xl:h-[636px]">
+          <div className="px-3 py-2 border-b flex items-center justify-between shrink-0">
+            <div className="text-sm font-bold flex items-center gap-2">
+              <Wifi className="h-4 w-4 text-green-600" /> Live Restaurants
+            </div>
+            <span className="text-[11px] font-semibold text-green-600">{onlineRestaurants} online</span>
+          </div>
+
+          <div className="overflow-y-auto pos-scrollbar divide-y">
+            {liveRestaurants.map(({ r, s: st }) => {
+              const live = st.online > 0;
+              return (
+                <div key={r.tenantId} className={`px-3 py-2.5 flex items-start gap-2.5 ${live ? '' : 'opacity-60'}`}>
+                  <div className={`mt-0.5 h-9 w-9 rounded-lg overflow-hidden border-2 shrink-0 ${live ? 'border-green-600' : 'border-slate-300'}`}>
+                    {r.logo
+                      ? <img src={r.logo} alt="" className="h-full w-full object-cover" />
+                      : <div className="h-full w-full flex items-center justify-center text-xs font-extrabold bg-muted">
+                          {(r.name || '?').charAt(0).toUpperCase()}
+                        </div>}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className={`h-2 w-2 rounded-full shrink-0 ${live ? 'bg-green-600' : 'bg-slate-400'}`} />
+                      <span className="text-sm font-semibold truncate">{r.name}</span>
+                    </div>
+                    <div className="text-[11px] text-muted-foreground truncate">
+                      {[r.city, r.address].filter(Boolean).join(' · ') || r.label || 'No address saved'}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5">
+                      {getPlan(r.plan).name} · {st.total
+                        ? `${st.online}/${st.total} device${st.total === 1 ? '' : 's'} online`
+                        : 'no device yet'}
+                      {st.lastSeen ? ` · seen ${new Date(st.lastSeen).toLocaleTimeString()}` : ''}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+
+            {liveRestaurants.length === 0 && (
+              <div className="p-6 text-center text-xs text-muted-foreground">
+                No restaurant has a saved location yet.
+              </div>
+            )}
+          </div>
+        </div>
       </div>
       {markers.length === 0 && (
         <div className="text-xs text-muted-foreground italic text-center bg-muted/30 rounded-lg p-4 border border-dashed">
