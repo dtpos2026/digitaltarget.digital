@@ -101,6 +101,37 @@ const server = http.createServer(async (req, res) => {
   for await (const c of req) body += c;
   const json = body ? JSON.parse(body) : null;
 
+  // ---- RPCs the customer app depends on -----------------------------------
+  //
+  // The generic handler below treats an unknown path as a table, so an RPC POST
+  // would be recorded as a row and echoed back. That is fine for fire-and-forget
+  // calls but not for one whose RESULT the UI reads, so the few that matter are
+  // implemented here.
+  if (url.pathname === '/rest/v1/rpc/public_customer_app_config') {
+    const row = [...table('customer_apps').values()]
+      .find(r => r.tenant_id === json?.p_tenant);
+    const tenant = [...table('tenants').values()].find(t => t.id === json?.p_tenant);
+    const out = (row && row.enabled && tenant && tenant.is_active !== false)
+      ? {
+          tenantId: row.tenant_id,
+          enabled: true,
+          appName: row.app_name || tenant.name,
+          logoUrl: row.logo_url ?? null,
+          iconUrl: row.icon_url ?? null,
+          theme: row.theme ?? {},
+          whatsappNumber: row.whatsapp_number ?? null,
+          features: row.features ?? {},
+          appVersion: row.app_version ?? null,
+          minSupportedVersion: row.min_supported_version ?? null,
+          updateUrl: row.update_url ?? null,
+          updateRequired: !!row.update_required,
+        }
+      : null;
+    log.push(`RPC public_customer_app_config ${json?.p_tenant} -> ${out ? 'config' : 'null'}`);
+    res.writeHead(200, { 'content-type': 'application/json' });
+    return res.end(JSON.stringify(out));
+  }
+
   if (url.pathname.startsWith('/rest/v1/')) {
     const name = url.pathname.slice('/rest/v1/'.length);
     const store = table(name);

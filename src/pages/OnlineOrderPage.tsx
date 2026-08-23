@@ -21,6 +21,10 @@ import {
   customerUpdate, getCachedProfile, getCustomerToken,
   type CustomerProfile, type CustomerOrderSummary,
 } from '@/lib/customerAccount';
+import {
+  loadCustomerAppConfig, getCachedAppConfig, applyCustomerAppTheme, featureOn,
+  type CustomerAppConfig,
+} from '@/lib/customerAppConfig';
 
 const ACCOUNT_KEY = 'dt-online-account-v1';
 const BRANCH_KEY_PREFIX = 'dt-online-branch-v1:';
@@ -179,6 +183,10 @@ export default function OnlineOrderPage() {
   // Order history now comes from the server, so it follows the customer rather
   // than the browser they happen to be using.
   const [serverOrders, setServerOrders] = useState<CustomerOrderSummary[]>([]);
+  // Branding and feature switches, set per restaurant in the Super Admin panel.
+  const [appConfig, setAppConfig] = useState<CustomerAppConfig | null>(
+    () => { try { return getCachedAppConfig(getTenantId() || ''); } catch { return null; } },
+  );
 
   // Customer form
   const [name, setName] = useState('');
@@ -290,6 +298,22 @@ export default function OnlineOrderPage() {
       .filter(o => o.source === 'website' && normalizePhone(o.customer?.phone || '') === np)
       .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
   }, [ready, account, serverOrders, placedOrder, ordersOpen]);
+
+  // Brand the app for this restaurant. The cached config is applied first so a
+  // packaged app opens already in the right colours instead of flashing the
+  // platform default on every launch.
+  useEffect(() => {
+    const tid = getTenantId();
+    if (!tid) return;
+    applyCustomerAppTheme(getCachedAppConfig(tid));
+    let cancelled = false;
+    void loadCustomerAppConfig(tid).then(cfg => {
+      if (cancelled || !cfg) return;
+      setAppConfig(cfg);
+      applyCustomerAppTheme(cfg);
+    });
+    return () => { cancelled = true; };
+  }, [ready]);
 
   // Restore the signed-in customer, and keep their history fresh.
   useEffect(() => {
@@ -738,7 +762,12 @@ export default function OnlineOrderPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <WhatsAppFloat />
+      {featureOn(appConfig, 'whatsapp') && (
+        <WhatsAppFloat
+          number={appConfig?.whatsappNumber || undefined}
+          message={appConfig?.appName ? `Hello ${appConfig.appName}! I need help with an order.` : undefined}
+        />
+      )}
 
       {/* Dine-in banner (QR scan) */}
       {dineIn && (
@@ -785,7 +814,7 @@ export default function OnlineOrderPage() {
             </div>
           </div>
           <div className="flex items-center gap-1.5">
-            {account ? (
+            {account && featureOn(appConfig, 'history') ? (
               <Button variant="secondary" size="sm" onClick={() => setOrdersOpen(true)} className="h-8">
                 <ClipboardList className="h-4 w-4 mr-1" />
                 <span className="hidden sm:inline">My Orders</span>
