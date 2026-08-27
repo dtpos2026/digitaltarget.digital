@@ -43,6 +43,7 @@ interface AppConfig {
   mode: 'light' | 'dark';
   whatsappNumber: string;
   features: Features;
+  requireClaimOtp: boolean;
   appVersion: string;
   minSupportedVersion: string;
   updateUrl: string;
@@ -63,7 +64,7 @@ function blank(tenantId: string, name: string): AppConfig {
   return {
     tenantId, enabled: false, appName: name, logoUrl: '', iconUrl: '',
     primaryColor: '#7c3aed', mode: 'dark', whatsappNumber: '',
-    features: { ...DEFAULT_FEATURES }, appVersion: '1.0.0',
+    features: { ...DEFAULT_FEATURES }, requireClaimOtp: false, appVersion: '1.0.0',
     minSupportedVersion: '', updateUrl: '', updateRequired: false,
   };
 }
@@ -82,7 +83,7 @@ export default function CustomerAppsManager({ restaurants }: CustomerAppsManager
         const { sb } = await import('@/lib/supabase');
         const { data, error } = await sb()
           .from('customer_apps')
-          .select('tenant_id,enabled,app_name,logo_url,icon_url,theme,whatsapp_number,features,app_version,min_supported_version,update_url,update_required');
+          .select('tenant_id,enabled,app_name,logo_url,icon_url,theme,whatsapp_number,features,require_claim_otp,app_version,min_supported_version,update_url,update_required');
         if (error) throw error;
         if (cancelled) return;
         const next: Record<string, AppConfig> = {};
@@ -98,6 +99,7 @@ export default function CustomerAppsManager({ restaurants }: CustomerAppsManager
             mode: (theme.mode as 'light' | 'dark') ?? 'dark',
             whatsappNumber: r.whatsapp_number ?? '',
             features: { ...DEFAULT_FEATURES, ...((r.features ?? {}) as Features) },
+            requireClaimOtp: r.require_claim_otp === true,
             appVersion: r.app_version ?? '',
             minSupportedVersion: r.min_supported_version ?? '',
             updateUrl: r.update_url ?? '',
@@ -147,6 +149,7 @@ export default function CustomerAppsManager({ restaurants }: CustomerAppsManager
         theme: { primary: cfg.primaryColor, mode: cfg.mode },
         whatsapp_number: cfg.whatsappNumber.replace(/\D/g, '') || null,
         features: cfg.features,
+        require_claim_otp: cfg.requireClaimOtp,
         app_version: cfg.appVersion.trim() || null,
         min_supported_version: cfg.minSupportedVersion.trim() || null,
         update_url: cfg.updateUrl.trim() || null,
@@ -299,6 +302,29 @@ export default function CustomerAppsManager({ restaurants }: CustomerAppsManager
                       ))}
                     </div>
                   </div>
+
+                  <Field
+                    label="Verify the phone before claiming a profile"
+                    hint="Needs a working SMS provider — with none connected, leave this off or customers cannot finish signing up"
+                  >
+                    <label className="flex items-center gap-2 text-xs cursor-pointer h-9">
+                      <Switch
+                        checked={cfg.requireClaimOtp}
+                        onCheckedChange={v => edit(tenantId, { requireClaimOtp: v })}
+                        aria-label="Require an SMS code before claiming an existing profile"
+                      />
+                      {cfg.requireClaimOtp
+                        ? 'SMS code required'
+                        : 'Number alone is enough'}
+                    </label>
+                  </Field>
+                  {!cfg.requireClaimOtp && (
+                    <div className="sm:col-span-2 text-[11px] text-muted-foreground border-l-2 border-amber-500/60 pl-2">
+                      With this off, anyone who knows a diner's number can set a PIN on the
+                      profile you already hold for them and see its saved address and order
+                      history. Turn it on once an SMS provider is connected.
+                    </div>
+                  )}
 
                   <Field label="App version">
                     <Input value={cfg.appVersion} placeholder="1.0.0"

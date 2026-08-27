@@ -378,6 +378,9 @@ export function registerDeferredBatchFlusher(fn: BatchFlusher | null): void { _b
  */
 export const CHUNK_SIZE = 100;
 
+/** How often the durable queue is rewritten while a backlog is uploading. */
+const PERSIST_INTERVAL_MS = 1000;
+
 /** Live progress for the UI, so a long backlog shows movement instead of a spinner. */
 export interface SyncProgress {
   running: boolean;
@@ -504,6 +507,7 @@ export async function flushDeferredOps(): Promise<{
     // that is already on the server, progress is published, and the main
     // thread is handed back so the till keeps responding.
     let index = 0;
+    let lastPersistAt = Date.now();
     while (index < batch.length) {
       const col = batch[index].col;
       const op = batch[index].op;
@@ -543,10 +547,23 @@ export async function flushDeferredOps(): Promise<{
         }
       }
 
-      // Durability and responsiveness, once per chunk rather than once per
-      // backlog: a power cut now costs at most one chunk of re-uploads.
-      schedulePersist();
-      await waitForQueuePersist();
+      // ===== Durability, throttled — persisting EVERY chunk is quadratic =====
+      //
+      // persistNow() rewrites the whole queue as one array. Doing that after
+      // each chunk costs (ops / CHUNK_SIZE) × ops object writes: for a 6800-op
+      // backlog that is ~460,000, and the flush appears to hang — measured, on
+      // the 4000-order stress run, as a queue that never moved past the first
+      // collection.
+      //
+      // Once a second instead. Crash exposure goes from "the whole backlog" to
+      // "about a second of uploads", and the cost stays linear. The final
+      // persist after the loop still makes the finished flush a fact on disk.
+      const nowMs = Date.now();
+      if (nowMs - lastPersistAt > PERSIST_INTERVAL_MS) {
+        lastPersistAt = nowMs;
+        schedulePersist();
+        await waitForQueuePersist();
+      }
       setProgress({ processedCount: Math.min(index, batch.length) });
       await yieldToUi();
     }

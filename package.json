@@ -19,7 +19,8 @@
     "app:brand": "node scripts/brand-app.mjs",
     "app:sync": "node scripts/build-app.mjs && npx cap sync android",
     "android:doctor": "node scripts/android-doctor.mjs",
-    "android:clean": "node scripts/android-doctor.mjs --clean"
+    "android:clean": "node scripts/android-doctor.mjs --clean",
+    "test:drain": "node scripts/synctest/sync-drain.mjs"
   },
   "dependencies": {
     "@capacitor/core": "^8.5.0",

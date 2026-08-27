@@ -36,6 +36,8 @@ export interface CustomerAppConfig {
   minSupportedVersion: string | null;
   updateUrl: string | null;
   updateRequired: boolean;
+  /** v1.28.3 — whether claiming an existing profile needs an SMS code. */
+  requireClaimOtp: boolean;
 }
 
 const CACHE_PREFIX = 'dt-customer-app-config:';
@@ -69,6 +71,7 @@ function normalize(raw: any): CustomerAppConfig | null {
     minSupportedVersion: raw.minSupportedVersion ?? null,
     updateUrl: raw.updateUrl ?? null,
     updateRequired: raw.updateRequired === true,
+    requireClaimOtp: raw.requireClaimOtp === true,
   };
 }
 
