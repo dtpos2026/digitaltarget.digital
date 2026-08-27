@@ -17,7 +17,9 @@
     "build:desktop": "node scripts/build-desktop.mjs",
     "build:app": "node scripts/build-app.mjs",
     "app:brand": "node scripts/brand-app.mjs",
-    "app:sync": "node scripts/build-app.mjs && npx cap sync android"
+    "app:sync": "node scripts/build-app.mjs && npx cap sync android",
+    "android:doctor": "node scripts/android-doctor.mjs",
+    "android:clean": "node scripts/android-doctor.mjs --clean"
   },
   "dependencies": {
     "@capacitor/core": "^8.5.0",

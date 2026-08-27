@@ -165,12 +165,55 @@ export default function MenuManagerPage() {
   const [bulkImgOpen, setBulkImgOpen] = useState(false);
   const inventoryItems = getInventory();
 
+  /**
+   * ===== v1.28.2 — a 1300-row menu used to freeze the screen =====
+   *
+   * This was three synchronous forEach loops. Every saveMenuItem() reads the
+   * whole app cache, mutates an array and writes it back, so importing a real
+   * restaurant's menu ran ~1300 whole-cache serialisations back to back on the
+   * main thread: no paint, no input, and a spreadsheet import that looked like
+   * a crash.
+   *
+   * The same saves, in chunks, with the thread handed back between them. The
+   * work is identical — what changes is that the browser gets to breathe, and
+   * the operator gets a count instead of a frozen dialog.
+   *
+   * Errors are per row: one malformed line is reported and skipped rather than
+   * abandoning the rest of the sheet.
+   */
   const runExcelImport = async (data: { categories: Category[]; menuItems: MenuItem[]; inventory: InventoryItem[] }) => {
-    data.categories.forEach(c => saveCategory(c));
-    data.menuItems.forEach(i => saveMenuItem(i));
-    data.inventory.forEach(iv => saveInventoryItem(iv));
+    const CHUNK = 100;
+    const total = data.categories.length + data.menuItems.length + data.inventory.length;
+    const toastId = 'menu-import';
+    let done = 0;
+    let failed = 0;
+
+    const runAll = async <T,>(rows: T[], save: (row: T) => void, label: string) => {
+      for (let i = 0; i < rows.length; i += CHUNK) {
+        for (const row of rows.slice(i, i + CHUNK)) {
+          try { save(row); }
+          catch (e: any) {
+            failed++;
+            console.warn(`[menu import] ${label} row skipped — ${e?.message || e}`, row);
+          }
+          done++;
+        }
+        toast.loading(`Importing ${label}… ${done}/${total}`, { id: toastId });
+        // Yield so React can paint the progress the operator is waiting on.
+        await new Promise(r => setTimeout(r, 0));
+      }
+    };
+
+    toast.loading(`Importing… 0/${total}`, { id: toastId });
+    // Categories first: menu items reference them.
+    await runAll(data.categories, c => saveCategory(c), 'categories');
+    await runAll(data.menuItems, i => saveMenuItem(i), 'items');
+    await runAll(data.inventory, iv => saveInventoryItem(iv), 'ingredients');
+
     refresh();
-    toast.success(`Imported ${data.menuItems.length} items, ${data.inventory.length} ingredients, ${data.categories.length} new categories`);
+    const summary = `Imported ${data.menuItems.length} items, ${data.inventory.length} ingredients, ${data.categories.length} new categories`;
+    if (failed) toast.warning(`${summary} — ${failed} row(s) skipped, see the console`, { id: toastId });
+    else toast.success(summary, { id: toastId });
   };
 
   const filteredItems = useMemo(() => {

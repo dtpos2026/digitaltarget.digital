@@ -21,7 +21,7 @@ import { buildRefund, type Refund, type RefundRequest } from './refunds';
 import { normalizeForDisplay, dedupeById } from './dataIntegrity';
 import { mergeCollection } from './syncMerge';
 import { onDeadLetter } from './deferredSync';
-import { shouldDeferCloudWrite, enqueueDeferredOp, registerDeferredFlusher, installDeferredSyncTriggers, stopDeferredSyncTriggers, deferredPendingCount, onDeferredSyncChange } from './deferredSync';
+import { shouldDeferCloudWrite, enqueueDeferredOp, registerDeferredFlusher, registerDeferredBatchFlusher, installDeferredSyncTriggers, stopDeferredSyncTriggers, deferredPendingCount, onDeferredSyncChange } from './deferredSync';
 import { onOrderRenumbered } from './orderNumbers';
 import {
   movementIdFor, isDuplicateMovement, planMovement, type MovementRef,
@@ -617,6 +617,46 @@ registerDeferredFlusher(async (col, id, op) => {
   const item = arr?.find(x => x.id === id);
   if (item) await cloudSaveItem(col as ArrayKey, id, item);
 });
+/**
+ * ===== v1.28.2 — the batch path for the same queue =====
+ *
+ * Two costs are removed here, and the second is the one that made a large
+ * backlog feel like a hang:
+ *
+ *   1. ONE request per chunk instead of one per record.
+ *   2. ONE loadData() and one id index per chunk. The per-entity flusher above
+ *      calls loadData() and then `arr.find(...)` for every op — an O(n) scan of
+ *      the orders array per record. Draining 4000 queued orders that way is
+ *      millions of comparisons on the main thread before a single byte is sent.
+ *
+ * Deletes stay on the per-entity path: sbDeleteItem carries tombstone rules a
+ * blind bulk delete would skip, and a backlog of deletes is rare.
+ */
+registerDeferredBatchFlusher(async (col, entityIds, op) => {
+  if (op === 'delete' || col === SETTINGS_COL || !useSupabaseBackend()) {
+    throw new Error('batch path not applicable');   // caller falls back per entity
+  }
+  const { sbSaveMany } = await import('./supabaseStore');
+  const d = loadData();
+  const arr = ((d as any)[col] as any[] | undefined) ?? [];
+  const byId = new Map<string, any>();
+  for (const x of arr) if (x?.id) byId.set(String(x.id), x);
+
+  const items: Array<{ id: string; data: any }> = [];
+  const gone: string[] = [];
+  for (const id of entityIds) {
+    const item = byId.get(id);
+    // The entity no longer exists locally (Close Day, a delete that raced the
+    // queue). There is nothing to upload and nothing to retry — settled, which
+    // is exactly what the per-entity flusher does by skipping the write.
+    if (item) items.push({ id, data: item });
+    else gone.push(id);
+  }
+
+  const res = await sbSaveMany(col, items);
+  return { saved: [...res.saved, ...gone], failed: res.failed };
+});
+
 installDeferredSyncTriggers();
 // Promotions, variations, wallet, campaigns, zones and daily wages are mirrored
 // to the cloud too, so every module is backed up — not just the POS core.
@@ -3089,6 +3129,12 @@ export async function saveSettingsNow(s: RestaurantSettings): Promise<void> {
 
 
 // ============ Backup & Restore ============
+/**
+ * Records per cloud request when restoring a backup. Matches the deferred
+ * queue's CHUNK_SIZE so both paths behave the same under load.
+ */
+const IMPORT_CHUNK_SIZE = 100;
+
 export function exportData(): string { return JSON.stringify(loadData(), null, 2); }
 export function importData(json: string) {
   const data = JSON.parse(json) as AppData;
@@ -3139,12 +3185,62 @@ export function importData(json: string) {
   if (useCloudStore()) {
     (async () => {
       let ok = 0, failed = 0;
+      const stamp = Date.now();
+      // ===== v1.28.2 — a restore is a bulk upload, not 6000 little ones =====
+      //
+      // This was one awaited cloudSaveItem per record. Restoring a real
+      // restaurant's backup — 4000 orders, 2000 customers, 800 menu items —
+      // meant ~7000 sequential HTTP requests on the main thread while the
+      // operator stared at a screen that never finished. Chunked upserts turn
+      // that into ~70 requests, and the yield between chunks keeps the till
+      // usable while it runs.
+      //
+      // ARRAY_COLLECTIONS is already ordered parents-first, so uploading a
+      // collection at a time preserves the foreign keys.
+      const total = ARRAY_COLLECTIONS.reduce(
+        (n, col) => n + (((data as any)[col] || []) as any[]).filter(x => x?.id).length, 0);
+      let processed = 0;
+      const emitProgress = () => {
+        try {
+          window.dispatchEvent(new CustomEvent('dt-import-progress', {
+            detail: { processedCount: processed, totalCount: total },
+          }));
+        } catch { /* non-browser context */ }
+      };
+      emitProgress();
+
+      const useSb = useSupabaseBackend();
+      const { sbSaveMany } = useSb ? await import('./supabaseStore') : ({} as any);
+
       for (const col of ARRAY_COLLECTIONS) {
-        const arr = ((data as any)[col] || []) as any[];
-        for (const item of arr) {
-          if (!item?.id) continue;
-          try { await cloudSaveItem(col, item.id, { ...item, _updatedAt: Date.now() }); ok++; }
-          catch { failed++; }
+        const arr = (((data as any)[col] || []) as any[]).filter(x => x?.id);
+        for (let i = 0; i < arr.length; i += IMPORT_CHUNK_SIZE) {
+          const chunk = arr.slice(i, i + IMPORT_CHUNK_SIZE)
+            .map(item => ({ id: String(item.id), data: { ...item, _updatedAt: stamp } }));
+          if (useSb) {
+            try {
+              const res = await sbSaveMany(col, chunk);
+              ok += res.saved.length;
+              failed += res.failed.length;
+              for (const f of res.failed) {
+                console.warn(`[import] ${col}/${f.id} rejected — ${f.error}`);
+              }
+            } catch (e: any) {
+              // A whole chunk failed. Log it, count it, and carry on: the rest
+              // of the backup must still be restored.
+              failed += chunk.length;
+              console.warn(`[import] ${col} chunk of ${chunk.length} failed — ${e?.message || e}`);
+            }
+          } else {
+            for (const it of chunk) {
+              try { await cloudSaveItem(col, it.id, it.data); ok++; }
+              catch { failed++; }
+            }
+          }
+          processed += chunk.length;
+          emitProgress();
+          // Hand the main thread back so the UI can paint between chunks.
+          await new Promise(r => setTimeout(r, 0));
         }
       }
       if (data.settings) { try { await cloudSaveSettings(data.settings); } catch { failed++; } }

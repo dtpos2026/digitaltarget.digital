@@ -350,6 +350,21 @@ export function rowToDb(col: string, data: Record<string, any>): Record<string, 
       order_type: data.orderType || null,
       source: data.source || 'pos',
       table_label: data.tableName || data.tableLabel || null,
+      // ===== v1.28.1 — the payment was never indexed =====
+      // Same defect as the v1.26.3 totals above, one field family later. The
+      // document has carried paymentMethod/amountPaid/paidAt since the POS
+      // shipped, but none of it reached its columns, so every one of the
+      // restaurant's paid bills read as payment_method NULL and amount_paid
+      // 0.00 in the database. The till was right — it reads the document —
+      // while anything querying the table for a cash/card breakdown or a
+      // reconciliation total saw nothing at all.
+      payment_method: data.paymentMethod || null,
+      payment_account_id: cloudFk(data.paymentAccountId),
+      payment_account_name: data.paymentAccountName || null,
+      amount_paid: Number(data.amountPaid) || 0,
+      cash_received: data.cashReceived == null ? null : Number(data.cashReceived) || 0,
+      change_returned: data.changeReturned == null ? null : Number(data.changeReturned) || 0,
+      paid_at: data.paidAt ? new Date(data.paidAt).toISOString() : null,
       data: { ...data, id: data.id },
       client_seq: Number(data._updatedAt || data.clientSeq || Date.now()),
       deleted_at: data.deletedAt ? new Date(data.deletedAt).toISOString() : null,
@@ -793,6 +808,83 @@ export async function sbSaveItem(col: string, id: string, data: any): Promise<vo
   }
 }
 
+
+
+/**
+ * ===== v1.28.2 — many rows, one round trip =====
+ *
+ * The deferred queue used to upload one record per HTTP request, serially. A
+ * restaurant coming back from an outage with 1300+ pending records therefore
+ * needed 1300+ sequential round trips; at a realistic 150ms each that is over
+ * three minutes of "Syncing…" with the flush lock held, and long enough that
+ * operators reported it as a hang and reloaded — which put the whole backlog
+ * back at the start.
+ *
+ * PostgREST accepts an array in one upsert, so a chunk of up to 100 rows costs
+ * ONE request. Ordering still matters (parents before children), so chunks are
+ * built by the caller within a single collection.
+ *
+ * FAILURE HANDLING: a rejected chunk says nothing about WHICH row was bad, and
+ * the per-row recovery paths in sbSaveItem (natural-key merge, order-number
+ * renumbering) cannot run on a batch. So a failed chunk is retried row by row
+ * through sbSaveItem. One poisoned record then costs one extra pass instead of
+ * failing the other 99.
+ *
+ * @returns the ids that reached the server, and the ones that did not with
+ *          their error — never a thrown exception for a partial failure.
+ */
+export async function sbSaveMany(
+  col: string, items: ReadonlyArray<{ id: string; data: any }>,
+): Promise<{ saved: string[]; failed: Array<{ id: string; error: string }> }> {
+  const saved: string[] = [];
+  const failed: Array<{ id: string; error: string }> = [];
+  if (items.length === 0) return { saved, failed };
+
+  // Document-store collections and settings have their own write paths.
+  const table = isDocStoreCollection(col) ? null : tableFor(col);
+  if (!table) {
+    for (const it of items) {
+      try { await sbSaveItem(col, it.id, it.data); saved.push(it.id); }
+      catch (e: any) { failed.push({ id: it.id, error: e?.message || String(e) }); }
+    }
+    return { saved, failed };
+  }
+
+  const tenantId = authTenantId();
+  if (!tenantId) throw new Error('Restaurant identity is not ready; cloud save will retry');
+  const branch = BRANCH_SCOPED.has(table) ? authBranchId() : null;
+
+  const rows: any[] = [];
+  for (const it of items) {
+    try {
+      const row = rowToDb(col, it.data);
+      row.id = cloudId(it.id);
+      if (row.data && typeof row.data === 'object') (row.data as any).id = it.id;
+      row.tenant_id = tenantId;
+      if (branch && !row.branch_id) row.branch_id = branch;
+      rows.push(row);
+    } catch (e: any) {
+      // A row that cannot even be mapped must not sink the chunk.
+      failed.push({ id: it.id, error: e?.message || String(e) });
+    }
+  }
+  if (rows.length === 0) return { saved, failed };
+
+  const { error } = await sb().from(table).upsert(rows, { onConflict: 'id' });
+  if (!error) {
+    for (const it of items) if (!failed.some(f => f.id === it.id)) saved.push(it.id);
+    return { saved, failed };
+  }
+
+  // The batch was rejected as a whole. Fall back to the single-row path, which
+  // knows how to recover from a natural-key clash or a duplicate order number.
+  for (const it of items) {
+    if (failed.some(f => f.id === it.id)) continue;
+    try { await sbSaveItem(col, it.id, it.data); saved.push(it.id); }
+    catch (e: any) { failed.push({ id: it.id, error: e?.message || String(e) }); }
+  }
+  return { saved, failed };
+}
 
 
 export async function sbDeleteItem(col: string, id: string): Promise<void> {

@@ -90,8 +90,12 @@ jobs:
           APP_NAME: ${{ github.event.inputs.app_name }}
         run: node scripts/brand-app.mjs
 
-      - name: Restore the Android project
-        run: npx cap sync android
+      # Regenerates capacitor-cordova-android-plugins/, which Capacitor's own
+      # .gitignore excludes but settings.gradle includes unconditionally — the
+      # "cordova.variables.gradle does not exist" failure — and verifies every
+      # file Gradle is about to read before Gradle is ever started.
+      - name: Restore and verify the Android project
+        run: npm run android:doctor
 
       # Present only when the restaurant has a Firebase project. Absent is a
       # supported state, not an error.

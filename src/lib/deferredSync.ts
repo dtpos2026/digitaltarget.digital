@@ -352,6 +352,63 @@ let _flushing = false;
 
 export function registerDeferredFlusher(fn: Flusher): void { _flusher = fn; }
 
+/**
+ * ===== v1.28.2 — uploading a backlog one request at a time =====
+ *
+ * A batch flusher uploads up to CHUNK_SIZE entities of ONE collection in a
+ * single call. It is optional: without one registered the queue still drains
+ * through the per-entity flusher, just more slowly.
+ *
+ * It must resolve with the ids that reached the server. Anything missing from
+ * that list is treated as failed and keeps its retry/backoff state, so a
+ * partial success never silently drops the remainder.
+ */
+export type BatchFlusher = (
+  col: string,
+  entityIds: string[],
+  op: 'set' | 'delete',
+) => Promise<{ saved: string[]; failed?: Array<{ id: string; error: string }> }>;
+
+let _batchFlusher: BatchFlusher | null = null;
+export function registerDeferredBatchFlusher(fn: BatchFlusher | null): void { _batchFlusher = fn; }
+
+/**
+ * Records per request. 100 is the ceiling the product brief specifies and is
+ * comfortably inside PostgREST's payload limits for an order document.
+ */
+export const CHUNK_SIZE = 100;
+
+/** Live progress for the UI, so a long backlog shows movement instead of a spinner. */
+export interface SyncProgress {
+  running: boolean;
+  processedCount: number;
+  totalCount: number;
+  /** The collection currently uploading, for a human-readable status line. */
+  currentCollection: string | null;
+}
+
+let _progress: SyncProgress = {
+  running: false, processedCount: 0, totalCount: 0, currentCollection: null,
+};
+
+export function getSyncProgress(): SyncProgress { return { ..._progress }; }
+
+function setProgress(patch: Partial<SyncProgress>): void {
+  _progress = { ..._progress, ...patch };
+  emit();
+}
+
+/**
+ * Hand the main thread back between chunks.
+ *
+ * Without this the flush is one long synchronous-ish run of awaits that never
+ * lets the renderer paint: the till looks frozen even though nothing is stuck.
+ * A macrotask boundary lets React commit and the cashier keep billing.
+ */
+function yieldToUi(): Promise<void> {
+  return new Promise<void>(resolve => setTimeout(resolve, 0));
+}
+
 export async function flushDeferredOps(): Promise<{
   flushed: number; remaining: number; skipped: boolean; error?: string; deadLettered?: number;
 }> {
@@ -407,30 +464,93 @@ export async function flushDeferredOps(): Promise<{
       .sort((a, b) =>
         tierOf(a.col) - tierOf(b.col) ||
         a.firstEnqueuedAt - b.firstEnqueuedAt);
-    for (const item of batch) {
-      try {
-        await _flusher(item.col, item.entityId, item.op);
-        const cur = mem.get(item.id);
-        if (cur && cur.at === item.at) mem.delete(item.id);
-        flushed++;
-      } catch (e: any) {
-        const err = e?.message || String(e);
-        if (!firstError) firstError = err;
-        const cur = mem.get(item.id);
-        if (cur) {
-          cur.attempts = (cur.attempts || 0) + 1;
-          cur.lastError = err;
-          if (cur.attempts >= MAX_ATTEMPTS) {
-            // Dead-letter — preserved on disk for later inspection.
-            try { await localDb.putRow('deferredOpsDeadLetter' as any, { ...cur, deadLetteredAt: Date.now() }); } catch { /* ignore */ }
-            mem.delete(item.id);
-            deadLettered++;
-            deadLetterCount++;
-            parked.push(cur);
+
+    setProgress({ running: true, processedCount: 0, totalCount: batch.length, currentCollection: null });
+
+    /** Record one entity's failure: backoff, or dead-letter once exhausted. */
+    const noteFailure = async (item: DeferredOp, err: string) => {
+      if (!firstError) firstError = err;
+      const cur = mem.get(item.id);
+      if (!cur) return;
+      cur.attempts = (cur.attempts || 0) + 1;
+      cur.lastError = err;
+      if (cur.attempts >= MAX_ATTEMPTS) {
+        try { await localDb.putRow('deferredOpsDeadLetter' as any, { ...cur, deadLetteredAt: Date.now() }); }
+        catch { /* the in-memory removal below still stops it blocking the queue */ }
+        mem.delete(item.id);
+        deadLettered++;
+        deadLetterCount++;
+        parked.push(cur);
+      }
+    };
+
+    /** Retire one entity whose upload the server accepted. */
+    const noteSuccess = (item: DeferredOp) => {
+      const cur = mem.get(item.id);
+      if (cur && cur.at === item.at) mem.delete(item.id);
+      flushed++;
+    };
+
+    // ===== v1.28.2 — CHUNKED =====
+    //
+    // The previous loop awaited one upload per entity, serially, holding the
+    // flush lock for the whole backlog. 1300 records meant 1300 round trips;
+    // operators saw a permanent "Syncing…" and reloaded, which restarted it.
+    //
+    // Ops are now grouped into runs of the same (collection, op) — the sort
+    // above already keeps parents before children — and each run is uploaded
+    // CHUNK_SIZE at a time. Three things happen per chunk, and all three
+    // matter: the durable queue is rewritten so a crash cannot replay work
+    // that is already on the server, progress is published, and the main
+    // thread is handed back so the till keeps responding.
+    let index = 0;
+    while (index < batch.length) {
+      const col = batch[index].col;
+      const op = batch[index].op;
+      const chunk: DeferredOp[] = [];
+      while (
+        index < batch.length &&
+        batch[index].col === col &&
+        batch[index].op === op &&
+        chunk.length < CHUNK_SIZE
+      ) {
+        chunk.push(batch[index]);
+        index++;
+      }
+
+      setProgress({ currentCollection: col });
+
+      if (_batchFlusher && chunk.length > 1) {
+        try {
+          const res = await _batchFlusher(col, chunk.map(c => c.entityId), op);
+          const ok = new Set(res.saved);
+          const errById = new Map((res.failed ?? []).map(f => [f.id, f.error]));
+          for (const item of chunk) {
+            if (ok.has(item.entityId)) noteSuccess(item);
+            else await noteFailure(item, errById.get(item.entityId) ?? 'not accepted by the server');
           }
+        } catch (e: any) {
+          // The whole chunk call failed (offline, auth, 5xx). Every entity in
+          // it keeps its place in the queue and backs off; the NEXT chunk is
+          // still attempted, because a bad collection must not strand the rest.
+          const err = e?.message || String(e);
+          for (const item of chunk) await noteFailure(item, err);
+        }
+      } else {
+        for (const item of chunk) {
+          try { await _flusher(item.col, item.entityId, item.op); noteSuccess(item); }
+          catch (e: any) { await noteFailure(item, e?.message || String(e)); }
         }
       }
+
+      // Durability and responsiveness, once per chunk rather than once per
+      // backlog: a power cut now costs at most one chunk of re-uploads.
+      schedulePersist();
+      await waitForQueuePersist();
+      setProgress({ processedCount: Math.min(index, batch.length) });
+      await yieldToUi();
     }
+
     // ===== v1.26.0 — this awaited a write it had not started =====
     // schedulePersist() only ARMS a 150ms timer, so persistInFlight was still
     // null here and the await was a no-op. flushDeferredOps() therefore
@@ -444,6 +564,7 @@ export async function flushDeferredOps(): Promise<{
     await waitForQueuePersist();
   } finally {
     _flushing = false;
+    setProgress({ running: false, currentCollection: null });
     emit();
   }
   if (parked.length) {

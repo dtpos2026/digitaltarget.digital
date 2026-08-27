@@ -26,8 +26,11 @@ const children = [];
 const stopChildren = () => { for (const c of children) { try { process.kill(-c.pid, 'SIGKILL'); } catch {} try { c.kill('SIGKILL'); } catch {} } };
 process.on('exit', stopChildren);
 
-function start(cmd, args, ready, ms) {
-  const c = spawn(cmd, args, { cwd: root, stdio: ['ignore', 'pipe', 'inherit'], detached: true });
+function start(cmd, args, ready, ms, env) {
+  const c = spawn(cmd, args, {
+    cwd: root, stdio: ['ignore', 'pipe', 'inherit'], detached: true,
+    env: { ...process.env, ...(env ?? {}) },
+  });
   children.push(c);
   return new Promise((resolve, reject) => {
     const t = setTimeout(() => reject(new Error(`${cmd} ${args.join(' ')} did not start`)), ms);
@@ -45,7 +48,21 @@ const mock = start(process.execPath, [join(here, 'mock-supabase.mjs')], /mock-su
 // with its own in-memory store cache. Every "device B never received it"
 // failure then comes from reading a different object than the one sync wrote.
 // A server started fresh for the run serves exactly one instance.
-const vite = start('npx', ['vite', '--port', '5199', '--host', '127.0.0.1', '--strictPort'], /ready in|Local:/, 120000);
+//
+// ===== The dev server MUST be pointed at the stand-in backend =====
+//
+// `.env` carries the production Supabase URL, and Vite reads it. Without this
+// override the two browsers open websockets to the real project: in a sandbox
+// that refuses egress the run dies with ERR_CERT_AUTHORITY_INVALID and 0
+// realtime joins, and on a machine that CAN reach Supabase it is far worse —
+// the test writes its menu items, bills and tombstones into a live restaurant.
+// Vite merges VITE_-prefixed variables from the environment over .env, so
+// passing it here is enough.
+const vite = start(
+  'npx', ['vite', '--port', '5199', '--host', '127.0.0.1', '--strictPort'],
+  /ready in|Local:/, 120000,
+  { VITE_SUPABASE_URL: MOCK },
+);
 await Promise.all([mock, vite]);
 
 const results = [];
