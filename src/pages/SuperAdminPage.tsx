@@ -76,6 +76,14 @@ interface IndexRow {
   premiumThemeAllowed?: boolean;
   planExpiryAt?: any;
   lastPaymentAt?: any;
+  /**
+   * v1.28.4 — the code the DT Rider / DT Order Taker / Customer apps use to
+   * tell this restaurant apart from another with the same staff username.
+   * Every tenant has had one since the tenants_workspace_code trigger, but the
+   * panel never selected it, so the operator who creates the restaurant had no
+   * way to read the code the staff apps then ask for.
+   */
+  workspaceCode?: string;
 }
 
 interface DeviceRow {
@@ -216,7 +224,7 @@ export default function SuperAdminPage({ onLogout }: Props) {
           p_name: name, p_email: email, p_plan: newRest.plan,
         });
         if (error) throw error;
-        const r = data as { tenant_id: string; slug: string };
+        const r = data as { tenant_id: string; slug: string; workspace_code?: string };
 
         // Keep the owner's email on record straight away. If provisioning
         // below fails, the panel still shows who this restaurant belongs to
@@ -269,12 +277,20 @@ export default function SuperAdminPage({ onLogout }: Props) {
 
 
 
+        // v1.28.4 — say the Workspace Code out loud at the one moment it is
+        // needed. It has always been minted at INSERT, but nothing displayed
+        // it, so creating a restaurant looked like it produced no code at all
+        // and the staff apps then asked for one that could not be found.
+        const wsCode = r.workspace_code ?? '';
+        const wsLine = wsCode
+          ? ` Workspace Code: ${wsCode} — the Rider / Order Taker / Customer apps ask for this.`
+          : '';
         toast.success(
           ownerCreated
-            ? `✅ ${name} created. The owner can sign in now with ${email} and the password you set. POS user: admin`
-            : `⚠️ ${name} created, but the owner account could not be made${ownerError ? `: ${ownerError}` : ''}.`,
+            ? `✅ ${name} created. The owner can sign in now with ${email} and the password you set. POS user: admin.${wsLine}`
+            : `⚠️ ${name} created, but the owner account could not be made${ownerError ? `: ${ownerError}` : ''}.${wsLine}`,
 
-          { duration: 9000 },
+          { duration: 15000 },
         );
         setNewRest({ name: '', email: '', password: '', plan: 'trial' });
         setShowCreate(false);
@@ -323,7 +339,7 @@ export default function SuperAdminPage({ onLogout }: Props) {
 
     // Tenants + their owner email (pending or claimed).
     const [tRes, pRes, dRes, bRes, sRes] = await Promise.all([
-      sb().from('tenants').select('id,name,slug,plan,plan_expires_at,is_active,created_at,custom_device_limit'),
+      sb().from('tenants').select('id,name,slug,plan,plan_expires_at,is_active,created_at,custom_device_limit,workspace_code'),
       sb().from('pending_owners').select('email,tenant_id,claimed_at'),
       sb().from('devices').select('id,tenant_id,branch_id,device_label,hardware_id,fingerprint,platform,app_version,approved,blocked,blocked_at,last_seen_at,lat,lng,accuracy_m,ip,meta,last_login_at,login_count'),
       sb().from('branches').select('id,tenant_id,name,lat,lng,is_active,address,phone'),
@@ -347,6 +363,7 @@ export default function SuperAdminPage({ onLogout }: Props) {
       planExpiryAt: t.plan_expires_at,
       customDeviceLimit: t.custom_device_limit ?? undefined,
       createdAt: t.created_at,
+      workspaceCode: t.workspace_code ?? undefined,
     }));
     list.sort((a, b) => Number(a.approved) - Number(b.approved));
     setRows(list);
@@ -1807,6 +1824,22 @@ function RestaurantRow({ r, children, selectable, checked, onToggle }: {
           <div className="font-semibold truncate">{r.restaurantName || '(no name)'}</div>
           <div className="text-xs text-muted-foreground truncate">{r.email}</div>
           <div className="text-[10px] text-muted-foreground/70 font-mono truncate">uid: {r.id}</div>
+          {/* v1.28.4 — the code the staff apps ask for, where the operator who
+              hands it out is already looking. Click to copy. */}
+          {r.workspaceCode && (
+            <button
+              type="button"
+              title="Copy Workspace Code"
+              onClick={(e) => {
+                e.stopPropagation();
+                void navigator.clipboard?.writeText(r.workspaceCode!);
+                toast.success(`Workspace Code ${r.workspaceCode} copied`);
+              }}
+              className="mt-0.5 inline-flex items-center gap-1 text-[10px] font-mono font-bold tracking-[0.2em] text-primary hover:underline"
+            >
+              <KeyRound className="h-3 w-3" /> {r.workspaceCode}
+            </button>
+          )}
         </div>
       </div>
       <div className="flex gap-2 shrink-0">{children}</div>

@@ -345,6 +345,48 @@ export async function discardDeadLetter(opId: string): Promise<boolean> {
   catch { return false; }
 }
 
+/**
+ * Forget every queued and dead-lettered op for a set of records.
+ *
+ * ===== v1.28.4 — retiring work that can never succeed =====
+ *
+ * A record the app should never have queued keeps its place in the queue for
+ * six attempts and then sits in the dead-letter store forever, showing as
+ * "⚠ Stuck". Deleting the record locally is not enough: the op names an entity
+ * id, not the record, so it outlives the thing it was about.
+ *
+ * This is only for ops whose target has been withdrawn — the caller must
+ * already know there is nothing to upload. It never touches a record's data,
+ * and an op for any other entity is left exactly where it is.
+ *
+ * @returns how many ops were removed (queued + dead-lettered).
+ */
+export async function discardDeferredOpsFor(
+  col: string, entityIds: readonly string[],
+): Promise<number> {
+  if (entityIds.length === 0) return 0;
+  const wanted = new Set(entityIds.map(id => opKey(col, id)));
+  let removed = 0;
+
+  await ensureLoaded();
+  for (const key of Array.from(mem.keys())) {
+    if (wanted.has(key)) { mem.delete(key); removed++; }
+  }
+  if (removed) { schedulePersist(); await waitForQueuePersist(); }
+
+  try {
+    for (const row of await localDb.getRows<DeferredOp>('deferredOpsDeadLetter')) {
+      if (!wanted.has(row.id)) continue;
+      await localDb.deleteRow('deferredOpsDeadLetter', row.id);
+      deadLetterCount = Math.max(0, deadLetterCount - 1);
+      removed++;
+    }
+  } catch { /* the in-memory removal above still stands */ }
+
+  if (removed) emit();
+  return removed;
+}
+
 // ---------- flush ----------
 type Flusher = (col: string, id: string, op: 'set' | 'delete') => Promise<void>;
 let _flusher: Flusher | null = null;

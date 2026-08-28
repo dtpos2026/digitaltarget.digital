@@ -314,8 +314,48 @@ function isEmptySeedLike(data: any): boolean {
   return !hasBusinessData && !hasRestaurantIdentity;
 }
 
+/**
+ * The starting shape for a CLOUD tenant, before anything is downloaded.
+ *
+ * ===== v1.28.4 — "Stuck (8)" on every newly created restaurant =====
+ *
+ * Every caller of this function documents it as an EMPTY shape, and two of
+ * them say plainly why: "Cloud tenants must never see default data". It was
+ * not empty. seedData() carries eight default account categories with the
+ * fixed ids 'ac1'..'ac8' and a default admin user 'u-default-admin', and this
+ * handed all nine to every cloud tenant as local rows.
+ *
+ * The merge then did exactly what it should: nine rows that exist on the
+ * device and not in the cloud are unsynced work, so it re-queued them. The
+ * upload could never succeed, because a fixed local id derives a FIXED cloud
+ * uuid (cloudId('ac1') is the same value for every restaurant on earth) and
+ * the first restaurant to sync already owned those eight rows. PostgREST
+ * upserts as INSERT ... ON CONFLICT (id) DO UPDATE, so restaurant number two
+ * was asking to update restaurant number one's row, and RLS refused it:
+ *
+ *     new row violates row-level security policy (USING expression)
+ *     for table "account_categories"
+ *
+ * — logged eight at a time, on every 20-second flush, for the whole life of
+ * the restaurant, until six attempts each parked them in the dead-letter
+ * queue and the till showed "⚠ Stuck (8)".
+ *
+ * RLS was right; the isolation held and nothing leaked. The mistake was
+ * shipping shared row identities to tenants that must not share rows. The
+ * defaults are still created for a new restaurant — server-side, in
+ * sa_create_restaurant, where each one gets its own uuid (migration
+ * 20260828100000). Nothing derived, nothing shared, nothing to collide.
+ *
+ * seedData() itself is untouched: a LOCAL (non-cloud) install still needs its
+ * default admin login and its account categories, and has no other tenant to
+ * collide with.
+ */
 function emptyRuntimeData(): AppData {
   const data = seedData() as AppData;
+  // Settings defaults stay — they are this device's shape, not shared rows.
+  // Business rows do not: on the cloud they belong to the restaurant, and the
+  // restaurant's copy is about to arrive from the server.
+  for (const k of ARRAY_COLLECTIONS) (data as any)[k] = [];
   ensureFields(data);
   stampTenant(data);
   return data;
@@ -1653,6 +1693,32 @@ export async function initStore(): Promise<void> {
       }
     }
   } catch {}
+
+  // ===== v1.28.4 — clear the seed rows a cloud till should never have carried =====
+  //
+  // emptyRuntimeData() used to hand every cloud tenant the eight default
+  // account categories ('ac1'..'ac8'). Their cloud primary key is derived from
+  // the local id alone, so all restaurants derived the SAME eight uuids and
+  // every restaurant but the first was upserting onto rows it does not own —
+  // refused by RLS, six times each, then dead-lettered as "⚠ Stuck (8)".
+  //
+  // The shipping side is fixed above and the real defaults are now created
+  // per-tenant by the server. A till that already has the rows cached and the
+  // eight failures parked would keep re-queueing them, so they are retired
+  // here: once per restaurant, only the rows the seed itself shipped, and only
+  // while they are still untouched.
+  if (useCloudStore() && cachedData) {
+    try {
+      const { cleanupShippedSeedRows } = await import('./seedRowCleanup');
+      const cleaned = await cleanupShippedSeedRows(cachedData, getTenantId());
+      if (cleaned) {
+        saveLocal(cachedData);
+        console.log('[store] retired shipped seed rows', cleaned);
+      }
+    } catch (e) {
+      console.warn('[store] seed row cleanup skipped', e);
+    }
+  }
 
   if (useCloudStore()) {
     if (hasLocalCache) {

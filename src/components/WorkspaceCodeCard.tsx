@@ -9,14 +9,39 @@ import { Copy, KeyRound, Users, BookOpen, CheckCircle2, ArrowRight } from 'lucid
 import { toast } from 'sonner';
 import { Link } from '@/lib/hash-router';
 
-export default function WorkspaceCodeCard() {
-  const [code, setCode] = useState<string | null>(null);
+/**
+ * ===== v1.28.4 — "restaurant create karo to workspace code add hi nahi hota" =====
+ *
+ * The code was always there. Every restaurant gets one from the
+ * tenants_workspace_code trigger at INSERT, and all three live restaurants
+ * have had one from the moment they were created.
+ *
+ * What was missing was any way to SEE it. This card returned null the instant
+ * the read came back empty — offline, a lapsed cloud session, or a staff PIN
+ * login that has no Supabase session at all — so the card did not appear, no
+ * error appeared either, and the only reasonable conclusion was that creating
+ * a restaurant does not produce a code.
+ *
+ * Vanishing silently is the bug. The card now always states where the code is
+ * and why it cannot be shown, so "I can't read it right now" is never
+ * indistinguishable from "it does not exist".
+ */
+type CodeState =
+  | { kind: 'loading' }
+  | { kind: 'ready'; code: string }
+  | { kind: 'unavailable'; why: string };
 
-  useEffect(() => {
+export default function WorkspaceCodeCard() {
+  const [state, setState] = useState<CodeState>({ kind: 'loading' });
+
+  const read = async () => {
     const tid = getTenantId();
-    if (!tid) return;
-    let cancelled = false;
-    (async () => {
+    if (!tid) {
+      setState({ kind: 'unavailable', why: 'This device is not linked to a restaurant yet.' });
+      return;
+    }
+    setState({ kind: 'loading' });
+    try {
       // Direct read works for cloud-signed-in owners.
       const { data } = await supabase
         .from('tenants')
@@ -29,12 +54,46 @@ export default function WorkspaceCodeCard() {
         const { data: rpc } = await supabase.rpc('get_workspace_code', { _tenant_id: tid });
         wc = (rpc as string | null) ?? null;
       }
-      if (!cancelled) setCode(wc);
-    })();
-    return () => { cancelled = true; };
-  }, []);
+      if (wc) setState({ kind: 'ready', code: wc });
+      else setState({
+        kind: 'unavailable',
+        why: navigator.onLine === false
+          ? 'No internet — the code is stored on the server.'
+          : 'Sign in with the owner email to read it (a staff PIN login cannot).',
+      });
+    } catch (e: any) {
+      setState({ kind: 'unavailable', why: e?.message || 'Could not reach the server.' });
+    }
+  };
 
-  if (!code) return null;
+  useEffect(() => { void read(); }, []);
+
+  if (state.kind !== 'ready') {
+    return (
+      <div className="mb-4 rounded-xl border border-dashed border-primary/40 bg-card p-4">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-muted text-muted-foreground flex items-center justify-center shrink-0">
+            <KeyRound className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Workspace Code</div>
+            <p className="text-xs text-foreground/80">
+              {state.kind === 'loading'
+                ? 'Reading this restaurant’s code…'
+                : `Every restaurant has one. ${state.why}`}
+            </p>
+          </div>
+          {state.kind === 'unavailable' && (
+            <Button size="sm" variant="outline" className="ml-auto shrink-0" onClick={() => void read()}>
+              Try again
+            </Button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  const code = state.code;
 
 
   const steps = [
