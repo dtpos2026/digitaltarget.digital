@@ -74,6 +74,7 @@ export default function CustomerAppsManager({ restaurants }: CustomerAppsManager
   const [configs, setConfigs] = useState<Record<string, AppConfig>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
+  const [building, setBuilding] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState<string | null>(null);
 
@@ -165,6 +166,65 @@ export default function CustomerAppsManager({ restaurants }: CustomerAppsManager
     }
   }
 
+  /**
+   * v1.28.9 — build this restaurant's APK from here.
+   *
+   * The build itself runs on GitHub, and starting it needs a token that can
+   * write to the repository. That token stays in the apk-build edge function:
+   * one handed to the browser would be copied by every machine, extension and
+   * network between here and there, and it can push code, not merely build.
+   *
+   * The branding this button sends is what is already SAVED, not what is on
+   * screen — a build from unsaved edits would produce an APK that does not
+   * match what the app itself will show. So save first, then build.
+   */
+  async function buildApk(cfg: AppConfig) {
+    if (!cfg.appName.trim()) {
+      toast.error('Give the app a name first — it becomes the label under the icon.');
+      return;
+    }
+    if (!cfg.iconUrl.trim()) {
+      toast.error('Add an app icon URL first — otherwise the APK ships the Digital Target logo.');
+      return;
+    }
+    // Two restaurants under one package id are the same app to every phone:
+    // installing the second replaces the first. Derive a distinct one.
+    const slug = cfg.appName.toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 20);
+    const appId = `com.digitaltarget.${slug || 'customer'}`;
+
+    setBuilding(cfg.tenantId);
+    try {
+      const { sb } = await import('@/lib/supabase');
+      const { data: session } = await sb().auth.getSession();
+      const token = session?.session?.access_token;
+      if (!token) throw new Error('Sign in again — the session has expired.');
+
+      const { data, error } = await sb().functions.invoke('apk-build', {
+        body: {
+          tenant_id: cfg.tenantId,
+          app_id: appId,
+          apps: 'Customer',
+          refresh_bundle: true,
+        },
+      });
+      // A non-2xx from an edge function arrives as an error whose body holds
+      // the useful part, so the operator sees the reason and not "failed".
+      if (error) {
+        let detail = '';
+        try { detail = (await (error as any).context?.json())?.message ?? ''; } catch { /* body already read */ }
+        throw new Error(detail || error.message);
+      }
+      toast.success(
+        `${data?.message ?? 'Build started.'} Package id: ${appId}`,
+        { duration: 12000 },
+      );
+    } catch (e: any) {
+      toast.error(String(e?.message ?? e), { duration: 12000 });
+    } finally {
+      setBuilding(null);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center gap-2 p-6 text-sm text-muted-foreground">
@@ -235,6 +295,18 @@ export default function CustomerAppsManager({ restaurants }: CustomerAppsManager
                   />
                 </div>
 
+                <Button
+                  size="sm"
+                  variant="outline"
+                  title="Build this restaurant's branded APK on GitHub"
+                  onClick={() => buildApk(cfg)}
+                  disabled={building === tenantId || saving === tenantId}
+                >
+                  {building === tenantId
+                    ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                    : <Package className="h-3.5 w-3.5 mr-1" />}
+                  Build APK
+                </Button>
                 <Button size="sm" onClick={() => save(cfg)} disabled={saving === tenantId}>
                   {saving === tenantId
                     ? <Loader2 className="h-4 w-4 animate-spin" />
