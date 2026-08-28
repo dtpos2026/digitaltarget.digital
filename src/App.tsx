@@ -13,6 +13,7 @@ import LoginPage from "@/pages/LoginPage";
 import BusinessTypeSetupScreen from "@/components/BusinessTypeSetupScreen";
 import { getSettings, onLowStock } from "@/lib/store";
 import OwnerLoginPage from "@/pages/OwnerLoginPage";
+import MisconfiguredBuildScreen from "@/components/MisconfiguredBuildScreen";
 import POSScreen from "@/pages/POSScreen";
 // Heavy / rarely-used pages — code-split to keep initial bundle small
 const TablesPage = lazy(() => import("@/pages/TablesPage"));
@@ -564,6 +565,33 @@ const App = () => {
               </Routes>
             </Suspense>
           </HashRouter>
+        </TooltipProvider>
+      </QueryClientProvider>
+    );
+  }
+
+  // ===== v1.28.6 — a build with no backend must say so, not offer a login =====
+  //
+  // usingSupabaseAuth() has hard-returned true since v1.25.3: Firebase is gone
+  // and there is exactly one backend, so every path below assumes Supabase.
+  // cloudMode, meanwhile, is false whenever the bundle was compiled without
+  // VITE_SUPABASE_URL / _PUBLISHABLE_KEY.
+  //
+  // Those two can only disagree in one situation — a build that lost its own
+  // configuration — and the result was a dead end: cloudMode gates the Stage-1
+  // owner email screen, so it never rendered; the staff screen below then took
+  // the Supabase path, needed a tenant it could never obtain, and told the
+  // operator to "sign in with the owner email first" on a screen the same
+  // defect had just hidden. Reported from a fresh Windows install.
+  //
+  // No login can succeed here, so offering one is a lie.
+  if (!cloudMode) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <MisconfiguredBuildScreen />
         </TooltipProvider>
       </QueryClientProvider>
     );
