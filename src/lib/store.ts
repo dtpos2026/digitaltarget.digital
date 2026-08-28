@@ -1707,12 +1707,15 @@ export async function initStore(): Promise<void> {
   // eight failures parked would keep re-queueing them, so they are retired
   // here: once per restaurant, only the rows the seed itself shipped, and only
   // while they are still untouched.
-  if (useCloudStore() && cachedData) {
+  if (useCloudStore()) {
     try {
       const { cleanupShippedSeedRows } = await import('./seedRowCleanup');
-      const cleaned = await cleanupShippedSeedRows(cachedData, getTenantId());
+      // Called even with no local cache: the dead-lettered ops live in
+      // IndexedDB and outlive the cache, so a till whose localStorage was
+      // cleared is still carrying the eight failures.
+      const cleaned = await cleanupShippedSeedRows(cachedData ?? {}, getTenantId());
       if (cleaned) {
-        saveLocal(cachedData);
+        if (cachedData) saveLocal(cachedData);
         console.log('[store] retired shipped seed rows', cleaned);
       }
     } catch (e) {

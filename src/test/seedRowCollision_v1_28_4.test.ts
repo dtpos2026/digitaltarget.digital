@@ -188,9 +188,11 @@ describe('a till that is already carrying the failures', () => {
 
   it('the store runs it before the first cloud refresh', () => {
     expect(store).toContain("await import('./seedRowCleanup')");
-    expect(store).toContain('cleanupShippedSeedRows(cachedData, getTenantId())');
+    // Called with {} rather than skipped when there is no local cache: the
+    // parked ops live in IndexedDB and outlive the cache.
+    expect(store).toContain('cleanupShippedSeedRows(cachedData ?? {}, getTenantId())');
     // Before the branch that returns early into the background refresh.
-    expect(store.indexOf('cleanupShippedSeedRows(cachedData, getTenantId())'))
+    expect(store.indexOf('cleanupShippedSeedRows(cachedData ?? {}, getTenantId())'))
       .toBeLessThan(store.indexOf('refreshCloudStoreInBackground();\n      return;'));
   });
 });
