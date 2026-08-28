@@ -29,6 +29,7 @@ import {
   loadCustomerAppConfig, getCachedAppConfig, applyCustomerAppTheme, featureOn,
   type CustomerAppConfig,
 } from '@/lib/customerAppConfig';
+import AppUpdateGate from '@/components/AppUpdateGate';
 
 const ACCOUNT_KEY = 'dt-online-account-v1';
 const BRANCH_KEY_PREFIX = 'dt-online-branch-v1:';
@@ -841,6 +842,13 @@ export default function OnlineOrderPage() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/*
+        v1.28.5 — the app version the restaurant published, against the one this
+        build carries. Renders nothing on the website and nothing when the build
+        is current, so it costs a packaged app one read of its own dt-app.json
+        and everyone else nothing.
+      */}
+      <AppUpdateGate config={appConfig} />
       {featureOn(appConfig, 'whatsapp') && (
         <WhatsAppFloat
           number={appConfig?.whatsappNumber || undefined}

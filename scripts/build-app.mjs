@@ -34,6 +34,19 @@ if (tenant && !/^[0-9a-f-]{36}$/i.test(tenant)) {
   process.exit(1);
 }
 
+// ===== v1.28.5 — the build has to know its own version =====
+//
+// Android's real version is `versionName` in app/build.gradle, and the web
+// bundle cannot read it without a native plugin. But customer_apps has carried
+// app_version / min_supported_version / update_url since v1.27.0, all editable
+// in Super Admin, and nothing could ever act on them: there was no number to
+// compare against. So the version is written INTO the bundle here, and the APK
+// repository's tools/brand.mjs rewrites this file and build.gradle together so
+// the two cannot drift.
+const appVersion = (process.env.DT_APP_VERSION || '').trim()
+  || JSON.parse(readFileSync(resolve(process.cwd(), 'package.json'), 'utf8')).version
+  || '';
+
 process.env.DT_BUILD_TARGET = 'desktop';
 console.log(`[build:app] building the client bundle${tenant ? ` for tenant ${tenant}` : ''}`);
 
@@ -62,9 +75,17 @@ if (tenant) {
   const html = readFileSync(indexPath, 'utf8');
   const boot = `<script>(function(){try{if(!location.hash||location.hash==='#/'){location.hash='#/order/${tenant}';}}catch(e){}})();</script>`;
   writeFileSync(indexPath, html.replace('</head>', `${boot}</head>`), 'utf8');
-  writeFileSync(join(dest, 'dt-app.json'), JSON.stringify({ tenantId: tenant }, null, 2) + '\n');
   console.log(`[build:app] bound to tenant ${tenant}`);
 }
+
+// Always written, tenant or not: the update check needs the version even from a
+// build that shows the restaurant picker. A browser has no dt-app.json at all,
+// which is how the update prompt stays off the website.
+writeFileSync(
+  join(dest, 'dt-app.json'),
+  JSON.stringify({ tenantId: tenant || null, appVersion }, null, 2) + '\n',
+);
+console.log(`[build:app] dt-app.json: version ${appVersion}${tenant ? `, tenant ${tenant}` : ''}`);
 
 // dist/ is also where the Cloudflare artifact lives. build:app only writes the
 // client/ subdirectory, so it does not damage that artifact — but a deploy run
