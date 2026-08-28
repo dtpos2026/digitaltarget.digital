@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
+import { APP_THEMES, themeFor, contrastWithWhite } from '@/lib/appThemes';
 import {
   Smartphone, Search, Save, Palette, MessageCircle, Package,
   CheckCircle2, XCircle, Loader2,
@@ -261,7 +262,48 @@ export default function CustomerAppsManager({ restaurants }: CustomerAppsManager
                       onChange={e => edit(tenantId, { iconUrl: e.target.value })} />
                   </Field>
 
-                  <Field label="Brand colour">
+                  {/*
+                    v1.28.8 — a shortlist, because picking a colour that reads
+                    well on a phone next to a logo is a design decision, and a
+                    colour wheel asks the operator to make it fresh for every
+                    restaurant. The wheel is still below; this only saves the
+                    common case. The chosen colour also paints the launcher
+                    icon's tile (tools/brand.mjs reads theme.primary), so this
+                    brands the home screen as well as the app.
+                  */}
+                  <div className="sm:col-span-2">
+                    <div className="text-xs font-semibold mb-2 flex items-center gap-1">
+                      <Palette className="h-3.5 w-3.5" /> Theme
+                    </div>
+                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                      {APP_THEMES.map(t => {
+                        const active = themeFor(cfg.primaryColor, cfg.mode)?.id === t.id;
+                        return (
+                          <button
+                            key={t.id}
+                            type="button"
+                            title={`${t.name} · ${t.mode}`}
+                            aria-pressed={active}
+                            onClick={() => edit(tenantId, { primaryColor: t.primary, mode: t.mode })}
+                            className={`group rounded-lg border p-1.5 text-left transition ${
+                              active ? 'border-primary ring-2 ring-primary/40' : 'border-border hover:border-primary/50'
+                            }`}
+                          >
+                            <div
+                              className="h-8 w-full rounded flex items-center justify-center text-[10px] font-bold text-white"
+                              style={{ background: t.primary }}
+                            >
+                              Aa
+                            </div>
+                            <div className="mt-1 truncate text-[10px] leading-tight">{t.name}</div>
+                            <div className="text-[9px] text-muted-foreground">{t.mode}</div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <Field label="Brand colour" hint="Or pick your own — white text must stay readable on it">
                     <div className="flex items-center gap-2">
                       <input type="color" value={cfg.primaryColor}
                         onChange={e => edit(tenantId, { primaryColor: e.target.value })}
@@ -271,14 +313,26 @@ export default function CustomerAppsManager({ restaurants }: CustomerAppsManager
                         onChange={e => edit(tenantId, { primaryColor: e.target.value })}
                         className="font-mono" />
                     </div>
+                    {/*
+                      The app draws white text over this colour everywhere. A
+                      hand-picked light one gives buttons nobody can read
+                      outdoors, and that is not visible from this panel — so it
+                      is said here rather than discovered on a customer's phone.
+                    */}
+                    {contrastWithWhite(cfg.primaryColor) < 4.5 && (
+                      <p className="mt-1.5 text-[11px] text-amber-600 dark:text-amber-400">
+                        White text on this colour is {contrastWithWhite(cfg.primaryColor).toFixed(1)}:1 —
+                        below the 4.5:1 needed to stay readable. Pick a darker shade, or one above.
+                      </p>
+                    )}
                   </Field>
-                  <Field label="Theme">
+                  <Field label="Light or dark">
                     <div className="flex gap-1">
                       {(['dark', 'light'] as const).map(m => (
                         <Button key={m} type="button" size="sm"
                           variant={cfg.mode === m ? 'default' : 'outline'}
                           onClick={() => edit(tenantId, { mode: m })}>
-                          <Palette className="h-3.5 w-3.5 mr-1" />{m}
+                          {m}
                         </Button>
                       ))}
                     </div>
