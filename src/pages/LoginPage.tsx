@@ -90,12 +90,54 @@ export default function LoginPage({ onLogin }: Props) {
           return;
         }
 
-        // Verified server-side (service role) so it does not depend on a live
-        // browser session, and so the failure reason is exact.
-        const { staffSignIn } = await import('@/lib/staffAuth.functions');
-        const r0 = await staffSignIn({
-          data: { tenantId, username: username.trim(), password },
-        });
+        // ===== v1.29.0 — staff login answered "Forbidden" on the desktop =====
+        //
+        // staffSignIn is a TanStack server function. The renderer of the Windows
+        // app is a file:// bundle with no backend of its own, so the shell
+        // proxies those calls to DTPOS_API_ORIGIN over HTTP. When that address
+        // is wrong, or the deployment behind it is older than this bundle, the
+        // host answers 403 — and the client surfaces the status text, which is
+        // the bare word "Forbidden". That is exactly what a till reported.
+        //
+        // The owner's email sign-in never had the problem, because it talks to
+        // Supabase directly. So does verify_staff_pin, which is granted to
+        // `authenticated` and guards itself on p_tenant = auth_tenant_id(). At
+        // this point in the flow the owner's session is live — Stage 1 has just
+        // completed — so the RPC is available, and using it removes the
+        // desktop's dependence on an HTTP origin for signing staff in at all.
+        //
+        // The server function stays as the fallback: it is service-role backed
+        // and therefore still the only path that works when the browser session
+        // has lapsed but the device still knows its restaurant.
+        let r0: Awaited<ReturnType<typeof import('@/lib/staffAuth.functions')['staffSignIn']>> | null = null;
+        const { currentAuthUser } = await import('@/lib/authProvider');
+        if (currentAuthUser()) {
+          try {
+            const { verifyStaffPin } = await import('@/lib/supabase');
+            const v = await verifyStaffPin(tenantId, username.trim(), password);
+            r0 = v?.ok
+              ? {
+                  ok: true,
+                  userId: v.user_id ?? '',
+                  name: v.name ?? username,
+                  role: v.role ?? 'cashier',
+                  branchId: v.branch_id ?? null,
+                  permissions: (v as any).permissions ?? [],
+                }
+              : { ok: false, reason: 'bad_password', message: 'Wrong username or password.' };
+          } catch (e) {
+            // A refusal here (42501: no tenant on this session) is not a wrong
+            // password — fall through and let the service-role path answer.
+            console.warn('[login] direct staff verification unavailable:', e);
+          }
+        }
+
+        if (!r0) {
+          const { staffSignIn } = await import('@/lib/staffAuth.functions');
+          r0 = await staffSignIn({
+            data: { tenantId, username: username.trim(), password },
+          });
+        }
 
         setLoading(false);
         if (!r0.ok) { toast.error(r0.message); return; }
