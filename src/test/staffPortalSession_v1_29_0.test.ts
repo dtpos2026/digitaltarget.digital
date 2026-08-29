@@ -30,6 +30,8 @@ const session = readFileSync(join(process.cwd(),
   'supabase/migrations/20260829120000_v1_29_0_staff_portal_session.sql'), 'utf8');
 const dataFns = readFileSync(join(process.cwd(),
   'supabase/migrations/20260829130000_v1_29_0_staff_portal_data.sql'), 'utf8');
+const fallback = readFileSync(join(process.cwd(),
+  'supabase/migrations/20260829140000_v1_29_1_portal_orders_document_fallback.sql'), 'utf8');
 const portalData = readFileSync(join(process.cwd(), 'src/lib/portalData.ts'), 'utf8');
 const portalAuth = readFileSync(join(process.cwd(), 'src/lib/staffPortalAuth.ts'), 'utf8');
 const staffFns = readFileSync(join(process.cwd(), 'src/lib/staffAuth.functions.ts'), 'utf8');
@@ -176,5 +178,35 @@ describe('the apps actually use it', () => {
     const adopt = store.slice(store.indexOf('export async function adoptPortalRows'),
                               store.indexOf('export function getTables()'));
     expect(adopt).toContain('if (!Array.isArray(rows)) return;');
+  });
+});
+
+describe('an order the POS has not synced back yet', () => {
+  it('is built from the columns rather than shown blank', () => {
+    // public_place_order writes the typed columns and order_items, never a
+    // document — and orders.data DEFAULTS to '{}', so a coalesce() would never
+    // fire on it. Two orders in production sit in exactly that state.
+    expect(fallback).toContain("case when o.data ? 'id' then o.data");
+    expect(fallback).toContain("'orderNumber',   o.order_number");
+    expect(fallback).toContain('from public.order_items i');
+  });
+
+  it('tells a real document from an empty one by its own id', () => {
+    // rowToDb always writes data.id, so its presence is what distinguishes a
+    // POS document from the default '{}'.
+    expect(fallback).toContain("o.data ? 'id'");
+    expect(fallback).not.toContain('o.data is null');
+  });
+
+  it('finds a rider\'s work through the column as well as the document', () => {
+    // An order assigned but not yet synced has rider_id and no document.
+    expect(fallback).toContain('o.rider_id = s.user_id');
+  });
+
+  it('builds the document for the read only, never storing it', () => {
+    // The POS must stay the only writer of orders.data, or the two race.
+    const body = fallback.slice(fallback.indexOf('create or replace function'));
+    expect(body).not.toMatch(/update\s+public\.orders/i);
+    expect(body).not.toMatch(/insert\s+into\s+public\.orders/i);
   });
 });
