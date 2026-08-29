@@ -47,7 +47,27 @@ export default function OrderTakerPortalPage() {
   }, []);
 
   useEffect(() => {
-    initStore().then(() => {
+    initStore().then(async () => {
+      // ===== v1.29.0 — the reads this app cannot make as `anon` =====
+      //
+      // Tables, riders and live orders are all authenticated-only, and a staff
+      // login creates no Supabase session — so the ordinary cloud load brought
+      // back the public menu and nothing else. That is why the tables the
+      // restaurant had added were not here. These come through portal_*, which
+      // resolves this device's token to one restaurant.
+      try {
+        const { hasPortalSession, portalBootstrap } = await import('@/lib/portalData');
+        if (hasPortalSession()) {
+          const res = await portalBootstrap();
+          if (res.ok) {
+            const { adoptPortalRows } = await import('@/lib/store');
+            await adoptPortalRows(res.data);
+          } else if (res.reason === 'no_session') {
+            toast.error(res.message);
+          }
+        }
+      } catch { /* offline: the cached roster below still signs the user in */ }
+
       try {
         const raw = localStorage.getItem(SESSION_KEY);
         if (raw) {
@@ -107,6 +127,17 @@ export default function OrderTakerPortalPage() {
       let u: User | null = null;
       if (identity?.ok) {
         await initStore();
+        // The portal token was just minted; pull this restaurant's tables,
+        // riders and live orders with it before the screen renders, or the app
+        // opens on an empty floor plan.
+        try {
+          const { portalBootstrap } = await import('@/lib/portalData');
+          const boot = await portalBootstrap();
+          if (boot.ok) {
+            const { adoptPortalRows } = await import('@/lib/store');
+            await adoptPortalRows(boot.data);
+          }
+        } catch { /* signed in; the data can arrive on the next refresh */ }
         const found = getUsers().find(x => x.id === identity.identity.userId);
         u = found || ({
           id: identity.identity.userId,

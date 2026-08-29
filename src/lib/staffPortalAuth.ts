@@ -9,6 +9,7 @@
 // the security boundary.
 // ============================================================
 import { setTenant, getTenantId } from './tenant';
+import { setPortalToken, portalLogout } from './portalData';
 
 export interface PortalIdentity {
   userId: string;
@@ -93,6 +94,19 @@ export async function portalSignIn(opts: {
   }
   if (res.workspaceCode) saveWorkspaceCode(res.workspaceCode);
 
+  // ===== v1.29.0 — the session that lets the portal READ =====
+  //
+  // Binding the tenant above tells the device WHICH restaurant it belongs to.
+  // It does not make the device allowed to read that restaurant, because there
+  // is no Supabase session behind a staff login — so every request went as
+  // `anon`, and RLS gave back the public menu and nothing else: no tables, no
+  // riders, no orders.
+  //
+  // The token is what the portal_* functions resolve to this staff member. It
+  // is stored only here and sent only to those functions; the restaurant it
+  // belongs to is inside it, so it cannot be pointed at another one.
+  setPortalToken(res.portalToken ?? null);
+
   const identity: PortalIdentity = {
     userId: res.userId,
     name: res.name,
@@ -115,4 +129,21 @@ export async function portalSignIn(opts: {
   } catch { /* ignore */ }
 
   return { ok: true, identity };
+}
+
+/**
+ * Sign the portal out everywhere, not just on this screen.
+ *
+ * Clearing local state alone left the server-side session alive for thirty
+ * days, so a lost or handed-on phone stayed a way into the restaurant. This
+ * ends it at the source; the local token is dropped first, so the app is signed
+ * out even when the request cannot be made.
+ */
+export async function portalSignOut(): Promise<void> {
+  await portalLogout();
+  try {
+    localStorage.removeItem('pos-user-id');
+    localStorage.removeItem('pos-user-role');
+    localStorage.removeItem('dt_pos_current_user');
+  } catch { /* ignore */ }
 }

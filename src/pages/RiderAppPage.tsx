@@ -72,7 +72,30 @@ export default function RiderAppPage() {
   useEffect(() => {
     let cancel = false;
     const pull = async () => {
-      try { await refreshOrdersFromCloud(); } catch {}
+      // ===== v1.29.0 — "rider me mujhe koi order hi nahi aaya" =====
+      //
+      // refreshOrdersFromCloud() reads `orders` directly, and a rider has no
+      // Supabase session — POS staff are user_profiles rows, not auth.users. So
+      // every poll went as `anon`, and the orders policy lets anon INSERT (that
+      // is how a customer places one) and never SELECT. The rider app polled
+      // every fifteen seconds and was refused every time, silently.
+      //
+      // portal_orders resolves this device's token to the rider and returns
+      // their own deliveries plus anything still unassigned.
+      try {
+        const { hasPortalSession, portalOrders } = await import('@/lib/portalData');
+        if (hasPortalSession()) {
+          const res = await portalOrders();
+          if (res.ok) {
+            const { adoptPortalRows } = await import('@/lib/store');
+            await adoptPortalRows({ orders: res.data });
+          } else if (res.reason === 'no_session' && !cancel) {
+            toast.error(res.message);
+          }
+        } else {
+          await refreshOrdersFromCloud();
+        }
+      } catch { /* offline — the cached orders below stay on screen */ }
       if (!cancel) { setOrders(getOrders()); setTick(x => x + 1); }
     };
     pull();
@@ -262,6 +285,17 @@ export default function RiderAppPage() {
               saveRider(r);
               localStorage.setItem(RIDER_PORTAL_KEY, r.id);
               setRider(r);
+              // Pull this rider's deliveries with the token that was just
+              // minted, so the app opens on their work rather than on nothing.
+              try {
+                const { portalBootstrap } = await import('@/lib/portalData');
+                const boot = await portalBootstrap();
+                if (boot.ok) {
+                  const { adoptPortalRows } = await import('@/lib/store');
+                  await adoptPortalRows({ orders: boot.data.orders, tables: boot.data.tables });
+                  setOrders(getOrders());
+                }
+              } catch { /* signed in; the 15s poll will bring them */ }
               toast.success(`Welcome ${r.name}!`);
               return;
             }

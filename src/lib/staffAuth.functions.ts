@@ -219,6 +219,15 @@ export type GlobalStaffLoginResult =
       allBranches: boolean;
       permissions: string[];
       featurePermissions: string[];
+      /**
+       * v1.29.0 — an opaque session for the Rider and Order Taker apps.
+       *
+       * Those two have no Supabase session (POS staff are user_profiles rows,
+       * not auth.users), so without this every read they make is `anon` and RLS
+       * correctly refuses tables, riders and orders. Present only for the two
+       * portal roles; null for everyone else, who do not need one.
+       */
+      portalToken: string | null;
     }
   | { ok: false; reason: string; message: string };
 
@@ -273,6 +282,40 @@ export const staffSignInGlobal = createServerFn({ method: 'POST' })
     }
 
     const rawRole = (r.role ?? 'cashier').toLowerCase();
+
+    // ===== v1.29.0 — the portal could see the menu and nothing else =====
+    //
+    // This verified the staff member and then handed the browser an identity,
+    // with no Supabase session behind it — POS staff are user_profiles rows and
+    // have no auth.users account to sign into. So every read the Rider and
+    // Order Taker apps made afterwards went as `anon`, and the policies
+    // answered exactly as written: menu_items and categories are public, so the
+    // menu appeared; dining_tables, user_profiles and orders are
+    // authenticated-only, so there were no tables, no riders and no orders.
+    //
+    // The session token below is the same device the customer app already uses
+    // (public_customer_login -> customer_from_token): opaque, stored only as a
+    // sha256, and resolvable only by the portal_* functions, which return that
+    // one restaurant's rows and cannot be pointed at another.
+    //
+    // A token is minted only for the two portal roles. A cashier signing into
+    // the POS goes through the owner's Supabase session and needs none, and
+    // handing one out anyway would widen what a POS login is.
+    let portalToken: string | null = null;
+    if ((rawRole === 'rider' || rawRole === 'order_taker') && r.user_id && r.tenant_id) {
+      const { data: tok, error: tokErr } = await supabaseAdmin.rpc('portal_session_create' as never, {
+        p_user_id: r.user_id,
+        p_tenant_id: r.tenant_id,
+        p_branch_id: r.branch_id ?? null,
+        p_role: rawRole,
+        p_all_branches: !!r.all_branches,
+      } as never);
+      // A failure here must not block the sign-in: the app still works offline
+      // from its cached roster, and saying "wrong password" would be a lie.
+      if (tokErr) console.error('[staff] portal session could not be created:', tokErr.message);
+      else portalToken = (tok as string | null) ?? null;
+    }
+
     return {
       ok: true,
       userId: r.user_id ?? '',
@@ -285,5 +328,6 @@ export const staffSignInGlobal = createServerFn({ method: 'POST' })
       allBranches: !!r.all_branches,
       permissions: r.permissions ?? [],
       featurePermissions: r.feature_permissions ?? [],
+      portalToken,
     };
   });

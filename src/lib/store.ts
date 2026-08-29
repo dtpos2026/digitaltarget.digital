@@ -2985,6 +2985,55 @@ export function markOrderCancelled(orderId: string, reason: string, by?: string)
 }
 
 // ============ Tables ============
+/**
+ * ===== v1.29.0 — the rows the staff portals fetch for themselves =====
+ *
+ * The Rider and Order Taker apps have no Supabase session, so the ordinary
+ * cloud load returns them nothing but the public menu — no tables, no riders,
+ * no orders. They read through the portal_* functions instead, and this is
+ * where what comes back is adopted.
+ *
+ * Deliberately NOT saveEntity(): these rows came FROM the server, so pushing
+ * them back would queue an upload per row on every login and hand the till a
+ * backlog it did not create. saveLocal writes the cache and nothing else.
+ *
+ * A collection that was not fetched is left alone. "Not asked for" and "empty"
+ * are different, and confusing them is what emptied tills in v1.26.2.
+ */
+export async function adoptPortalRows(input: {
+  tables?: any[] | null;
+  floors?: any[] | null;
+  riders?: any[] | null;
+  orders?: any[] | null;
+}): Promise<void> {
+  // Awaited rather than raced: a lazy import that has not resolved yet would
+  // adopt raw Postgres column names on the first login of every session, and
+  // the UI would show a table with no name until something else refreshed it.
+  const { rowFromDb } = await import('./supabaseStore');
+
+  const data = loadData();
+  let touched = false;
+
+  const adopt = (key: ArrayKey, rows: any[] | null | undefined, table?: string) => {
+    if (!Array.isArray(rows)) return;
+    (data as any)[key] = table
+      ? rows.map(r => rowFromDb(r, table)).filter(r => !r?.deleted)
+      : rows;
+    touched = true;
+  };
+
+  adopt('tables', input.tables, 'dining_tables');
+  adopt('floors', input.floors, 'floors');
+  // portal_riders and portal_orders already return app-shaped records, so
+  // there is nothing to translate.
+  adopt('riders', input.riders);
+  adopt('orders', input.orders);
+
+  if (!touched) return;
+  saveLocal(data);
+  emitDataChange('*');
+}
+
 export function getTables(): DiningTable[] { return loadData().tables; }
 export function saveTable(table: DiningTable) { saveEntity('tables', table); }
 export function deleteTable(id: string) { deleteEntity('tables', id); }
