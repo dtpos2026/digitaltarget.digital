@@ -57,6 +57,9 @@ export default function RiderAppPage() {
   const [tracking, setTracking] = useState<boolean>(() => localStorage.getItem('rider-tracking') === '1');
   const [myPos, setMyPos] = useState<{ lat: number; lng: number } | null>(null);
   const watchIdRef = useRef<number | null>(null);
+  // v1.29.9 — the delivery poll runs every fifteen seconds; push registration
+  // must run once, or the rider is re-prompted for the rest of their shift.
+  const pushRegisteredRef = useRef(false);
 
   // Public-portal login state
   const publicMode = isPublicRiderRoute();
@@ -91,6 +94,21 @@ export default function RiderAppPage() {
             await adoptPortalRows({ orders: res.data });
           } else if (res.reason === 'no_session' && !cancel) {
             toast.error(res.message);
+          }
+          // ===== v1.29.9 — this phone can be paged =====
+          //
+          // Guarded by a ref because this runs on every fifteen-second poll and
+          // registering repeatedly would re-prompt the rider forever. On a
+          // desktop browser isNativeApp() is false and nothing is asked for; a
+          // refusal is not an error, because the rider app has to keep working
+          // for someone who said no. The token is filed against THIS session,
+          // so signing out stops the alerts.
+          if (!pushRegisteredRef.current) {
+            pushRegisteredRef.current = true;
+            try {
+              const { portalRegisterPush } = await import('@/lib/portalData');
+              void portalRegisterPush();
+            } catch { /* push is an extra, never a gate on deliveries loading */ }
           }
         } else {
           await refreshOrdersFromCloud();

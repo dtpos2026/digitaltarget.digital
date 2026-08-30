@@ -134,8 +134,65 @@ export function portalMe(): Promise<PortalResult<Record<string, any>>> {
 /** End the session server-side, so a lost phone stops being a way in. */
 export async function portalLogout(): Promise<void> {
   const token = getPortalToken();
+  // v1.29.9 — stop paging this phone BEFORE the session goes. A rider who has
+  // signed out must not keep receiving "new delivery" on the way home; once the
+  // session row is deleted there is nothing left to clear the token from.
+  try { await portalPushToken(null); } catch { /* best effort */ }
   setPortalToken(null);
   if (!token || !isSupabaseConfigured()) return;
   try { await sb().rpc('portal_logout' as never, { p_token: token } as never); }
   catch { /* the local token is already gone, which is what matters here */ }
+}
+
+// ===== v1.29.9 — reaching a rider's or an order taker's phone =====
+//
+// ASKED FOR: "rider aur order taker ko notification aani chahiye."
+//
+// The token is filed against THIS DEVICE'S SESSION, not against the staff
+// member. Two phones means two sessions and both are reachable; a sign-out or
+// an expiry takes the token with it, so an ex-employee's handset cannot be
+// paged months later. See the v1.29.9 migration for why that beat a column on
+// user_profiles.
+//
+// Passing null clears it — that is a sign-out, not a failure.
+export async function portalPushToken(push: string | null): Promise<PortalResult<{ cleared: boolean }>> {
+  return call('portal_push_token', { p_push: push ?? '' }, (r) => ({ cleared: r.cleared === true }));
+}
+
+/**
+ * Register this phone for order alerts, if it is a phone at all.
+ *
+ * A browser has no FCM registration and asks for nothing: the whole thing is
+ * skipped rather than prompting a desktop user for a permission that can never
+ * be used. A refusal is not an error either — the rider may simply have said
+ * no, and the portal has to keep working.
+ */
+export async function portalRegisterPush(): Promise<'registered' | 'skipped' | 'denied' | 'failed'> {
+  try {
+    const { isNativeApp } = await import('./pushNotifications');
+    if (!isNativeApp()) return 'skipped';
+    if (!getPortalToken()) return 'skipped';
+
+    const { PushNotifications } = await import('@capacitor/push-notifications');
+    let perm = await PushNotifications.checkPermissions();
+    if (perm.receive === 'prompt' || perm.receive === 'prompt-with-rationale') {
+      perm = await PushNotifications.requestPermissions();
+    }
+    if (perm.receive !== 'granted') return 'denied';
+
+    return await new Promise<'registered' | 'failed'>((resolve) => {
+      let settled = false;
+      const done = (v: 'registered' | 'failed') => { if (!settled) { settled = true; resolve(v); } };
+      void PushNotifications.addListener('registration', (t: { value: string }) => {
+        void portalPushToken(t.value).then(r => done(r.ok ? 'registered' : 'failed'));
+      });
+      void PushNotifications.addListener('registrationError', () => done('failed'));
+      void PushNotifications.register();
+      // FCM can take a moment, and it can also never answer at all when the
+      // build has no google-services.json. Never leave the caller hanging.
+      setTimeout(() => done('failed'), 15000);
+    });
+  } catch {
+    return 'failed';
+  }
 }
