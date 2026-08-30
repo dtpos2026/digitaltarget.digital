@@ -812,6 +812,36 @@ export default function OnlineOrderPage() {
     );
   }
 
+  // ===== v1.29.8 — the customer app module, switched off =====
+  //
+  // REPORTED: "agar app module off kar dein to app chalni nahi chahiye."
+  //
+  // The gate is the SERVER: public_customer_me / _orders / _order_track refuse
+  // with reason 'app_disabled' once customer_apps.enabled is false, so an
+  // already signed-in customer stops too — verified live with a real minted
+  // session. This screen exists so they read a sentence instead of an empty
+  // list.
+  //
+  // Only an EXPLICIT false blocks. A restaurant with no customer_apps row at
+  // all still reports null, and null keeps meaning "plain online ordering,
+  // never configured a customer app" exactly as it always has.
+  if (appConfig?.enabled === false) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background p-6">
+        <div className="text-center space-y-3 max-w-sm">
+          <div className="mx-auto h-12 w-12 rounded-full bg-muted flex items-center justify-center">
+            <Store className="h-6 w-6 text-muted-foreground" />
+          </div>
+          <h1 className="text-lg font-extrabold">{appConfig.appName || 'This app'} is not available right now</h1>
+          <p className="text-sm text-muted-foreground">
+            Ordering through the app has been switched off by the restaurant.
+            Please call them directly, or try again later.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (settings.onlineOrderEnabled === false) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background p-6">
