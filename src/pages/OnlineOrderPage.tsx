@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Plus, Minus, Trash2, ShoppingBag, MapPin, Phone, User, Search, X, Tag, CheckCircle, LogIn, LogOut, ClipboardList, Clock, ArrowLeft, Store, ChevronDown, BellRing, Utensils } from 'lucide-react';
+import { Plus, Minus, Trash2, ShoppingBag, MapPin, Phone, User, Search, X, Tag, CheckCircle, LogIn, LogOut, ClipboardList, Clock, ArrowLeft, Store, ChevronDown, BellRing, Utensils, Link2 as LinkIcon } from 'lucide-react';
 import { Order, CartItem, MenuItem, Branch } from '@/lib/types';
 import { openWhatsApp, normalizePhone as normWaPhone } from '@/lib/whatsapp';
 import { computeDistance } from '@/lib/delivery';
@@ -182,6 +182,46 @@ export default function OnlineOrderPage() {
   const [profileOpen, setProfileOpen] = useState(false);
   // Which of the customer's own orders the live tracker is showing.
   const [trackOrderId, setTrackOrderId] = useState<string | null>(null);
+
+  // ===== v1.29.7 — a tracking link the customer can send to someone else =====
+  //
+  // REPORTED: "customer portal me har order ka clickable tracking link ho, jis
+  // par delivery order ka rider location dikhe."
+  //
+  // #/track has accepted ?o= and ?p= and auto-searched on open since it was
+  // written, and it already draws the rider on a map. What was missing was
+  // anything that HANDED the customer that URL. The link is built from the
+  // order number plus the last four digits of the phone the order was placed
+  // with — the same pair the page asks for when it is opened by hand, so the
+  // link grants no access that typing the two boxes would not.
+  const trackLinkFor = (o: { orderNumber: number }): string | null => {
+    const tid = getTenantId();
+    const last4 = (account?.phone || '').replace(/\D/g, '').slice(-4);
+    if (!tid || !o?.orderNumber || last4.length < 4) return null;
+    const base = `${window.location.origin}${window.location.pathname}`;
+    return `${base}#/track/${tid}?o=${o.orderNumber}&p=${last4}`;
+  };
+
+  const shareTrackLink = async (o: { orderNumber: number }) => {
+    const url = trackLinkFor(o);
+    if (!url) return;
+    // navigator.share is the right thing on a phone and simply absent on a
+    // desktop browser; clipboard is the fallback, and a manual prompt is the
+    // fallback to THAT, because a WebView can refuse both.
+    try {
+      const nav = navigator as Navigator & { share?: (d: { title: string; url: string }) => Promise<void> };
+      if (typeof nav.share === 'function') {
+        await nav.share({ title: `Order #${o.orderNumber}`, url });
+        return;
+      }
+    } catch { /* the user dismissed the sheet — fall through to copying */ }
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success('Tracking link copied');
+    } catch {
+      window.prompt('Copy this tracking link:', url);
+    }
+  };
   const [loginName, setLoginName] = useState('');
   const [loginPhone, setLoginPhone] = useState('');
   const [loginPin, setLoginPin] = useState('');
@@ -1687,6 +1727,24 @@ export default function OnlineOrderPage() {
                       <MapPin className="h-3.5 w-3.5 mr-1" />
                       {live ? 'Track live' : 'View details'}
                     </Button>
+                    {/* v1.29.7 — a tracking link the customer can SEND.
+                      *
+                      * "Track live" opens the panel inside this session, which
+                      * only helps the person already signed in on this device.
+                      * Whoever is actually waiting for the food — at home, at
+                      * the office — cannot be handed that. #/track has taken
+                      * ?o= and ?p= and auto-searched on open since it was
+                      * built; nothing ever produced the link. This does. */}
+                    {trackLinkFor(o) && (
+                      <button
+                        type="button"
+                        onClick={() => shareTrackLink(o)}
+                        className="w-full h-7 text-[10px] font-semibold text-primary hover:underline flex items-center justify-center gap-1"
+                      >
+                        <LinkIcon className="h-3 w-3" />
+                        Copy tracking link
+                      </button>
+                    )}
                   </div>
                 );
               })}
