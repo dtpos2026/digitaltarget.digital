@@ -380,7 +380,15 @@ export default function MenuManagerPage() {
               if (ans !== 'DELETE ALL') { if (ans !== null) toast.error('Cancelled — the text did not match'); return; }
               const t = toast.loading('Deleting all menu…');
               try {
-                await resetSelectedData(['menuItems', 'categories']);
+                const res = await resetSelectedData(['menuItems', 'categories']);
+                if (res.failed.length) {
+                  toast.error(
+                    `The server refused: ${res.failed.map(f => f.error).join('; ')}. ` +
+                    'The menu is unchanged — nothing was lost.',
+                    { id: t, duration: 15000 },
+                  );
+                  return;
+                }
                 toast.success('The entire menu was deleted', { id: t });
                 refresh();
               } catch (e: any) {

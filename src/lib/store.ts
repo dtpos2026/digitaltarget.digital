@@ -3399,21 +3399,73 @@ export function resetData() {
   }
 }
 
-/** Selectively wipe given collections (local + cloud). Does NOT re-seed. */
-export async function resetSelectedData(keys: readonly ArrayKey[]) {
+export interface ResetOutcome {
+  /** Collections whose rows were removed on the server, with how many. */
+  cleared: Record<string, number>;
+  /** Collections the server refused, with why. The caller MUST surface these. */
+  failed: Array<{ collection: string; error: string }>;
+}
+
+/**
+ * Selectively wipe given collections, locally and on the server.
+ *
+ * ===== v1.29.3 — "close day kiya, data zero nahi hua" =====
+ *
+ * REPORTED as a major bug: after Close Day the selected modules should read
+ * zero, and they did not — the figures came back.
+ *
+ * This function cleared the local cache and then deleted from FIREBASE:
+ * getDocs, writeBatch, fbDb. Firebase was removed in v1.24.0 and every one of
+ * those now resolves to a stub that THROWS. The throw landed in
+ * `catch (e) { console.error(...) }` and went no further.
+ *
+ * So Close Day did exactly half its job, quietly: the till went to zero, the
+ * server kept everything, and the next sync pulled it all back. Nothing in the
+ * UI could tell, because the failure was swallowed by design.
+ *
+ * The delete now goes through sbDeleteMany, which is tombstone-aware: tables in
+ * SOFT_DELETE get `deleted_at` rather than being destroyed, so the removal
+ * REPLICATES to every other till (v1.26.0) — and so it can be undone. That is
+ * what makes a recycle bin possible at all; see lib/recycleBin.ts.
+ *
+ * Failures are returned, not logged and forgotten. A Close Day that could not
+ * clear the server must say so, or the operator trusts a total that is wrong.
+ */
+export async function resetSelectedData(keys: readonly ArrayKey[]): Promise<ResetOutcome> {
+  const outcome: ResetOutcome = { cleared: {}, failed: [] };
   const d = loadData() as any;
-  for (const k of keys) d[k] = [];
-  saveLocal(d);
-  if (useCloudStore()) {
+
+  // The ids have to be read BEFORE the local copy is cleared: they are what
+  // tells the server which rows to remove.
+  const idsByCollection = new Map<ArrayKey, string[]>();
+  for (const k of keys) {
+    const rows = Array.isArray(d[k]) ? d[k] : [];
+    idsByCollection.set(k, rows.map((r: any) => r?.id).filter(Boolean));
+  }
+
+  if (useSupabaseBackend()) {
+    const { sbDeleteMany } = await import('./supabaseStore');
     for (const col of keys) {
+      const ids = idsByCollection.get(col) ?? [];
+      if (!ids.length) { outcome.cleared[col] = 0; continue; }
       try {
-        const snap = await getDocs(colRef(col)!);
-        const batch = writeBatch(fbDb());
-        snap.forEach(docSnap => batch.delete(docSnap.ref));
-        await batch.commit();
-      } catch (e) { console.error('[reset]', col, e); }
+        const done = await sbDeleteMany(col, ids);
+        outcome.cleared[col] = done.length;
+      } catch (e: any) {
+        outcome.failed.push({ collection: col, error: e?.message || String(e) });
+      }
     }
   }
+
+  // Only the collections the server actually accepted are cleared locally. A
+  // collection that failed keeps its rows, so the till still agrees with the
+  // server and the operator can try again instead of losing the record.
+  const refused = new Set(outcome.failed.map(f => f.collection));
+  for (const k of keys) if (!refused.has(k)) d[k] = [];
+  saveLocal(d);
+  emitDataChange('*');
+
+  return outcome;
 }
 
 export const RESETTABLE_COLLECTIONS = ARRAY_COLLECTIONS;

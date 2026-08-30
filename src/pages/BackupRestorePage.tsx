@@ -89,8 +89,22 @@ export default function BackupRestorePage() {
     if (confirmText !== 'DELETE') { toast.error('Type DELETE to confirm'); return; }
     setErasing(true);
     try {
-      await resetSelectedData([...selected]);
-      toast.success(`${selected.size} collection(s) erased. Refreshing...`);
+      // v1.29.3 — say what the SERVER did, not what was asked for. This used
+      // to report success unconditionally, while the delete was throwing into
+      // a swallowed catch and the rows came back on the next sync.
+      const res = await resetSelectedData([...selected]);
+      if (res.failed.length) {
+        toast.error(
+          `${res.failed.length} of ${selected.size} could not be cleared on the server ` +
+          `(${res.failed.map(f => f.collection).join(', ')}). ` +
+          'Those are unchanged on this device too — try again when back online.',
+          { duration: 15000 },
+        );
+        setErasing(false);
+        return;
+      }
+      const total = Object.values(res.cleared).reduce((n, c) => n + c, 0);
+      toast.success(`${selected.size} collection(s) erased — ${total} record(s). Refreshing...`);
       setTimeout(() => window.location.reload(), 1200);
     } catch (e: any) {
       toast.error(e?.message || 'Erase failed');
