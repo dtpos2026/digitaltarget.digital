@@ -32,6 +32,32 @@ function printableWidthCssPx(paper: PaperSize): number {
   return Math.round(printableMm * 3.78);
 }
 
+// ===== v1.29.4 — printing must not take over the screen =====
+// REPORTED: "pay karte hi receipt screen par kuch second ke liye aa jati
+// hai, lagta hai app stuck ho gayi — click karo aur seedha print ho, koi
+// preview screen par na aaye."
+//
+// These two rules were the whole symptom. During EVERY print the injected
+// sheet hid the entire application (> *:not(portal)) and put the receipt
+// portal at the top-left corner, opaque, at the maximum z-index.
+// AutoKotPrinter renders the receipt inside a wrapper at left:-9999px, but
+// that wrapper never contained the portal: ReceiptPreview createPortal()s
+// it straight onto document.body, so the only thing deciding where it
+// landed was this rule.
+//
+// A payment runs FOUR of these sessions back to back (measure, LAN probe,
+// native print, and a browser fallback), so the operator watched the till
+// blank out and flash a receipt for a second or more on every single bill.
+//
+// None of it was ever needed on screen. Electron prints with
+// webContents.print(), which rasterises through Chromium's print
+// pipeline under PRINT media — so hiding the app and revealing the receipt
+// belongs in @media print below, exactly as src/index.css has always
+// done it for the un-injected case. What screen media still needs is the
+// portal LAID OUT at true paper width, because the page height is measured
+// from its scrollHeight; laid out is not the same as looked at, so it sits
+// off-screen instead. Printed output is byte-identical: the print block
+// restores left/top/opacity to what this rule used to set.
 export function buildPrintCss(paperWidth: PaperSize, compact: boolean = false): string {
   const mm = widthMm(paperWidth);          // physical paper width (mm)
   const capPx = printableWidthCssPx(paperWidth); // CSS-px cap for on-screen portal
@@ -60,16 +86,13 @@ export function buildPrintCss(paperWidth: PaperSize, compact: boolean = false): 
       background: #fff !important;
       overflow: visible !important;
     }
-    body.thermal-printing > *:not(.receipt-print-portal[data-active-print="true"]) {
-      display: none !important;
-    }
     body.thermal-printing .receipt-print-portal {
       display: none !important;
     }
     body.thermal-printing .receipt-print-portal[data-active-print="true"] {
       display: block !important;
       position: fixed !important;
-      left: 0 !important;
+      left: -20000px !important;   /* laid out for measurement, never seen */
       top: 0 !important;
       width: ${mm}mm !important;        /* Rule 3: exact 80mm width */
       height: auto !important;
@@ -78,8 +101,8 @@ export function buildPrintCss(paperWidth: PaperSize, compact: boolean = false): 
       overflow: visible !important;
       background: #fff !important;
       z-index: 2147483647 !important;
-      opacity: 1 !important;
-      visibility: visible !important;
+      opacity: 0 !important;
+      visibility: visible !important;   /* visible, so it still lays out to measure */
       pointer-events: none !important;
     }
     body.thermal-printing .receipt-print-portal[data-active-print="true"] .print-receipt {
@@ -183,6 +206,17 @@ export function buildPrintCss(paperWidth: PaperSize, compact: boolean = false): 
 
     @media print {
       @page { size: ${paperWidth} auto; margin: 0 !important; }
+      /* v1.29.4: on paper the application chrome must be gone and the
+       * receipt must sit at the origin, opaque. On a monitor, neither. */
+      body.thermal-printing > *:not(.receipt-print-portal[data-active-print="true"]) {
+        display: none !important;
+      }
+      body.thermal-printing[data-print-active="true"] .receipt-print-portal[data-active-print="true"] {
+        left: 0 !important;
+        top: 0 !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+      }
       html, body {
         width: ${mm}mm !important;
         height: auto !important;

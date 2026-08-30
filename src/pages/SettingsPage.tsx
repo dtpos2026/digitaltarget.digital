@@ -2537,13 +2537,30 @@ export default function SettingsPage() {
                 { key: 'kotEnabled', label: 'Enable KOT Printing', def: true },
                 { key: 'autoPrintKot', label: 'Auto Print KOT on New Order', def: true },
                 { key: 'manualSendToKitchen', label: 'Manual "Send to Kitchen" only', def: false },
-                { key: 'autoPrintCustomerReceipt', label: 'Auto Print Customer Receipt (on payment)', def: false },
+                // v1.29.4 — the old label ("Auto Print Customer Receipt") was
+                // simply untrue and cost the operator real time looking for a
+                // switch that did not exist. The receipt is enqueued and
+                // printed on payment EITHER WAY (POSScreen calls
+                // enqueueReceipt before it looks at this flag). All this
+                // decides is whether the till ALSO stops to show the slip on
+                // screen afterwards. Named for what it does.
+                {
+                  key: 'autoPrintCustomerReceipt',
+                  label: 'Print silently on payment — no receipt window',
+                  def: false,
+                  hint: 'Off: the paid slip prints AND opens on screen for checking. On: it just prints.',
+                },
               ].map(t => {
                 const val = (settings as any)[t.key];
                 const on = val === undefined ? t.def : !!val;
                 return (
                   <label key={t.key} className="flex items-center justify-between gap-2 bg-muted/40 px-3 py-2 rounded-lg cursor-pointer">
-                    <span className="text-xs font-semibold">{t.label}</span>
+                    <span className="text-xs font-semibold">
+                      {t.label}
+                      {(t as any).hint && (
+                        <span className="block font-normal text-[10px] text-muted-foreground mt-0.5">{(t as any).hint}</span>
+                      )}
+                    </span>
                     <button
                       type="button"
                       onClick={() => setSettings({ ...settings, [t.key]: !on } as any)}
