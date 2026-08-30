@@ -73,7 +73,16 @@ if (tenant) {
   // never shows a restaurant picker it has no business showing.
   const indexPath = join(dest, 'index.html');
   const html = readFileSync(indexPath, 'utf8');
-  const boot = `<script>(function(){try{if(!location.hash||location.hash==='#/'){location.hash='#/order/${tenant}';}}catch(e){}})();</script>`;
+  // v1.29.5 — the id is also published as a global, not only as a starting
+  // route. A cold start that does not land on #/order/... (a restored WebView,
+  // a deep link, a route the app navigated to itself) previously left the app
+  // with no restaurant at all, which is what made a fresh APK show the word
+  // "Restaurant" instead of a name. publicTenant.ts reads this synchronously,
+  // before initStore(), and uses it only when nothing else has set a tenant.
+  const boot = `<script>(function(){try{`
+    + `window.__DT_APP_TENANT__=${JSON.stringify(tenant)};`
+    + `if(!location.hash||location.hash==='#/'){location.hash='#/order/${tenant}';}`
+    + `}catch(e){}})();</script>`;
   writeFileSync(indexPath, html.replace('</head>', `${boot}</head>`), 'utf8');
   console.log(`[build:app] bound to tenant ${tenant}`);
 }

@@ -98,7 +98,7 @@ import { initStore } from '@/lib/store';
 import { isCloudConfigured } from '@/lib/cloudMode';
 import { isFirebaseConfigured, fbAuth } from '@/lib/firebase';
 import { getTenantId, clearTenant } from '@/lib/tenant';
-import { isPublicTenantRoute, applyPublicTenantFromUrl } from '@/lib/publicTenant';
+import { isPublicTenantRoute, applyPublicTenantFromUrl, packagedTenantId } from '@/lib/publicTenant';
 import { verifyStartupAuth } from '@/lib/startupVerify';
 import { forceLogoutAndWipe } from '@/lib/sessionIsolation';
 // v1.18.0 — auth now goes through the backend-agnostic adapter.
@@ -125,7 +125,11 @@ const App = () => {
   const cloudMode = isCloudConfigured();
   // Public ordering / tracking / rider portal — bypass all auth gates, tenant comes from URL
   const isPublicOrderRoute = typeof window !== 'undefined' && isPublicTenantRoute();
-  if (isPublicOrderRoute) applyPublicTenantFromUrl();
+  // v1.29.5 — a packaged APK is built for one restaurant, so it binds to that
+  // restaurant even on a route that carries no id (a cold start that did not
+  // land on #/order/..., a restored WebView). applyPublicTenantFromUrl() only
+  // uses it when no tenant is set at all, so a signed-in staff session wins.
+  if (isPublicOrderRoute || packagedTenantId()) applyPublicTenantFromUrl();
 
   // ===== v1.24.2 — the email login screen that never came back =====
   //

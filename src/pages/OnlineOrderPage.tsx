@@ -883,9 +883,30 @@ export default function OnlineOrderPage() {
       <header className="sticky top-0 z-40 bg-gradient-hero text-primary-foreground shadow-elegant">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
-            {(settings.webPortalLogo || settings.logo) && <img src={settings.webPortalLogo || settings.logo} alt="" className="h-9 w-9 rounded object-cover bg-white/10 p-0.5" />}
+            {/* v1.29.5 — who this restaurant IS, for someone who is not signed in.
+              *
+              * settings.* comes from tenant_settings, which is behind RLS: as the
+              * anon role a customer reads 0 rows from it. On the web that never
+              * showed, because the link gets opened on a machine where the owner
+              * is signed in and their settings are already in localStorage. A
+              * freshly installed APK has no such leftovers, so the header said
+              * the literal word "Restaurant".
+              *
+              * appConfig comes from public_customer_app_config(), which anon CAN
+              * call, and which now falls back to the restaurant's own POS
+              * branding when Super Admin has set no override. It goes first
+              * because this is the customer-facing surface Super Admin
+              * configures; settings.* stays as the fallback so an owner
+              * previewing their own page sees exactly what they always did. */}
+            {(appConfig?.logoUrl || appConfig?.iconUrl || settings.webPortalLogo || settings.logo) && (
+              <img
+                src={appConfig?.logoUrl || appConfig?.iconUrl || settings.webPortalLogo || settings.logo}
+                alt=""
+                className="h-9 w-9 rounded object-cover bg-white/10 p-0.5"
+              />
+            )}
             <div className="min-w-0">
-              <h1 className="text-base font-extrabold leading-tight truncate">{settings.name || 'Restaurant'}</h1>
+              <h1 className="text-base font-extrabold leading-tight truncate">{appConfig?.appName || settings.name || 'Restaurant'}</h1>
               {branches.length > 1 ? (
                 <button
                   onClick={() => setBranchPickerOpen(true)}

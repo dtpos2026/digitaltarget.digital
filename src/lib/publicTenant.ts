@@ -9,6 +9,32 @@
 
 import { setTenant, getTenantId } from './tenant';
 
+// ===== v1.29.5 — a packaged app is built for ONE restaurant =====
+//
+// REPORTED: "customer APK ko pata hona chahiye ke wo kis restaurant ka hai aur
+// sara data wahin jaye."
+//
+// scripts/build-app.mjs stamps the restaurant into the bundle's index.html, in
+// <head>, before any application code runs — so this is a plain synchronous
+// read, not a fetch. (dt-app.json carries the same id, but reading it is async
+// and the tenant has to be settled before initStore().)
+//
+// A browser has no such stamp and gets null, which is correct: the website
+// serves every restaurant and takes the one in the link.
+declare global {
+  // eslint-disable-next-line no-var
+  var __DT_APP_TENANT__: string | undefined;
+}
+
+export function packagedTenantId(): string | null {
+  try {
+    const v = (globalThis as { __DT_APP_TENANT__?: unknown }).__DT_APP_TENANT__;
+    return typeof v === 'string' && v.length >= 4 ? v : null;
+  } catch {
+    return null;
+  }
+}
+
 // v1.20.1 — '#/reset-password' belongs here for a different reason than the
 // rest. The others are tenant-scoped customer pages; this one is a route that
 // must render for someone who CANNOT sign in — that is the entire point of a
@@ -49,8 +75,22 @@ export function parsePublicTenantId(hash?: string): string | null {
 /** Apply tenant from URL synchronously — must be called BEFORE initStore() on public routes. */
 export function applyPublicTenantFromUrl(): string | null {
   if (typeof window === 'undefined') return null;
-  if (!isPublicTenantRoute()) return getTenantId();
-  const tid = parsePublicTenantId();
+  const packaged = packagedTenantId();
+
+  if (!isPublicTenantRoute()) {
+    // Off a public route, the packaged id is used ONLY to give a fresh install
+    // its restaurant. Deliberately not "always force it": this runs on every
+    // App render, and a rider or order taker who has signed in has already had
+    // their tenant set by staffPortalAuth. Overwriting it here every render
+    // would fight that sign-in.
+    if (packaged && !getTenantId()) setTenant(packaged);
+    return getTenantId();
+  }
+
+  // On a public route the LINK still decides — a customer who opens a specific
+  // restaurant's link inside any build gets that restaurant. The packaged id is
+  // the fallback for a link that carries none.
+  const tid = parsePublicTenantId() ?? packaged;
   if (tid && tid !== getTenantId()) {
     setTenant(tid);
   }
