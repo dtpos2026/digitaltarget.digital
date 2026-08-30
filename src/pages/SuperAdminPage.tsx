@@ -343,10 +343,34 @@ export default function SuperAdminPage({ onLogout }: Props) {
       sb().from('pending_owners').select('email,tenant_id,claimed_at'),
       sb().from('devices').select('id,tenant_id,branch_id,device_label,hardware_id,fingerprint,platform,app_version,approved,blocked,blocked_at,last_seen_at,lat,lng,accuracy_m,ip,meta,last_login_at,login_count'),
       sb().from('branches').select('id,tenant_id,name,lat,lng,is_active,address,phone'),
-      // The logo and phone live in the restaurant's own settings document.
-      sb().from('tenant_settings').select('tenant_id,data'),
+      // ===== v1.29.6 — the map pin showed a letter, never the logo =====
+      //
+      // REPORTED: "Super Admin map par restaurant ka apna logo aana chahiye,
+      // ye 'B' wala generic marker nahi."
+      //
+      // The pin has drawn r.logo since it was built, with the first letter of
+      // the name only as a fallback. It always drew the letter, because this
+      // asked for a column that does not exist: tenant_settings has
+      // (tenant_id, branch_id, settings, updated_at) — no `data`. Line 680 of
+      // this same file already selects 'settings' correctly.
+      //
+      // PostgREST answers 42703 for an unknown column, so sRes.data was null on
+      // every load. Nothing noticed, because only tRes.error was ever checked:
+      // the map lost every logo, every phone number, and the
+      // restaurantLat/Lng fallback that puts a single-branch shop on the map at
+      // all — silently, for as long as this line has existed.
+      sb().from('tenant_settings').select('tenant_id,settings'),
     ]);
     if (tRes.error) throw tRes.error;
+    // The other four are not fatal — the panel is still useful without devices
+    // or branches — but they must not fail in silence again. A wrong column or
+    // a denied policy now says so by name.
+    for (const [label, res] of [
+      ['pending_owners', pRes], ['devices', dRes],
+      ['branches', bRes], ['tenant_settings', sRes],
+    ] as const) {
+      if (res.error) console.error(`[SuperAdmin] ${label} query failed:`, res.error.message ?? res.error);
+    }
 
     const emailByTenant: Record<string, string> = {};
     for (const p of (pRes.data ?? []) as any[]) emailByTenant[p.tenant_id] = p.email;
@@ -423,7 +447,7 @@ export default function SuperAdminPage({ onLogout }: Props) {
     // settings.restaurantLat/Lng for a single-branch shop that never created
     // a branch row.
     const settingsByTid: Record<string, any> = {};
-    for (const r of ((sRes.data ?? []) as any[])) settingsByTid[r.tenant_id] = r.data ?? {};
+    for (const r of ((sRes.data ?? []) as any[])) settingsByTid[r.tenant_id] = r.settings ?? {};
 
     const branchesByTid: Record<string, any[]> = {};
     for (const b of ((bRes.data ?? []) as any[])) {
