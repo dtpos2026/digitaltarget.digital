@@ -20,7 +20,7 @@
 // and renders nothing.
 // ============================================================================
 import type { CustomerAppConfig } from './customerAppConfig';
-import { isNativeApp } from './pushNotifications';
+import { isNativeApp } from './nativeApp';
 
 export type UpdateState = 'none' | 'optional' | 'required';
 

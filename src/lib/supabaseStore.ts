@@ -281,7 +281,6 @@ export const ALLOWED_COLUMNS: Record<string, Set<string>> = {
     //                     hash and meant nothing.
     //   pin_attempts, pin_locked_until   the brute-force lockout. A client
     //                     that could write these could clear its own lockout.
-    //   push_token        set through the customer's own session.
     // v1.25.19 — these were being silently dropped. `addresses` is the
     // customer's saved delivery addresses; a delivery POS losing those is
     // not a cosmetic loss.

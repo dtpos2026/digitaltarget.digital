@@ -66,17 +66,6 @@ export default function OrderTakerPortalPage() {
             toast.error(res.message);
           }
 
-      // ===== v1.29.9 — this phone can be paged =====
-      //
-      // Registration runs once, after the session is known to be good. On a
-      // desktop browser isNativeApp() is false and nothing is asked for; a
-      // refusal is not an error either, because the portal has to keep working
-      // for someone who said no to the permission. The token is filed against
-      // THIS session, so signing out stops the alerts.
-      try {
-        const { portalRegisterPush } = await import('@/lib/portalData');
-        void portalRegisterPush();
-      } catch { /* push is an extra, never a gate on the portal loading */ }
         }
       } catch { /* offline: the cached roster below still signs the user in */ }
 

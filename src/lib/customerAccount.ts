@@ -36,8 +36,6 @@ export interface CustomerProfile {
   loyaltyPoints: number;
   totalOrders: number;
   lastOrderAt: string | null;
-  /** Whether a device is registered for push. Never the token itself. */
-  pushEnabled: boolean;
 }
 
 export interface SavedAddress {
@@ -183,7 +181,6 @@ function normalize(raw: any): CustomerProfile {
     loyaltyPoints: Number(raw?.loyaltyPoints ?? 0),
     totalOrders: Number(raw?.totalOrders ?? 0),
     lastOrderAt: raw?.lastOrderAt ?? null,
-    pushEnabled: raw?.pushEnabled === true,
   };
 }
 
@@ -381,14 +378,6 @@ export async function customerOrders(tenantId?: string | null, limit = 30): Prom
   }
 }
 
-export async function registerPushToken(pushToken: string, tenantId?: string | null): Promise<boolean> {
-  const token = getCustomerToken(tenantId);
-  if (!token) return false;
-  try {
-    const raw = await call('public_customer_push_token', { p_token: token, p_push: pushToken });
-    return !!raw?.ok;
-  } catch { return false; }
-}
 
 /** Forget this device's session locally, without waiting for the server. */
 export function signOutLocal(tenantId?: string | null): void {
@@ -452,24 +441,3 @@ export async function customerOrderTrack(
 }
 
 
-/**
- * Store (or clear, with an empty string) this device's push token on the
- * signed-in customer's row. The server writes only the row that owns the
- * session token.
- */
-export async function customerPushToken(
-  pushToken: string, tenantId?: string | null,
-): Promise<{ ok: true } | { ok: false; reason: Failure; message: string }> {
-  const token = getCustomerToken(tenantId);
-  if (!token) return { ok: false, reason: 'no_session', message: MESSAGES.no_session };
-  try {
-    const raw = await call('public_customer_push_token', { p_token: token, p_push: pushToken });
-    if (raw?.ok) return { ok: true };
-    const reason = (raw?.reason ?? 'unknown') as Failure;
-    if (reason === 'no_session') signOutLocal(tenantId);
-    return { ok: false, reason, message: MESSAGES[reason] ?? MESSAGES.unknown };
-  } catch (e: any) {
-    const reason: Failure = e?.message === 'offline' ? 'offline' : 'unknown';
-    return { ok: false, reason, message: MESSAGES[reason] };
-  }
-}

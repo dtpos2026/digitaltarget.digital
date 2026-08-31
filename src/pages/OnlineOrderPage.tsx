@@ -16,7 +16,6 @@ import { addServiceCall } from '@/lib/serviceCalls';
 import WhatsAppFloat from '@/components/WhatsAppFloat';
 import CustomerProfilePanel from '@/components/CustomerProfilePanel';
 import CustomerOrderTracker from '@/components/CustomerOrderTracker';
-import { attachPushHandlers, clearPushToken } from '@/lib/pushNotifications';
 import LeafletMap from '@/components/LeafletMap';
 import { submitPublicOrder } from '@/lib/publicPortal.functions';
 import {
@@ -393,10 +392,6 @@ export default function OnlineOrderPage() {
   // A tapped notification carries the order it is about, so open that order
   // rather than dropping the customer on the home screen. No-op on the web.
   useEffect(() => {
-    void attachPushHandlers((orderId) => {
-      setTrackOrderId(orderId);
-      setOrdersOpen(true);
-    });
   }, []);
 
   // Refresh history when the panel opens or an order was just placed.
@@ -1683,7 +1678,6 @@ export default function OnlineOrderPage() {
           toast.success(`Delivering to ${a.label}`);
         }}
         onLogout={async () => {
-          await clearPushToken(getTenantId());
           await customerLogout();
           saveAccountLS(null);
           setAccount(null);
@@ -1707,8 +1701,7 @@ export default function OnlineOrderPage() {
                 </div>
               </div>
               <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive" onClick={async () => {
-                await clearPushToken(getTenantId());
-                await customerLogout();
+                      await customerLogout();
                 saveAccountLS(null);
                 setAccount(null);
                 setProfile(null);

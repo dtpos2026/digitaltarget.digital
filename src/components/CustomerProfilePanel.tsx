@@ -17,7 +17,6 @@ import {
   ArrowLeft, LogOut, MapPin, Plus, Trash2, Star, Save, Home, Crosshair, User, BellRing,
 } from 'lucide-react';
 import { customerUpdate, type CustomerProfile, type SavedAddress } from '@/lib/customerAccount';
-import { isNativeApp, registerPushNotifications, clearPushToken } from '@/lib/pushNotifications';
 
 function newId() {
   try {
@@ -52,8 +51,6 @@ export default function CustomerProfilePanel({
   const [busy, setBusy] = useState(false);
   const [locating, setLocating] = useState(false);
   // Only meaningful inside the packaged app; the website has no FCM token.
-  const [pushOn, setPushOn] = useState(false);
-  const [pushBusy, setPushBusy] = useState(false);
 
   // Reload the form whenever the panel opens, so an edit abandoned last time
   // never leaks into this one.
@@ -81,7 +78,6 @@ export default function CustomerProfilePanel({
   // The server row is the truth about whether this account can be reached.
   useEffect(() => {
     if (!open || !profile) return;
-    setPushOn(isNativeApp() && profile.pushEnabled === true);
   }, [open, profile]);
 
   if (!open || !profile) return null;
@@ -246,45 +242,6 @@ export default function CustomerProfilePanel({
               <Save className="h-4 w-4 mr-1.5" /> {busy ? 'Saving…' : 'Save Details'}
             </Button>
           </section>
-
-          {/* Order notifications — app only */}
-          {isNativeApp() && (
-            <section className="space-y-2">
-              <h3 className="text-xs font-extrabold flex items-center gap-1.5">
-                <BellRing className="h-3.5 w-3.5 text-primary" /> Order Alerts
-              </h3>
-              <div className="bg-card border rounded-xl p-3 flex items-center justify-between gap-3">
-                <p className="text-[11px] text-muted-foreground">
-                  {pushOn
-                    ? 'This device will be alerted when your order is accepted, ready and on the way.'
-                    : 'Get an alert on this device when your order is accepted, ready and on the way.'}
-                </p>
-                <Button
-                  size="sm"
-                  variant={pushOn ? 'secondary' : 'default'}
-                  className="h-8 text-[11px] shrink-0"
-                  disabled={pushBusy}
-                  onClick={async () => {
-                    setPushBusy(true);
-                    if (pushOn) {
-                      await clearPushToken(tenantId);
-                      setPushOn(false);
-                      setPushBusy(false);
-                      toast.success('Alerts turned off on this device');
-                      return;
-                    }
-                    const r = await registerPushNotifications(tenantId);
-                    setPushBusy(false);
-                    if (!r.ok) { toast.error(r.message); return; }
-                    setPushOn(true);
-                    toast.success('Alerts are on');
-                  }}
-                >
-                  {pushBusy ? '…' : pushOn ? 'Turn off' : 'Turn on'}
-                </Button>
-              </div>
-            </section>
-          )}
 
           {/* Addresses */}
           <section className="space-y-2">
