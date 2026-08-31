@@ -96,9 +96,10 @@ export const provisionRestaurantOwner = createServerFn({ method: 'POST' })
     );
     if (profErr) throw new Error(`Owner profile step: ${profErr.message}`);
 
-    // The restaurant first signs in with its owner email/password, then the
-    // POS staff screen uses the advertised default admin credentials. Set the
-    // bcrypt hash in the database so admin/admin123 works on every new tenant.
+    // The restaurant first signs in with its owner email/password, then the POS
+    // staff screen needs an account of its own. v1.31.2: this used to set that
+    // PIN to a four-digit constant shared by every owner on the platform. It now
+    // generates one per restaurant and returns it, to be handed over once.
     const { error: defaultLoginErr } = await supabaseAdmin.rpc('set_default_owner_pos_login', {
       p_user_id: userId,
       p_tenant: data.tenantId,

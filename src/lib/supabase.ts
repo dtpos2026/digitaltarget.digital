@@ -320,7 +320,20 @@ export async function verifyStaffPin(tenantId: string, username: string, pin: st
     p_tenant: tenantId, p_username: username, p_pin: pin,
   });
   if (error) throw error;
-  return data as { ok: boolean; user_id?: string; name?: string; role?: string; branch_id?: string };
+  return data as {
+    ok: boolean; user_id?: string; name?: string; role?: string; branch_id?: string;
+    permissions?: string[]; feature_permissions?: string[];
+    /**
+     * v1.31.1 — the flag that existed and was never read.
+     *
+     * sa_create_restaurant has always set must_change_password on the admin it
+     * creates, and nothing anywhere consumed it: not this wrapper, not
+     * staffSignIn, not LoginPage. So every restaurant kept the password it was
+     * shipped with, and on the live database both admin accounts still opened
+     * with the one hardcoded in the repository.
+     */
+    must_change_password?: boolean;
+  };
 }
 
 // ---------------------------------------------------------------------------

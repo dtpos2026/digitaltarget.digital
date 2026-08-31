@@ -58,19 +58,19 @@ export function seedData(): AppData {
     tables: [],
     waiters: [],
     riders: [],
-    // Default admin login for newly-created restaurants so the owner can
-    // sign in immediately and create their own staff. Owner ko Settings →
-    // Users se username/password change karne ka mashwara diya jata hai.
-    users: [
-      {
-        id: 'u-default-admin',
-        username: 'admin',
-        password: 'admin123',
-        name: 'Administrator',
-        role: 'admin',
-        isActive: true,
-      } as any,
-    ],
+    // ===== v1.31.1 — no credential ships in the bundle =====
+    //
+    // This array carried a default admin user whose password was written here
+    // in plain text — the same constant the provisioning functions used — in a
+    // file that is public on GitHub and compiled into every browser bundle.
+    // Verified against the live database: both restaurants' admin accounts
+    // genuinely opened with it.
+    //
+    // Cloud installs never used this array anyway: staff live in user_profiles
+    // and emptyRuntimeData() zeroes every collection. A LOCAL, single-device
+    // install now starts with NO users rather than one whose password anybody
+    // can read in the source.
+    users: [],
     inventory: [],
     stockLogs: [],
     employees: [],

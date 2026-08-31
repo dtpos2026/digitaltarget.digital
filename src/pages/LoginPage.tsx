@@ -28,6 +28,93 @@ export default function LoginPage({ onLogin }: Props) {
   const [showContact, setShowContact] = useState(false);
   const [loading, setLoading] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
+
+  // ===== v1.31.1 — a sign-in that is correct but may not proceed =====
+  // Set when the account still carries the password it was created with. The
+  // POS is not entered until that password has been replaced.
+  interface PendingChange {
+    tenantId: string;
+    username: string;
+    currentPassword: string;
+    userId: string;
+    name: string;
+    role: string;
+    branchId: string | null;
+    permissions: string[];
+  }
+  const [pendingChange, setPendingChange] = useState<PendingChange | null>(null);
+  const [newPass, setNewPass] = useState('');
+  const [confirmPass, setConfirmPass] = useState('');
+  const [changing, setChanging] = useState(false);
+
+  const submitPasswordChange = async () => {
+    if (!pendingChange) return;
+    if (newPass.length < 6) { toast.error('Choose at least 6 characters.'); return; }
+    if (newPass !== confirmPass) { toast.error('The two passwords do not match.'); return; }
+    if (newPass === pendingChange.currentPassword) {
+      toast.error('That is the password you were given. Choose a different one.');
+      return;
+    }
+    setChanging(true);
+    try {
+      const { sb } = await import('@/lib/supabase');
+      const { data, error } = await sb().rpc('pos_change_own_password' as never, {
+        p_tenant: pendingChange.tenantId,
+        p_username: pendingChange.username,
+        p_current: pendingChange.currentPassword,
+        p_new: newPass,
+      } as never);
+      if (error) throw error;
+      const res = data as { ok?: boolean; reason?: string } | null;
+      if (!res?.ok) {
+        // Say what the server actually refused, rather than a generic failure.
+        const why: Record<string, string> = {
+          too_short: 'Choose at least 6 characters.',
+          same_password: 'That is the password you were given. Choose a different one.',
+          bad_current_password: 'The current password no longer matches. Sign in again.',
+        };
+        toast.error(why[res?.reason ?? ''] ?? 'The password could not be changed.');
+        setChanging(false);
+        return;
+      }
+
+      try {
+        localStorage.setItem('dt_pos_current_user', JSON.stringify({
+          id: pendingChange.userId, name: pendingChange.name,
+          username: pendingChange.username.toLowerCase(), role: pendingChange.role,
+        }));
+        localStorage.setItem('pos-user-id', pendingChange.userId || '');
+      } catch { /* storage unavailable */ }
+
+      try {
+        const { saveUserLocal } = await import('@/lib/store');
+        saveUserLocal({
+          id: pendingChange.userId,
+          username: pendingChange.username.toLowerCase(),
+          name: pendingChange.name,
+          role: (pendingChange.role || 'cashier') as any,
+          password: '',
+          permissions: pendingChange.permissions,
+          branchId: pendingChange.branchId ?? undefined,
+          isActive: true,
+        } as any);
+      } catch (e) {
+        console.error('[login] could not cache the POS user locally', e);
+      }
+
+      if (pendingChange.branchId && pendingChange.role !== 'admin' && pendingChange.role !== 'manager') {
+        setCurrentBranchId(pendingChange.branchId);
+      }
+      const done = pendingChange;
+      setPendingChange(null);
+      setNewPass(''); setConfirmPass(''); setChanging(false);
+      onLogin(done.userId, done.role as any);
+      toast.success('Password changed. Welcome, ' + done.name);
+    } catch (e: any) {
+      setChanging(false);
+      toast.error(e?.message || 'The password could not be changed.');
+    }
+  };
   const settings = getSettings();
 
   const handleLogin = async () => {
@@ -123,6 +210,7 @@ export default function LoginPage({ onLogin }: Props) {
                   role: v.role ?? 'cashier',
                   branchId: v.branch_id ?? null,
                   permissions: (v as any).permissions ?? [],
+                  mustChangePassword: v.must_change_password === true,
                 }
               : { ok: false, reason: 'bad_password', message: 'Wrong username or password.' };
           } catch (e) {
@@ -141,6 +229,32 @@ export default function LoginPage({ onLogin }: Props) {
 
         setLoading(false);
         if (!r0.ok) { toast.error(r0.message); return; }
+
+        // ===== v1.31.1 — the shipped password has to go before anything else =====
+        //
+        // sa_create_restaurant has always stamped must_change_password on the
+        // admin account it creates. Nothing ever read it: not verify_staff_pin,
+        // not staffSignIn, not this screen. So every restaurant kept the
+        // password it was handed, and on the live database BOTH admin accounts
+        // still opened with the one hardcoded in the repository and printed in
+        // the Super Admin panel.
+        //
+        // The credentials were correct, so this is not a failed login — it is a
+        // login that may not finish. onLogin() is what admits someone to the
+        // POS, and it is not called until the password has actually changed.
+        if (r0.mustChangePassword) {
+          setPendingChange({
+            tenantId,
+            username: username.trim(),
+            currentPassword: password,
+            userId: r0.userId,
+            name: r0.name,
+            role: r0.role,
+            branchId: r0.branchId,
+            permissions: r0.permissions,
+          });
+          return;
+        }
 
         const r = {
           ok: true as const,
@@ -331,6 +445,76 @@ export default function LoginPage({ onLogin }: Props) {
   };
 
   const brandLogo = settings.appLogo || settings.logo || dtLogo;
+
+  // ===== v1.31.1 — the forced password change =====
+  //
+  // Deliberately a full screen and not a dismissible dialog: there is nothing
+  // behind it to go back to, because onLogin() has not been called. The only
+  // way past is to set a password, or to reload and not sign in at all.
+  if (pendingChange) {
+    return (
+      <div
+        className="min-h-screen relative overflow-hidden text-white flex items-center justify-center p-6"
+        style={{ background: 'linear-gradient(135deg, #10002b 0%, #240046 45%, #3c096c 100%)' }}
+      >
+        <div className="w-full max-w-md rounded-3xl border border-gold/25 bg-white/[0.04] backdrop-blur-xl p-8 shadow-elegant space-y-4">
+          <div className="space-y-1.5">
+            <h1 className="text-xl font-extrabold">Choose a new password</h1>
+            <p className="text-sm text-white/70">
+              Hello {pendingChange.name}. This account is still using the password it
+              was created with, which is not private. Set your own before you carry on.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-white/80" htmlFor="dt-new-pass">New password</label>
+            <input
+              id="dt-new-pass"
+              type="password"
+              autoFocus
+              autoComplete="new-password"
+              value={newPass}
+              onChange={(e) => setNewPass(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') void submitPasswordChange(); }}
+              className="w-full h-11 rounded-xl bg-white/10 border border-white/15 px-3 text-white placeholder-white/40 outline-none focus:border-gold/60"
+              placeholder="At least 6 characters"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-white/80" htmlFor="dt-confirm-pass">Repeat it</label>
+            <input
+              id="dt-confirm-pass"
+              type="password"
+              autoComplete="new-password"
+              value={confirmPass}
+              onChange={(e) => setConfirmPass(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') void submitPasswordChange(); }}
+              className="w-full h-11 rounded-xl bg-white/10 border border-white/15 px-3 text-white placeholder-white/40 outline-none focus:border-gold/60"
+              placeholder="Type it again"
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={() => void submitPasswordChange()}
+            disabled={changing || newPass.length < 6 || newPass !== confirmPass}
+            className="w-full h-11 rounded-xl bg-gold text-black font-extrabold disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {changing ? 'Saving…' : 'Save and continue'}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => { setPendingChange(null); setNewPass(''); setConfirmPass(''); }}
+            className="w-full text-xs text-white/60 hover:text-white/90 underline-offset-2 hover:underline"
+          >
+            Cancel and sign in as someone else
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

@@ -22,6 +22,8 @@ export type StaffLoginResult =
       role: string;
       branchId: string | null;
       permissions: string[];
+      /** v1.31.1 — true while the account still has its shipped password. */
+      mustChangePassword: boolean;
     }
   | { ok: false; reason: string; message: string };
 
@@ -62,6 +64,7 @@ export const staffSignIn = createServerFn({ method: 'POST' })
       role?: string | null;
       branch_id?: string | null;
       permissions?: string[] | null;
+      must_change_password?: boolean | null;
     };
 
     if (!r.ok) {
@@ -86,6 +89,7 @@ export const staffSignIn = createServerFn({ method: 'POST' })
       role,
       branchId: r.branch_id ?? null,
       permissions: r.permissions ?? [],
+      mustChangePassword: r.must_change_password === true,
     };
 
   });

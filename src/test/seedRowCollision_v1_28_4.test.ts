@@ -46,7 +46,9 @@ describe('the collision that produced the badge', () => {
     // If this ever changes, the cleanup list below has to change with it.
     const ids = (seedData() as any).accountCategories.map((c: any) => c.id);
     expect(ids).toEqual(['ac1', 'ac2', 'ac3', 'ac4', 'ac5', 'ac6', 'ac7', 'ac8']);
-    expect((seedData() as any).users.map((u: any) => u.id)).toEqual(['u-default-admin']);
+    // v1.31.1 — the seeded admin is gone entirely, so it can no longer collide
+    // with anything OR ship a password. See the dedicated case below.
+    expect((seedData() as any).users).toEqual([]);
   });
 
   it('a fixed local id derives ONE uuid for every restaurant — the collision itself', () => {
@@ -66,11 +68,28 @@ describe('a cloud tenant is no longer handed rows it cannot own', () => {
     expect(body.slice(0, 600)).toContain('for (const k of ARRAY_COLLECTIONS) (data as any)[k] = [];');
   });
 
-  it('the local-only path keeps its defaults — it has no other tenant to collide with', () => {
-    // seedData() itself must NOT be stripped: a non-cloud install needs the
-    // default admin login to be usable at all.
-    expect((seedData() as any).users).toHaveLength(1);
+  it('the local-only path keeps its category defaults', () => {
+    // Categories are harmless defaults with no other tenant to collide with.
     expect((seedData() as any).accountCategories).toHaveLength(8);
+  });
+
+  it('ships NO user, because the credential was the vulnerability', () => {
+    // ===== v1.31.1 — this assertion used to be toHaveLength(1) =====
+    //
+    // It protected a default admin user whose password was written in plain
+    // text in seed-data.ts, on the stated grounds that "a non-cloud install
+    // needs the default admin login to be usable at all".
+    //
+    // That premise is not true. App.tsx renders MisconfiguredBuildScreen and
+    // offers NO login whatsoever when cloudMode is false — its own comment
+    // says "No login can succeed here, so offering one is a lie". So the
+    // non-cloud install this row existed for cannot sign anyone in either way.
+    //
+    // What the row did do was ship a working credential: verified against the
+    // live database, both restaurants' admin accounts opened with that exact
+    // string, which is also public on GitHub. The expectation is inverted
+    // deliberately.
+    expect((seedData() as any).users).toHaveLength(0);
   });
 });
 

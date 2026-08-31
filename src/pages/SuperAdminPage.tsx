@@ -1101,7 +1101,14 @@ export default function SuperAdminPage({ onLogout }: Props) {
                   </Button>
                 </div>
                 <div className="text-[11px] text-muted-foreground">
-                  Default staff login: <b>admin / admin123</b> — owner Settings → Users se change kar sakta hai.
+                  {/* v1.31.1 — this used to advertise one shared staff password.
+                    * It was true: every restaurant this panel created opened with that
+                    * password, and both live restaurants still did. sa_create_restaurant
+                    * now generates a random one per restaurant and returns it once —
+                    * there is no shared constant left to print here. */}
+                  A one-time password is generated for the <b>admin</b> POS login and shown
+                  once, after the restaurant is created. Write it down — it is not stored
+                  anywhere readable, and the owner must change it at first sign-in.
                 </div>
               </div>
             )}
