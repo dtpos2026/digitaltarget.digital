@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { money } from '@/lib/currency';
 import { onDataChange, initStore, getCategories, getMenuItems, getSettings, getNextOrderNumber, getNextOrderNumberAsync, saveOrder, validatePromoCode, incrementPromoUsage, getOrders, getBranches, getTables, saveTable, getDeals, genId } from '@/lib/store';
 import { getTenantId } from '@/lib/tenant';
@@ -100,7 +100,71 @@ export default function OnlineOrderPage() {
   // read once at ready-time — on a QR scan the heavy/menu collections arrive a
   // moment later, so the customer saw "No items found" forever.
   const [dataTick, setDataTick] = useState(0);
-  useEffect(() => { initStore().then(() => setReady(true)).catch(() => setReady(true)); }, []);
+  // ===== v1.31.6 — a network failure is not an empty menu =====
+  //
+  // FOUND BY RUNNING IT: with the backend unreachable, this page settled into
+  //     "My Restaurant — Online Ordering · Delivery — All (0) — No items found."
+  // and stayed there. No error, no retry, and the restaurant's own name gone.
+  // A customer reads that as "this restaurant has no food", which is the one
+  // thing it does not mean. The `.catch(() => setReady(true))` below reported
+  // success for a load that had just failed — the exact silent failure this
+  // audit was looking for.
+  //
+  // The load result is now remembered, so "empty" and "could not load" can be
+  // told apart and only the second one offers a retry.
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+
+  const loadStore = useCallback(async () => {
+    setRetrying(true);
+    let failed = false;
+    try {
+      await initStore();
+    } catch (e) {
+      console.error('[online-order] the restaurant could not be reached', e);
+      failed = true;
+    }
+
+    // initStore() does NOT reject on this route: with no reachable backend it
+    // falls through to the local path and resolves, so an empty menu looks
+    // exactly like a successful load. Ask the server directly instead — the
+    // whole point is to tell "the restaurant has no items" apart from "we
+    // could not ask". A HEAD/count costs one round trip and no payload.
+    if (!failed) {
+      try {
+        const tid = getTenantId();
+        const { sb, isSupabaseConfigured } = await import('@/lib/supabase');
+        if (tid && isSupabaseConfigured()) {
+          // Raced against a deadline on purpose. A blocked or captive network
+          // does not refuse a request, it simply never answers — and a page
+          // that waits forever for that is the same silent failure wearing a
+          // spinner. Ten seconds, then call it unreachable.
+          const probe = sb()
+            .from('menu_items')
+            .select('id', { count: 'exact', head: true })
+            .eq('tenant_id', tid)
+            .limit(1);
+          const timedOut = Symbol('timeout');
+          const outcome = await Promise.race([
+            probe.then(r => r.error ?? null),
+            new Promise<typeof timedOut>(res => setTimeout(() => res(timedOut), 10000)),
+          ]);
+          if (outcome === timedOut) throw new Error('the restaurant did not answer in time');
+          if (outcome) throw outcome;
+        }
+      } catch (e) {
+        console.error('[online-order] the restaurant could not be reached', e);
+        failed = true;
+      }
+    }
+
+    setLoadFailed(failed);
+    setRetrying(false);
+    setReady(true);
+    setDataTick(t => t + 1);
+  }, []);
+
+  useEffect(() => { void loadStore(); }, [loadStore]);
   useEffect(() => {
     let t: any;
     const off = onDataChange(() => {
@@ -1049,7 +1113,18 @@ export default function OnlineOrderPage() {
 
       {/* Menu grid */}
       <main className="max-w-6xl mx-auto p-4">
-        {visibleItems.length === 0 ? (
+        {visibleItems.length === 0 && loadFailed ? (
+          // Could not reach the restaurant — say so, and offer the way out.
+          <div className="text-center py-16 space-y-3">
+            <p className="text-sm font-semibold">We could not reach {appConfig?.appName || settings.name || 'the restaurant'}.</p>
+            <p className="text-xs text-muted-foreground">
+              Check your internet connection and try again. Your cart is safe.
+            </p>
+            <Button size="sm" variant="outline" onClick={() => void loadStore()} disabled={retrying}>
+              {retrying ? 'Trying again…' : 'Try again'}
+            </Button>
+          </div>
+        ) : visibleItems.length === 0 ? (
           <div className="text-center py-16 text-muted-foreground text-sm">No items found.</div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
