@@ -21,6 +21,14 @@ import { getTenantId } from './tenant';
 
 export interface CustomerProfile {
   id: string;
+  /**
+   * v1.32.0 — a short code the restaurant can quote over the counter or the
+   * phone ("C-NJNXX"), unique WITHIN a restaurant. The uuid was the only
+   * identifier before, and nobody reads a uuid aloud.
+   */
+  customerCode: string | null;
+  /** v1.32.0 — set by the customer from their own profile screen. */
+  photoUrl: string | null;
   name: string | null;
   phone: string | null;
   email: string | null;
@@ -166,6 +174,8 @@ function cacheProfile(p: CustomerProfile | null, tenantId?: string | null): void
 function normalize(raw: any): CustomerProfile {
   return {
     id: String(raw?.id ?? ''),
+    customerCode: raw?.customerCode ?? null,
+    photoUrl: raw?.photoUrl ?? null,
     name: raw?.name ?? null,
     phone: raw?.phone ?? null,
     email: raw?.email ?? null,
@@ -383,6 +393,27 @@ export async function customerOrders(tenantId?: string | null, limit = 30): Prom
 export function signOutLocal(tenantId?: string | null): void {
   setCustomerToken(null, tenantId);
   cacheProfile(null, tenantId);
+}
+
+/**
+ * Set (or clear, with null) this customer's profile photo.
+ *
+ * The URL must already point at our own customer-photos bucket — the server
+ * refuses anything else with `bad_url`, so this cannot become a way to park
+ * arbitrary links on a customer record. Uploading is done by the server
+ * function, which holds the only key that may write to storage.
+ */
+export async function customerSetPhoto(
+  url: string | null, tenantId?: string | null,
+): Promise<boolean> {
+  const token = getCustomerToken(tenantId);
+  if (!token) return false;
+  try {
+    const raw = await call('public_customer_set_photo', { p_token: token, p_url: url ?? '' });
+    return raw?.ok === true;
+  } catch {
+    return false;
+  }
 }
 
 export async function customerLogout(tenantId?: string | null): Promise<void> {

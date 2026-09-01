@@ -19,12 +19,22 @@ import { resolve, join } from 'node:path';
 const ROOT = process.cwd();
 const pkg = JSON.parse(readFileSync(resolve(ROOT, 'package.json'), 'utf8'));
 
-/** Every .ts/.tsx under src, except this file. */
+/**
+ * Every SHIPPED .ts/.tsx under src — tests excluded.
+ *
+ * v1.32.0: this used to exclude only itself, and then flagged
+ * customerCodeAndPhoto_v1_32_0.test.ts, whose assertions necessarily contain
+ * the very strings this guard forbids ("push_token") in order to prove they
+ * are gone. A test that checks for an absence has to name the thing. Scanning
+ * shipped code only keeps the guard strict where it matters — src/test is not
+ * compiled into the bundle — and matches how securityAudit_v1_31_0 already
+ * walks the tree.
+ */
 function sources(dir = resolve(ROOT, 'src'), out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
     const full = join(dir, name);
-    if (statSync(full).isDirectory()) sources(full, out);
-    else if (/\.tsx?$/.test(name) && !full.endsWith('noFirebaseTransport_v1_30_0.test.ts')) out.push(full);
+    if (statSync(full).isDirectory()) { if (name !== 'test') sources(full, out); }
+    else if (/\.tsx?$/.test(name) && !/\.test\.tsx?$/.test(name)) out.push(full);
   }
   return out;
 }

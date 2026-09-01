@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import {
-  ArrowLeft, LogOut, MapPin, Plus, Trash2, Star, Save, Home, Crosshair, User, BellRing,
+  ArrowLeft, LogOut, MapPin, Plus, Trash2, Star, Save, Home, Crosshair, User, BellRing, Camera,
 } from 'lucide-react';
 import { customerUpdate, type CustomerProfile, type SavedAddress } from '@/lib/customerAccount';
 
@@ -42,6 +42,48 @@ export interface CustomerProfilePanelProps {
 export default function CustomerProfilePanel({
   open, onClose, tenantId, profile, onSaved, onUseAddress, onLogout,
 }: CustomerProfilePanelProps) {
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const uploadPhoto = async (file: File) => {
+    // 2 MB matches the bucket's own file_size_limit; refusing here saves the
+    // customer a slow upload that Postgres would reject at the end anyway.
+    if (file.size > 2 * 1024 * 1024) { toast.error('Please choose a photo under 2 MB.'); return; }
+    setUploading(true);
+    try {
+      const buf = await file.arrayBuffer();
+      let bin = '';
+      const bytes = new Uint8Array(buf);
+      for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+      const { uploadCustomerPhoto } = await import('@/lib/customerPhoto.functions');
+      const { getCustomerToken } = await import('@/lib/customerAccount');
+      const token = getCustomerToken(tenantId);
+      if (!token) { toast.error('Please sign in again.'); return; }
+      const r = await uploadCustomerPhoto({
+        data: {
+          token,
+          contentType: file.type as 'image/jpeg' | 'image/png' | 'image/webp',
+          base64: btoa(bin),
+        },
+      });
+      if (!r.ok) {
+        const why: Record<string, string> = {
+          too_large: 'That photo is too large.',
+          no_session: 'Please sign in again.',
+          app_disabled: 'The app is switched off right now.',
+        };
+        toast.error(why[r.reason] ?? 'The photo could not be saved.');
+        return;
+      }
+      setPhotoUrl(r.url);
+      toast.success('Photo updated');
+    } catch (e: any) {
+      toast.error(e?.message || 'The photo could not be saved.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [dob, setDob] = useState('');
@@ -57,6 +99,7 @@ export default function CustomerProfilePanel({
   useEffect(() => {
     if (!open || !profile) return;
     setName(profile.name ?? '');
+    setPhotoUrl(profile.photoUrl ?? null);
     setEmail(profile.email ?? '');
     setDob(profile.dateOfBirth ?? '');
     setCity(profile.city ?? '');
@@ -187,6 +230,50 @@ export default function CustomerProfilePanel({
         </div>
 
         <div className="p-3 space-y-4">
+          {/* ===== v1.32.0 — who this customer is, to themselves and to the shop =====
+            *
+            * The photo is uploaded by the server function, never by the browser:
+            * the customer-photos bucket has a public READ policy and NO write
+            * policy, so only the service key can put a file there. An anon write
+            * policy on storage is the same shape as the order_items hole found in
+            * v1.31.0 — anyone with the public key could have filled the bucket.
+            *
+            * The code exists because a uuid cannot be read down a phone line. */}
+          <div className="flex items-center gap-3">
+            <div className="relative shrink-0">
+              <div className="h-16 w-16 rounded-full overflow-hidden bg-muted border flex items-center justify-center">
+                {photoUrl
+                  ? <img src={photoUrl} alt="" className="h-full w-full object-cover" />
+                  : <User className="h-7 w-7 text-muted-foreground" />}
+              </div>
+              <label
+                className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full bg-primary text-primary-foreground
+                           flex items-center justify-center cursor-pointer shadow"
+                title="Change photo"
+              >
+                {uploading
+                  ? <span className="text-[10px]">…</span>
+                  : <Camera className="h-3.5 w-3.5" />}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  disabled={uploading}
+                  onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void uploadPhoto(f); }}
+                />
+              </label>
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-extrabold truncate">{profile.name || 'Your profile'}</p>
+              {profile.customerCode && (
+                <p className="text-[11px] text-muted-foreground">
+                  Customer ID <span className="font-mono font-bold text-foreground">{profile.customerCode}</span>
+                </p>
+              )}
+              <p className="text-[10px] text-muted-foreground">Tell the restaurant this ID to find your orders.</p>
+            </div>
+          </div>
+
           {/* Loyalty / order summary — read-only, straight from the server row */}
           <div className="grid grid-cols-3 gap-2">
             <div className="bg-card border rounded-xl p-2.5 text-center">
