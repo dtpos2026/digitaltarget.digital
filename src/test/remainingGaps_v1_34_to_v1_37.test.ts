@@ -144,3 +144,25 @@ describe('6. a bill marked paid records HOW it was paid', () => {
     expect(POS).toContain('paid — ${method}');
   });
 });
+
+describe('7. a trigger function is not a public REST endpoint', () => {
+  const HARDEN = sql('20260902140000_v1_38_0_trigger_functions_are_not_api.sql');
+
+  it('revokes from PUBLIC, not just the two API roles', () => {
+    // anon/authenticated hold EXECUTE through the default `=X/postgres` grant,
+    // so naming only the roles revokes nothing and leaves the RPC exposed.
+    expect(HARDEN).toContain('from public, anon, authenticated');
+  });
+
+  it('finds its targets in the catalogue, so a new trigger is covered too', () => {
+    expect(HARDEN).toContain("p.prorettype = 'pg_catalog.trigger'::regtype");
+    expect(HARDEN).toContain("ns.nspname = 'public'");
+  });
+
+  it('does not blanket-revoke future functions and break the anon RPCs', () => {
+    // ALTER DEFAULT PRIVILEGES here would silently strip EXECUTE from every
+    // future function, customer-app sign-in included.
+    const code = HARDEN.split('\n').filter(l => !l.trim().startsWith('--')).join('\n');
+    expect(code).not.toMatch(/alter\s+default\s+privileges/i);
+  });
+});
