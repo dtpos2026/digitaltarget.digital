@@ -16,6 +16,7 @@ import OwnerLoginPage from "@/pages/OwnerLoginPage";
 import MisconfiguredBuildScreen from "@/components/MisconfiguredBuildScreen";
 import POSScreen from "@/pages/POSScreen";
 // Heavy / rarely-used pages — code-split to keep initial bundle small
+import { RoutedPageBoundary } from '@/components/PageBoundary';
 const TablesPage = lazy(() => import("@/pages/TablesPage"));
 const RunningBillsPage = lazy(() => import("@/pages/RunningBillsPage"));
 const DeliveryBoardPage = lazy(() => import("@/pages/DeliveryBoardPage"));
@@ -767,6 +768,7 @@ const App = () => {
         <HashRouter>
 
           <AppLayout userRole={userRole} onLogout={handleLogout}>
+            <RoutedPageBoundary>
             <Suspense fallback={<PageFallback />}>
               <Routes>
                 <Route path="/" element={<POSScreen />} />
@@ -852,6 +854,7 @@ const App = () => {
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
+            </RoutedPageBoundary>
           </AppLayout>
         </HashRouter>
       </TooltipProvider>
