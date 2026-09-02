@@ -23,12 +23,15 @@
 // the same defect had hidden.
 // ============================================================================
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 const app = readFileSync(join(process.cwd(), 'src/App.tsx'), 'utf8');
 const auth = readFileSync(join(process.cwd(), 'src/lib/authProvider.ts'), 'utf8');
-const android = readFileSync(join(process.cwd(), '.github/workflows/build-android.yml'), 'utf8');
+// v1.40.0 — the Android build left this repository along with the duplicate
+// Capacitor project; it lives in dtpos2026/dtpos.apk now, and that repository
+// carries this same guard in its own workflow and its own tools/check.mjs.
+// What is still asserted here is the half that ships from THIS repository.
 const env = readFileSync(join(process.cwd(), '.env'), 'utf8');
 
 describe('the two answers that could disagree', () => {
@@ -57,18 +60,25 @@ describe('the configuration a build must carry', () => {
     expect(env).toMatch(/^VITE_SUPABASE_PUBLISHABLE_KEY=.+$/m);
   });
 
-  it('CI no longer passes an unset secret over it', () => {
+  it('no workflow here passes an unset secret over it', () => {
     // The exact shape of the bug: a secret that does not exist arrives as ""
-    // and blanks the committed value.
-    expect(android).not.toContain('VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}');
-    expect(android).toContain('if [ -n "$S_URL" ]; then');
-    expect(android).toContain('the committed .env will be used');
+    // and blanks the committed value. Asserted across every workflow this
+    // repository still has, so a new one cannot reintroduce it.
+    const dir = join(process.cwd(), '.github/workflows');
+    const files = existsSync(dir) ? readdirSync(dir).filter(f => /\.ya?ml$/.test(f)) : [];
+    for (const f of files) {
+      const wf = readFileSync(join(dir, f), 'utf8');
+      for (const v of ['VITE_SUPABASE_URL', 'VITE_SUPABASE_PUBLISHABLE_KEY']) {
+        expect(wf, `${f} passes an unset ${v} straight into the build`)
+          .not.toContain(`${v}: \${{ secrets.${v} }}`);
+      }
+    }
   });
 
-  it('CI proves the built bundle actually carries a backend', () => {
-    // Trusting the step above is what shipped the blank installer.
-    expect(android).toContain('Verify the bundle carries a backend');
-    expect(android).toContain('built with NO Supabase configuration');
+  it('build:app survives, because dtpos.apk builds the Customer bundle with it', () => {
+    // The Android build moved out; this script is the contract it calls.
+    expect(JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8')).scripts)
+      .toHaveProperty('build:app');
   });
 });
 

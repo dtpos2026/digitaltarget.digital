@@ -211,6 +211,12 @@ export default function LoginPage({ onLogin }: Props) {
                   branchId: v.branch_id ?? null,
                   permissions: (v as any).permissions ?? [],
                   mustChangePassword: v.must_change_password === true,
+                  // This branch only runs while the owner's Supabase session is
+                  // live, and that is exactly the case where WorkspaceCodeCard's
+                  // own direct read of tenants already succeeds. The code is
+                  // carried on the service-role path below, which is the one a
+                  // till without that session takes.
+                  workspaceCode: null,
                 }
               : { ok: false, reason: 'bad_password', message: 'Wrong username or password.' };
           } catch (e) {
@@ -229,6 +235,17 @@ export default function LoginPage({ onLogin }: Props) {
 
         setLoading(false);
         if (!r0.ok) { toast.error(r0.message); return; }
+
+        // v1.39.0 — remember this restaurant's Workspace Code, so the card on
+        // the dashboard can show it to a staff member who has no Supabase
+        // session to read tenants with. Same store the rider and order-taker
+        // portals already use.
+        if (r0.workspaceCode) {
+          try {
+            const { saveWorkspaceCode } = await import('@/lib/staffPortalAuth');
+            saveWorkspaceCode(r0.workspaceCode);
+          } catch { /* a missing code must never block a sign-in */ }
+        }
 
         // ===== v1.31.1 — the shipped password has to go before anything else =====
         //

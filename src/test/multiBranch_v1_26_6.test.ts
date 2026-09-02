@@ -12,6 +12,14 @@ const read = (...p: string[]) => fs.readFileSync(path.join(process.cwd(), ...p),
 const migrations = fs.readdirSync(path.join(process.cwd(), 'supabase', 'migrations'))
   .map(f => read('supabase', 'migrations', f)).join('\n');
 
+/** One function's definition, from its header to its $function$ terminator. */
+function fnBody(name: string): string {
+  const at = migrations.lastIndexOf(`create or replace function public.${name}`);
+  if (at < 0) return '';
+  const end = migrations.indexOf('$function$', migrations.indexOf('$function$', at) + 1);
+  return end < 0 ? migrations.slice(at) : migrations.slice(at, end);
+}
+
 // ---------------------------------------------------------------------------
 describe('the Workspace Code is generated, not just declared', () => {
   // tenants.workspace_code and the unique index were live, but the generator
@@ -55,13 +63,21 @@ describe('staff sign-in speaks the reason codes the client understands', () => {
   });
 
   it('no longer returns a reason the client cannot render', () => {
-    const fn = migrations.slice(migrations.lastIndexOf('create or replace function public.staff_login_global'));
+    // Bounded to this function's OWN body. The slice used to run to the end
+    // of every concatenated migration, so any later file mentioning one of
+    // these words failed the test — v1.39.0's staff_login_check does, while
+    // explaining nothing about staff_login_global.
+    const fn = fnBody('staff_login_global');
     expect(fn).not.toContain("'ambiguous'");
     expect(fn).not.toContain("'no_password'");
   });
 
   it('does not reveal which usernames have no password set', () => {
-    const fn = migrations.slice(migrations.lastIndexOf('create or replace function public.staff_login_global'));
+    // Bounded to this function's OWN body. The slice used to run to the end
+    // of every concatenated migration, so any later file mentioning one of
+    // these words failed the test — v1.39.0's staff_login_check does, while
+    // explaining nothing about staff_login_global.
+    const fn = fnBody('staff_login_global');
     expect(fn).toContain("if p.pin_hash is null or p.pin_hash <> crypt(p_pin, p.pin_hash) then");
   });
 });

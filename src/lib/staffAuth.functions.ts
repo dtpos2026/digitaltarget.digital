@@ -24,6 +24,17 @@ export type StaffLoginResult =
       permissions: string[];
       /** v1.31.1 — true while the account still has its shipped password. */
       mustChangePassword: boolean;
+      /**
+       * v1.39.0 — this restaurant's Workspace Code.
+       *
+       * The card on the dashboard reads tenants.workspace_code through
+       * auth_tenant_id(), which needs a Supabase auth session. A POS staff
+       * member has none — user_profiles rows are not auth.users accounts — so
+       * the card could only tell the person at the till to fetch the owner.
+       * The code comes back on the login instead, which has already checked
+       * this username against its bcrypt hash. Null only on an older server.
+       */
+      workspaceCode: string | null;
     }
   | { ok: false; reason: string; message: string };
 
@@ -65,6 +76,10 @@ export const staffSignIn = createServerFn({ method: 'POST' })
       branch_id?: string | null;
       permissions?: string[] | null;
       must_change_password?: boolean | null;
+      // v1.39.0 — the code the rider and order-taker apps ask for. It rides
+      // back on the login that already proved this staff member's identity,
+      // so the till can show it without an owner email sign-in.
+      workspace_code?: string | null;
     };
 
     if (!r.ok) {
@@ -90,6 +105,7 @@ export const staffSignIn = createServerFn({ method: 'POST' })
       branchId: r.branch_id ?? null,
       permissions: r.permissions ?? [],
       mustChangePassword: r.must_change_password === true,
+      workspaceCode: r.workspace_code ?? null,
     };
 
   });

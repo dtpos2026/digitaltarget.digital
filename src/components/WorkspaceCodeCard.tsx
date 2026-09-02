@@ -54,12 +54,28 @@ export default function WorkspaceCodeCard() {
         const { data: rpc } = await supabase.rpc('get_workspace_code', { _tenant_id: tid });
         wc = (rpc as string | null) ?? null;
       }
+      // v1.39.0 — the code the staff login already brought back.
+      //
+      // Both reads above resolve through auth_tenant_id(), which needs a
+      // Supabase auth session. A POS staff member signs in with a username and
+      // a PIN and has none, so both returned nothing and this card used to tell
+      // the person at the till to go and find the owner — for a code the till
+      // is the one being asked for.
+      //
+      // staff_login_check now returns it on a successful login, and LoginPage
+      // stores it. Last, not first: a live server read still wins, so a code
+      // rotated on the server is not masked by a stale one on the device.
+      if (!wc) {
+        const { getSavedWorkspaceCode } = await import('@/lib/staffPortalAuth');
+        wc = getSavedWorkspaceCode() || null;
+      }
+
       if (wc) setState({ kind: 'ready', code: wc });
       else setState({
         kind: 'unavailable',
         why: navigator.onLine === false
           ? 'No internet — the code is stored on the server.'
-          : 'Sign in with the owner email to read it (a staff PIN login cannot).',
+          : 'Sign in again to read it — this device has not stored it yet.',
       });
     } catch (e: any) {
       setState({ kind: 'unavailable', why: e?.message || 'Could not reach the server.' });
