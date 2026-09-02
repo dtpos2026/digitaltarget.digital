@@ -24,15 +24,6 @@
 
         </activity>
 
-        <!--
-          Messages sent by push-dispatch carry channel_id "dt_orders"; this is
-          the fallback for anything that arrives without one, so a notification
-          is never dropped into a channel that does not exist.
-        -->
-        <meta-data
-            android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="dt_orders" />
-
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -47,12 +38,4 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
-
-    <!--
-      Android 13 (API 33) and above require an explicit runtime grant before an
-      app may post a notification. Without this line the runtime request that
-      PushNotifications.requestPermissions() makes is refused outright, and the
-      customer never sees "your order is on the way".
-    -->
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 </manifest>

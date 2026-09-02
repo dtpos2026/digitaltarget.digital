@@ -15,12 +15,11 @@
 # database, where every public_customer_* function is scoped to the tenant it
 # is handed. See supabase/migrations for the guards.
 #
-# PUSH NOTIFICATIONS
-# FCM needs a google-services.json from the restaurant's Firebase project.
-# Provide it as the GOOGLE_SERVICES_JSON secret (base64). Without it the APK
-# still builds and runs — Capacitor's app/build.gradle applies the Google
-# Services plugin only when the file is present — but push registration will
-# report that the build has no messaging support rather than failing silently.
+# NO PUSH NOTIFICATIONS
+# Firebase was removed from this app in v1.30.0, on instruction. Nothing here
+# can post a notification, so there is no google-services.json to supply and no
+# GOOGLE_SERVICES_JSON secret to set. Order alerts happen in-app over Supabase
+# while the app is open. See supabase/migrations for the outbox.
 # ============================================================================
 name: Build Android customer APK
 
@@ -50,11 +49,6 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # The `secrets` context is not available inside a step's `if:`. Mapping it
-    # to `env` here is what makes "only when the restaurant has Firebase"
-    # expressible at all.
-    env:
-      GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
     steps:
       - uses: actions/checkout@v4
 
@@ -131,14 +125,6 @@ jobs:
       # file Gradle is about to read before Gradle is ever started.
       - name: Restore and verify the Android project
         run: npm run android:doctor
-
-      # Present only when the restaurant has a Firebase project. Absent is a
-      # supported state, not an error.
-      - name: Install google-services.json
-        if: env.GOOGLE_SERVICES_JSON != ''
-        run: |
-          printf '%s' "$GOOGLE_SERVICES_JSON" | base64 -d > android/Customer/app/google-services.json
-          echo "google-services.json installed"
 
       - name: Assemble debug APK
         if: ${{ github.event.inputs.release != 'true' }}
