@@ -1134,7 +1134,33 @@ export default function POSScreen() {
 
 
   const payBillFromRetrieve = (order: Order) => {
-    const updated = { ...order, status: 'paid' as const, paidAt: new Date().toISOString() };
+    // ===== v1.34.0 — a bill marked paid with no record of HOW =====
+    //
+    // FOUND IN THE BOOKS, not in the code: 13 website orders and 1 POS order,
+    // Rs 5,690 in total, sitting as status 'paid' with amount_paid = 0, no
+    // payment_method, and not one row in order_payments. Every one of them came
+    // through here.
+    //
+    // This wrote only the status and the timestamp. The money was collected at
+    // the counter and the books never learned of it, so the payment-method
+    // breakdown under-counted, and the cash drawer count could never reconcile.
+    //
+    // It stays ONE CLICK — the operator is not made to re-pick something the
+    // POS already knows — but it now records the same fields the ordinary
+    // payment path records, and says which method it used so a wrong default is
+    // visible immediately rather than discovered at closing time.
+    const method = paymentMethod || 'cash';
+    const updated = {
+      ...order,
+      status: 'paid' as const,
+      paidAt: new Date().toISOString(),
+      paymentMethod: method,
+      paymentAccountId,
+      paymentAccountName,
+      amountPaid: order.grandTotal,
+      kitchenStatus: order.kitchenStatus ?? ('served' as const),
+      kitchenStatusAt: order.kitchenStatusAt ?? new Date().toISOString(),
+    };
     saveOrder(updated);
     if (order.tableId) {
       const tables = refreshTables();
@@ -1144,7 +1170,7 @@ export default function POSScreen() {
     setRunningBills(prev => prev.filter(o => o.id !== order.id));
     setLastOrder(updated);
     setShowReceipt(true);
-    toast.success(`Bill #${order.orderNumber} paid`);
+    toast.success(`Bill #${order.orderNumber} paid — ${method}`);
   };
 
   const orderTypes: { value: OrderType; label: string; color: string }[] = [
