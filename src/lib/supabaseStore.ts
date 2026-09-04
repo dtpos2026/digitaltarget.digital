@@ -743,6 +743,16 @@ async function mergeOnNaturalKey(
 
 /** Write one row. Upsert on id, so a retry is idempotent. */
 
+/** Is this device signed in as a portal app (rider / order taker)? */
+async function hasPortalSessionSafe(): Promise<boolean> {
+  try {
+    const { hasPortalSession } = await import('./portalData');
+    return hasPortalSession();
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Save an order through the portal RPC when this device is a portal session.
  *
@@ -791,6 +801,21 @@ export async function sbSaveItem(col: string, id: string, data: any): Promise<vo
   if (col === 'orders') {
     const viaPortal = await portalSaveOrder(id, data);
     if (viaPortal) return;
+  }
+
+  // ===== v1.44.0 — nothing else may take the anon path =====
+  //
+  // Orders have a portal RPC. Anything ELSE a portal app tries to write —
+  // a customer, a table, a rider record — still goes at the table as `anon`,
+  // where an update silently matches zero rows. Rather than let that look like
+  // a success, it fails HERE with a name. The deferred queue keeps the row on
+  // the device and the operator is told, which is what "data loss na ho"
+  // actually requires.
+  if (await hasPortalSessionSafe()) {
+    throw new Error(
+      `This app cannot save "${col}" to the cloud yet — it is kept on this `
+      + 'device. Ask the restaurant to do it from the POS.',
+    );
   }
 
   if (isDocStoreCollection(col)) return docStoreSave(col, id, data);
@@ -889,8 +914,25 @@ export async function sbSaveMany(
   const failed: Array<{ id: string; error: string }> = [];
   if (items.length === 0) return { saved, failed };
 
+  // ===== v1.44.0 — a portal session must not batch-write =====
+  //
+  // The batch below is a plain upsert. On a portal session that is refused on
+  // INSERT — recoverable, because the fallback path handles it — but on UPDATE
+  // it matches ZERO ROWS AND RETURNS NO ERROR, so every item would be reported
+  // as saved and the change would be gone. That is the data loss this whole
+  // class of bug causes, and a batch loses a hundred rows at a time.
+  //
+  // One at a time through sbSaveItem, which knows about portal_upsert_order and
+  // raises when the server refuses. Slower for a portal, correct for a portal;
+  // a POS till has a real session and keeps the fast path.
+  let portalSession = false;
+  try {
+    const { hasPortalSession } = await import('./portalData');
+    portalSession = hasPortalSession();
+  } catch { /* not available: treat as an ordinary session */ }
+
   // Document-store collections and settings have their own write paths.
-  const table = isDocStoreCollection(col) ? null : tableFor(col);
+  const table = (isDocStoreCollection(col) || portalSession) ? null : tableFor(col);
   if (!table) {
     for (const it of items) {
       try { await sbSaveItem(col, it.id, it.data); saved.push(it.id); }
