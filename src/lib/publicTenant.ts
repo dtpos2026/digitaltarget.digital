@@ -72,6 +72,44 @@ export function parsePublicTenantId(hash?: string): string | null {
   return null;
 }
 
+/**
+ * Is this a slug rather than a tenant uuid?
+ *
+ * REPORTED: "jo link bane customer order website ka, mere domain sath ho —
+ * digitaltarget.digital/buttbbqorder". Every tenant already has a slug, so a
+ * readable link only needs the slug turned back into the id the app routes on.
+ */
+export function looksLikeSlug(v: string | null | undefined): boolean {
+  if (!v) return false;
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return !UUID.test(v) && /^[a-z0-9][a-z0-9-]{1,60}$/i.test(v);
+}
+
+/**
+ * Turn a slug in the URL into a real tenant, once.
+ *
+ * Kept OUT of applyPublicTenantFromUrl because that one must stay synchronous —
+ * it runs before initStore() and the tenant has to be settled by then. A uuid
+ * link therefore behaves exactly as it always did, with no await anywhere near
+ * the boot path; only a slug link pays for a round trip, and only on first open.
+ */
+export async function resolveSlugTenant(): Promise<string | null> {
+  if (typeof window === 'undefined') return null;
+  const raw = parsePublicTenantId();
+  if (!looksLikeSlug(raw)) return null;
+  try {
+    const { sb, isSupabaseConfigured } = await import('./supabase');
+    if (!isSupabaseConfigured()) return null;
+    const { data, error } = await sb().rpc('public_tenant_by_slug' as never, { p_slug: raw } as never);
+    if (error) return null;
+    const id = (data as { tenantId?: string } | null)?.tenantId ?? null;
+    if (id) setTenant(id, (data as { name?: string }).name);
+    return id;
+  } catch {
+    return null;
+  }
+}
+
 /** Apply tenant from URL synchronously — must be called BEFORE initStore() on public routes. */
 export function applyPublicTenantFromUrl(): string | null {
   if (typeof window === 'undefined') return null;

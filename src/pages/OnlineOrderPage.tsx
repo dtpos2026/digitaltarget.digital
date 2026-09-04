@@ -118,6 +118,14 @@ export default function OnlineOrderPage() {
   const loadStore = useCallback(async () => {
     setRetrying(true);
     let failed = false;
+
+    // v1.42.0 — a readable link like /#/order/butt carries a slug, not a uuid.
+    // Resolved here, before initStore, so everything below sees a real tenant.
+    try {
+      const { resolveSlugTenant } = await import('@/lib/publicTenant');
+      await resolveSlugTenant();
+    } catch { /* a uuid link needs none of this */ }
+
     try {
       await initStore();
     } catch (e) {
@@ -728,7 +736,28 @@ export default function OnlineOrderPage() {
         order: order as unknown as Record<string, unknown>,
       } });
       order.id = submitted.id;
-      order.orderNumber = submitted.order_number;
+
+      // ===== v1.42.0 — "Order #undefined placed!" =====
+      //
+      // REPORTED from the phone, with the confirmation card also showing a
+      // blank "Order #". The bill itself was fine — the row carried its number
+      // — so only the number's trip back to the app was lost.
+      //
+      // public_place_order returns the number twice: as order_number, and
+      // inside the whole row it also returns. Verified live, the RPC answers
+      // order_number 1029 for a fresh order, so whatever dropped it happened
+      // between there and here. Reading the row as a fallback costs nothing
+      // and removes a class of failure rather than one instance of it.
+      const placedNumber =
+        (submitted as { order_number?: number }).order_number
+        ?? (submitted as { order?: { order_number?: number } }).order?.order_number
+        ?? (submitted as { order?: { data?: { orderNumber?: number } } }).order?.data?.orderNumber;
+
+      if (typeof placedNumber === 'number' && Number.isFinite(placedNumber)) {
+        order.orderNumber = placedNumber;
+      }
+      // If it is still missing, the locally generated number stays — a real
+      // number the customer can quote, rather than the word "undefined".
       saveOrder(order, { cloud: false });
       // Mark dine-in table as running so floor map turns red immediately
       if (dineIn && matchedTable && matchedTable.status === 'free') {
@@ -779,7 +808,9 @@ export default function OnlineOrderPage() {
       setPromoApplied(null);
       setPromoInput('');
       setCartOpen(false);
-      toast.success(`Order #${order.orderNumber} placed!`);
+      toast.success(
+        order.orderNumber ? `Order #${order.orderNumber} placed!` : 'Order placed!',
+      );
       // Notify restaurant owner's WhatsApp (if configured)
       try {
         const ownerWa = normWaPhone(settings.ownerWhatsApp || settings.phone || '');
@@ -821,7 +852,7 @@ export default function OnlineOrderPage() {
             <p className="text-sm text-muted-foreground mt-1">Your order has been sent to the kitchen.</p>
           </div>
           <div className="bg-muted/40 rounded-lg p-4 text-left space-y-1.5 text-sm">
-            <div className="flex justify-between"><span className="text-muted-foreground">Order #</span><span className="font-bold text-primary">#{placedOrder.orderNumber}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Order #</span><span className="font-bold text-primary">{placedOrder.orderNumber ? `#${placedOrder.orderNumber}` : 'Confirmed'}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Items</span><span className="font-semibold">{placedOrder.items.length}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Total</span><span className="font-extrabold">{money(placedOrder.grandTotal)}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Customer</span><span className="font-semibold">{placedOrder.customer?.name}</span></div>

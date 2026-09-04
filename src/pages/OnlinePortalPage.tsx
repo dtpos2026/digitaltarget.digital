@@ -26,6 +26,25 @@ export default function OnlinePortalPage() {
   const [search, setSearch] = useState('');
   const [qrLink, setQrLink] = useState<{ url: string; label: string } | null>(null);
 
+  // v1.42.0 — this restaurant's readable slug, for the links below. The POS is
+  // signed in, so it can read its own tenants row; a failure just leaves the
+  // uuid form, which has always worked.
+  const [slug, setSlug] = useState<string>('');
+  useEffect(() => {
+    let off = false;
+    void (async () => {
+      try {
+        const t = getTenantId();
+        const { sb, isSupabaseConfigured } = await import('@/lib/supabase');
+        if (!t || !isSupabaseConfigured()) return;
+        const { data } = await sb().from('tenants').select('slug').eq('id', t).maybeSingle();
+        const v = (data as { slug?: string } | null)?.slug;
+        if (!off && v) setSlug(v);
+      } catch { /* the uuid link stays */ }
+    })();
+    return () => { off = true; };
+  }, []);
+
   useEffect(() => {
     // Initial pull, then rely on realtime onSnapshot listeners (no polling)
     refreshOrdersFromCloud().then(() => { setOrders(getOrders()); setTick(x => x + 1); }).catch(() => {});
@@ -47,7 +66,11 @@ export default function OnlinePortalPage() {
         : 'https://digitaltarget.digital');
   const rawOrigin = typeof window !== 'undefined' ? window.location.origin : '';
   const origin = (!rawOrigin || rawOrigin.startsWith('file:')) ? PUBLIC_WEB_BASE : rawOrigin;
-  const tidSeg = tid ? `/${tid}` : '';
+  // v1.42.0 — hand out the readable link when the restaurant has a slug.
+  // digitaltarget.digital/#/order/butt instead of a uuid nobody can repeat
+  // over the phone. The uuid form keeps working, so links already printed on
+  // a table QR are not invalidated.
+  const tidSeg = slug ? `/${slug}` : (tid ? `/${tid}` : '');
   const links = [
     { key: 'order',    label: 'Customer Website',    emoji: '🛒', icon: ShoppingBag, url: `${origin}/#/order${tidSeg}`,                       color: 'bg-blue-500/10 text-blue-700 border-blue-500/30',     sourceKey: 'website' },
     { key: 'takeaway', label: 'Takeaway QR Portal',  emoji: '🛍️', icon: Package,    url: `${origin}/#/order${tidSeg}?mode=takeaway`,         color: 'bg-orange-500/10 text-orange-700 border-orange-500/30', sourceKey: 'takeaway_qr' },

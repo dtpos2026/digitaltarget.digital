@@ -742,7 +742,57 @@ async function mergeOnNaturalKey(
 }
 
 /** Write one row. Upsert on id, so a retry is idempotent. */
+
+/**
+ * Save an order through the portal RPC when this device is a portal session.
+ *
+ * Returns false when there is no portal token, so the ordinary path runs for a
+ * POS till — which HAS a Supabase session and must keep using it.
+ */
+async function portalSaveOrder(id: string, data: any): Promise<boolean> {
+  let token = '';
+  try {
+    const { getPortalToken } = await import('./portalData');
+    token = getPortalToken();
+  } catch { return false; }
+  if (!token) return false;
+
+  const { data: res, error } = await sb().rpc('portal_upsert_order' as never, {
+    p_token: token,
+    p_order: { ...data, id },
+  } as never);
+  if (error) throw error;
+
+  const r = (res ?? {}) as { ok?: boolean; reason?: string; order_number?: number };
+  if (r.ok !== true) {
+    // Never silent: a refusal names itself so it can be fixed, and an expired
+    // session is not mistaken for a network blip.
+    throw new Error(`portal_upsert_order refused: ${r.reason ?? 'unknown'}`);
+  }
+  return true;
+}
+
 export async function sbSaveItem(col: string, id: string, data: any): Promise<void> {
+  // ===== v1.42.0 — a portal session cannot write to a table =====
+  //
+  // REPORTED on the Order Taker screen: "1 change could not be uploaded
+  // (orders). They are saved on this device."
+  //
+  // The Order Taker portal embeds the POS screen, so its bills come through
+  // here like any other. But that app holds a portal token and has no Supabase
+  // session, so the upsert below is refused on insert and — worse — matches
+  // ZERO ROWS on update while reporting success. Proven on the live database:
+  //
+  //     set role anon; update orders ... ->  no error, rows affected = 0
+  //
+  // portal_upsert_order resolves the restaurant from the token and, crucially,
+  // mints the order NUMBER itself. A device that numbers its own bills is how
+  // two tills end up on one number, so the value the app sends is ignored.
+  if (col === 'orders') {
+    const viaPortal = await portalSaveOrder(id, data);
+    if (viaPortal) return;
+  }
+
   if (isDocStoreCollection(col)) return docStoreSave(col, id, data);
   const table = tableFor(col);
 
