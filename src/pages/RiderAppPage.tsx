@@ -14,6 +14,7 @@ import { buildTrackingMessage, setDeliveryStage, DELIVERY_STAGE_LABEL, computeDi
 import DeliveryRouteMap from '@/components/DeliveryRouteMap';
 import ReadyNotificationBus from '@/components/ReadyNotificationBus';
 import ReadyOrderPoller from '@/components/ReadyOrderPoller';
+import { portalClaimOrder, portalSetDeliveryStage } from '@/lib/portalData';
 
 const STAGE_FLOW: { stage: DeliveryStatus; label: string; icon: any; color: string }[] = [
   { stage: 'rider_picked',  label: 'Picked Up',     icon: PackageCheck, color: 'bg-amber-500 hover:bg-amber-600 text-white' },
@@ -221,15 +222,46 @@ export default function RiderAppPage() {
     return orders.filter(o => o.riderId === rider.id && o.deliveredAt && new Date(o.deliveredAt).getTime() >= start.getTime());
   }, [orders, rider]);
 
-  const claimOrder = (o: Order) => {
+  const claimOrder = async (o: Order) => {
     if (!rider) return;
+
+    // ===== v1.41.0 — the claim has to reach the SERVER =====
+    //
+    // saveOrder() alone writes straight at the table, and a portal app has no
+    // Supabase session, so RLS matched zero rows and returned success: the
+    // order stayed in AVAILABLE ORDERS, MY ACTIVE ORDERS stayed 0, and the
+    // toast said "claimed". Reported exactly that way.
+    //
+    // The server owns this decision now — it checks the restaurant and refuses
+    // an order another rider already took, which two phones racing for the
+    // same delivery could not be trusted to do between themselves.
+    const res = await portalClaimOrder(o.id);
+    if (!res.ok) {
+      toast.error(res.message || 'Could not claim this order.');
+      return;
+    }
+    if (res.data?.ok === false) {
+      toast.error(res.data.reason === 'already_claimed'
+        ? 'Another rider just took this order.'
+        : 'Could not claim this order.');
+      setOrders(getOrders());
+      return;
+    }
+
     const next = setDeliveryStage({ ...o, riderId: rider.id, riderName: rider.name, riderPhone: rider.phone }, 'rider_assigned');
     saveOrder(next);
     setOrders(getOrders());
     toast.success(`Order #${o.orderNumber} claimed`);
   };
 
-  const advance = (o: Order, stage: DeliveryStatus) => {
+  const advance = async (o: Order, stage: DeliveryStatus) => {
+    // Same reason as claimOrder: without this the stage change never leaves
+    // the phone. The server also refuses a stage change on an order that is
+    // not this rider's, which the local write could not check.
+    const res = await portalSetDeliveryStage(o.id, stage);
+    if (!res.ok) { toast.error(res.message || 'Could not update this delivery.'); return; }
+    if (res.data?.ok === false) { toast.error('Could not update this delivery.'); return; }
+
     let next = setDeliveryStage(o, stage);
     if (stage === 'delivered') {
       next = { ...next, status: 'paid', paidAt: new Date().toISOString() } as Order;

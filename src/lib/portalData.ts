@@ -131,6 +131,44 @@ export function portalMe(): Promise<PortalResult<Record<string, any>>> {
   return call('portal_me', {}, (r) => r);
 }
 
+// ===== v1.41.0 — the writes =====
+//
+// Every read above goes through a portal_* SECURITY DEFINER function because a
+// portal app holds a token, not a Supabase session. The WRITES did not: they
+// went straight at the table as `anon`, and an UPDATE that RLS filters does
+// NOT raise — it matches zero rows and returns success. So a rider's Claim was
+// saved locally, reported as saved, and never reached the server. Proven
+// against the live database:
+//
+//     set role anon; update orders ... ;  ->  no error, rows affected = 0
+//
+// These are the missing halves. The server decides everything that matters —
+// which restaurant, which rider, whether the order was already claimed — so a
+// token is the only thing the app has to hold.
+
+/** Claim an unassigned delivery. Refused if another rider already took it. */
+export function portalClaimOrder(orderId: string): Promise<PortalResult<any>> {
+  return call('portal_order_delivery',
+    { p_order: orderId, p_stage: 'rider_assigned', p_claim: true }, (r) => r);
+}
+
+/** Move a delivery this rider already owns to its next stage. */
+export function portalSetDeliveryStage(orderId: string, stage: string): Promise<PortalResult<any>> {
+  return call('portal_order_delivery',
+    { p_order: orderId, p_stage: stage, p_claim: false }, (r) => r);
+}
+
+/** A rider or order taker editing their OWN name, phone or photo. */
+export function portalUpdateMe(
+  patch: { name?: string; phone?: string; photo?: string | null },
+): Promise<PortalResult<any>> {
+  return call('portal_update_me', {
+    p_name: patch.name ?? null,
+    p_phone: patch.phone ?? null,
+    p_photo: patch.photo === undefined ? null : patch.photo,
+  }, (r) => r);
+}
+
 /** End the session server-side, so a lost phone stops being a way in. */
 export async function portalLogout(): Promise<void> {
   const token = getPortalToken();
