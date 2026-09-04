@@ -24,6 +24,7 @@ import ReadyOrderPoller from '@/components/ReadyOrderPoller';
 import SupportChatWidget from '@/components/SupportChatWidget';
 import SyncStatusBadge from '@/components/SyncStatusBadge';
 import HeaderNotificationBar from '@/components/HeaderNotificationBar';
+import RestaurantIdentityChip from '@/components/RestaurantIdentityChip';
 import SyncPendingChip from '@/components/SyncPendingChip';
 import BillingStatusBar from '@/components/BillingStatusBar';
 import UpdateAvailableBanner from '@/components/UpdateAvailableBanner';
@@ -527,6 +528,9 @@ export default function AppLayout({ children, userRole, onLogout }: Props) {
             </div>
           </div>
           <div className="ml-auto flex items-center gap-2">
+            {/* Which restaurant is this, and the code staff type into the
+                Rider / Order Taker apps — on screen for every function. */}
+            <RestaurantIdentityChip />
             <BranchSelector />
 
             <HeaderClock />

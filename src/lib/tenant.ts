@@ -35,6 +35,12 @@ export function clearTenant() {
   localStorage.removeItem(TENANT_NAME_KEY);
   // Remove legacy global cache so old data never leaks into a new tenant login.
   try { localStorage.removeItem('desi-pos-data'); } catch {}
+  // The cached restaurant name / workspace code belongs to the tenant that
+  // just left; keeping it would label the next login with the last restaurant.
+  try {
+    localStorage.removeItem('dt-restaurant-identity');
+    localStorage.removeItem('dt-portal-restaurant');
+  } catch {}
   // Notify listeners — sessionIsolation.ts will hard-wipe localStorage,
   // sessionStorage, IndexedDB (Firestore offline) and CacheStorage so the
   // next login on the same browser starts 100% clean.

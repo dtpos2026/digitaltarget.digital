@@ -215,6 +215,12 @@ export function portalUpdateMe(
 export async function portalLogout(): Promise<void> {
   const token = getPortalToken();
   setPortalToken(null);
+  // Same reason as clearTenant(): the next rider to sign in on this phone
+  // must not see the previous restaurant's name in the header.
+  try {
+    localStorage.removeItem('dt-restaurant-identity');
+    localStorage.removeItem('dt-portal-restaurant');
+  } catch { /* private mode */ }
   if (!token || !isSupabaseConfigured()) return;
   try { await sb().rpc('portal_logout' as never, { p_token: token } as never); }
   catch { /* the local token is already gone, which is what matters here */ }

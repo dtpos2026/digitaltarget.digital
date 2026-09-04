@@ -2,8 +2,8 @@
 // The code only helps the shared DT Rider / DT Order Taker apps tell two
 // restaurants apart when a username is reused — it is NOT a credential.
 import { useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { getTenantId } from '@/lib/tenant';
+import { resolveRestaurantIdentity } from '@/lib/restaurantIdentity';
 import { Button } from '@/components/ui/button';
 import { Copy, KeyRound, Users, BookOpen, CheckCircle2, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
@@ -36,46 +36,25 @@ export default function WorkspaceCodeCard() {
 
   const read = async () => {
     const tid = getTenantId();
-    if (!tid) {
-      setState({ kind: 'unavailable', why: 'This device is not linked to a restaurant yet.' });
-      return;
-    }
     setState({ kind: 'loading' });
     try {
-      // Direct read works for cloud-signed-in owners.
-      const { data } = await supabase
-        .from('tenants')
-        .select('workspace_code')
-        .eq('id', tid)
-        .maybeSingle();
-      let wc = (data as { workspace_code?: string } | null)?.workspace_code ?? null;
-      if (!wc) {
-        // Fallback for local/staff sessions with no cloud session yet.
-        const { data: rpc } = await supabase.rpc('get_workspace_code', { _tenant_id: tid });
-        wc = (rpc as string | null) ?? null;
-      }
-      // v1.39.0 — the code the staff login already brought back.
+      // v1.45.0 — one resolver for the whole app.
       //
-      // Both reads above resolve through auth_tenant_id(), which needs a
-      // Supabase auth session. A POS staff member signs in with a username and
-      // a PIN and has none, so both returned nothing and this card used to tell
-      // the person at the till to go and find the owner — for a code the till
-      // is the one being asked for.
-      //
-      // staff_login_check now returns it on a successful login, and LoginPage
-      // stores it. Last, not first: a live server read still wins, so a code
-      // rotated on the server is not masked by a stale one on the device.
-      if (!wc) {
-        const { getSavedWorkspaceCode } = await import('@/lib/staffPortalAuth');
-        wc = getSavedWorkspaceCode() || null;
-      }
+      // This card used to do its own three reads and give up. It now asks the
+      // same resolver the header chip, the Rider badge and the Order Taker use,
+      // so there is no longer a device where the header knows the code and this
+      // card claims it does not exist. The resolver covers all four session
+      // kinds: cloud owner, staff PIN, portal token, and offline cache.
+      const id = await resolveRestaurantIdentity();
+      if (id.workspaceCode) { setState({ kind: 'ready', code: id.workspaceCode }); return; }
 
-      if (wc) setState({ kind: 'ready', code: wc });
-      else setState({
+      setState({
         kind: 'unavailable',
-        why: navigator.onLine === false
-          ? 'No internet — the code is stored on the server.'
-          : 'Sign in again to read it — this device has not stored it yet.',
+        why: !tid && !id.tenantId
+          ? 'This device is not linked to a restaurant yet.'
+          : navigator.onLine === false
+            ? 'No internet — the code is stored on the server.'
+            : 'Sign in again to read it — this device has not stored it yet.',
       });
     } catch (e: any) {
       setState({ kind: 'unavailable', why: e?.message || 'Could not reach the server.' });

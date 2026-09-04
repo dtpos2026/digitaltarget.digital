@@ -342,7 +342,7 @@ function OrderTakerNav({ user, logo, onLogout, shareLocation, onToggleLocation }
           : <div className="h-8 w-8 rounded-lg bg-white/20 flex items-center justify-center"><ClipboardList className="h-4 w-4" /></div>}
         <div className="flex-1 min-w-0">
           <div className="text-sm font-extrabold leading-tight truncate">Order Taker</div>
-          <PortalRestaurantBadge compact />
+          <PortalRestaurantBadge compact showCode />
           <div className="text-[10px] opacity-80 truncate">{user.name} · {getTenantName() || 'Restaurant'}</div>
         </div>
         <Button

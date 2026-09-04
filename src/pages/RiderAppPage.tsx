@@ -451,7 +451,7 @@ export default function RiderAppPage() {
           <div className="font-extrabold truncate">{rider.name}</div>
           <div className="text-[11px] opacity-80">{rider.phone}</div>
           {/* v1.43.0 — whose app this is. One build serves every restaurant. */}
-          <div className="mt-0.5"><PortalRestaurantBadge compact /></div>
+          <div className="mt-0.5"><PortalRestaurantBadge compact showCode /></div>
         </div>
         <Button size="sm" variant={tracking ? 'default' : 'secondary'} onClick={toggleTracking} className={tracking ? 'bg-green-600 hover:bg-green-700 text-white' : ''}>
           <Radio className={`h-4 w-4 mr-1 ${tracking ? 'animate-pulse' : ''}`} />
