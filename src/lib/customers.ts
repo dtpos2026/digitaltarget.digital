@@ -2,6 +2,7 @@
 import { CustomerProfile, CustomerGrade, Order } from './types';
 import { getCustomers, getOrders } from './store';
 import { normalizePhone } from './whatsapp';
+import { primaryAddress } from '@/lib/customerAddress';
 
 export const GRADE_THRESHOLDS = {
   platinum: 50000,
@@ -35,7 +36,7 @@ export function searchCustomers(q: string, limit = 8): CustomerProfile[] {
     .filter(c => {
       if (c.name?.toLowerCase().includes(s)) return true;
       if (digits && (c.phone || '').replace(/\D/g, '').includes(digits)) return true;
-      const addr = (c.fullAddress || c.addresses?.[0] || '').toLowerCase();
+      const addr = primaryAddress(c).toLowerCase();
       if (addr.includes(s)) return true;
       return false;
     })

@@ -36,6 +36,7 @@ import BillingStatusBar from '@/components/BillingStatusBar';
 import { useRestrictedAction } from '@/components/RestrictedActionGate';
 import { logStaffAction } from '@/lib/staffAudit';
 import { computeBillTotals } from '@/lib/taxEngine';
+import { primaryAddress } from '@/lib/customerAddress';
 
 const DEALS_CATEGORY_ID = 'cat-deals';
 
@@ -244,7 +245,7 @@ export default function POSScreen() {
         if (c) {
           setCustName(c.name || '');
           setCustPhone(c.phone || '');
-          setCustAddress(c.fullAddress || c.addresses?.[0] || '');
+          setCustAddress(primaryAddress(c));
           setOrderType('delivery');
           toast.success(`Customer loaded: ${c.name}`);
         }
@@ -2141,7 +2142,7 @@ export default function POSScreen() {
               mode="name" value={custName} onChange={setCustName}
               onSelect={(c) => {
                 setCustName(c.name || ''); setCustPhone(c.phone || '');
-                setCustAddress(c.fullAddress || c.addresses?.[0] || '');
+                setCustAddress(primaryAddress(c));
                 if (c.lat != null && c.lng != null) { setCustLat(c.lat); setCustLng(c.lng); setCustLocAt(c.locationCapturedAt); }
                 if (c.province) setCustProvince(c.province);
                 if (c.city) setCustCity(c.city);
@@ -2154,7 +2155,7 @@ export default function POSScreen() {
               mode="phone" value={custPhone} onChange={setCustPhone}
               onSelect={(c) => {
                 setCustName(c.name || ''); setCustPhone(c.phone || '');
-                setCustAddress(c.fullAddress || c.addresses?.[0] || '');
+                setCustAddress(primaryAddress(c));
                 if (c.lat != null && c.lng != null) { setCustLat(c.lat); setCustLng(c.lng); setCustLocAt(c.locationCapturedAt); }
                 if (c.province) setCustProvince(c.province);
                 if (c.city) setCustCity(c.city);

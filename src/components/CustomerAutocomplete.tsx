@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { searchCustomers, gradeColor, computeGrade } from '@/lib/customers';
 import { CustomerProfile } from '@/lib/types';
 import { Search, Phone, User as UserIcon, Clock } from 'lucide-react';
+import { primaryAddress } from '@/lib/customerAddress';
 
 interface Props {
   value: string;
@@ -89,8 +90,8 @@ export default function CustomerAutocomplete({ value, onChange, onSelect, mode =
                   <span>{money((c.totalSpent || 0))}</span>
                   {c.lastOrderAt && <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{new Date(c.lastOrderAt).toLocaleDateString()}</span>}
                 </div>
-                {(c.fullAddress || c.addresses?.[0]) && (
-                  <div className="text-[10px] text-muted-foreground truncate mt-0.5">{c.fullAddress || c.addresses[0]}</div>
+                {primaryAddress(c) && (
+                  <div className="text-[10px] text-muted-foreground truncate mt-0.5">{primaryAddress(c)}</div>
                 )}
               </button>
             );

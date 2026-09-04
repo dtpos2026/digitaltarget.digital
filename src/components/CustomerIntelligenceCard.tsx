@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { MessageCircle, MapPin, Phone, Trophy, ShoppingBag, Wallet, Calendar, Repeat, Star } from 'lucide-react';
 import { normalizePhone, openWhatsApp } from '@/lib/whatsapp';
 import { toast } from 'sonner';
+import { primaryAddress } from '@/lib/customerAddress';
 
 interface Props {
   customer: CustomerProfile;
@@ -30,7 +31,7 @@ export default function CustomerIntelligenceCard({ customer }: Props) {
     );
   };
 
-  const fullAddr = customer.fullAddress || customer.addresses?.[0] || '';
+  const fullAddr = primaryAddress(customer);
 
   return (
     <div className="space-y-3">

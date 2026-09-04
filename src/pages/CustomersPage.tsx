@@ -15,6 +15,7 @@ import { normalizePhone, openWhatsApp } from '@/lib/whatsapp';
 import CustomerIntelligenceCard from '@/components/CustomerIntelligenceCard';
 import { gradeColor, birthdaysWithin, daysUntilBirthday, ageOnNextBirthday } from '@/lib/customers';
 import * as XLSX from 'xlsx';
+import { primaryAddress } from '@/lib/customerAddress';
 
 function diffMinutes(a?: string, b?: string): number | null {
   if (!a || !b) return null;
@@ -113,7 +114,7 @@ export default function CustomersPage() {
       return {
         Name: c.name,
         Phone: c.phone,
-        Address: c.fullAddress || c.addresses?.[0] || '',
+        Address: primaryAddress(c),
         City: c.city || '',
         Area: c.area || '',
         Latitude: c.lat ?? '',
@@ -237,9 +238,9 @@ export default function CustomersPage() {
                    </div>
                   </div>
                 </div>
-                {c.addresses[0] && (
+                {primaryAddress(c) && (
                   <div className="text-[11px] text-muted-foreground flex items-start gap-1">
-                    <MapPin className="h-3 w-3 mt-0.5 shrink-0" /> <span>{c.addresses[0]}</span>
+                    <MapPin className="h-3 w-3 mt-0.5 shrink-0" /> <span>{primaryAddress(c)}</span>
                   </div>
                 )}
                 {c.lastOrderAt && (

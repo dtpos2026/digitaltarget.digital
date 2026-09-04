@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { MapPin, Users, TrendingUp, Award, Filter, Search, Phone, Plus } from 'lucide-react';
+import { primaryAddress } from '@/lib/customerAddress';
 
 type Range = 'today' | 'week' | 'month' | 'year' | 'all';
 
@@ -124,7 +125,7 @@ export default function CustomerMapPage() {
           <div style="font-family:system-ui;min-width:220px">
             <div style="font-weight:700;font-size:14px">${escapeHtml(c.name)}</div>
             <div style="font-size:11px;color:#64748b;margin-bottom:4px">${escapeHtml(c.phone)}</div>
-            <div style="font-size:11px;margin:2px 0">${escapeHtml(c.fullAddress || c.addresses?.[0] || '')}</div>
+            <div style="font-size:11px;margin:2px 0">${escapeHtml(primaryAddress(c))}</div>
             ${dist ? `<div style="font-size:11px;color:#0f766e;margin:2px 0"><b>📏 ${dist}</b> from restaurant</div>` : ''}
             <div style="font-size:10px;color:#475569;margin:2px 0">Source: <b>${src.toUpperCase()}</b>${ip ? ` · IP: ${ip}` : ''}</div>
             <div style="font-size:11px;margin-top:4px"><b>${c.totalOrders}</b> orders · <b>${money((c.totalSpent || 0))}</b></div>
