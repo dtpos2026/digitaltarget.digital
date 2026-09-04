@@ -105,6 +105,11 @@ export function portalBootstrap(): Promise<PortalResult<PortalBootstrap>> {
     floors: Array.isArray(r.floors) ? r.floors : [],
     riders: Array.isArray(r.riders) ? r.riders : [],
     orders: Array.isArray(r.orders) ? r.orders : [],
+    // v1.43.0 — the menu and the restaurant's identity travel with everything
+    // else, from the same token, in the same round trip.
+    categories: Array.isArray(r.categories) ? r.categories : undefined,
+    menuItems:  Array.isArray(r.menuItems)  ? r.menuItems  : undefined,
+    restaurant: (r.restaurant ?? null) as PortalRestaurant | null,
   }));
 }
 
@@ -129,6 +134,43 @@ export function portalTables(): Promise<PortalResult<{ tables: any[]; floors: an
 /** Confirm the session is still good, and who it belongs to. */
 export function portalMe(): Promise<PortalResult<Record<string, any>>> {
   return call('portal_me', {}, (r) => r);
+}
+
+/** Which restaurant this app belongs to — name, branch, logo, workspace code. */
+export interface PortalRestaurant {
+  ok?: boolean;
+  tenantId?: string;
+  name?: string;
+  slug?: string;
+  workspaceCode?: string;
+  branchName?: string;
+  logoUrl?: string | null;
+}
+
+/**
+ * REPORTED: "Rider App mein wazeh hona chahiye ke ye kis restaurant ki app
+ * hai." The staff apps are one build serving every restaurant, so the identity
+ * has to come from the session rather than the bundle.
+ */
+export function portalRestaurant(): Promise<PortalResult<PortalRestaurant>> {
+  return call('portal_restaurant', {}, (r) => r as PortalRestaurant);
+}
+
+/**
+ * This rider's finished deliveries, and their totals.
+ *
+ * REPORTED: "Rider ke completed orders ka record nazar nahi aata." Kept apart
+ * from portal_orders, which returns the LIVE list — a working screen wants the
+ * few, a history wants the many, and mixing them makes both slower.
+ */
+export function portalMyHistory(limit = 100): Promise<PortalResult<{
+  orders: Array<Record<string, unknown>>;
+  totals: { delivered?: number; today?: number; earnings?: number };
+}>> {
+  return call('portal_my_history', { p_limit: limit }, (r) => ({
+    orders: Array.isArray(r.orders) ? r.orders : [],
+    totals: (r.totals ?? {}) as { delivered?: number; today?: number; earnings?: number },
+  }));
 }
 
 // ===== v1.41.0 — the writes =====

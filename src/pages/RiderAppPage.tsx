@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { setLocationConsent, startLocationTracking, stopLocationTracking } from '@/lib/staffLocation';
 import { money } from '@/lib/currency';
 import { getOrders, saveOrder, getUsers, getRiders, saveRider, getSettings, refreshOrdersFromCloud, onDataChange } from '@/lib/store';
@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Bike, MapPin, Phone, Navigation, CheckCircle, Truck, PackageCheck, ChefHat, XCircle, Radio, RefreshCw, User as UserIcon } from 'lucide-react';
+import { Bike, MapPin, Phone, Navigation, CheckCircle, Truck, PackageCheck, ChefHat, XCircle, Radio, RefreshCw, User as UserIcon, History as HistoryIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { normalizePhone, openWhatsApp } from '@/lib/whatsapp';
 import { buildTrackingMessage, setDeliveryStage, DELIVERY_STAGE_LABEL, computeDistance, estimateEta, notifyCustomerStage } from '@/lib/delivery';
@@ -15,6 +15,7 @@ import DeliveryRouteMap from '@/components/DeliveryRouteMap';
 import ReadyNotificationBus from '@/components/ReadyNotificationBus';
 import ReadyOrderPoller from '@/components/ReadyOrderPoller';
 import { portalClaimOrder, portalSetDeliveryStage } from '@/lib/portalData';
+import PortalRestaurantBadge from '@/components/PortalRestaurantBadge';
 
 const STAGE_FLOW: { stage: DeliveryStatus; label: string; icon: any; color: string }[] = [
   { stage: 'rider_picked',  label: 'Picked Up',     icon: PackageCheck, color: 'bg-amber-500 hover:bg-amber-600 text-white' },
@@ -89,6 +90,13 @@ export default function RiderAppPage() {
           const res = await portalOrders();
           if (res.ok) {
             const { adoptPortalRows } = await import('@/lib/store');
+            // v1.43.0 — REPORTED: the app must say which restaurant it is.
+            // One build serves every restaurant, so the name comes from the
+            // session and is cached for the next cold start.
+            try {
+              const rest = (res.data as { restaurant?: { name?: string; branchName?: string } }).restaurant;
+              if (rest?.name) localStorage.setItem('dt-portal-restaurant', JSON.stringify(rest));
+            } catch { /* private mode */ }
             await adoptPortalRows({ orders: res.data });
           } else if (res.reason === 'no_session' && !cancel) {
             toast.error(res.message);
@@ -221,6 +229,32 @@ export default function RiderAppPage() {
     const start = new Date(); start.setHours(0, 0, 0, 0);
     return orders.filter(o => o.riderId === rider.id && o.deliveredAt && new Date(o.deliveredAt).getTime() >= start.getTime());
   }, [orders, rider]);
+
+  // ===== v1.43.0 — the rider's own record =====
+  //
+  // REPORTED: "Rider App mein ek rider ke completed orders ka proper
+  // record/history nazar nahi aata. Rider ko wazeh dikhna chahiye ke usne
+  // kitne orders complete kiye aur history mehfooz rahe."
+  //
+  // The tiles above count LOCAL orders, so they reset with the device and show
+  // nothing on a fresh install. This is the server's copy, scoped to this rider
+  // by their token, so the record survives a reinstall and a new phone.
+  const [history, setHistory] = useState<{
+    orders: Array<Record<string, unknown>>;
+    totals: { delivered?: number; today?: number; earnings?: number };
+  } | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+
+  const loadHistory = useCallback(async () => {
+    try {
+      const { hasPortalSession, portalMyHistory } = await import('@/lib/portalData');
+      if (!hasPortalSession()) return;
+      const res = await portalMyHistory(100);
+      if (res.ok) setHistory(res.data);
+    } catch { /* the local tiles still show today */ }
+  }, []);
+
+  useEffect(() => { void loadHistory(); }, [loadHistory, tick]);
 
   const claimOrder = async (o: Order) => {
     if (!rider) return;
@@ -416,6 +450,8 @@ export default function RiderAppPage() {
         <div className="flex-1 min-w-0">
           <div className="font-extrabold truncate">{rider.name}</div>
           <div className="text-[11px] opacity-80">{rider.phone}</div>
+          {/* v1.43.0 — whose app this is. One build serves every restaurant. */}
+          <div className="mt-0.5"><PortalRestaurantBadge compact /></div>
         </div>
         <Button size="sm" variant={tracking ? 'default' : 'secondary'} onClick={toggleTracking} className={tracking ? 'bg-green-600 hover:bg-green-700 text-white' : ''}>
           <Radio className={`h-4 w-4 mr-1 ${tracking ? 'animate-pulse' : ''}`} />
@@ -429,12 +465,66 @@ export default function RiderAppPage() {
         )}
       </div>
 
-      {/* Stats */}
+      {/* Stats — the server's count when it has one, so a reinstall does not
+          reset the rider's record; the local tally is the offline fallback. */}
       <div className="grid grid-cols-3 gap-2">
         <StatTile label="Active" value={myOrders.length} accent="text-blue-600" />
-        <StatTile label="Done Today" value={completedToday.length} accent="text-green-600" />
-        <StatTile label="Earnings" value={`${money(completedToday.reduce((s, o) => s + (o.grandTotal || 0), 0))}`} accent="text-primary" small />
+        <StatTile label="Done Today" value={history?.totals?.today ?? completedToday.length} accent="text-green-600" />
+        <StatTile
+          label="Earnings"
+          value={money(history?.totals?.earnings ?? completedToday.reduce((s, o) => s + (o.grandTotal || 0), 0))}
+          accent="text-primary"
+          small
+        />
       </div>
+
+      {/* My record — every delivery this rider has completed, kept server-side */}
+      <button
+        type="button"
+        onClick={() => { setShowHistory(v => !v); void loadHistory(); }}
+        className="w-full rounded-lg border bg-card px-3 py-2 flex items-center justify-between text-xs font-semibold"
+      >
+        <span className="flex items-center gap-1.5">
+          <HistoryIcon className="h-3.5 w-3.5" />
+          My Deliveries
+          {typeof history?.totals?.delivered === 'number' && (
+            <span className="text-muted-foreground font-normal">
+              ({history.totals.delivered} total)
+            </span>
+          )}
+        </span>
+        <span className="text-muted-foreground">{showHistory ? 'Hide' : 'Show'}</span>
+      </button>
+
+      {showHistory && (
+        <div className="space-y-1.5">
+          {(history?.orders?.length ?? 0) === 0 && (
+            <Card className="p-4 text-center text-xs text-muted-foreground">
+              No completed deliveries yet.
+            </Card>
+          )}
+          {history?.orders?.map((h) => {
+            const o = h as Record<string, string | number | null>;
+            return (
+              <Card key={String(o.id)} className="p-2.5 flex items-center gap-2 text-xs">
+                <div className="min-w-0 flex-1">
+                  <div className="font-bold">#{String(o.orderNumber ?? '')}</div>
+                  <div className="text-[11px] text-muted-foreground truncate">
+                    {String(o.customerName ?? 'Customer')}
+                    {o.address ? ` · ${String(o.address)}` : ''}
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <div className="font-bold text-primary">{money(Number(o.grandTotal) || 0)}</div>
+                  <div className="text-[10px] text-muted-foreground">
+                    {o.deliveredAt ? new Date(String(o.deliveredAt)).toLocaleDateString() : ''}
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
 
       {myPos && (
         <div className="text-[10px] text-muted-foreground text-center">

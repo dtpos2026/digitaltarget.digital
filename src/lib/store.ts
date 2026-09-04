@@ -3005,6 +3005,19 @@ export async function adoptPortalRows(input: {
   floors?: any[] | null;
   riders?: any[] | null;
   orders?: any[] | null;
+  // v1.43.0 — the menu comes with the bootstrap now.
+  //
+  // REPORTED: "Order Taker mein menu properly show nahi hota. Kabhi menu nazar
+  // nahi aata lekin order phir bhi place ho jata hai."
+  //
+  // The portal used to take everything EXCEPT the menu from portal_bootstrap,
+  // and left the menu to initStore()'s ordinary cloud load — a different path
+  // with different failure modes. When that half failed the screen still
+  // worked, because the POS allows a manual line, so an order could be placed
+  // against a menu that was never there. One source now, so it cannot
+  // half-load.
+  categories?: any[] | null;
+  menuItems?: any[] | null;
 }): Promise<void> {
   // Awaited rather than raced: a lazy import that has not resolved yet would
   // adopt raw Postgres column names on the first login of every session, and
@@ -3028,6 +3041,12 @@ export async function adoptPortalRows(input: {
   // there is nothing to translate.
   adopt('riders', input.riders);
   adopt('orders', input.orders);
+
+  // Only when the server actually sent a menu. An empty array is a real answer
+  // ("this restaurant has no items"); undefined means this bootstrap predates
+  // v1.43.0, and wiping a cached menu over that would be worse than the bug.
+  if (Array.isArray(input.categories)) adopt('categories', input.categories, 'categories');
+  if (Array.isArray(input.menuItems))  adopt('menuItems',  input.menuItems,  'menu_items');
 
   if (!touched) return;
   saveLocal(data);

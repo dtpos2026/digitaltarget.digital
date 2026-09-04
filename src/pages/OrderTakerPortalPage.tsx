@@ -23,6 +23,7 @@ import { LogOut, ShoppingCart, LayoutGrid, FileText, ClipboardList, MapPin, MapP
 import PoweredByBrand from '@/components/PoweredByBrand';
 import { logStaffAction } from '@/lib/staffAudit';
 import { hasLocationConsent, setLocationConsent, startLocationTracking, stopLocationTracking } from '@/lib/staffLocation';
+import PortalRestaurantBadge from '@/components/PortalRestaurantBadge';
 
 const SESSION_KEY = 'pos-order-taker-session';
 
@@ -61,6 +62,13 @@ export default function OrderTakerPortalPage() {
           const res = await portalBootstrap();
           if (res.ok) {
             const { adoptPortalRows } = await import('@/lib/store');
+            // v1.43.0 — REPORTED: the app must say which restaurant it is.
+            // One build serves every restaurant, so the name comes from the
+            // session and is cached for the next cold start.
+            try {
+              const rest = (res.data as { restaurant?: { name?: string; branchName?: string } }).restaurant;
+              if (rest?.name) localStorage.setItem('dt-portal-restaurant', JSON.stringify(rest));
+            } catch { /* private mode */ }
             await adoptPortalRows(res.data);
           } else if (res.reason === 'no_session') {
             toast.error(res.message);
@@ -334,6 +342,7 @@ function OrderTakerNav({ user, logo, onLogout, shareLocation, onToggleLocation }
           : <div className="h-8 w-8 rounded-lg bg-white/20 flex items-center justify-center"><ClipboardList className="h-4 w-4" /></div>}
         <div className="flex-1 min-w-0">
           <div className="text-sm font-extrabold leading-tight truncate">Order Taker</div>
+          <PortalRestaurantBadge compact />
           <div className="text-[10px] opacity-80 truncate">{user.name} · {getTenantName() || 'Restaurant'}</div>
         </div>
         <Button
