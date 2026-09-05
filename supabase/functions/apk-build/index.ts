@@ -109,10 +109,37 @@ Deno.serve(async (req) => {
   const appId = String(body.app_id ?? "").trim();
   const apps = String(body.apps ?? "Customer").trim();
   const refreshBundle = body.refresh_bundle === true;
+  // v1.48.0 — the workflow has taken these since the version inputs were added,
+  // and this function did not pass them, so every build a Super Admin started
+  // from the panel shipped versionCode 1. Android refuses to install a build
+  // whose versionCode is not HIGHER than the installed one, so the second APK
+  // handed to a restaurant failed with INSTALL_FAILED_VERSION_DOWNGRADE and the
+  // only way through was to uninstall — losing the staff member's session.
+  const versionCode = String(body.version_code ?? "").trim();
+  const appVersion = String(body.app_version ?? "").trim();
 
   if (tenantId && !UUID.test(tenantId)) return json({ error: "tenant_id is not a uuid" }, 400);
   if (appId && !PACKAGE_ID.test(appId)) return json({ error: "app_id is not a valid Android package id" }, 400);
   if (!APPS.includes(apps)) return json({ error: `apps must be one of ${APPS.join(", ")}` }, 400);
+  if (versionCode && !/^[1-9][0-9]{0,8}$/.test(versionCode)) {
+    return json({ error: "version_code must be a whole number, 1 or greater" }, 400);
+  }
+  if (appVersion && !/^[0-9]+(\.[0-9]+){0,3}$/.test(appVersion)) {
+    return json({ error: "app_version must look like 1.2.3" }, 400);
+  }
+
+  // The staff apps are ONE build for every restaurant: the login decides which
+  // one, so a tenant here would brand every rider's phone with whichever
+  // restaurant happened to be selected when the build was started. That is
+  // exactly what put "BUTT BBQ" on the DT Rider icon.
+  if ((apps === "Rider" || apps === "OrderTaker") && tenantId) {
+    return json({
+      error: "staff_apps_are_shared",
+      message:
+        "DT Rider and DT Order Taker are one build for every restaurant — the " +
+        "login decides which one. Build them without a restaurant selected.",
+    }, 400);
+  }
 
   // ------------------------------------------------------------------ dispatch
   const ghRes = await fetch(
@@ -135,6 +162,8 @@ Deno.serve(async (req) => {
           // GitHub's workflow_dispatch inputs are strings even when the
           // workflow declares them boolean.
           refresh_bundle: String(refreshBundle),
+          version_code: versionCode,
+          app_version: appVersion,
           release: "false",
         },
       }),

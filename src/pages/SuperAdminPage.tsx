@@ -28,6 +28,7 @@ import SuperAdminMessages from '@/components/SuperAdminMessages';
 import SuperAdminReports from '@/components/SuperAdminReports';
 import PackagesManager from '@/components/PackagesManager';
 import CustomerAppsManager from '@/components/CustomerAppsManager';
+import StaffAppsBuilder from '@/components/StaffAppsBuilder';
 import PlansManager from '@/components/PlansManager';
 import BrandSignaturePanel from '@/components/BrandSignaturePanel';
 import MarketingContactsPanel from '@/components/MarketingContactsPanel';
@@ -1260,12 +1261,21 @@ export default function SuperAdminPage({ onLogout }: Props) {
             planExpiryAt: r.planExpiryAt,
           }))} />
         ) : tab === 'customerApps' ? (
-          <CustomerAppsManager
-            restaurants={rows.map(r => ({
-              tenantId: r.tenantId || r.id,
-              name: r.restaurantName || r.email || (r.tenantId || r.id),
-            }))}
-          />
+          <div className="space-y-6">
+            <CustomerAppsManager
+              restaurants={rows.map(r => ({
+                tenantId: r.tenantId || r.id,
+                name: r.restaurantName || r.email || (r.tenantId || r.id),
+              }))}
+            />
+            {/* v1.48.0 — the two staff apps could not be built from here at
+                all; the panel above hard-coded apps:'Customer'. They are one
+                shared build, so they get their own section rather than a
+                per-restaurant row. */}
+            <div className="border-t pt-5">
+              <StaffAppsBuilder />
+            </div>
+          </div>
         ) : tab === 'packages' ? (
           <div className="space-y-4">
             <BrandSignaturePanel />

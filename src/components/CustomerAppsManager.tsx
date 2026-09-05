@@ -70,6 +70,23 @@ function blank(tenantId: string, name: string): AppConfig {
   };
 }
 
+/**
+ * A versionCode Android will accept, derived from the version name.
+ *
+ * Android compares versionCode as a plain integer and refuses anything not
+ * higher than what is installed, so it has to rise with every release. Deriving
+ * it from the version name means the operator maintains ONE number instead of
+ * two that can disagree: 1.2.3 -> 10203, 2.0.0 -> 20000.
+ */
+export function versionCodeFor(version: string): string {
+  const parts = String(version || '').trim().split('.').map(n => parseInt(n, 10));
+  if (!parts.length || Number.isNaN(parts[0])) return '';
+  const [maj = 0, min = 0, patch = 0] = parts.map(n => (Number.isNaN(n) ? 0 : n));
+  if (min > 99 || patch > 99) return '';           // outside what this encoding fits
+  const code = maj * 10000 + min * 100 + patch;
+  return code > 0 ? String(code) : '';
+}
+
 export default function CustomerAppsManager({ restaurants }: CustomerAppsManagerProps) {
   const [configs, setConfigs] = useState<Record<string, AppConfig>>({});
   const [loading, setLoading] = useState(true);
@@ -205,6 +222,16 @@ export default function CustomerAppsManager({ restaurants }: CustomerAppsManager
           app_id: appId,
           apps: 'Customer',
           refresh_bundle: true,
+          // v1.48.0 — the version travels with the build.
+          //
+          // These were never sent, so every APK started from this panel shipped
+          // versionCode 1. Android refuses to install a build whose versionCode
+          // is not HIGHER than the installed one, so the SECOND APK handed to a
+          // restaurant failed with INSTALL_FAILED_VERSION_DOWNGRADE and the
+          // only way through was to uninstall — which signs the customer out
+          // and loses their saved addresses.
+          app_version: cfg.appVersion || '',
+          version_code: versionCodeFor(cfg.appVersion),
         },
       });
       // A non-2xx from an edge function arrives as an error whose body holds
