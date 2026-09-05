@@ -254,3 +254,83 @@ describe('7. the heavy libraries load with the button, not with the page', () =>
     expect(f).toContain("await import('jspdf')");
   });
 });
+
+describe('8. the Order Taker bill that arrived empty', () => {
+  const store = code('src/lib/supabaseStore.ts');
+  const M = sql('20260905160000_v1_52_0_legacy_total_and_repair.sql');
+
+  it('the document wins over the legacy column on a pull', () => {
+    // payload.grandTotal = Number(row.total ?? payload.grandTotal) || 0
+    // `total` is the legacy column, which portal_upsert_order never fills, so
+    // it sat at 0 — and `0 ?? x` is 0, never a fallthrough. The column's zero
+    // beat the document's 590, and the next save wrote the zero INTO the
+    // document. One pull destroyed the figure.
+    expect(store).toContain('Number(payload.grandTotal ?? row.grand_total ?? row.total) || 0');
+    expect(store).not.toContain('Number(row.total ?? payload.grandTotal) || 0');
+  });
+
+  it('the trigger keeps total and grand_total equal', () => {
+    expect(M).toContain('new.grand_total := coalesce((d->>\'grandTotal\')::numeric, new.grand_total)');
+    expect(M).toContain('new.total       := coalesce((d->>\'grandTotal\')::numeric, new.total)');
+  });
+
+  it('repairs only documents that contradict themselves', () => {
+    // netOfTax is grandTotal minus tax. With tax 0, "netOfTax 590 and
+    // grandTotal 0" is arithmetically impossible — that invariant, not a
+    // guess, is what makes the repair safe.
+    expect(M).toContain("coalesce((o.data->>'netOfTax')::numeric, 0) > 0");
+    expect(M).toContain("coalesce((o.data->>'grandTotal')::numeric, 0) = 0");
+  });
+
+  it('cross-checks the restored figure against the line items', () => {
+    expect(M).toContain("sum((it->>'lineTotal')::numeric)");
+  });
+});
+
+describe('9. "Order not found" for an order that exists', () => {
+  const store = code('src/lib/store.ts');
+  const page = code('src/pages/TrackOrderPage.tsx');
+
+  it('calls the RPC directly, not only through the website origin', () => {
+    // Order #1046 was in the table the whole time. The lookup went through a
+    // TanStack server function on the website's own origin, which the packaged
+    // app is not serving and which throws with no service-role key.
+    const fn = store.slice(store.indexOf('export async function getOrderFromCloudByLookup'),
+                           store.indexOf('if (!useFirestore()) return null;'));
+    expect(fn).toContain("rpc('public_track_order'");
+    // the server function stays as the fallback
+    expect(fn).toContain('trackPublicOrder');
+    expect(fn.indexOf("rpc('public_track_order'")).toBeLessThan(fn.indexOf('trackPublicOrder'));
+  });
+
+  it('a failed lookup is no longer reported as "not found"', () => {
+    expect(page).toContain('reachError');
+    expect(page).toContain('Could not check right now');
+    // and a real miss still says so
+    expect(page).toContain('Order not found. Check the order #');
+  });
+});
+
+describe('10. the Edge Function the browser could never reach', () => {
+  const fn = code('supabase/functions/apk-build/index.ts');
+
+  it('answers the CORS preflight before asking for a token', () => {
+    // "Failed to send a request to the Edge Function" is a fetch that never
+    // completed. With verify_jwt on, the gateway 401s the OPTIONS preflight —
+    // which carries no Authorization header by definition — so the browser
+    // blocked the real request and no line of this function ever ran.
+    const optionsAt = fn.indexOf('req.method === "OPTIONS"');
+    const authAt = fn.indexOf('const authHeader');
+    expect(optionsAt).toBeGreaterThan(-1);
+    expect(optionsAt).toBeLessThan(authAt);
+  });
+
+  it('still verifies the caller and still demands super admin', () => {
+    // The gateway check moved INTO the function; it was not removed.
+    expect(fn).toContain('/auth/v1/user');
+    expect(fn).toContain('is_super_admin');
+    expect(fn).toContain('"super admin only"');
+    expect(fn).toContain('401');
+    expect(fn).toContain('403');
+  });
+});

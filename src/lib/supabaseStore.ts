@@ -599,7 +599,33 @@ export function rowFromDb(row: Record<string, any>, table?: string): Record<stri
     if (table && table !== 'orders') return { ...columnsFromDb(row), ...payload };
     payload.orderNumber = row.order_number ?? payload.orderNumber;
     payload.status = row.status || payload.status || 'running';
-    payload.grandTotal = Number(row.total ?? payload.grandTotal) || 0;
+    // ===== v1.52.0 — the line that emptied every Order Taker bill =====
+    //
+    // REPORTED, repeatedly: "Order Taker se order aata hai, punch bhi hota
+    // hai, lekin POS software mein amount 0 hota hai."
+    //
+    // This was it:
+    //
+    //     payload.grandTotal = Number(row.total ?? payload.grandTotal) || 0;
+    //
+    // `total` is the LEGACY column. portal_upsert_order — the Order Taker's
+    // write path — stores the document and does not fill it, so it sits at 0.
+    // And `0 ?? x` is 0: nullish coalescing falls through on null/undefined,
+    // never on zero. So the column's 0 won, the document's 590 was discarded,
+    // and the next save on that device wrote the 0 back INTO the document.
+    // One pull was enough to destroy the figure permanently.
+    //
+    // The fingerprint is still in the data: order #1042 has grandTotal 0 and
+    // netOfTax 590, and netOfTax is grandTotal minus tax. Nothing overlays
+    // netOfTax, so it kept the number grandTotal lost.
+    //
+    // The document is the RECORD; the columns are an index of it. So the
+    // document wins, and the columns are only a fallback for rows that have no
+    // document — a customer-website order no till has synced back yet.
+    // `??` is still correct here: a genuine zero in the document (a cancelled
+    // or comped bill) must stay zero, and only null/undefined falls through.
+    payload.grandTotal =
+      Number(payload.grandTotal ?? row.grand_total ?? row.total) || 0;
     payload.items = Array.isArray(payload.items) ? payload.items : [];
     payload.payments = Array.isArray(payload.payments) ? payload.payments : [];
     payload.archivedAt = row.archived_at ? new Date(row.archived_at).getTime() : undefined;

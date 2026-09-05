@@ -2255,15 +2255,43 @@ export async function getOrderFromCloudByLookup(orderNo: string | number, phoneL
       const tenantId = getTenantId();
       const orderNumber = Number(orderNo);
       if (!tenantId || !Number.isInteger(orderNumber) || orderNumber <= 0) return null;
-      const { trackPublicOrder } = await import('./publicPortal.functions');
       const { normalizeTrackedOrder } = await import('./trackedOrder');
+      const args = {
+        p_tenant: tenantId,
+        p_order_id: null,
+        p_order_number: orderNumber,
+        p_phone_last4: phoneLast4 || null,
+        p_table_label: tableLabel || null,
+      };
+
+      // ===== v1.52.0 — the RPC direct, not through the website's origin =====
+      //
+      // REPORTED: order #1046 exists — paid, Rs 410, phone ending 3354 — and
+      // the tracking page said "Order not found". Called directly the RPC
+      // returns it in full, so the lookup was never the problem: it went
+      // through a TanStack server function on the WEBSITE'S origin, which the
+      // packaged app is not serving and which throws on any deployment without
+      // a service-role key. The catch below turned that into "not found", and
+      // the customer was sent to re-check a number that was correct.
+      //
+      // Direct first (public_track_order is anon-granted since v1.52.0, with
+      // its own guard unchanged), server function second — so nothing that
+      // works today stops working.
+      const { sb } = await import('./supabase');
+      const { data, error } = await sb().rpc('public_track_order' as never, args as never);
+      if (!error) return normalizeTrackedOrder(data as any);
+
+      const { trackPublicOrder } = await import('./publicPortal.functions');
       return normalizeTrackedOrder(await trackPublicOrder({ data: {
         tenantId, orderId: null, orderNumber,
         phoneLast4: phoneLast4 || null, tableLabel: tableLabel || null,
       } }));
     } catch (e) {
+      // Rethrow so the caller can tell "this order does not exist" from "we
+      // could not ask". Reporting both as "not found" is what made a working
+      // order look like a wrong number.
       console.error('[store] public order number lookup failed', e);
-      return null;
+      throw e instanceof Error ? e : new Error(String(e));
     }
   }
   if (!useFirestore()) return null;

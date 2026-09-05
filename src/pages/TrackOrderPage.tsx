@@ -87,18 +87,32 @@ export default function TrackOrderPage() {
       return phoneMatch || tableMatch;
     };
     let found = byId && match(byId) ? byId : null;
-    if (!found && Number.isFinite(num)) found = await getOrderFromCloudByLookup(num, last4, tNorm);
+    // v1.52.0 — a lookup that could not RUN is not a lookup that found nothing.
+    // Telling a customer "order not found" when the call itself failed sends
+    // them to re-check a number that was correct. Order #1046 was reported
+    // exactly that way.
+    let reachError: string | null = null;
+    const lookup = async () => {
+      if (found || !Number.isFinite(num)) return;
+      try { found = await getOrderFromCloudByLookup(num, last4, tNorm); }
+      catch (e: any) { reachError = e?.message || 'Could not reach the server.'; }
+    };
+    await lookup();
     if (!found) { try { await refreshOrdersFromCloud(); } catch {} }
     if (!found) found = getOrders().find(match) ?? null;
     // Retry once after a small delay in case the snapshot was still in flight
     if (!found) {
       await new Promise(r => setTimeout(r, 800));
       if (initial.id) found = await getOrderFromCloudById(initial.id);
-      if (!found && Number.isFinite(num)) found = await getOrderFromCloudByLookup(num, last4, tNorm);
+      await lookup();
       if (!found) { try { await refreshOrdersFromCloud(); } catch {} }
       if (!found) found = getOrders().find(match) ?? null;
     }
     setSearching(false);
+    if (!found && reachError) {
+      toast.error(`Could not check right now — ${reachError} Please try again.`);
+      return;
+    }
     if (!found) { toast.error('Order not found. Check the order # / last 4 digits of the mobile.'); return; }
     setOrder(found);
   };

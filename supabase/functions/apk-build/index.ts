@@ -1,6 +1,21 @@
 /**
  * apk-build — start a branded APK build for one restaurant, from Super Admin.
  *
+ * WHY verify_jwt IS OFF (and why that is not a weakening)
+ *
+ * REPORTED from Super Admin: "Failed to send a request to the Edge Function".
+ *
+ * That is supabase-js's message for a fetch that never completed — not a
+ * refusal from this code, which was never reached. With verify_jwt ON, the
+ * gateway rejects the browser's CORS PREFLIGHT: an OPTIONS request carries no
+ * Authorization header by definition, so it is answered 401, the browser
+ * blocks the real request, and the button fails before a single line here runs.
+ *
+ * The gateway check is turned off and the SAME check is done below, where the
+ * preflight can be answered first: the caller's own JWT is verified against
+ * auth.getUser, then is_super_admin() is asked WITH THAT TOKEN. A caller with
+ * no token gets 401 and a restaurant owner gets 403, exactly as before.
+ *
  * WHY A FUNCTION AND NOT A FETCH FROM THE BROWSER
  *
  * Starting a GitHub Actions run needs a token with write access to the
@@ -37,6 +52,7 @@ const CORS = {
   "access-control-allow-origin": "*",
   "access-control-allow-headers": "authorization, x-client-info, apikey, content-type",
   "access-control-allow-methods": "POST, OPTIONS",
+  "access-control-max-age": "86400",
 };
 
 const json = (body: unknown, status = 200) =>
@@ -50,6 +66,7 @@ const PACKAGE_ID = /^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/;
 const APPS = ["all", "Customer", "Rider", "OrderTaker"];
 
 Deno.serve(async (req) => {
+  // Answered FIRST, before any auth. This is the request that was failing.
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
 
@@ -62,18 +79,6 @@ Deno.serve(async (req) => {
   if (!SUPABASE_URL || !SERVICE_KEY) {
     return json({ error: "the function is not configured" }, 500);
   }
-  if (!GH_TOKEN) {
-    // Said plainly, because this is the one failure an operator can fix, and a
-    // generic 500 would send them looking at the wrong thing entirely.
-    return json({
-      error: "no_build_token",
-      message:
-        "APK builds are not set up yet. Add a GITHUB_APK_TOKEN secret to this " +
-        "Supabase project: a fine-grained GitHub token with Actions read+write " +
-        "on " + GH_REPO + ". Until then, run the workflow from GitHub directly.",
-    }, 501);
-  }
-
   // ---------------------------------------------------------------- who asks
   const authHeader = req.headers.get("authorization") ?? "";
   const jwt = authHeader.replace(/^Bearer\s+/i, "").trim();
@@ -100,6 +105,19 @@ Deno.serve(async (req) => {
   });
   const isSuper = adminRes.ok && (await adminRes.json()) === true;
   if (!isSuper) return json({ error: "super admin only" }, 403);
+
+  if (!GH_TOKEN) {
+    // Said plainly, because this is the one failure an operator can fix, and a
+    // generic 500 would send them looking at the wrong thing entirely.
+    return json({
+      error: "no_build_token",
+      message:
+        "APK builds are not set up yet. Add a GITHUB_APK_TOKEN secret to this " +
+        "Supabase project: a fine-grained GitHub token with Actions read+write " +
+        "on " + GH_REPO + ". Until then, run the workflow from GitHub directly.",
+    }, 501);
+  }
+
 
   // ------------------------------------------------------------- what to build
   let body: Record<string, unknown>;
