@@ -19,8 +19,7 @@ import { versionCodeFor } from '@/lib/appVersionCode';
 import { APP_THEMES, themeFor, contrastWithWhite } from '@/lib/appThemes';
 import {
   Smartphone, Search, Save, Palette, MessageCircle, Package,
-  CheckCircle2, XCircle, Loader2,
-} from 'lucide-react';
+  CheckCircle2, XCircle, Loader2, Upload, Image as ImageIcon } from 'lucide-react';
 
 /** Every feature the customer app can be sold with. */
 const FEATURES = [
@@ -71,11 +70,81 @@ function blank(tenantId: string, name: string): AppConfig {
   };
 }
 
+/**
+ * ===== v1.53.0 — upload the icon, don't go and find hosting for it =====
+ *
+ * REQUESTED: "jahan link maanga tha icon ki, wahan UPLOAD icon maang lein — ye
+ * usi restaurant ki uid mein save ho, generate pe automatically icon change
+ * kar le."
+ *
+ * Asking for a URL made the operator find image hosting first, and then the
+ * APK build depended on a stranger's server still serving that file weeks
+ * later. The file now goes into our own bucket under the restaurant's own id,
+ * and the URL is written straight onto its row, so Build APK picks it up with
+ * no copy-paste step.
+ *
+ * The browser never writes to storage: the branding bucket has a public READ
+ * policy and no write policy, and the Edge Function builds the path from the
+ * tenant id it checked — the uploader never names the file.
+ */
+async function uploadBrandImage(
+  tenantId: string,
+  kind: 'icon' | 'logo',
+  file: File,
+): Promise<{ ok: true; url: string } | { ok: false; message: string }> {
+  const ALLOWED = ['image/png', 'image/jpeg', 'image/webp'];
+  if (!ALLOWED.includes(file.type)) {
+    return { ok: false, message: 'Choose a PNG, JPG or WEBP image.' };
+  }
+  if (file.size > 4 * 1024 * 1024) {
+    return { ok: false, message: 'That image is over 4 MB — please use a smaller one.' };
+  }
+
+  const base64 = await new Promise<string>((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onerror = () => reject(new Error('Could not read that file.'));
+    fr.onload = () => {
+      const t = String(fr.result || '');
+      const at = t.indexOf(',');
+      resolve(at >= 0 ? t.slice(at + 1) : t);
+    };
+    fr.readAsDataURL(file);
+  });
+
+  const { sb } = await import('@/lib/supabase');
+  const { data, error } = await sb().functions.invoke('app-icon', {
+    body: { tenant_id: tenantId, kind, contentType: file.type, base64 },
+  });
+
+  const r = data as { ok?: boolean; url?: string; reason?: string } | null;
+  if (r?.ok && r.url) return { ok: true, url: r.url };
+
+  // supabase-js turns any non-2xx into an error and leaves data null, so the
+  // reason the server gave is in the response body. Without reading it the
+  // operator is told "upload failed" when the server said exactly what was
+  // wrong.
+  let reason = r?.reason ?? '';
+  if (!reason && error) {
+    try { reason = (await (error as any).context?.json())?.reason ?? ''; } catch { /* body read */ }
+  }
+  const WHY: Record<string, string> = {
+    not_signed_in: 'Sign in again — the session has expired.',
+    super_admin_only: 'Only Digital Target can change app branding.',
+    too_large: 'That image is too large.',
+    bad_type: 'Choose a PNG, JPG or WEBP image.',
+    not_an_image: 'That file is not an image.',
+    not_configured: 'Icon upload is not configured on the server yet.',
+    upload_failed: 'The upload did not complete. Check your internet and try again.',
+  };
+  return { ok: false, message: WHY[reason] ?? (error?.message || 'The image could not be uploaded.') };
+}
+
 export default function CustomerAppsManager({ restaurants }: CustomerAppsManagerProps) {
   const [configs, setConfigs] = useState<Record<string, AppConfig>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [building, setBuilding] = useState<string | null>(null);
+  const [uploading, setUploading] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState<string | null>(null);
 
@@ -336,13 +405,41 @@ export default function CustomerAppsManager({ restaurants }: CustomerAppsManager
                     <Input value={cfg.whatsappNumber} inputMode="numeric"
                       onChange={e => edit(tenantId, { whatsappNumber: e.target.value })} />
                   </Field>
-                  <Field label="Logo URL">
-                    <Input value={cfg.logoUrl}
-                      onChange={e => edit(tenantId, { logoUrl: e.target.value })} />
+                  <Field label="Logo" hint="Upload a file, or paste a link if you already host one">
+                    <BrandImageField
+                      tenantId={tenantId}
+                      kind="logo"
+                      value={cfg.logoUrl}
+                      busy={uploading === `${tenantId}:logo`}
+                      onChange={v => edit(tenantId, { logoUrl: v })}
+                      onUpload={async (file) => {
+                        setUploading(`${tenantId}:logo`);
+                        try {
+                          const r = await uploadBrandImage(tenantId, 'logo', file);
+                          if (!r.ok) { toast.error(r.message); return; }
+                          edit(tenantId, { logoUrl: r.url });
+                          toast.success('Logo uploaded and saved to this restaurant');
+                        } finally { setUploading(null); }
+                      }}
+                    />
                   </Field>
-                  <Field label="App icon URL" hint="512×512 PNG — used as the launcher icon">
-                    <Input value={cfg.iconUrl}
-                      onChange={e => edit(tenantId, { iconUrl: e.target.value })} />
+                  <Field label="App icon" hint="512×512 PNG — becomes the launcher icon on the phone">
+                    <BrandImageField
+                      tenantId={tenantId}
+                      kind="icon"
+                      value={cfg.iconUrl}
+                      busy={uploading === `${tenantId}:icon`}
+                      onChange={v => edit(tenantId, { iconUrl: v })}
+                      onUpload={async (file) => {
+                        setUploading(`${tenantId}:icon`);
+                        try {
+                          const r = await uploadBrandImage(tenantId, 'icon', file);
+                          if (!r.ok) { toast.error(r.message); return; }
+                          edit(tenantId, { iconUrl: r.url });
+                          toast.success('Icon uploaded — Build APK will use it');
+                        } finally { setUploading(null); }
+                      }}
+                    />
                   </Field>
 
                   {/*
@@ -512,5 +609,67 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
       {children}
       {hint && <div className="text-[10px] text-muted-foreground mt-1">{hint}</div>}
     </label>
+  );
+}
+
+/**
+ * An image the operator can UPLOAD, with the pasted link kept as an option for
+ * anyone who already hosts one. Shows what is currently set, because "is the
+ * icon actually there?" was previously answerable only by building the APK.
+ */
+function BrandImageField({ tenantId, kind, value, busy, onChange, onUpload }: {
+  tenantId: string;
+  kind: 'icon' | 'logo';
+  value: string;
+  busy: boolean;
+  onChange: (v: string) => void;
+  onUpload: (file: File) => void | Promise<void>;
+}) {
+  const inputId = `brand-${kind}-${tenantId}`;
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-2">
+        <div className="h-11 w-11 rounded-lg border bg-muted overflow-hidden flex items-center justify-center shrink-0">
+          {value
+            ? <img src={value} alt="" className="h-full w-full object-cover"
+                   onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+            : <ImageIcon className="h-4 w-4 text-muted-foreground" />}
+        </div>
+        <input
+          id={inputId}
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          className="hidden"
+          onChange={e => {
+            const f = e.target.files?.[0];
+            e.target.value = '';
+            if (f) void onUpload(f);
+          }}
+        />
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={busy}
+          onClick={() => document.getElementById(inputId)?.click()}
+        >
+          {busy
+            ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+            : <Upload className="h-3.5 w-3.5 mr-1" />}
+          {busy ? 'Uploading…' : 'Upload'}
+        </Button>
+        {value && (
+          <Button type="button" size="sm" variant="ghost" onClick={() => onChange('')}>
+            Clear
+          </Button>
+        )}
+      </div>
+      <Input
+        value={value}
+        placeholder="…or paste a link"
+        onChange={e => onChange(e.target.value)}
+        className="text-xs"
+      />
+    </div>
   );
 }

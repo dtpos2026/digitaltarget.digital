@@ -334,3 +334,47 @@ describe('10. the Edge Function the browser could never reach', () => {
     expect(fn).toContain('403');
   });
 });
+
+describe('11. uploading the app icon instead of hunting for hosting', () => {
+  const fn = code('supabase/functions/app-icon/index.ts');
+  const ui = code('src/components/CustomerAppsManager.tsx');
+
+  it('the path comes from the tenant, never from the uploader', () => {
+    // Otherwise one restaurant's icon could land on another's.
+    expect(fn).toContain('`app-icons/${tenantId}/${kind}.${EXT[contentType]}`');
+    expect(fn).not.toMatch(/body\.(path|filename|folder|key)/);
+  });
+
+  it('is super admin only, checked with the CALLER\'s token', () => {
+    // Asking with the service key would answer for the service role and let
+    // anyone through.
+    expect(fn).toContain('/auth/v1/user');
+    expect(fn).toContain('is_super_admin');
+    expect(fn).toContain('super_admin_only');
+    expect(fn).toContain('authorization: `Bearer ${jwt}`');
+  });
+
+  it('answers the preflight before asking for a token', () => {
+    const optionsAt = fn.indexOf('req.method === "OPTIONS"');
+    const authAt = fn.indexOf('const jwt =');
+    expect(optionsAt).toBeGreaterThan(-1);
+    expect(optionsAt).toBeLessThan(authAt);
+  });
+
+  it('refuses a file that is not the image it claims to be', () => {
+    expect(fn).toContain('looksLikeImage');
+    expect(fn).toContain('not_an_image');
+  });
+
+  it('records the URL on the restaurant row so Build APK just uses it', () => {
+    expect(fn).toContain('customer_apps?tenant_id=eq.');
+    expect(fn).toContain('kind === "icon" ? "icon_url" : "logo_url"');
+  });
+
+  it('the form offers an upload, and still accepts a pasted link', () => {
+    expect(ui).toContain('uploadBrandImage');
+    expect(ui).toContain('function BrandImageField');
+    expect(ui).toContain('…or paste a link');
+    expect(ui).toContain("accept=\"image/png,image/jpeg,image/webp\"");
+  });
+});
