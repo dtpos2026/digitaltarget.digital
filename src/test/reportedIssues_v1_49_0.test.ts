@@ -74,8 +74,24 @@ describe('2. every shift the restaurant ever opened was rejected', () => {
     // design. A shift without a device pointer is still a complete cash
     // record; a rejected shift is nothing at all.
     const fn = store.slice(store.indexOf('function registeredDeviceFk'),
-                           store.indexOf('function getSyncDeviceIdSafe'));
-    expect(fn).toContain('return getSyncDeviceIdSafe()');
+                           store.indexOf('function localDeviceIdSafe'));
+    expect(fn).toContain('return raw ? null : syncId;');
+  });
+
+  it('never reattributes a record another till created', () => {
+    // A record made on device A carries A's local id in its document. Stamping
+    // OUR registered row onto it would silently move A's shift, or A's sale,
+    // onto this till. Null says "not known", which the column is built for.
+    const fn = store.slice(store.indexOf('function registeredDeviceFk'),
+                           store.indexOf('function localDeviceIdSafe'));
+    expect(fn).toContain('raw === localDeviceIdSafe()');
+    expect(fn).toContain('return raw ? null : syncId;');
+  });
+
+  it('reads both ids through their own accessors, never a copied key', () => {
+    // Two places disagreeing about what "the device id" means IS this bug.
+    expect(store).toContain("import { getDeviceId } from './tenant'");
+    expect(store).not.toContain("localStorage.getItem('pos-device-id')");
   });
 });
 

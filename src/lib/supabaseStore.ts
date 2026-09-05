@@ -19,6 +19,7 @@
 
 import { sb, isSupabaseConfigured } from './supabase';
 import { getSyncDeviceId } from './supabaseSync';
+import { getDeviceId } from './tenant';
 import { authTenantId, authBranchId } from './authProvider';
 import { isPublicTenantRoute, parsePublicTenantId } from './publicTenant';
 
@@ -486,13 +487,32 @@ export function rowToDb(col: string, data: Record<string, any>): Record<string, 
  * wrong way round.
  */
 function registeredDeviceFk(v: any): string | null {
-  const s = v === null || v === undefined ? '' : String(v).trim();
-  // Already the server's own id — the sync layer set it.
-  if (s && UUID_RE.test(s)) {
-    const syncId = getSyncDeviceIdSafe();
-    if (syncId && s === syncId) return s;
-  }
-  return getSyncDeviceIdSafe();
+  const raw = v === null || v === undefined ? '' : String(v).trim();
+  const syncId = getSyncDeviceIdSafe();
+
+  // Already the server's own id: keep it.
+  if (raw && syncId && raw === syncId) return raw;
+
+  // The record was made on THIS machine — its local id is ours — so this
+  // device's registered row is the right one to point at.
+  if (raw && raw === localDeviceIdSafe()) return syncId;
+
+  // Anything else is another device's local id, arriving on a record that
+  // machine created. We cannot resolve someone else's hardware id to their
+  // row from here, and guessing OUR row would silently reattribute their
+  // shift or their sale to this till. Null says "not known", which the column
+  // is designed for.
+  return raw ? null : syncId;
+}
+
+/**
+ * This machine's own local id, through tenant.ts's own accessor.
+ *
+ * Not a second copy of the key: two places disagreeing about what a device id
+ * means is the bug this whole function exists to fix.
+ */
+function localDeviceIdSafe(): string {
+  try { return getDeviceId() || ''; } catch { return ''; }
 }
 
 /**
