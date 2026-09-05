@@ -4,8 +4,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Printer, Download, Receipt as ReceiptIcon, FileImage, FileText } from 'lucide-react';
 import { toast } from 'sonner';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
 import { Invoice, tsToDate, formatRs } from '@/lib/billing';
 import { getPlan } from '@/lib/plans';
 import dtLogo from '@/assets/digital-target-logo.png';
@@ -30,6 +28,10 @@ export default function InvoicePreviewDialog({ invoice, restaurantName, email, t
     const node = mode === 'a4' ? a4Ref.current : posRef.current;
     if (!node) return;
     try {
+      // v1.51.0 — html2canvas (196 KB) and jspdf (392 KB) loaded with this
+      // dialog, so merely OPENING an invoice preview pulled 588 KB the viewer
+      // may never use. Loaded at the click that needs them.
+      const { default: html2canvas } = await import('html2canvas');
       const canvas = await html2canvas(node, {
         scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false,
       });
@@ -50,6 +52,8 @@ export default function InvoicePreviewDialog({ invoice, restaurantName, email, t
     if (!node) return;
     const tId = toast.loading('Generating PDF…');
     try {
+      const { default: html2canvas } = await import('html2canvas');
+      const { default: jsPDF } = await import('jspdf');
       const canvas = await html2canvas(node, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false });
       const imgData = canvas.toDataURL('image/jpeg', 0.92);
       const pdf = mode === 'pos'

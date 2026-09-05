@@ -14,7 +14,6 @@ import { toast } from 'sonner';
 import { normalizePhone, openWhatsApp } from '@/lib/whatsapp';
 import CustomerIntelligenceCard from '@/components/CustomerIntelligenceCard';
 import { gradeColor, birthdaysWithin, daysUntilBirthday, ageOnNextBirthday } from '@/lib/customers';
-import * as XLSX from 'xlsx';
 import { primaryAddress } from '@/lib/customerAddress';
 
 function diffMinutes(a?: string, b?: string): number | null {
@@ -96,7 +95,18 @@ export default function CustomersPage() {
     openWhatsApp(p, `Dear ${c.name},\n\n`);
   };
 
-  const exportExcel = (mode: 'full' | 'phones') => {
+  /**
+   * ===== v1.51.0 — the spreadsheet library loaded with the PAGE, not the button
+   *
+   * `import * as XLSX from 'xlsx'` at the top of this file put 412 KB of
+   * spreadsheet code into this page's chunk, so opening Customers — just to
+   * LOOK at the list — downloaded and parsed all of it, on every visit, on a
+   * till and on a phone. It is needed only when someone clicks Export.
+   *
+   * Loaded at the click instead. Nothing else changes: same output, same file.
+   */
+  const exportExcel = async (mode: 'full' | 'phones') => {
+    const XLSX = await import('xlsx');
     const list = filtered.length ? filtered : customers;
     if (!list.length) { toast.error('No customers to export'); return; }
     // Build phone -> source map (latest order)

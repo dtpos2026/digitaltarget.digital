@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import * as XLSX from 'xlsx';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -99,6 +98,9 @@ export default function MarketingPage() {
   // Excel import: expects columns No / Name / Category (order-agnostic, case-insensitive)
   const handleFile = async (file: File) => {
     try {
+      // v1.51.0 — 412 KB of spreadsheet code, loaded when a file is actually
+      // chosen rather than every time this page opens.
+      const XLSX = await import('xlsx');
       const buf = await file.arrayBuffer();
       const wb = XLSX.read(buf, { type: 'array' });
       const ws = wb.Sheets[wb.SheetNames[0]];
@@ -132,12 +134,13 @@ export default function MarketingPage() {
     }
   };
 
-  const downloadSample = () => {
+  const downloadSample = async () => {
     const data = [
       { No: '0300-1234567', Name: 'Ali Khan', Category: 'Regular' },
       { No: '03211234567', Name: 'Sara Ahmed', Category: 'VIP' },
       { No: '+923331234567', Name: 'Bilal', Category: 'Imported' },
     ];
+    const XLSX = await import('xlsx');
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Contacts');

@@ -227,3 +227,30 @@ describe('6. the performance profile, from real orders', () => {
     }
   });
 });
+
+describe('7. the heavy libraries load with the button, not with the page', () => {
+  it('Customers does not pull the spreadsheet library just to show a list', () => {
+    // `import * as XLSX from 'xlsx'` at the top of the file put 412 KB of
+    // spreadsheet code in this page's dependency graph, fetched every time
+    // someone opened Customers to LOOK at it.
+    const f = raw('src/pages/CustomersPage.tsx');
+    expect(f).not.toMatch(/^import \* as XLSX from 'xlsx';$/m);
+    expect(f).toContain("await import('xlsx')");
+  });
+
+  it('Marketing loads it when a file is chosen', () => {
+    const f = raw('src/pages/MarketingPage.tsx');
+    expect(f).not.toMatch(/^import \* as XLSX from 'xlsx';$/m);
+    expect(f).toContain("await import('xlsx')");
+  });
+
+  it('the invoice preview loads the PDF stack at the click', () => {
+    // html2canvas (196 KB) + jspdf (392 KB) were fetched merely to OPEN a
+    // preview the viewer may never export.
+    const f = raw('src/components/InvoicePreviewDialog.tsx');
+    expect(f).not.toMatch(/^import html2canvas from 'html2canvas';$/m);
+    expect(f).not.toMatch(/^import jsPDF from 'jspdf';$/m);
+    expect(f).toContain("await import('html2canvas')");
+    expect(f).toContain("await import('jspdf')");
+  });
+});
