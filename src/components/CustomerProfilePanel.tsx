@@ -46,39 +46,28 @@ export default function CustomerProfilePanel({
   const [uploading, setUploading] = useState(false);
 
   const uploadPhoto = async (file: File) => {
-    // 2 MB matches the bucket's own file_size_limit; refusing here saves the
-    // customer a slow upload that Postgres would reject at the end anyway.
-    if (file.size > 2 * 1024 * 1024) { toast.error('Please choose a photo under 2 MB.'); return; }
+    // v1.46.0 — this used to call a TanStack server function directly. That
+    // lives on the WEBSITE'S origin, which the packaged app is not serving, so
+    // inside the APK the request had nowhere to land and the photo silently
+    // never appeared. lib/profilePhoto goes to the Supabase Edge Function,
+    // which every surface can reach, and keeps the server function as a
+    // website fallback.
+    const { uploadProfilePhoto, photoErrorMessage, MAX_PHOTO_BYTES } =
+      await import('@/lib/profilePhoto');
+    if (file.size > MAX_PHOTO_BYTES) {
+      toast.error('Please choose a photo under 2 MB.');
+      return;
+    }
+    const { getCustomerToken } = await import('@/lib/customerAccount');
+    const token = getCustomerToken(tenantId);
+    if (!token) { toast.error('Please sign in again.'); return; }
+
     setUploading(true);
     try {
-      const buf = await file.arrayBuffer();
-      let bin = '';
-      const bytes = new Uint8Array(buf);
-      for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-      const { uploadCustomerPhoto } = await import('@/lib/customerPhoto.functions');
-      const { getCustomerToken } = await import('@/lib/customerAccount');
-      const token = getCustomerToken(tenantId);
-      if (!token) { toast.error('Please sign in again.'); return; }
-      const r = await uploadCustomerPhoto({
-        data: {
-          token,
-          contentType: file.type as 'image/jpeg' | 'image/png' | 'image/webp',
-          base64: btoa(bin),
-        },
-      });
-      if (!r.ok) {
-        const why: Record<string, string> = {
-          too_large: 'That photo is too large.',
-          no_session: 'Please sign in again.',
-          app_disabled: 'The app is switched off right now.',
-        };
-        toast.error(why[r.reason] ?? 'The photo could not be saved.');
-        return;
-      }
+      const r = await uploadProfilePhoto({ kind: 'customer', token, file });
+      if (!r.ok) { toast.error(photoErrorMessage(r.reason)); return; }
       setPhotoUrl(r.url);
       toast.success('Photo updated');
-    } catch (e: any) {
-      toast.error(e?.message || 'The photo could not be saved.');
     } finally {
       setUploading(false);
     }

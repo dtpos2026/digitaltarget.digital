@@ -16,6 +16,7 @@ import ReadyNotificationBus from '@/components/ReadyNotificationBus';
 import ReadyOrderPoller from '@/components/ReadyOrderPoller';
 import { portalClaimOrder, portalSetDeliveryStage } from '@/lib/portalData';
 import PortalRestaurantBadge from '@/components/PortalRestaurantBadge';
+import StaffProfileCard from '@/components/StaffProfileCard';
 
 const STAGE_FLOW: { stage: DeliveryStatus; label: string; icon: any; color: string }[] = [
   { stage: 'rider_picked',  label: 'Picked Up',     icon: PackageCheck, color: 'bg-amber-500 hover:bg-amber-600 text-white' },
@@ -477,6 +478,9 @@ export default function RiderAppPage() {
           small
         />
       </div>
+
+      {/* v1.46.0 — the rider's own picture, name and phone. */}
+      <StaffProfileCard onSaved={() => setTick(t => t + 1)} />
 
       {/* My record — every delivery this rider has completed, kept server-side */}
       <button

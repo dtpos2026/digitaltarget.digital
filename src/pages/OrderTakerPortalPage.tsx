@@ -19,11 +19,12 @@ import ServiceCallNotifier from '@/components/ServiceCallNotifier';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { LogOut, ShoppingCart, LayoutGrid, FileText, ClipboardList, MapPin, MapPinOff } from 'lucide-react';
+import { LogOut, ShoppingCart, LayoutGrid, FileText, ClipboardList, MapPin, MapPinOff, UserRound } from 'lucide-react';
 import PoweredByBrand from '@/components/PoweredByBrand';
 import { logStaffAction } from '@/lib/staffAudit';
 import { hasLocationConsent, setLocationConsent, startLocationTracking, stopLocationTracking } from '@/lib/staffLocation';
 import PortalRestaurantBadge from '@/components/PortalRestaurantBadge';
+import StaffProfileCard from '@/components/StaffProfileCard';
 
 const SESSION_KEY = 'pos-order-taker-session';
 
@@ -299,6 +300,9 @@ export default function OrderTakerPortalPage() {
               <Route path="/pos" element={<POSScreen />} />
               <Route path="/tables" element={<TablesPage />} />
               <Route path="/bills" element={<RunningBillsPage />} />
+              {/* v1.46.0 — the order taker's own profile: picture, name, phone,
+                  and which restaurant this app belongs to. */}
+              <Route path="/me" element={<OrderTakerMe />} />
               <Route path="*" element={<POSScreen />} />
             </Routes>
           </Suspense>
@@ -329,9 +333,11 @@ function OrderTakerNav({ user, logo, onLogout, shareLocation, onToggleLocation }
     { key: 'pos', label: 'POS', icon: ShoppingCart, path: `${base}` },
     { key: 'tables', label: 'Tables', icon: LayoutGrid, path: `${base}/tables` },
     { key: 'bills', label: 'Bills', icon: FileText, path: `${base}/bills` },
+    { key: 'me', label: 'Me', icon: UserRound, path: `${base}/me` },
   ];
   const activeKey = location.pathname.endsWith('/tables') ? 'tables'
-    : location.pathname.endsWith('/bills') ? 'bills' : 'pos';
+    : location.pathname.endsWith('/bills') ? 'bills'
+    : location.pathname.endsWith('/me') ? 'me' : 'pos';
 
   return (
     <>
@@ -361,7 +367,7 @@ function OrderTakerNav({ user, logo, onLogout, shareLocation, onToggleLocation }
       </div>
 
       {/* Bottom tab bar (mobile app pattern) */}
-      <div className="grid grid-cols-3 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white border-b border-white/10">
+      <div className="grid grid-cols-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white border-b border-white/10">
         {tabs.map(t => (
           <button
             key={t.key}
@@ -378,5 +384,25 @@ function OrderTakerNav({ user, logo, onLogout, shareLocation, onToggleLocation }
         ))}
       </div>
     </>
+  );
+}
+
+/**
+ * The Order Taker's own screen: their picture, name and phone, and a plain
+ * statement of WHICH restaurant this app is signed in to.
+ *
+ * REPORTED: "order taker ka apna profile" and "pta ho mera restaurant ye ha".
+ */
+function OrderTakerMe() {
+  return (
+    <div className="p-3 space-y-3">
+      <div className="rounded-lg border bg-card p-3">
+        <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
+          You are taking orders for
+        </div>
+        <PortalRestaurantBadge showCode />
+      </div>
+      <StaffProfileCard />
+    </div>
   );
 }
