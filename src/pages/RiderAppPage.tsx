@@ -460,7 +460,19 @@ export default function RiderAppPage() {
         </Button>
         {publicMode && (
           <Button size="sm" variant="ghost" title="Logout" className="text-primary-foreground hover:bg-white/15"
-            onClick={() => { localStorage.removeItem(RIDER_PORTAL_KEY); setRider(null); setLoginPhone(''); setLoginPin(''); }}>
+            onClick={() => {
+              // v1.47.0 — same as the Order Taker: clearing the local rider
+              // left a thirty-day portal token on the phone, so a "logged out"
+              // device could still read this restaurant's orders.
+              localStorage.removeItem(RIDER_PORTAL_KEY);
+              void (async () => {
+                try {
+                  const { portalLogout } = await import('@/lib/portalData');
+                  await portalLogout();
+                } catch { /* the local token is gone either way */ }
+              })();
+              setRider(null); setLoginPhone(''); setLoginPin('');
+            }}>
             <UserIcon className="h-4 w-4" />
           </Button>
         )}

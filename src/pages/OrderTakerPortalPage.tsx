@@ -188,12 +188,27 @@ export default function OrderTakerPortalPage() {
   };
 
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     logStaffAction('LOGOUT');
     stopLocationTracking();
     localStorage.removeItem(SESSION_KEY);
     localStorage.removeItem('pos-user-id');
     localStorage.removeItem('pos-user-role');
+
+    // v1.47.0 — logging out has to end the SERVER session too.
+    //
+    // This cleared the local user and left the portal token in place. The
+    // screen showed a login form while the device still held a token good for
+    // thirty days: everything the portal RPCs serve — this restaurant's menu,
+    // tables, live orders and customers — stayed readable from a phone that
+    // had been "logged out", and would have stayed readable on a lost one.
+    // portalLogout() deletes the session row server-side and clears the cached
+    // restaurant, so the next person starts with nothing.
+    try {
+      const { portalLogout } = await import('@/lib/portalData');
+      await portalLogout();
+    } catch { /* the local token is gone either way, which is what matters */ }
+
     setUser(null);
     setPhone(''); setPin('');
   };
@@ -289,7 +304,7 @@ export default function OrderTakerPortalPage() {
         <OrderTakerNav
           user={user}
           logo={logo}
-          onLogout={handleLogout}
+          onLogout={() => { void handleLogout(); }}
           shareLocation={shareLocation}
           onToggleLocation={toggleShareLocation}
         />

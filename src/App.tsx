@@ -100,6 +100,21 @@ import { isCloudConfigured } from '@/lib/cloudMode';
 import { isFirebaseConfigured, fbAuth } from '@/lib/firebase';
 import { getTenantId, clearTenant } from '@/lib/tenant';
 import { isPublicTenantRoute, applyPublicTenantFromUrl, packagedTenantId } from '@/lib/publicTenant';
+import { applyAppEntry } from '@/lib/appEntry';
+
+// ===== v1.47.0 — a portal APK must never open somebody else's screen =====
+//
+// Runs at import time, BEFORE the component below reads window.location.hash.
+// The Rider and Order Taker APKs are separate installs pointed at this site,
+// and until now the ONLY thing that said which portal to show was the URL
+// fragment — the one part of a URL Android drops on a WebView restore. When it
+// went, the app fell through to "/" and showed the full POS owner login, and
+// the Order Taker could land in the Rider Portal. Reported as both.
+//
+// applyAppEntry() reads ?app=<rider|order-taker|customer>, which the packaged
+// app carries on every load, remembers it, and puts the app back on its own
+// route. A plain website visit carries no marker and is never redirected.
+applyAppEntry();
 import { verifyStartupAuth } from '@/lib/startupVerify';
 import { forceLogoutAndWipe } from '@/lib/sessionIsolation';
 // v1.18.0 — auth now goes through the backend-agnostic adapter.
