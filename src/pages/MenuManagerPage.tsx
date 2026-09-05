@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2, Edit2, Save, ImagePlus, Download, Search, FolderInput, CheckCircle2, XCircle, X, Images, Tags, RotateCcw, Archive, ChevronUp, ChevronDown, Pencil } from 'lucide-react';
+import { Plus, Trash2, Edit2, Save, ImagePlus, Download, Search, FolderInput, CheckCircle2, XCircle, X, Images, Tags, RotateCcw, Archive, ChevronUp, ChevronDown, Pencil, AlertTriangle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { featureActive } from '@/lib/optionalModules';
@@ -216,19 +216,48 @@ export default function MenuManagerPage() {
     else toast.success(summary, { id: toastId });
   };
 
+  /**
+   * ===== v1.49.0 — the items that were never given a price =====
+   *
+   * REPORTED as "bill zero aa raha hai". On the live menu, 53 of 129 items
+   * carried price 0; 41 of those had no size variant and no rate per kg
+   * either, so there was no price anywhere. They showed a confident "Rs.0" on
+   * the till and rang up as Rs 0.
+   *
+   * The POS now refuses to add one silently. This is the other half: the owner
+   * needs to SEE which ones, and get to them in one click, rather than
+   * discovering them a bill at a time.
+   */
+  const unpriced = useMemo(() => items.filter(i =>
+    (i.pricingType ?? 'fixed') === 'fixed'
+    && !(Number(i.price) > 0)
+    && !(i.sizeVariants?.length)
+    && !(i.inchVariants?.length)
+    && !(Number(i.ratePerKg) > 0)
+    && i.isActive !== false
+  ), [items]);
+
+  const unpricedIds = useMemo(() => new Set(unpriced.map(i => i.id)), [unpriced]);
+
   const filteredItems = useMemo(() => {
     return items.filter(i => {
       if (selectedCat !== 'all' && i.categoryId !== selectedCat) return false;
       if (statusFilter === 'active' && i.isActive === false) return false;
       if (statusFilter === 'inactive' && i.isActive !== false) return false;
       if (typeFilter !== 'all' && i.pricingType !== typeFilter) return false;
+      // v1.49.0 — the "Show them" button on the no-price banner. A sentinel
+      // rather than a fourth filter dropdown: it is a one-off repair job, not a
+      // view anyone wants to keep.
+      if (search === '__unpriced__') {
+        return unpricedIds.has(i.id);
+      }
       if (search.trim()) {
         const s = search.trim().toLowerCase();
         if (!i.name.toLowerCase().includes(s)) return false;
       }
       return true;
     });
-  }, [items, selectedCat, statusFilter, typeFilter, search]);
+  }, [items, selectedCat, statusFilter, typeFilter, search, unpricedIds]);
 
   // All existing sub-category names (for autocomplete suggestions)
   const allSubCategories = useMemo(() => {
@@ -355,6 +384,34 @@ export default function MenuManagerPage() {
 
   return (
     <div className="p-4 lg:p-6">
+      {unpriced.length > 0 && search !== '__unpriced__' && (
+        <div className="mb-4 rounded-lg border-2 border-status-warning/50 bg-status-warning/10 p-3 flex flex-wrap items-center gap-3">
+          <AlertTriangle className="h-5 w-5 text-status-warning shrink-0" />
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-bold">
+              {unpriced.length} item{unpriced.length === 1 ? '' : 's'} ha{unpriced.length === 1 ? 's' : 've'} no price
+            </div>
+            <p className="text-xs text-muted-foreground">
+              These show “No price” on the till and cannot be rung up until someone types a
+              price. Set them here and every bill is right from then on.
+            </p>
+          </div>
+          <Button size="sm" variant="outline" onClick={() => { setSearch('__unpriced__'); setSelectedCat('all'); }}>
+            Show them
+          </Button>
+        </div>
+      )}
+      {search === '__unpriced__' && (
+        <div className="mb-4 rounded-lg border bg-card p-3 flex items-center gap-3">
+          <AlertTriangle className="h-4 w-4 text-status-warning shrink-0" />
+          <span className="text-sm font-semibold">
+            Showing the {unpriced.length} item{unpriced.length === 1 ? '' : 's'} with no price
+          </span>
+          <Button size="sm" variant="ghost" className="ml-auto" onClick={() => setSearch('')}>
+            Show all
+          </Button>
+        </div>
+      )}
       <div className="flex items-center gap-2 mb-4 flex-wrap">
         <h2 className="text-lg font-bold">Menu Manager</h2>
         <Button size="sm" variant="outline" onClick={() => setShowCatDialog(true)}><Plus className="h-3 w-3 mr-1" /> Category</Button>

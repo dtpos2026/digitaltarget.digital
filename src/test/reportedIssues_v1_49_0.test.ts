@@ -130,3 +130,40 @@ describe('4. the versionCode that made every update fail to install', () => {
     expect(Number(versionCodeFor('1.1.0'))).toBeGreaterThan(Number(versionCodeFor('1.0.0')));
   });
 });
+
+describe('5. the items that were never given a price', () => {
+  const pos = code('src/pages/POSScreen.tsx');
+  const menu = code('src/pages/MenuManagerPage.tsx');
+
+  it('the till shows "No price" instead of a confident Rs.0', () => {
+    // Live menu: 129 items, 53 at price 0, and 41 of those with no size
+    // variant and no rate per kg either — no price anywhere. "Rs.0" read as a
+    // real price of nothing.
+    expect(pos).toContain('No price');
+    expect(pos).toContain('Number(item.price) > 0');
+  });
+
+  it('adding one asks for the price rather than ringing up zero', () => {
+    const fn = pos.slice(pos.indexOf('const addToCart = useCallback'),
+                         pos.indexOf('// Numpad mode for selected cart item'));
+    expect(fn).toContain("item.pricingType === 'fixed' && !(Number(item.price) > 0)");
+    expect(fn).toContain("setNumpadTarget('price')");
+    // Nothing is invented and nothing is blocked — the cashier can still sell
+    // it, they just have to say for how much.
+    expect(fn).not.toMatch(/price:\s*\d+/);
+  });
+
+  it('the owner can find all of them in one click', () => {
+    expect(menu).toContain('const unpriced = useMemo');
+    expect(menu).toContain("setSearch('__unpriced__')");
+    expect(menu).toContain('unpricedIds.has(i.id)');
+  });
+
+  it('counts an item as priced when a variant or a per-kg rate carries it', () => {
+    const fn = menu.slice(menu.indexOf('const unpriced = useMemo'),
+                          menu.indexOf('const unpricedIds'));
+    expect(fn).toContain('i.sizeVariants?.length');
+    expect(fn).toContain('i.inchVariants?.length');
+    expect(fn).toContain('Number(i.ratePerKg) > 0');
+  });
+});

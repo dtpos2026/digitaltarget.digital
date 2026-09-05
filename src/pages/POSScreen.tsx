@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } fro
 import { money } from '@/lib/currency';
 import { releasedTable } from '@/lib/tableRelease';
 import { sortOrdersNewestFirst, liveOrdersForTable } from '@/lib/orderOrder';
-import { Search, Plus, Minus, Trash2, CreditCard, Pause, Weight, Edit3, ShoppingCart, RotateCcw, Delete, User, Phone, Ban, Gift, XCircle, ChefHat, MessageCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, CreditCard, Pause, Weight, Edit3, ShoppingCart, RotateCcw, Delete, User, Phone, Ban, Gift, XCircle, ChefHat, MessageCircle, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
 import { normalizePhone, buildPaidMessage, buildDeliveryMessage, openWhatsApp } from '@/lib/whatsapp';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -373,6 +373,24 @@ export default function POSScreen() {
     }
     if (itemHasVariants(item)) {
       setVariantPickerItem(item);
+      return;
+    }
+    // ===== v1.49.0 — an item with no price must not ring up as zero =====
+    //
+    // REPORTED as "bill zero aa raha hai". Part of it was the sync mirror
+    // (v1.49.0 migration); the other part is here. 41 live menu items have
+    // price 0, no variants and no rate per kg — never priced, most likely
+    // imported without a price column. Adding one put a Rs 0 line on the bill
+    // and nobody could see why the total was short.
+    //
+    // The price is asked for instead, using the numpad the 'manual' pricing
+    // type already uses. Nothing is invented and nothing is blocked: the
+    // cashier can still sell the item, they just have to say for how much.
+    if (item.pricingType === 'fixed' && !(Number(item.price) > 0)) {
+      toast.warning(`"${item.name}" has no price set — enter it, or fix it in Menu.`);
+      setNumpadItem(item);
+      setNumpadTarget('price');
+      setNumpadValue('');
       return;
     }
     setCart(prev => {
@@ -1473,7 +1491,19 @@ export default function POSScreen() {
                   {hasVar && isFinite(minVarPrice) ? (
                     <span className="dt-menu-price text-xs">From {money(minVarPrice)}</span>
                   ) : item.pricingType === 'fixed' ? (
-                    <span className="dt-menu-price text-sm">{money(item.price)}</span>
+                    /* ===== v1.49.0 — "Rs.0" was not a price, it was a gap =====
+                       53 of this restaurant's 129 items carry no price at all:
+                       41 with no price, no size variant and no rate per kg.
+                       They rendered as a confident "Rs.0" and rang up as Rs 0,
+                       which is where a bill full of items still totals nothing.
+                       A missing price now LOOKS missing. */
+                    Number(item.price) > 0 ? (
+                      <span className="dt-menu-price text-sm">{money(item.price)}</span>
+                    ) : (
+                      <span className="text-[11px] font-bold text-status-warning inline-flex items-center gap-1">
+                        <AlertTriangle className="h-3 w-3" /> No price
+                      </span>
+                    )
                   ) : item.pricingType === 'weight' ? (
                     <span className="text-xs font-bold text-status-teal flex items-center gap-0.5">
                       <Weight className="h-3 w-3" /> {item.ratePerKg.toLocaleString()}/kg
