@@ -20,12 +20,25 @@ import { Input } from '@/components/ui/input';
 
 interface Me { name: string; phone: string; photo: string | null; role: string; username: string }
 
+/** One number, plainly. */
+function Stat({ label, value, accent = '' }: { label: string; value: string | number; accent?: string }) {
+  return (
+    <div className="rounded-lg border bg-background px-2 py-1.5 text-center">
+      <div className="text-[9px] uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className={`text-sm font-extrabold leading-tight ${accent}`}>{value}</div>
+    </div>
+  );
+}
+
+const money = (n: number) => `Rs ${Math.round(Number(n) || 0).toLocaleString()}`;
+
 export default function StaffProfileCard({ onSaved }: { onSaved?: (me: { name: string; phone: string }) => void }) {
   const [open, setOpen] = useState(false);
   const [me, setMe] = useState<Me | null>(null);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [busy, setBusy] = useState(false);
+  const [stats, setStats] = useState<import('@/lib/portalData').PortalStats | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -46,6 +59,13 @@ export default function StaffProfileCard({ onSaved }: { onSaved?: (me: { name: s
       setMe(next);
       setName(next.name);
       setPhone(next.phone);
+
+      // v1.50.0 — the performance figures, straight from the orders.
+      try {
+        const { portalMyStats } = await import('@/lib/portalData');
+        const st = await portalMyStats();
+        if (st.ok && st.data?.ok) setStats(st.data);
+      } catch { /* the profile still works without them */ }
     } catch { /* the card just stays closed */ }
   };
 
@@ -114,6 +134,49 @@ export default function StaffProfileCard({ onSaved }: { onSaved?: (me: { name: s
         </span>
         <span className="ml-auto text-muted-foreground">{open ? 'Hide' : 'Edit'}</span>
       </button>
+
+      {stats && (
+        <div className="border-t px-3 py-2">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
+            My performance
+          </div>
+          {stats.role === 'rider' ? (
+            <div className="grid grid-cols-4 gap-1.5">
+              <Stat label="Assigned"  value={stats.assigned ?? 0} />
+              <Stat label="Delivered" value={stats.delivered ?? 0} accent="text-green-600" />
+              <Stat label="Pending"   value={stats.pending ?? 0} accent="text-amber-600" />
+              <Stat label="Earnings"  value={money(stats.earnings ?? 0)} accent="text-primary" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-4 gap-1.5">
+              <Stat label="Orders"    value={stats.taken ?? 0} />
+              <Stat label="Completed" value={stats.completed ?? 0} accent="text-green-600" />
+              <Stat label="Pending"   value={stats.pending ?? 0} accent="text-amber-600" />
+              <Stat label="Sales"     value={money(stats.sales ?? 0)} accent="text-primary" />
+            </div>
+          )}
+          <div className="mt-1.5 grid grid-cols-4 gap-1.5">
+            {stats.role === 'rider' ? (
+              <>
+                <Stat label="Today"     value={stats.todayDelivered ?? 0} />
+                <Stat label="Today Rs"  value={money(stats.todayEarnings ?? 0)} />
+                <Stat label="Cancelled" value={stats.cancelled ?? 0} accent="text-destructive" />
+                <div />
+              </>
+            ) : (
+              <>
+                <Stat label="Dining"   value={stats.dining ?? 0} />
+                <Stat label="Takeaway" value={stats.takeaway ?? 0} />
+                <Stat label="Delivery" value={stats.delivery ?? 0} />
+                <Stat label="Cancelled" value={stats.cancelled ?? 0} accent="text-destructive" />
+              </>
+            )}
+          </div>
+          <p className="mt-1.5 text-[10px] text-muted-foreground">
+            Counted from the actual bills, kept on the server — a reinstall does not reset it.
+          </p>
+        </div>
+      )}
 
       {open && (
         <div className="border-t p-3 space-y-3">

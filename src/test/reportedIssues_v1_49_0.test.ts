@@ -167,3 +167,47 @@ describe('5. the items that were never given a price', () => {
     expect(fn).toContain('Number(i.ratePerKg) > 0');
   });
 });
+
+describe('6. the performance profile, from real orders', () => {
+  const M = sql('20260905140000_v1_50_0_staff_performance.sql');
+  const card = code('src/components/StaffProfileCard.tsx');
+
+  it('computes at query time, so it cannot drift from the bills', () => {
+    expect(M).toContain('from public.orders o');
+    // Nothing is stored on the profile, so a reinstall cannot reset it.
+    expect(M).not.toMatch(/insert into public\.user_profiles/);
+  });
+
+  it('scopes to the token — a staff member cannot read a colleague', () => {
+    expect(M).toContain('portal_identity(p_token)');
+    expect(M).toContain('o.tenant_id = s.tenant_id');
+    expect(M).toContain('o.rider_id = s.user_id');
+    expect(M).toContain("o.data->>'takenByUserId' = s.user_id::text");
+    expect(M).not.toMatch(/portal_my_stats\(\s*p_user/);
+  });
+
+  it('mirrors the rider onto the column the reports read', () => {
+    // rider_id was null on EVERY row while 68 documents named a rider, so the
+    // live map and every rider report saw nobody.
+    expect(M).toContain('new.rider_id := (d->>\'riderId\')::uuid');
+  });
+
+  it('guards the uuid cast, or the trigger blocks every order write', () => {
+    // 43 documents hold a riderId that is not uuid-shaped, mostly ''. An
+    // unguarded cast raises inside the trigger and no order can be saved.
+    expect(M).toContain("d->>'riderId' ~* '^[0-9a-f]{8}-");
+    expect(M).toContain("elsif coalesce(btrim(d->>'riderId'), '') = ''");
+  });
+
+  it('excludes deleted orders from the numbers', () => {
+    expect(M).toContain('o.deleted_at is null');
+  });
+
+  it('the profile card shows them', () => {
+    expect(card).toContain('portalMyStats');
+    expect(card).toContain("stats.role === 'rider'");
+    for (const k of ['assigned', 'delivered', 'earnings', 'taken', 'completed', 'sales']) {
+      expect(card, k).toContain(k);
+    }
+  });
+});

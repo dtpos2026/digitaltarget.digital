@@ -264,6 +264,34 @@ export function portalVerifyManager(password: string): Promise<PortalResult<{
   return callRaw('portal_verify_manager', { p_password: password });
 }
 
+/**
+ * This staff member's own performance, computed from the orders themselves.
+ *
+ * REQUESTED: "Order Taker ne X orders kiye aur total sales PKR X", and the
+ * rider's deliveries and earnings — from the real database, not dummy numbers.
+ *
+ * Nothing is stored, so it cannot drift from the bills and a reinstall cannot
+ * reset it. Scoped by the token: there is no user parameter, so a staff member
+ * cannot read a colleague's figures.
+ */
+export interface PortalStats {
+  ok?: boolean;
+  role?: string;
+  // rider
+  assigned?: number; delivered?: number; earnings?: number;
+  todayDelivered?: number; todayEarnings?: number;
+  // order taker
+  taken?: number; completed?: number; sales?: number;
+  dining?: number; takeaway?: number; delivery?: number;
+  todayTaken?: number; todaySales?: number;
+  // both
+  pending?: number; cancelled?: number;
+}
+
+export function portalMyStats(): Promise<PortalResult<PortalStats>> {
+  return callRaw<PortalStats>('portal_my_stats', {});
+}
+
 /** End the session server-side, so a lost phone stops being a way in. */
 export async function portalLogout(): Promise<void> {
   const token = getPortalToken();
