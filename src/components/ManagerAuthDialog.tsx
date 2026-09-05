@@ -37,7 +37,41 @@ const AUTH_ROLES = ['admin', 'manager', 'owner'];
  */
 export async function verifyManagerPasswordAsync(
   password: string,
-): Promise<{ ok: boolean; name?: string }> {
+): Promise<{ ok: boolean; name?: string; message?: string }> {
+  // ===== v1.49.0 — the Order Taker could not ask at all =====
+  //
+  // REPORTED: "Order Taker payment pe admin/manager password sahi daalo to
+  // bhi 'Not Valid' aata hai."
+  //
+  // The password was never the problem. verify_manager_password below is
+  // granted to `authenticated` only, and guards on auth_tenant_id(). An Order
+  // Taker holds a portal token, not a Supabase session — it is `anon` with a
+  // null auth.uid() — so the call was refused before it reached the password
+  // comparison, the catch turned that into { ok: false }, and the manager
+  // standing at the till was told their own password was wrong.
+  //
+  // portal_verify_manager resolves the restaurant from the TOKEN (no tenant
+  // parameter exists, so one cannot be spoofed) and locks the SESSION after
+  // five wrong tries — the device guessing, never the manager's account, which
+  // would otherwise let any order taker lock their boss out of the till.
+  try {
+    const { hasPortalSession, portalVerifyManager } = await import('@/lib/portalData');
+    if (hasPortalSession()) {
+      const res = await portalVerifyManager(password);
+      if (!res.ok) return { ok: false, message: res.message };
+      const d = res.data;
+      if (d?.ok) return { ok: true, name: d.name };
+      if (d?.reason === 'locked') {
+        const mins = Math.ceil((d.retryAfterSeconds ?? 900) / 60);
+        return { ok: false, message: `Too many wrong tries. Try again in ${mins} minute${mins === 1 ? '' : 's'}.` };
+      }
+      if (typeof d?.attemptsLeft === 'number') {
+        return { ok: false, message: `Wrong password — ${d.attemptsLeft} tr${d.attemptsLeft === 1 ? 'y' : 'ies'} left.` };
+      }
+      return { ok: false };
+    }
+  } catch { /* not a portal device, or offline — fall through */ }
+
   const { usingSupabaseAuth, authTenantId } = await import('@/lib/authProvider');
   if (!usingSupabaseAuth()) return verifyManagerPassword(password);
 
@@ -90,6 +124,15 @@ export default function ManagerAuthDialog({ open, reason, onAuthorized, onCancel
 
   const submit = async () => {
     const res = await verifyManagerPasswordAsync(password);
+    if (!res.ok && res.message) {
+      // The server said something specific — how many tries are left, or how
+      // long the lockout runs. Replacing that with "Not valid" is how the last
+      // bug stayed invisible for so long.
+      setAttempts(a => a + 1);
+      setError(res.message);
+      setPassword('');
+      return;
+    }
     if (res.ok) {
       setPassword('');
       setError('');

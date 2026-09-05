@@ -98,6 +98,43 @@ async function call<T>(fn: string, args: Record<string, unknown>, pick: (r: any)
   }
 }
 
+/**
+ * Like call(), but for RPCs where `ok: false` is a legitimate ANSWER rather
+ * than a failure — "that password is wrong" is not the same kind of event as
+ * "the server is unreachable", and flattening the two loses everything the
+ * answer carried (how many tries are left, how long a lockout runs).
+ *
+ * An expired or revoked session is still handled as a session problem, so a
+ * dead token clears itself exactly as it does everywhere else.
+ */
+async function callRaw<T extends { ok?: boolean; reason?: string }>(
+  fn: string, args: Record<string, unknown>,
+): Promise<PortalResult<T>> {
+  const token = getPortalToken();
+  if (!token) return { ok: false, reason: 'no_session', message: 'This device is not signed in.' };
+  if (!isSupabaseConfigured()) {
+    return { ok: false, reason: 'error', message: 'This build has no server configured.' };
+  }
+  try {
+    const { data, error } = await sb().rpc(fn as never, { p_token: token, ...args } as never);
+    if (error) return { ok: false, reason: 'offline', message: error.message };
+    const res = data as T;
+    if (res?.reason === 'no_session' || res?.reason === 'inactive') {
+      setPortalToken(null);
+      return {
+        ok: false,
+        reason: 'no_session',
+        message: res.reason === 'inactive'
+          ? 'This account has been switched off. Ask the restaurant admin.'
+          : 'Your session has expired — sign in again.',
+      };
+    }
+    return { ok: true, data: res };
+  } catch (e: any) {
+    return { ok: false, reason: 'offline', message: e?.message || 'Could not reach the server' };
+  }
+}
+
 /** Everything the portal needs on the way in — one round trip, not four. */
 export function portalBootstrap(): Promise<PortalResult<PortalBootstrap>> {
   return call('portal_bootstrap', {}, (r) => ({
@@ -209,6 +246,22 @@ export function portalUpdateMe(
     p_phone: patch.phone ?? null,
     p_photo: patch.photo === undefined ? null : patch.photo,
   }, (r) => r);
+}
+
+/**
+ * Ask this restaurant's own managers whether a password is theirs.
+ *
+ * The POS route (verify_manager_password) needs a Supabase session and is not
+ * granted to anon, so an Order Taker could never reach it — a correct password
+ * came back "Not Valid". This resolves the restaurant from the TOKEN; there is
+ * no tenant parameter to spoof, and five wrong tries lock this SESSION for
+ * fifteen minutes.
+ */
+export function portalVerifyManager(password: string): Promise<PortalResult<{
+  ok?: boolean; name?: string; reason?: string;
+  attemptsLeft?: number; retryAfterSeconds?: number;
+}>> {
+  return callRaw('portal_verify_manager', { p_password: password });
 }
 
 /** End the session server-side, so a lost phone stops being a way in. */

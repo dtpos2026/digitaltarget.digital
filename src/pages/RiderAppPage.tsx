@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Bike, MapPin, Phone, Navigation, CheckCircle, Truck, PackageCheck, ChefHat, XCircle, Radio, RefreshCw, User as UserIcon, History as HistoryIcon } from 'lucide-react';
+import { Bike, MapPin, Phone, Navigation, CheckCircle, Truck, PackageCheck, ChefHat, XCircle, Radio, RefreshCw, User as UserIcon, History as HistoryIcon, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { normalizePhone, openWhatsApp } from '@/lib/whatsapp';
 import { buildTrackingMessage, setDeliveryStage, DELIVERY_STAGE_LABEL, computeDistance, estimateEta, notifyCustomerStage } from '@/lib/delivery';
@@ -71,41 +71,79 @@ export default function RiderAppPage() {
     try { return localStorage.getItem('pos-workspace-code') || ''; } catch { return ''; }
   });
 
+  /**
+   * Fetch this rider's orders from the server.
+   *
+   * A rider has no Supabase session — POS staff are user_profiles rows, not
+   * auth.users — so reading `orders` directly goes as `anon`, which the policy
+   * refuses. portal_orders resolves this device's token to the rider and
+   * returns their own deliveries plus anything still unassigned. (v1.29.0)
+   *
+   * Throws on failure so the caller can decide whether to say so: the 15-second
+   * poll stays quiet, the Refresh button reports.
+   */
+  const pullFromServer = useCallback(async () => {
+    const { hasPortalSession, portalOrders } = await import('@/lib/portalData');
+    if (!hasPortalSession()) { await refreshOrdersFromCloud(); return; }
+
+    const res = await portalOrders();
+    if (!res.ok) throw new Error(res.message || 'Could not load your orders.');
+
+    const { adoptPortalRows } = await import('@/lib/store');
+    await adoptPortalRows({ orders: res.data });
+  }, []);
+
+  // ===== v1.49.0 — REPORTED: "Refresh button kaam nahi karta" =====
+  //
+  // It did nothing of the sort. The button was
+  //
+  //     onClick={() => setOrders(getOrders())}
+  //
+  // which re-reads the LOCAL store and never contacts the server, so a rider
+  // waiting for a new delivery could press it all day and see the same empty
+  // list. The 15-second poll was the only thing that ever fetched, and there
+  // was no way to ask for one.
+  //
+  // The fetch is now a named function both the poll and the button call, with
+  // a visible state, so pressing Refresh does what it says and the rider can
+  // see that it did.
+  const [refreshing, setRefreshing] = useState(false);
+  const refreshBusy = useRef(false);
+
+  const pullOrders = useCallback(async (opts?: { announce?: boolean }) => {
+    // A second press while the first is still in flight would double every
+    // request for no benefit.
+    if (refreshBusy.current) return;
+    refreshBusy.current = true;
+    if (opts?.announce) setRefreshing(true);
+    const before = getOrders().length;
+    try {
+      await pullFromServer();
+      setOrders(getOrders());
+      setTick(x => x + 1);
+      if (opts?.announce) {
+        const after = getOrders().length;
+        toast.success(after > before
+          ? `${after - before} new order${after - before === 1 ? '' : 's'}`
+          : 'Up to date');
+      }
+    } catch (e: any) {
+      // Never silent: a refresh that failed must say so, or the rider assumes
+      // there is genuinely no work.
+      if (opts?.announce) {
+        toast.error(e?.message || 'Could not reach the server. Check your signal.');
+      }
+    } finally {
+      refreshBusy.current = false;
+      if (opts?.announce) setRefreshing(false);
+    }
+  }, []);
+
   // Refresh every 15s — P4 fix: pull from cloud + subscribe to live changes.
   useEffect(() => {
     let cancel = false;
     const pull = async () => {
-      // ===== v1.29.0 — "rider me mujhe koi order hi nahi aaya" =====
-      //
-      // refreshOrdersFromCloud() reads `orders` directly, and a rider has no
-      // Supabase session — POS staff are user_profiles rows, not auth.users. So
-      // every poll went as `anon`, and the orders policy lets anon INSERT (that
-      // is how a customer places one) and never SELECT. The rider app polled
-      // every fifteen seconds and was refused every time, silently.
-      //
-      // portal_orders resolves this device's token to the rider and returns
-      // their own deliveries plus anything still unassigned.
-      try {
-        const { hasPortalSession, portalOrders } = await import('@/lib/portalData');
-        if (hasPortalSession()) {
-          const res = await portalOrders();
-          if (res.ok) {
-            const { adoptPortalRows } = await import('@/lib/store');
-            // v1.43.0 — REPORTED: the app must say which restaurant it is.
-            // One build serves every restaurant, so the name comes from the
-            // session and is cached for the next cold start.
-            try {
-              const rest = (res.data as { restaurant?: { name?: string; branchName?: string } }).restaurant;
-              if (rest?.name) localStorage.setItem('dt-portal-restaurant', JSON.stringify(rest));
-            } catch { /* private mode */ }
-            await adoptPortalRows({ orders: res.data });
-          } else if (res.reason === 'no_session' && !cancel) {
-            toast.error(res.message);
-          }
-        } else {
-          await refreshOrdersFromCloud();
-        }
-      } catch { /* offline — the cached orders below stay on screen */ }
+      try { await pullFromServer(); } catch { /* offline — cached orders stay */ }
       if (!cancel) { setOrders(getOrders()); setTick(x => x + 1); }
     };
     pull();
@@ -124,9 +162,28 @@ export default function RiderAppPage() {
     const ping = () => {
       try {
         if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
-        const fresh = getRiders().find(r => r.id === rider.id);
-        if (!fresh) return;
-        saveRider({ ...fresh, lastSeenAt: new Date().toISOString() });
+
+        // ===== v1.49.0 — the toast that would not stop =====
+        //
+        // REPORTED: "Cloud sync issue — data is saved locally and will retry",
+        // over and over, and "1 change could not be uploaded (riders)".
+        //
+        // This is where it came from. saveRider() queues a cloud write, and a
+        // portal app has no Supabase session, so that write can never succeed —
+        // and this ran EVERY SIXTY SECONDS. One impossible write per minute,
+        // each one queued, each one reported. The error was telling the truth;
+        // the mistake was asking.
+        //
+        // The server already knows the rider is alive: portal_me() stamps
+        // last_seen_at on the session row every time it is called. So on a
+        // portal device the heartbeat goes there, and nothing is queued.
+        void (async () => {
+          const { hasPortalSession, portalMe } = await import('@/lib/portalData');
+          if (hasPortalSession()) { await portalMe(); return; }
+          const fresh = getRiders().find(r => r.id === rider.id);
+          if (!fresh) return;
+          saveRider({ ...fresh, lastSeenAt: new Date().toISOString() });
+        })();
       } catch {}
     };
     ping();
@@ -303,7 +360,15 @@ export default function RiderAppPage() {
       // Rider loyalty + lifetime delivered count
       try {
         const s = getSettings();
-        if (rider && s?.riderLoyaltyEnabled !== false) {
+        // v1.49.0 — on a portal device this counter is the SERVER'S to keep.
+        //
+        // portal_my_history derives delivered counts and earnings from the
+        // orders themselves, which is both authoritative and survives a
+        // reinstall. Writing a second copy here queued a cloud write the phone
+        // could never make, so every completed delivery produced another
+        // "1 change could not be uploaded (riders)".
+        const { hasPortalSession } = await import('@/lib/portalData');
+        if (rider && s?.riderLoyaltyEnabled !== false && !hasPortalSession()) {
           const fresh = getRiders().find(r => r.id === rider.id) || rider;
           const inc = Math.max(0, s?.riderLoyaltyPerDelivery ?? 1);
           saveRider({
@@ -458,9 +523,16 @@ export default function RiderAppPage() {
           <Radio className={`h-4 w-4 mr-1 ${tracking ? 'animate-pulse' : ''}`} />
           {tracking ? 'LIVE' : 'Go Live'}
         </Button>
+        {/* ===== v1.49.0 — REPORTED: "profile icon dabao to logout ho jata hai" =====
+            It did, and the icon was a PERSON with title="Logout". Every rider
+            who tapped it expecting their profile was signed out instead. The
+            profile now lives in the card below; this is a logout button and it
+            finally looks like one, and it asks first. */}
         {publicMode && (
-          <Button size="sm" variant="ghost" title="Logout" className="text-primary-foreground hover:bg-white/15"
+          <Button size="sm" variant="ghost" title="Log out" aria-label="Log out"
+            className="text-primary-foreground hover:bg-white/15"
             onClick={() => {
+              if (!window.confirm('Log out of DT Rider? You will need your username and PIN to sign back in.')) return;
               // v1.47.0 — same as the Order Taker: clearing the local rider
               // left a thirty-day portal token on the phone, so a "logged out"
               // device could still read this restaurant's orders.
@@ -473,7 +545,7 @@ export default function RiderAppPage() {
               })();
               setRider(null); setLoginPhone(''); setLoginPin('');
             }}>
-            <UserIcon className="h-4 w-4" />
+            <LogOut className="h-4 w-4" />
           </Button>
         )}
       </div>
@@ -581,8 +653,15 @@ export default function RiderAppPage() {
         </div>
       )}
 
-      <Button variant="outline" size="sm" className="w-full" onClick={() => setOrders(getOrders())}>
-        <RefreshCw className="h-3 w-3 mr-1" /> Refresh
+      <Button
+        variant="outline"
+        size="sm"
+        className="w-full"
+        disabled={refreshing}
+        onClick={() => void pullOrders({ announce: true })}
+      >
+        <RefreshCw className={`h-3 w-3 mr-1 ${refreshing ? 'animate-spin' : ''}`} />
+        {refreshing ? 'Refreshing…' : 'Refresh'}
       </Button>
     </div>
   );

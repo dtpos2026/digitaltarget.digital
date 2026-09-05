@@ -150,11 +150,55 @@ describe('the client half', () => {
 
 describe('the apps actually use it', () => {
   it('the rider polls through the portal rather than the blocked path', () => {
-    const pull = rider.slice(rider.indexOf('const pull = async'), rider.indexOf('const t = setInterval'));
+    // v1.49.0 — the fetch moved out of the poll's closure into a named
+    // function so the Refresh BUTTON can call the same code. The guarantee is
+    // unchanged and is still asserted here: portal first, direct read only for
+    // a session-backed staff route.
+    const pull = rider.slice(rider.indexOf('const pullFromServer = useCallback'),
+                             rider.indexOf('useEffect(() => {', rider.indexOf('const pullFromServer')));
     expect(pull).toContain('portalOrders()');
     expect(pull).toContain('hasPortalSession()');
     // The old call stays as the fallback for a session-backed staff route.
     expect(pull).toContain('refreshOrdersFromCloud()');
+  });
+
+  // Assert on CODE, not on prose: these fixes are described in comments that
+  // quote the very strings being banned, and a comment is not a bug.
+  const riderCode = rider
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .split('\n').filter(l => !l.trim().startsWith('//') && !l.trim().startsWith('*')).join('\n');
+
+  it('the Refresh button fetches from the server, not from the local store', () => {
+    // REPORTED: "refresh kaam nahi karta". It re-read the device's own cache,
+    // so it could never show an order the device had not already seen.
+    expect(riderCode).toContain('void pullOrders({ announce: true })');
+    expect(riderCode).not.toContain('onClick={() => setOrders(getOrders())}');
+  });
+
+  it('a portal rider never queues a heartbeat it cannot upload', () => {
+    // saveRider() every 60s from a device with no Supabase session is where
+    // the endless "Cloud sync issue — data is saved locally" came from.
+    const beat = riderCode.slice(riderCode.indexOf('const ping = () =>'),
+                                 riderCode.indexOf('const onVis ='));
+    expect(beat).toContain('hasPortalSession()');
+    expect(beat).toContain('portalMe()');
+    expect(beat.indexOf('portalMe()')).toBeLessThan(beat.indexOf('saveRider('));
+  });
+
+  it('a portal rider does not queue the loyalty counter either', () => {
+    // The server derives delivered counts from the orders; a second local copy
+    // was one more impossible write per completed delivery.
+    const loyalty = riderCode.slice(riderCode.indexOf('riderLoyaltyEnabled'),
+                                    riderCode.indexOf('totalDeliveries:'));
+    expect(loyalty).toContain('!hasPortalSession()');
+  });
+
+  it('the person icon no longer signs the rider out', () => {
+    // REPORTED: "profile icon dabao to logout ho jata hai" — the icon was a
+    // person and its title said Logout.
+    expect(riderCode).not.toContain('title="Logout"');
+    expect(riderCode).toContain('aria-label="Log out"');
+    expect(riderCode).toContain('window.confirm(');
   });
 
   it('the order taker fetches tables, riders and orders on the way in', () => {

@@ -18,6 +18,7 @@
 // ============================================================================
 
 import { sb, isSupabaseConfigured } from './supabase';
+import { getSyncDeviceId } from './supabaseSync';
 import { authTenantId, authBranchId } from './authProvider';
 import { isPublicTenantRoute, parsePublicTenantId } from './publicTenant';
 
@@ -330,7 +331,7 @@ export function rowToDb(col: string, data: Record<string, any>): Record<string, 
     // as items, subtotal and paid_at, so paid bills never reached the cloud.
     return {
       branch_id: cloudFk(data.branchId),
-      device_id: uuidOrNull(data.deviceId),
+      device_id: registeredDeviceFk(data.deviceId),
       order_number: Number.isFinite(Number(data.orderNumber)) ? Number(data.orderNumber) : null,
       status: data.status || 'running',
       total: Number(data.grandTotal) || 0,
@@ -452,6 +453,59 @@ export function rowToDb(col: string, data: Record<string, any>): Record<string, 
   return allowListedRow(table, data);
 }
 
+
+/**
+ * The device id the SERVER knows, for the columns that are foreign keys to it.
+ *
+ * ===== v1.49.0 — every shift the restaurant ever opened was rejected =====
+ *
+ * There are two different device ids in this app and they are not
+ * interchangeable:
+ *
+ *   getDeviceId()      a uuid this browser minted for itself and keeps in
+ *                      localStorage. It is the HARDWARE id — what the machine
+ *                      calls itself.
+ *   getSyncDeviceId()  the primary key of the row register_device() created in
+ *                      public.devices. It is what devices.id actually is.
+ *
+ * openShift() stamps the first one, and shifts.device_id is a foreign key to
+ * the second, so every shift push came back
+ *
+ *     insert or update on table "shifts" violates foreign key constraint
+ *     "shifts_device_id_fkey"
+ *
+ * On the live database this had a perfect record: 6 devices registered,
+ * 0 shifts. Not one shift, open or close, had ever reached the cloud — the
+ * whole cash-drawer trail existed only on the till that made it, while the
+ * screen said "1 change could not be uploaded (shifts)".
+ *
+ * Returns null when this device has not registered yet. That is deliberate:
+ * the constraint is ON DELETE SET NULL, so the column is optional by design,
+ * and a shift without a device pointer is a complete, auditable shift. Losing
+ * the entire cash record to preserve a pointer that cannot resolve is the
+ * wrong way round.
+ */
+function registeredDeviceFk(v: any): string | null {
+  const s = v === null || v === undefined ? '' : String(v).trim();
+  // Already the server's own id — the sync layer set it.
+  if (s && UUID_RE.test(s)) {
+    const syncId = getSyncDeviceIdSafe();
+    if (syncId && s === syncId) return s;
+  }
+  return getSyncDeviceIdSafe();
+}
+
+/**
+ * The registered id, read through the sync module's own accessor.
+ *
+ * Deliberately NOT a second copy of the localStorage key: this bug existed
+ * because two places disagreed about what "the device id" means, and a
+ * duplicated key is how that happens again.
+ */
+function getSyncDeviceIdSafe(): string | null {
+  try { return getSyncDeviceId(); } catch { return null; }
+}
+
 /** Map an app record onto the real columns of `table`, dropping the rest. */
 function allowListedRow(table: string | undefined, data: Record<string, any>): Record<string, any> {
   const out: Record<string, any> = {};
@@ -476,6 +530,9 @@ function allowListedRow(table: string | undefined, data: Record<string, any>): R
     }
     // A record's own id is the cloud primary key.
     if (k === 'id') { out[column] = cloudId(String(v)); continue; }
+    // device_id is a foreign key to devices.id, which is NOT the id this
+    // machine calls itself. See registeredDeviceFk().
+    if (column === 'device_id') { out[column] = registeredDeviceFk(v); continue; }
     out[column] = v;
   }
   return out;
