@@ -29,12 +29,16 @@ export default function PortalRestaurantBadge({
         : <Store className="h-4 w-4 shrink-0 opacity-80" />}
       <div className="min-w-0 leading-tight">
         <div className={`font-bold truncate ${compact ? 'text-[11px]' : 'text-xs'}`}>{r.name}</div>
-        <div className="text-[10px] opacity-75 truncate">
-          {r.branchName}
-          {showCode && r.workspaceCode && (
-            <span className="ml-1 font-mono tracking-wider">· {r.workspaceCode}</span>
-          )}
-        </div>
+        {(r.branchName || (showCode && r.workspaceCode)) && (
+          <div className="text-[10px] opacity-75 truncate">
+            {r.branchName}
+            {showCode && r.workspaceCode && (
+              <span className={r.branchName ? 'ml-1 font-mono tracking-wider' : 'font-mono tracking-wider'}>
+                {r.branchName ? '· ' : ''}{r.workspaceCode}
+              </span>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

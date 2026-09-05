@@ -15,7 +15,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { versionCodeFor } from '@/components/CustomerAppsManager';
+import { versionCodeFor } from '@/lib/appVersionCode';
 
 const ROOT = process.cwd();
 const code = (f: string) =>

@@ -95,9 +95,17 @@ export async function uploadProfilePhoto(opts: {
     // A refusal WITH a reason is the server's answer — report it, do not retry
     // somewhere else and confuse two different failures.
     if (r && !r.ok && r.reason) return r;
-    if (error && kind === 'staff') {
+
+    if (error) {
+      // supabase-js turns any non-2xx into an error and leaves data null, so
+      // the reason the server gave is in the response body. Without this the
+      // person is told "could not be uploaded" when the server said exactly
+      // what was wrong — the photo is too large, or the session has expired.
+      let reason = '';
+      try { reason = (await (error as any).context?.json())?.reason ?? ''; } catch { /* body read */ }
+      if (reason) return { ok: false, reason };
       // A staff photo has no second route; say so rather than failing silently.
-      return { ok: false, reason: 'upload_failed' };
+      if (kind === 'staff') return { ok: false, reason: 'upload_failed' };
     }
   } catch {
     if (kind === 'staff') return { ok: false, reason: 'upload_failed' };

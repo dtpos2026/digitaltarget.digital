@@ -10,7 +10,11 @@ export function useRestaurantIdentity(): RestaurantIdentity {
 
   useEffect(() => {
     let alive = true;
-    void resolveRestaurantIdentity().then(next => { if (alive) setId(next); });
+    // .catch as well as .then: the resolver is written not to reject, but a
+    // header is not worth an unhandled rejection if that ever stops being true.
+    resolveRestaurantIdentity()
+      .then(next => { if (alive) setId(next); })
+      .catch(() => { /* the cached identity, already rendered, stands */ });
     return () => { alive = false; };
   }, []);
 

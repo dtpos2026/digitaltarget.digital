@@ -26,7 +26,7 @@ import { Bike, ClipboardList, Loader2, Package, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { versionCodeFor } from '@/components/CustomerAppsManager';
+import { versionCodeFor } from '@/lib/appVersionCode';
 
 type Which = 'Rider' | 'OrderTaker';
 

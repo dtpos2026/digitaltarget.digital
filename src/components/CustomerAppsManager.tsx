@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
+import { versionCodeFor } from '@/lib/appVersionCode';
 import { APP_THEMES, themeFor, contrastWithWhite } from '@/lib/appThemes';
 import {
   Smartphone, Search, Save, Palette, MessageCircle, Package,
@@ -68,23 +69,6 @@ function blank(tenantId: string, name: string): AppConfig {
     features: { ...DEFAULT_FEATURES }, requireClaimOtp: false, appVersion: '1.0.0',
     minSupportedVersion: '', updateUrl: '', updateRequired: false,
   };
-}
-
-/**
- * A versionCode Android will accept, derived from the version name.
- *
- * Android compares versionCode as a plain integer and refuses anything not
- * higher than what is installed, so it has to rise with every release. Deriving
- * it from the version name means the operator maintains ONE number instead of
- * two that can disagree: 1.2.3 -> 10203, 2.0.0 -> 20000.
- */
-export function versionCodeFor(version: string): string {
-  const parts = String(version || '').trim().split('.').map(n => parseInt(n, 10));
-  if (!parts.length || Number.isNaN(parts[0])) return '';
-  const [maj = 0, min = 0, patch = 0] = parts.map(n => (Number.isNaN(n) ? 0 : n));
-  if (min > 99 || patch > 99) return '';           // outside what this encoding fits
-  const code = maj * 10000 + min * 100 + patch;
-  return code > 0 ? String(code) : '';
 }
 
 export default function CustomerAppsManager({ restaurants }: CustomerAppsManagerProps) {
