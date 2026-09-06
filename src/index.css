@@ -746,6 +746,14 @@
   color: inherit !important;
 }
 .dt-app-header .text-muted-foreground { opacity: 0.78; }
+/* v1.54.0 — the chip group may scroll rather than push its neighbours off the
+   header. Scrollbar hidden: a 1px bar inside a 48px header is noise, and the
+   chips are reachable by touch-drag and by wheel. */
+.dt-header-chips {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.dt-header-chips::-webkit-scrollbar { display: none; }
 .dt-app-header > button,
 .dt-app-header button.text-foreground { color: inherit; }
 .dt-app-header .bg-muted\/50,

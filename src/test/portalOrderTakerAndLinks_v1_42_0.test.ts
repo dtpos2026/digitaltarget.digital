@@ -28,7 +28,11 @@ describe('the order taker\'s bills reach the server', () => {
 
   it('a refusal is never silent — that was the whole bug', () => {
     const fn = store.slice(store.indexOf('async function portalSaveOrder'));
-    expect(fn).toContain('throw new Error(`portal_upsert_order refused');
+    // v1.54.0 — same guarantee, plainer words: a refusal still throws and
+    // still names its reason.
+    expect(fn).toContain('if (r.ok !== true)');
+    expect(fn).toContain('throw new Error(');
+    expect(fn).toContain('r.reason');
   });
 
   it('the SERVER mints the order number, not the device', () => {

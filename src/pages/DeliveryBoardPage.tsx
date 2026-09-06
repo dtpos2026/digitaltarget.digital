@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Phone, MapPin, User, ChefHat, Truck, CheckCircle, XCircle, MessageCircle, PackageCheck, Navigation, Bike } from 'lucide-react';
 import { toast } from 'sonner';
 import { normalizePhone, buildDeliveryMessage, openWhatsApp } from '@/lib/whatsapp';
-import { buildTrackingMessage, setDeliveryStage, notifyCustomerStage } from '@/lib/delivery';
+import { buildTrackingMessage, buildTrackingWhatsAppText, setDeliveryStage, notifyCustomerStage } from '@/lib/delivery';
 import { notifyReady } from '@/lib/readyNotify';
 import { triggerAutoKot } from '@/components/AutoKotPrinter';
 import { enqueuePrint } from '@/lib/printQueue';
@@ -138,7 +138,7 @@ export default function DeliveryBoardPage() {
   const sendTracking = (order: Order) => {
     const phone = normalizePhone(order.customer?.phone);
     if (!phone) { toast.error('Customer number not available'); return; }
-    openWhatsApp(phone, buildTrackingMessage(order));
+    openWhatsApp(phone, buildTrackingWhatsAppText(order));
   };
 
   return (

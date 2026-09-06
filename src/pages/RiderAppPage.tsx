@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Bike, MapPin, Phone, Navigation, CheckCircle, Truck, PackageCheck, ChefHat, XCircle, Radio, RefreshCw, User as UserIcon, History as HistoryIcon, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { normalizePhone, openWhatsApp } from '@/lib/whatsapp';
-import { buildTrackingMessage, setDeliveryStage, DELIVERY_STAGE_LABEL, computeDistance, estimateEta, notifyCustomerStage } from '@/lib/delivery';
+import { buildTrackingMessage, buildTrackingWhatsAppText, setDeliveryStage, DELIVERY_STAGE_LABEL, computeDistance, estimateEta, notifyCustomerStage } from '@/lib/delivery';
 import DeliveryRouteMap from '@/components/DeliveryRouteMap';
 import ReadyNotificationBus from '@/components/ReadyNotificationBus';
 import ReadyOrderPoller from '@/components/ReadyOrderPoller';
@@ -388,7 +388,7 @@ export default function RiderAppPage() {
   const sendTracking = (o: Order) => {
     const phone = normalizePhone(o.customer?.phone);
     if (!phone) { toast.error('No customer phone'); return; }
-    openWhatsApp(phone, buildTrackingMessage(o));
+    openWhatsApp(phone, buildTrackingWhatsAppText(o));
   };
 
   if (!rider) {

@@ -626,6 +626,9 @@ function BrandImageField({ tenantId, kind, value, busy, onChange, onUpload }: {
   onUpload: (file: File) => void | Promise<void>;
 }) {
   const inputId = `brand-${kind}-${tenantId}`;
+  // Opened only when the operator asks for it, or when a link is already set
+  // (so an existing pasted URL is still visible and editable).
+  const [showLink, setShowLink] = useState(() => !!value && !value.includes('/storage/v1/object/public/branding/'));
   return (
     <div className="space-y-1.5">
       <div className="flex items-center gap-2">
@@ -664,12 +667,27 @@ function BrandImageField({ tenantId, kind, value, busy, onChange, onUpload }: {
           </Button>
         )}
       </div>
-      <Input
-        value={value}
-        placeholder="…or paste a link"
-        onChange={e => onChange(e.target.value)}
-        className="text-xs"
-      />
+      {/* ===== v1.54.0 — "icon upload ho aur save ho jaye, NOT url" =====
+          The link is no longer the way in. It is folded away, kept only for a
+          restaurant whose image is already hosted somewhere, so the normal
+          path is: choose a file, it saves, done. */}
+      {showLink ? (
+        <Input
+          value={value}
+          placeholder="https://…"
+          onChange={e => onChange(e.target.value)}
+          className="text-xs"
+          autoFocus
+        />
+      ) : (
+        <button
+          type="button"
+          onClick={() => setShowLink(true)}
+          className="text-[10px] text-muted-foreground hover:text-foreground underline underline-offset-2"
+        >
+          Already hosted somewhere? Paste a link instead
+        </button>
+      )}
     </div>
   );
 }

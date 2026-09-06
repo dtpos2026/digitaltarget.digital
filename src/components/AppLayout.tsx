@@ -516,18 +516,29 @@ export default function AppLayout({ children, userRole, onLogout }: Props) {
           >
             <Menu className="h-4 w-4" />
           </button>
-          <div className="flex items-center gap-2">
-            <div className="h-5 w-1 rounded-full bg-gradient-gold" />
-            <h1 className="text-sm font-bold text-foreground tracking-tight">
+          {/* ===== v1.54.0 — the header items collided and got cut off =====
+              Reported visually: the restaurant name wrapped BEHIND the status
+              chips and "Check Setup" was sliced in half. Everything sat in one
+              non-shrinking row, so once a restaurant had a long name and a few
+              chips there was simply not enough width and the items overlapped.
+
+              The title now truncates (min-w-0 is what actually lets it), the
+              chip group scrolls sideways instead of overflowing its neighbours,
+              and the right-hand group refuses to shrink so the clock, branch
+              and sync badge stay whole. No colours changed: the palette already
+              measures 8.93:1 in this header, above WCAG AAA. */}
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <div className="h-5 w-1 rounded-full bg-gradient-gold shrink-0" />
+            <h1 className="text-sm font-bold text-foreground tracking-tight truncate min-w-0">
               {isPremiumThemeActive() ? PREMIUM_BRAND_NAME : (settings.name || 'DT POS')} <span className="text-muted-foreground font-medium">— {currentTitle}</span>
             </h1>
-            <div className="ml-1 flex items-center gap-2">
+            <div className="ml-1 flex items-center gap-2 min-w-0 overflow-x-auto dt-header-chips">
               <HeaderNotificationBar />
               <SyncPendingChip />
               <BillingStatusBar />
             </div>
           </div>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-2 shrink-0">
             {/* Which restaurant is this, and the code staff type into the
                 Rider / Order Taker apps — on screen for every function. */}
             <RestaurantIdentityChip />

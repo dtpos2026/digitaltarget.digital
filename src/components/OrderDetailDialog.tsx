@@ -1,5 +1,6 @@
 import { Order } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import OrderTrackingLink from '@/components/OrderTrackingLink';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -222,6 +223,13 @@ export default function OrderDetailDialog({ order, onClose }: Props) {
                 </>
               )}
             </div>
+            {/* v1.54.0 — the link the customer gets, where staff can reach it:
+                copy it, re-send it on WhatsApp, or see the stage at a glance. */}
+            {order.orderType === 'delivery' && (
+              <div className="mt-3">
+                <OrderTrackingLink order={order} />
+              </div>
+            )}
             <div className="mt-3 font-semibold">Per-KOT Timeline</div>
             <div className="space-y-1">
               {revisions.length === 0 && <p className="text-muted-foreground">No KOT yet.</p>}

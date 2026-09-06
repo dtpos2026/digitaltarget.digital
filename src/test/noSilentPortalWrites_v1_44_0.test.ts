@@ -51,7 +51,12 @@ describe('no portal write can vanish quietly', () => {
 
   it('a refused portal write names itself', () => {
     const fn = code.slice(code.indexOf('async function portalSaveOrder'));
-    expect(fn).toContain('portal_upsert_order refused');
+    // v1.54.0 — the wording moved to plain language a rider can act on; the
+    // guarantee is unchanged and is what is asserted: ok !== true THROWS, and
+    // the reason is carried into the message rather than swallowed.
+    expect(fn).toContain('if (r.ok !== true)');
+    expect(fn).toContain('throw new Error(');
+    expect(fn).toContain('r.reason');
     expect(fn).toContain("r.ok !== true");
   });
 });

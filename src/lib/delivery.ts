@@ -68,6 +68,62 @@ export const DELIVERY_STAGE_LABEL: Record<DeliveryStatus, string> = {
 };
 
 /** Build a tracking message body for WhatsApp share. */
+/**
+ * The tracking link for one order — the SAME link everywhere.
+ *
+ * REPORTED: "har kisi ka link auto bane, restaurant wale naam se — lekin
+ * refresh pe kaam nahi karta", and "WhatsApp icon click karo to usi order ka
+ * tracking link khule".
+ *
+ * It was built inline inside notifyCustomerStage, so it existed in exactly one
+ * place — the automatic WhatsApp message — and nothing else could offer it. It
+ * is a function now, so the order screen, the Customer Portal and the WhatsApp
+ * button all hand out the identical link.
+ *
+ * The readable slug is used when we know it (digitaltarget.digital/#/track/butt)
+ * and the tenant uuid otherwise, because a link nobody can read is still a link
+ * that has to work. TrackOrderPage resolves either one.
+ */
+export function buildOrderTrackingUrl(order: Order): string {
+  const rawOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+  // v1.24.0 — fall back to the configured public site, not the retired
+  // Firebase Hosting domain. Customer-facing links (QR menus, track-order,
+  // WhatsApp) must point at the site actually being served.
+  const configured = (import.meta as any).env?.VITE_PUBLIC_SITE_URL as string | undefined;
+  const origin = (!rawOrigin || rawOrigin.startsWith('file:'))
+    ? (configured || 'https://digitaltarget.digital')
+    : rawOrigin;
+
+  let who = getTenantId() || '';
+  try {
+    // Cached by the shared identity resolver; no network on this path, because
+    // this is called while printing a receipt and while rendering a list.
+    const raw = localStorage.getItem('dt-restaurant-identity');
+    const slug = raw ? (JSON.parse(raw) as { slug?: string }).slug : '';
+    if (slug && typeof slug === 'string') who = slug.trim();
+  } catch { /* the uuid still works */ }
+
+  const last4 = (order.customer?.phone || '').replace(/\D/g, '').slice(-4);
+  return `${origin}/#/track${who ? '/' + who : ''}`
+    + `?id=${encodeURIComponent(order.id)}&o=${order.orderNumber}&p=${last4}`;
+}
+
+/**
+ * The WhatsApp text for one order — the message AND its tracking link.
+ *
+ * REPORTED: "jab tracking WhatsApp pe send karo to tracking ka link nahi aata."
+ * True: the Delivery Board and the Rider app both sent
+ * buildTrackingMessage(order) on its own, which is the status line and nothing
+ * else. The customer got "Order #1046 — On the way" and no way to watch it.
+ *
+ * The automatic notifier appended the URL itself, so only the AUTOMATIC message
+ * ever carried one and the two hand-send buttons did not. There is one function
+ * now, so a tracking message cannot go out without its link again.
+ */
+export function buildTrackingWhatsAppText(order: Order): string {
+  return `${buildTrackingMessage(order)}\n\n📍 Live tracking:\n${buildOrderTrackingUrl(order)}`;
+}
+
 export function buildTrackingMessage(order: Order): string {
   const lines: string[] = [];
   lines.push(`Order #${order.orderNumber} — ${DELIVERY_STAGE_LABEL[order.deliveryStatus || 'pending']}`);
@@ -138,18 +194,7 @@ export function notifyCustomerStage(order: Order, stage: DeliveryStatus): void {
     const msg = stageMessage(order, stage);
     if (!msg) return;
 
-    const tid = getTenantId() || '';
-    const rawOrigin = typeof window !== 'undefined' ? window.location.origin : '';
-    // v1.24.0 — fall back to the configured public site, not the retired
-    // Firebase Hosting domain. Customer-facing links (QR menus, track-order,
-    // WhatsApp) must point at the site actually being served.
-    const configured = (import.meta as any).env?.VITE_PUBLIC_SITE_URL as string | undefined;
-    const origin = (!rawOrigin || rawOrigin.startsWith('file:'))
-      ? (configured || 'https://digitaltarget.digital')
-      : rawOrigin;
-    const last4 = (order.customer?.phone || '').replace(/\D/g, '').slice(-4);
-    const trackUrl = `${origin}/#/track${tid ? '/' + tid : ''}?id=${encodeURIComponent(order.id)}&o=${order.orderNumber}&p=${last4}`;
-
+    const trackUrl = buildOrderTrackingUrl(order);
     const body = `${msg}\n\n📍 Live tracking:\n${trackUrl}`;
     addToPendingQueue(phone, body, order.customer?.name);
     _markNotified(order.id, stage);

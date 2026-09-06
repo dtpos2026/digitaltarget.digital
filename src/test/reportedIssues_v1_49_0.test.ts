@@ -371,10 +371,67 @@ describe('11. uploading the app icon instead of hunting for hosting', () => {
     expect(fn).toContain('kind === "icon" ? "icon_url" : "logo_url"');
   });
 
-  it('the form offers an upload, and still accepts a pasted link', () => {
+  it('upload is the way in, not a URL box', () => {
+    // "icon upload ho aur save ho jaye, NOT url" — the link is folded away
+    // behind a disclosure, kept only for an image already hosted elsewhere.
     expect(ui).toContain('uploadBrandImage');
     expect(ui).toContain('function BrandImageField');
-    expect(ui).toContain('…or paste a link');
-    expect(ui).toContain("accept=\"image/png,image/jpeg,image/webp\"");
+    expect(ui).toContain('accept="image/png,image/jpeg,image/webp"');
+    expect(ui).toContain('Already hosted somewhere? Paste a link instead');
+    expect(ui).toContain('showLink');
+  });
+});
+
+describe('12. the tracking link: one builder, readable, and it survives a refresh', () => {
+  const del = code('src/lib/delivery.ts');
+  const page = code('src/pages/TrackOrderPage.tsx');
+  const comp = code('src/components/OrderTrackingLink.tsx');
+
+  it('there is ONE builder, so the links cannot drift apart', () => {
+    // It used to be built inline inside notifyCustomerStage, which is why only
+    // the automatic message ever had one.
+    expect(del).toContain('export function buildOrderTrackingUrl');
+    expect(del).toContain('export function buildTrackingWhatsAppText');
+  });
+
+  it('uses the readable slug when we know it, the uuid when we do not', () => {
+    const fn = del.slice(del.indexOf('export function buildOrderTrackingUrl'),
+                         del.indexOf('export function buildTrackingWhatsAppText'));
+    expect(fn).toContain("localStorage.getItem('dt-restaurant-identity')");
+    expect(fn).toContain('getTenantId()');
+    // a link nobody can read is still a link that has to work
+    expect(fn).toContain("`${origin}/#/track${who ? '/' + who : ''}`");
+  });
+
+  it('the track page resolves a slug BEFORE it reads anything', () => {
+    // resolveSlugTenant lived only on the ORDER page, so a #/track/<slug> link
+    // opened cold — or refreshed — had no tenant and every lookup came back
+    // empty.
+    expect(page).toContain('resolveSlugTenant');
+    expect(page.indexOf('resolveSlugTenant')).toBeLessThan(page.indexOf('initStore()'));
+  });
+
+  it('every WhatsApp tracking send carries the link', () => {
+    // The Delivery Board and the Rider app both sent the status line alone.
+    for (const f of ['src/pages/DeliveryBoardPage.tsx', 'src/pages/RiderAppPage.tsx']) {
+      const t = code(f);
+      expect(t, f).toContain('buildTrackingWhatsAppText');
+      expect(t, f).not.toMatch(/openWhatsApp\([^)]*buildTrackingMessage\(/);
+    }
+  });
+
+  it('staff can see, copy and re-send the link, with its stage', () => {
+    expect(comp).toContain('buildOrderTrackingUrl');
+    expect(comp).toContain('clipboard');
+    expect(comp).toContain('DELIVERY_STAGE_LABEL');
+    // selectable, so a webview that blocks the clipboard is not a dead end
+    expect(comp).toContain('select-all');
+    expect(code('src/components/OrderDetailDialog.tsx')).toContain('<OrderTrackingLink');
+  });
+
+  it('a portal refusal is said in language a rider can act on', () => {
+    const store = code('src/lib/supabaseStore.ts');
+    expect(store).toContain('Your session has expired — sign in again.');
+    expect(store).not.toContain('`portal_upsert_order refused: ${r.reason');
   });
 });

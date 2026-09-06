@@ -50,7 +50,31 @@ function trackBeep() {
  */
 export default function TrackOrderPage() {
   const [ready, setReady] = useState(false);
-  useEffect(() => { initStore().then(() => setReady(true)).catch(() => setReady(true)); }, []);
+  useEffect(() => {
+    void (async () => {
+      // ===== v1.54.0 — the pretty link died on refresh =====
+      //
+      // REPORTED: "restaurant wale naam se link bane — lekin refresh pe kaam
+      // nahi karta."
+      //
+      // A readable link is #/track/<slug>, and resolveSlugTenant() turns that
+      // slug back into the tenant the app routes on. It was called in exactly
+      // ONE place — the online ORDER page — so on the tracking page the slug
+      // resolved nowhere. A first visit could still work, on a browser that
+      // happened to have the tenant cached from ordering; a refresh, or the
+      // link opened cold by the customer it was sent to, had no tenant at all
+      // and every lookup came back empty.
+      //
+      // Awaited BEFORE initStore(), exactly as the order page does it, so the
+      // tenant is settled before anything reads it.
+      try {
+        const { resolveSlugTenant } = await import('@/lib/publicTenant');
+        await resolveSlugTenant();
+      } catch { /* a uuid link needs no resolving */ }
+      try { await initStore(); } catch { /* render anyway; the lookup reports itself */ }
+      setReady(true);
+    })();
+  }, []);
 
   const settings = useMemo(() => ready ? getSettings() : ({} as any), [ready]);
 

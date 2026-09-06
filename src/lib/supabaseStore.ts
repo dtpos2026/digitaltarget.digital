@@ -880,7 +880,19 @@ async function portalSaveOrder(id: string, data: any): Promise<boolean> {
   if (r.ok !== true) {
     // Never silent: a refusal names itself so it can be fixed, and an expired
     // session is not mistaken for a network blip.
-    throw new Error(`portal_upsert_order refused: ${r.reason ?? 'unknown'}`);
+    //
+    // v1.54.0 — in PLAIN language. It used to surface as
+    // "portal_upsert_order refused: no_session" on a rider's phone, which
+    // tells the person holding it nothing they can act on. The reason is the
+    // same; the wording is now something a rider can do something about.
+    const WHY: Record<string, string> = {
+      no_session: 'Your session has expired — sign in again.',
+      wrong_role: 'This account is not allowed to save orders.',
+      not_yours:  'That order belongs to another restaurant.',
+      bad_order:  'This order could not be read. Please try again.',
+      no_id:      'This order has no id yet — reopen it and try again.',
+    };
+    throw new Error(WHY[r.reason ?? ''] ?? `The restaurant server refused this save (${r.reason ?? 'unknown'}).`);
   }
   return true;
 }

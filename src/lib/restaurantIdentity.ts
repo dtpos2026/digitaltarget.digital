@@ -26,6 +26,8 @@ import { getTenantId } from '@/lib/tenant';
 export interface RestaurantIdentity {
   tenantId: string | null;
   name: string;
+  /** The readable id in customer links: digitaltarget.digital/#/track/<slug>. */
+  slug: string;
   branchName: string;
   workspaceCode: string;
   logoUrl: string | null;
@@ -38,7 +40,7 @@ const CACHE_KEY = 'dt-restaurant-identity';
 const LEGACY_PORTAL_KEY = 'dt-portal-restaurant';
 
 const EMPTY: RestaurantIdentity = {
-  tenantId: null, name: '', branchName: '', workspaceCode: '', logoUrl: null, source: 'none',
+  tenantId: null, name: '', slug: '', branchName: '', workspaceCode: '', logoUrl: null, source: 'none',
 };
 
 function readJson(key: string): Record<string, unknown> | null {
@@ -65,6 +67,7 @@ export function cachedIdentity(): RestaurantIdentity {
   return {
     tenantId: cachedTid ?? tid,
     name: str(c.name),
+    slug: str(c.slug),
     branchName: str(c.branchName),
     workspaceCode: str(c.workspaceCode).toUpperCase(),
     logoUrl: str(c.logoUrl) || null,
@@ -75,7 +78,7 @@ export function cachedIdentity(): RestaurantIdentity {
 function writeCache(id: RestaurantIdentity) {
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify({
-      tenantId: id.tenantId, name: id.name, branchName: id.branchName,
+      tenantId: id.tenantId, name: id.name, slug: id.slug, branchName: id.branchName,
       workspaceCode: id.workspaceCode, logoUrl: id.logoUrl,
     }));
   } catch { /* private mode — the live read still works, it just won't persist */ }
@@ -86,6 +89,7 @@ function merge(base: RestaurantIdentity, next: Partial<RestaurantIdentity>): Res
   return {
     tenantId: next.tenantId || base.tenantId,
     name: next.name || base.name,
+    slug: next.slug || base.slug,
     branchName: next.branchName || base.branchName,
     workspaceCode: (next.workspaceCode || base.workspaceCode).toUpperCase(),
     logoUrl: next.logoUrl ?? base.logoUrl,
@@ -114,6 +118,7 @@ export async function resolveRestaurantIdentity(): Promise<RestaurantIdentity> {
           id = merge(id, {
             tenantId: str(d.tenantId) || id.tenantId,
             name: str(d.name),
+            slug: str(d.slug),
             branchName: str(d.branchName),
             workspaceCode: str(d.workspaceCode),
             logoUrl: str(d.logoUrl) || null,
@@ -136,11 +141,13 @@ export async function resolveRestaurantIdentity(): Promise<RestaurantIdentity> {
     // --- 2. POS with a cloud session: read the row itself. ---
     try {
       const { data } = await supabase
-        .from('tenants').select('name, workspace_code').eq('id', tid).maybeSingle();
-      const row = data as { name?: string; workspace_code?: string } | null;
+        .from('tenants').select('name, slug, workspace_code').eq('id', tid).maybeSingle();
+      const row = data as { name?: string; slug?: string; workspace_code?: string } | null;
       if (row?.workspace_code) {
         id = merge(id, {
           name: str(row.name),
+          // The readable half of every customer link.
+          slug: str(row.slug),
           workspaceCode: str(row.workspace_code),
           source: 'cloud',
         });
