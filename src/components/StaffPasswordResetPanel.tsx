@@ -47,8 +47,33 @@ export default function StaffPasswordResetPanel({ tenantId, restaurantName }: {
   const [custom, setCustom] = useState('');
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState<StaffPasswordReset | null>(null);
   const [copied, setCopied] = useState(false);
+
+  // v1.56.2 — the new password must survive a refresh.
+  //
+  // WHAT WENT WRONG IN PRODUCTION: three accounts were reset, the password was
+  // shown once in React state, the page moved on, and the passwords were gone —
+  // so those restaurants could not sign in at all and had to be reset again
+  // from the database. A reset that loses its own result is worse than no
+  // reset, because the old password is already dead by then.
+  //
+  // sessionStorage, not localStorage: it is the operator's own browser, it dies
+  // with the tab, and "Done" below clears it explicitly. Scoped per restaurant
+  // so switching restaurants cannot show the wrong one.
+  const DONE_KEY = `dt-sa-last-reset:${tenantId}`;
+  const [done, setDoneState] = useState<StaffPasswordReset | null>(() => {
+    try {
+      const raw = sessionStorage.getItem(DONE_KEY);
+      return raw ? JSON.parse(raw) as StaffPasswordReset : null;
+    } catch { return null; }
+  });
+  const setDone = (v: StaffPasswordReset | null) => {
+    setDoneState(v);
+    try {
+      if (v) sessionStorage.setItem(DONE_KEY, JSON.stringify(v));
+      else sessionStorage.removeItem(DONE_KEY);
+    } catch { /* the value is on screen either way */ }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -130,13 +155,27 @@ export default function StaffPasswordResetPanel({ tenantId, restaurantName }: {
               {copied ? <Check className="h-3.5 w-3.5 mr-1 text-green-600" /> : <Copy className="h-3.5 w-3.5 mr-1" />}
               {copied ? 'Copied' : 'Copy'}
             </Button>
-            <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setDone(null)}>Hide</Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 text-xs"
+              onClick={() => {
+                // Confirmed, because this is the only copy that exists. Once it
+                // is gone the account has to be reset all over again.
+                if (window.confirm('Have you given this password to them? It cannot be shown again.')) {
+                  setDone(null);
+                }
+              }}
+            >
+              Done — I have it
+            </Button>
           </div>
           <div className="text-[10px] text-muted-foreground mt-2 flex items-start gap-1">
             <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0 text-amber-600" />
             <span>
-              Shown once — it is not stored anywhere in readable form. Give it to
-              them now. Username to sign in with: <strong className="font-mono">{done.username}</strong>
+              Write this down before you leave the page. It is not stored anywhere
+              in readable form — if it is lost the account has to be reset again.
+              Username to sign in with: <strong className="font-mono">{done.username}</strong>
             </span>
           </div>
         </div>
