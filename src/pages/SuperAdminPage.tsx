@@ -29,6 +29,7 @@ import SuperAdminReports from '@/components/SuperAdminReports';
 import PackagesManager from '@/components/PackagesManager';
 import CustomerAppsManager from '@/components/CustomerAppsManager';
 import StaffAppsBuilder from '@/components/StaffAppsBuilder';
+import StaffPasswordResetPanel from '@/components/StaffPasswordResetPanel';
 import PlansManager from '@/components/PlansManager';
 import BrandSignaturePanel from '@/components/BrandSignaturePanel';
 import MarketingContactsPanel from '@/components/MarketingContactsPanel';
@@ -2101,6 +2102,19 @@ function RestaurantDevicesDialog({
               </div>
             </div>
           )}
+
+          {/* v1.56.0 — the emergency way back in when the restaurant has
+              locked itself out. Lives with the devices because this is the
+              same dialog an operator already opens when a restaurant calls
+              and cannot get to their till. */}
+          <div className="pt-1 border-t">
+            <div className="pt-4">
+              <StaffPasswordResetPanel
+                tenantId={restaurant.tenantId}
+                restaurantName={restaurant.restaurantName || restaurant.email}
+              />
+            </div>
+          </div>
         </div>
 
         <div className="px-6 py-3 border-t bg-muted/30 flex justify-end">

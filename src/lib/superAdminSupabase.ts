@@ -309,3 +309,104 @@ export async function sendSupportMessage(
   });
   if (error) fail('Send message', error);
 }
+
+// ---------------------------------------------------------------------------
+// v1.56.0 — emergency staff password reset
+//
+// REQUESTED: "ak bnda pass bhol gya din ka ya caser ka pos open he nhi hota is
+// leyi ye option emergency rkho super admin penal me" — a cashier forgets their
+// password, the POS will not open, and there is nobody above them to let them
+// back in. Explicitly a RESTAURANT user's password, not the Super Admin's own.
+//
+// pos_update_user() already changes a staff password but opens with
+// `auth_tenant_id()`, which is null for a Super Admin, so it refused every
+// attempt — correctly. These go through sa_* functions guarded by
+// is_super_admin() instead, so the cross-tenant branch is not inside the
+// function every restaurant's own admin calls.
+//
+// The new password is set with must_change_password, which LoginPage has
+// refused to get past since v1.31.1 — so it works exactly once, to let the
+// person choose their own, and cannot quietly become a permanent backdoor.
+// Every reset is written to the RESTAURANT's staff_audit_logs with the Super
+// Admin's id and email.
+// ---------------------------------------------------------------------------
+
+export interface TenantStaffMember {
+  userId: string;
+  username: string;
+  name: string;
+  role: string;
+  phone?: string | null;
+  branchId?: string | null;
+  isActive: boolean;
+  mustChangePassword: boolean;
+  hasPassword: boolean;
+  updatedAt?: string | null;
+}
+
+export interface TenantStaffList {
+  staff: TenantStaffMember[];
+  restaurant?: string | null;
+  workspaceCode?: string | null;
+}
+
+/** Everyone who can sign in to one restaurant. Never returns a password hash. */
+export async function listTenantStaff(tenantId: string): Promise<TenantStaffList> {
+  const { data, error } = await sb().rpc('sa_list_staff', { p_tenant: tenantId });
+  if (error) fail('Load staff', error);
+  const r = data as any;
+  if (!r?.ok) {
+    throw new Error(r?.reason === 'forbidden'
+      ? 'Load staff: Super Admin only.'
+      : `Load staff: ${r?.reason || 'unknown error'}`);
+  }
+  return {
+    staff: Array.isArray(r.staff) ? r.staff : [],
+    restaurant: r.restaurant ?? null,
+    workspaceCode: r.workspaceCode ?? null,
+  };
+}
+
+export interface StaffPasswordReset {
+  username: string;
+  name: string;
+  role: string;
+  /** Shown once. Only its bcrypt hash was stored. */
+  password: string;
+}
+
+/**
+ * Reset one staff member's password.
+ *
+ * @param newPassword leave blank to have the server generate a readable one
+ *        (its alphabet already excludes O/0 and I/l/1, which get misheard on
+ *        the phone).
+ * @param reason recorded in the restaurant's own audit log.
+ */
+export async function resetStaffPassword(
+  userId: string, newPassword?: string, reason?: string,
+): Promise<StaffPasswordReset> {
+  const { data, error } = await sb().rpc('sa_reset_staff_password', {
+    p_user_id: userId,
+    p_new_password: newPassword?.trim() ? newPassword.trim() : null,
+    p_reason: reason?.trim() ? reason.trim() : null,
+  });
+  if (error) fail('Reset password', error);
+  const r = data as any;
+  // A refusal must never read as a success. This used to be the whole class of
+  // bug in this codebase: an RPC that answers {ok:false} while the caller
+  // shows a green toast.
+  if (!r?.ok) {
+    const why = r?.reason === 'forbidden' ? 'Super Admin only.'
+      : r?.reason === 'no_user'   ? 'That user no longer exists.'
+      : r?.reason === 'too_short' ? (r?.message || 'Password is too short.')
+      : (r?.message || r?.reason || 'unknown error');
+    throw new Error(`Reset password: ${why}`);
+  }
+  return {
+    username: String(r.username ?? ''),
+    name: String(r.name ?? ''),
+    role: String(r.role ?? ''),
+    password: String(r.password ?? ''),
+  };
+}

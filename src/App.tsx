@@ -99,7 +99,7 @@ import { initStore } from '@/lib/store';
 import { isCloudConfigured } from '@/lib/cloudMode';
 import { isFirebaseConfigured, fbAuth } from '@/lib/firebase';
 import { getTenantId, clearTenant } from '@/lib/tenant';
-import { isPublicTenantRoute, applyPublicTenantFromUrl, packagedTenantId } from '@/lib/publicTenant';
+import { isPublicTenantRoute, applyPublicTenantFromUrl, packagedTenantId, parsePublicTenantId, looksLikeSlug, cachedSlugTenant, resolveSlugTenant } from '@/lib/publicTenant';
 import { applyAppEntry } from '@/lib/appEntry';
 
 // ===== v1.47.0 — a portal APK must never open somebody else's screen =====
@@ -169,6 +169,50 @@ const App = () => {
   const [tenantReady, setTenantReady] = useState<boolean>(
     () => !cloudMode || superAdminCached || !!getTenantId(),
   );
+
+  // ===== v1.56.1 — a readable link has to be turned into a restaurant FIRST =====
+  //
+  // REPORTED: the auto-generated links used to keep the customer on that
+  // restaurant with no errors, and stopped once they carried the restaurant's
+  // name; and "rider web order taker mean all portal py refresh ky data show
+  // ni krty".
+  //
+  // `#/order/butt` carries a slug, not a tenant id. Only OnlineOrderPage and
+  // TrackOrderPage ever resolved it, so `#/rider-portal/butt` and
+  // `#/order-taker/butt` ran with a tenant id of "butt" and could read
+  // nothing. Resolving here covers every public route at once, and is awaited
+  // before any of them render, so no page can start a load against a slug.
+  //
+  // A uuid link, and a slug already in the cache, both settle synchronously —
+  // this gate only ever waits on a restaurant this device has never opened.
+  const slugInUrl = typeof window !== 'undefined' && isPublicTenantRoute()
+    ? parsePublicTenantId() : null;
+  const needsSlugLookup = looksLikeSlug(slugInUrl) && !cachedSlugTenant(slugInUrl);
+  const [slugResolved, setSlugResolved] = useState(!needsSlugLookup);
+
+  useEffect(() => {
+    if (!needsSlugLookup) return;
+    let cancelled = false;
+    void (async () => {
+      const id = await resolveSlugTenant();
+      if (cancelled) return;
+      if (!id) {
+        // The lookup did not answer — an unknown name, or simply no network.
+        // Fall back to the OLD behaviour and route on the raw segment, which
+        // is what every link did before readable names existed. The pages
+        // below already tell "this restaurant has nothing" apart from "we
+        // could not reach it", so this can only ever widen what works; a new
+        // dead-end here would not.
+        console.warn('[app] could not resolve the link name, routing on it as an id:', slugInUrl);
+        if (slugInUrl) {
+          const { setTenant } = await import('@/lib/tenant');
+          setTenant(slugInUrl);
+        }
+      }
+      setSlugResolved(true);
+    })();
+    return () => { cancelled = true; };
+  }, [needsSlugLookup]);
 
   // Super-admin status was reset to false on every mount, so a refresh dropped
   // the operator out of the panel with no way back except signing in again.
@@ -562,6 +606,10 @@ const App = () => {
 
   // Public ordering portal — no auth required
   if (isPublicOrderRoute) {
+    // v1.56.1 — hold the route until the link's restaurant is known. Only a
+    // first-ever visit to a named link waits here; everything else is already
+    // resolved by the time this runs.
+    if (!slugResolved) return <PageFallback />;
     return (
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
