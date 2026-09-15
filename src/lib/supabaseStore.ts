@@ -789,10 +789,62 @@ export async function sbLoadCollection(col: string, opts: LoadOptions = {}): Pro
  * — an empty array here would look like a legitimately empty collection and
  * overwrite good local data.
  */
+/**
+ * v1.55.2 — is this device signed in ONLY as a portal app (rider / order taker)?
+ *
+ * REPORTED: "rider web order taker mean all portal py refresh ky data show ni
+ * krty" — on the Rider, Order Taker and web portals a refresh does not bring
+ * the data back.
+ *
+ * A portal device holds an opaque portal token, not a Supabase auth session,
+ * so every ordinary read goes as `anon`. RLS on dining_tables, user_profiles,
+ * module_documents and the rest is written for `authenticated`, and a policy
+ * that matches nothing does NOT raise an error — PostgREST returns 200 with an
+ * empty array. So sbLoadCollection() reported a clean, successful read of an
+ * empty collection, and cloudLoadAll() marked it LOADED.
+ *
+ * Two consequences, both measured rather than assumed:
+ *
+ *  1. THE REFRESH NEVER REFRESHED. Every collection came back empty, so the
+ *     store's background refresh contributed nothing on a portal device — the
+ *     screen showed whatever the page's own bootstrap call had cached, and
+ *     RiderAppPage only ever adopted `orders` and `tables`. The roster, the
+ *     menu and the floors were frozen at whatever they were the first time.
+ *
+ *  2. THE SYNC QUEUE FILLED WITH WRITES THAT CAN NEVER SUCCEED. mergeCollection
+ *     does not drop a row the cloud has not seen — correctly — it keeps it and
+ *     RE-QUEUES it for upload. With every collection reading back empty, every
+ *     local row was re-queued on every single refresh, and a portal device is
+ *     refused by RLS on all of them. That is the endless "Cloud sync issue".
+ *
+ * A portal device already has exactly one authoritative read path —
+ * portal_bootstrap, a SECURITY DEFINER function that resolves the token to one
+ * restaurant. So the ordinary anon reads are not merely useless here, and the
+ * honest answer for every collection is "unknown", which the caller already
+ * knows how to keep.
+ *
+ * Guarded on BOTH halves: a browser that has a real Supabase session (an owner
+ * who tried the rider portal in the same browser) still loads normally.
+ */
+export async function isPortalOnlyDevice(): Promise<boolean> {
+  try {
+    const { hasPortalSession } = await import('./portalData');
+    if (!hasPortalSession()) return false;
+    const { initSupabaseAuth, currentUser } = await import('./supabase');
+    await initSupabaseAuth();
+    return currentUser() === null;
+  } catch {
+    return false;
+  }
+}
+
 export async function sbLoadAll(
   cols: readonly string[], opts: LoadOptions = {},
 ): Promise<Record<string, any[]>> {
   const out: Record<string, any[]> = {};
+  // Every key left absent: "unknown, keep what you have". See above — an anon
+  // read on a portal device answers 200/empty for everything RLS guards.
+  if (await isPortalOnlyDevice()) return out;
   await Promise.all(cols.map(async (col) => {
     try { out[col] = await sbLoadCollection(col, opts); }
     catch { /* leave the key absent so the caller keeps its local copy */ }

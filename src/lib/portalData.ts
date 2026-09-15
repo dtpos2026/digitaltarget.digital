@@ -39,6 +39,9 @@ export interface PortalBootstrap {
   tables: any[];
   floors: any[];
   riders: PortalRider[];
+  // v1.55.1 — the waiters travel with the riders now. They did not before, and
+  // the Order Taker's waiter picker was silently empty on every device.
+  waiters: PortalRider[];
   orders: any[];
 }
 
@@ -141,6 +144,7 @@ export function portalBootstrap(): Promise<PortalResult<PortalBootstrap>> {
     tables: Array.isArray(r.tables) ? r.tables : [],
     floors: Array.isArray(r.floors) ? r.floors : [],
     riders: Array.isArray(r.riders) ? r.riders : [],
+    waiters: Array.isArray(r.waiters) ? r.waiters : [],
     orders: Array.isArray(r.orders) ? r.orders : [],
     // v1.43.0 — the menu and the restaurant's identity travel with everything
     // else, from the same token, in the same round trip.
@@ -158,6 +162,11 @@ export function portalOrders(limit = 150): Promise<PortalResult<any[]>> {
 /** The riders an order taker can hand a delivery to. */
 export function portalRiders(): Promise<PortalResult<PortalRider[]>> {
   return call('portal_riders', {}, (r) => (Array.isArray(r.riders) ? r.riders : []));
+}
+
+/** The waiters an order taker can put a dine-in order under. */
+export function portalWaiters(): Promise<PortalResult<PortalRider[]>> {
+  return call('portal_waiters', {}, (r) => (Array.isArray(r.waiters) ? r.waiters : []));
 }
 
 /** Tables and floors, branch-scoped to this staff member. */

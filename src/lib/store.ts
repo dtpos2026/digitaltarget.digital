@@ -144,8 +144,52 @@ async function loadHeavyCollectionsInBackground(): Promise<void> {
   }
 }
 
+/**
+ * v1.55.2 — refresh a portal device from the one path it can actually read.
+ *
+ * REPORTED: "rider web order taker mean all portal py refresh ky data show ni
+ * krty" — on the portals, a refresh does not bring the data back.
+ *
+ * A portal device has no Supabase session, so the ordinary refresh below reads
+ * as `anon`: RLS matches no rows and PostgREST answers 200 with `[]`. Nothing
+ * errors, so nothing retries — the refresh simply contributed NOTHING, and the
+ * screen kept showing whatever the page's own bootstrap call had cached once.
+ * RiderAppPage, for instance, only ever adopted `orders` and `tables`, so its
+ * roster and menu were frozen from the first load. (It also re-queued every
+ * local row for upload each time, on a device RLS refuses — the endless "Cloud
+ * sync issue".) isPortalOnlyDevice() stops those reads being trusted; see
+ * supabaseStore.ts for the measured detail.
+ *
+ * A protected cache is still a STALE one, so the portal refreshes from
+ * portal_bootstrap instead: one SECURITY DEFINER round trip that resolves the
+ * token to one restaurant and returns its tables, floors, riders, waiters,
+ * menu and live orders. Same data, by a path the device is allowed to use.
+ *
+ * Returns false when this is not a portal device, so the ordinary refresh runs.
+ */
+async function refreshPortalStoreInBackground(): Promise<boolean> {
+  const { isPortalOnlyDevice } = await import('./supabaseStore');
+  if (!(await isPortalOnlyDevice())) return false;
+  try {
+    const { portalBootstrap } = await import('./portalData');
+    const res = await portalBootstrap();
+    if (res.ok) {
+      await adoptPortalRows(res.data as any);
+    } else {
+      // Never silent: an expired token or an unreachable server is why the
+      // screen is showing yesterday's tables, and the operator should know.
+      console.warn('[store] portal refresh failed —', res.reason, res.message);
+    }
+  } catch (e) {
+    console.warn('[store] portal refresh failed', e);
+  }
+  try { startRealtimeListeners(); } catch (e) { console.warn('[store] realtime listeners failed', e); }
+  return true;
+}
+
 function refreshCloudStoreInBackground() {
   void (async () => {
+    if (await refreshPortalStoreInBackground()) return;
     const settingsRevisionAtStart = settingsRevision;
     try {
       // Keep startup/rush traffic light: refresh only till-critical data first.
@@ -1724,6 +1768,10 @@ export async function initStore(): Promise<void> {
   }
 
   if (useCloudStore()) {
+    // v1.55.2 — a portal device reads through portal_bootstrap, whether or not
+    // it has a cache. The ordinary load below would go as `anon` and come back
+    // 200/empty for everything RLS guards; see refreshPortalStoreInBackground.
+    if (await refreshPortalStoreInBackground()) return;
     if (hasLocalCache) {
       refreshCloudStoreInBackground();
       return;
@@ -3032,6 +3080,10 @@ export async function adoptPortalRows(input: {
   tables?: any[] | null;
   floors?: any[] | null;
   riders?: any[] | null;
+  // v1.55.1 — REPORTED: "order taker me rider aur waiter show nahi hote".
+  // The riders were plumbed; the waiters never were, so the picker was empty
+  // on every device and said nothing about why.
+  waiters?: any[] | null;
   orders?: any[] | null;
   // v1.43.0 — the menu comes with the bootstrap now.
   //
@@ -3065,9 +3117,13 @@ export async function adoptPortalRows(input: {
 
   adopt('tables', input.tables, 'dining_tables');
   adopt('floors', input.floors, 'floors');
-  // portal_riders and portal_orders already return app-shaped records, so
-  // there is nothing to translate.
+  // portal_riders, portal_waiters and portal_orders already return app-shaped
+  // records, so there is nothing to translate.
   adopt('riders', input.riders);
+  // Guarded the same way the menu is: an absent key means a bootstrap older
+  // than v1.55.1, and wiping a cached roster over that would be worse than the
+  // bug. An empty array is a real answer ("no waiters here").
+  if (Array.isArray(input.waiters)) adopt('waiters', input.waiters);
   adopt('orders', input.orders);
 
   // Only when the server actually sent a menu. An empty array is a real answer

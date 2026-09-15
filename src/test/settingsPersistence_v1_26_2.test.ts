@@ -36,6 +36,10 @@ vi.mock('@/lib/supabaseStore', async () => ({
   sbLoadAll: (...a: any[]) => sbLoadAll(...(a as [])),
   sbLoadSettings: (...a: any[]) => sbLoadSettings(...(a as [])),
   sbLoadCollection: async () => { throw new Error('offline'); },
+  // v1.55.2 — these cases are an ordinary till, not a portal device, so the
+  // store must take its normal cloud path. A portal device answers true here
+  // and is refreshed through portal_bootstrap instead.
+  isPortalOnlyDevice: async () => false,
   sbSaveItem: async () => {}, sbDeleteItem: async () => {}, sbSaveSettings: async () => {},
   TABLE_FOR: { orders: 'orders', menuItems: 'menu_items', categories: 'categories' },
 }));

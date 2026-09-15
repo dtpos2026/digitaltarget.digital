@@ -25,6 +25,7 @@ import SupportChatWidget from '@/components/SupportChatWidget';
 import SyncStatusBadge from '@/components/SyncStatusBadge';
 import HeaderNotificationBar from '@/components/HeaderNotificationBar';
 import RestaurantIdentityChip from '@/components/RestaurantIdentityChip';
+import OrdersWaitingElsewhere from '@/components/OrdersWaitingElsewhere';
 import SyncPendingChip from '@/components/SyncPendingChip';
 import BillingStatusBar from '@/components/BillingStatusBar';
 import UpdateAvailableBanner from '@/components/UpdateAvailableBanner';
@@ -504,6 +505,9 @@ export default function AppLayout({ children, userRole, onLogout }: Props) {
 
       <div className="flex-1 flex flex-col min-w-0 min-h-0">
         <UpdateAvailableBanner />
+        {/* v1.55.0 — an online order that landed on another branch is invisible
+            to this till by design. Say so, rather than let the customer wait. */}
+        <OrdersWaitingElsewhere />
         {/* Top header */}
         <header className="dt-app-header h-12 flex items-center gap-3 px-4 shrink-0">
           <button className="lg:hidden text-foreground" onClick={() => setMobileOpen(true)}>

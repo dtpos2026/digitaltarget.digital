@@ -2158,6 +2158,17 @@ export default function POSScreen() {
                 ))}
               </SelectContent>
             </Select>
+            {/* v1.55.1 — an empty dropdown used to say nothing at all. It now
+                says which of the two reasons it is, because the fix differs:
+                nobody has been given the waiter role yet, or they exist but
+                none is switched on. */}
+            {waiters.filter(w => w.isActive).length === 0 && (
+              <p className="text-[11px] text-amber-600 dark:text-amber-400 -mt-1">
+                {waiters.length === 0
+                  ? 'No waiters yet — add them in Settings → Staff → Waiters (or Users & Access, role “Waiter”). You can confirm without one.'
+                  : `${waiters.length} waiter(s) exist but all are switched off — turn one on in Settings → Staff.`}
+              </p>
+            )}
             <Button className="w-full" onClick={confirmDining} disabled={!selectedTable}>Confirm</Button>
           </div>
         </DialogContent>
@@ -2235,6 +2246,13 @@ export default function POSScreen() {
                 ))}
               </SelectContent>
             </Select>
+            {getRiders().filter(r => r.isActive).length === 0 && (
+              <p className="text-[11px] text-amber-600 dark:text-amber-400 -mt-1">
+                {getRiders().length === 0
+                  ? 'No riders yet — add them in Settings → Staff → Riders. The order can still be taken and a rider assigned later from the Delivery Board.'
+                  : `${getRiders().length} rider(s) exist but all are switched off — turn one on in Settings → Staff.`}
+              </p>
+            )}
             <LocationCapture lat={custLat} lng={custLng} capturedAt={custLocAt}
               onChange={({ lat, lng, capturedAt }) => { setCustLat(lat); setCustLng(lng); setCustLocAt(capturedAt); }} />
             <Button className="w-full" onClick={confirmDelivery} disabled={!custName}>Confirm</Button>
