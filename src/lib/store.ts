@@ -20,6 +20,7 @@ import type { Shift } from './shifts';
 import { buildRefund, type Refund, type RefundRequest } from './refunds';
 import { normalizeForDisplay, dedupeById } from './dataIntegrity';
 import { mergeCollection } from './syncMerge';
+import { isPermanentSyncError, explainSyncError } from './syncErrors';
 import { onDeadLetter } from './deferredSync';
 import { shouldDeferCloudWrite, enqueueDeferredOp, registerDeferredFlusher, registerDeferredBatchFlusher, installDeferredSyncTriggers, stopDeferredSyncTriggers, deferredPendingCount, onDeferredSyncChange } from './deferredSync';
 import { onOrderRenumbered } from './orderNumbers';
@@ -650,9 +651,7 @@ function reportCloudError(label: string, e: any) {
   // now read differently.
   const msg = String(e?.message || '');
   const code = String(e?.code || '');
-  const permanent = /does not exist|could not find (the )?(table|column|function)|schema cache|violates|invalid input|not-null|constraint|permission denied|row-level security|invalid jwt/i
-    .test(msg)
-    || /^(PGRST2|23|42|42501)/.test(code);
+  const permanent = isPermanentSyncError(e);
 
   const now = Date.now();
   if (now - toastDebounce > 5000) {
@@ -660,7 +659,7 @@ function reportCloudError(label: string, e: any) {
     try {
       if (permanent) {
         // Retrying will never help. Name it so it can actually be fixed.
-        toast.error(`Sync rejected (${label}): ${msg.slice(0, 120)}`, { duration: 9000 });
+        toast.error(`Sync rejected (${label}): ${explainSyncError(msg, code)}`, { duration: 9000 });
       } else {
         toast.error('Cloud sync issue — data is saved locally and will retry');
       }
@@ -668,6 +667,8 @@ function reportCloudError(label: string, e: any) {
   }
   emitSync();
 }
+
+
 
 // v1.5.4: deferred queue ka flusher — entity ki TAAZA copy parh kar wohi
 // guarded raste (cloudSaveItem / cloudDeleteItem) se bhejta hai. Agar entity

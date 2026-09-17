@@ -26,24 +26,9 @@ export default function OnlinePortalPage() {
   const [search, setSearch] = useState('');
   const [qrLink, setQrLink] = useState<{ url: string; label: string } | null>(null);
 
-  // v1.42.0 — this restaurant's readable slug, for the links below. The POS is
-  // signed in, so it can read its own tenants row; a failure just leaves the
-  // uuid form, which has always worked.
-  const [slug, setSlug] = useState<string>('');
-  useEffect(() => {
-    let off = false;
-    void (async () => {
-      try {
-        const t = getTenantId();
-        const { sb, isSupabaseConfigured } = await import('@/lib/supabase');
-        if (!t || !isSupabaseConfigured()) return;
-        const { data } = await sb().from('tenants').select('slug').eq('id', t).maybeSingle();
-        const v = (data as { slug?: string } | null)?.slug;
-        if (!off && v) setSlug(v);
-      } catch { /* the uuid link stays */ }
-    })();
-    return () => { off = true; };
-  }, []);
+  // v1.56.3 — the slug lookup that fed these links is gone with them. One link
+  // per portal, the same one Settings -> Online Ordering shows, and no round
+  // trip before the page can render them.
 
   useEffect(() => {
     // Initial pull, then rely on realtime onSnapshot listeners (no polling)
@@ -66,11 +51,26 @@ export default function OnlinePortalPage() {
         : 'https://digitaltarget.digital');
   const rawOrigin = typeof window !== 'undefined' ? window.location.origin : '';
   const origin = (!rawOrigin || rawOrigin.startsWith('file:')) ? PUBLIC_WEB_BASE : rawOrigin;
-  // v1.42.0 — hand out the readable link when the restaurant has a slug.
-  // digitaltarget.digital/#/order/butt instead of a uuid nobody can repeat
-  // over the phone. The uuid form keeps working, so links already printed on
-  // a table QR are not invalidated.
-  const tidSeg = slug ? `/${slug}` : (tid ? `/${tid}` : '');
+  // ===== v1.56.3 — hand out the id link, the way this page used to =====
+  //
+  // REPORTED, twice: "phly is type ky auto link hoty thy website or order
+  // taker, ye usi restaurant py rhta tha, na ky koi error aty thy", and
+  // "ye sar portel sath link name wala ha, khi b dosry browser open py data
+  // nhi ata ... equal type link ho, yha customer portal medul me b uska he QR
+  // bny jo bnty han".
+  //
+  // v1.42.0 swapped these seven links to the readable slug form
+  // (/#/order/first-chef-pizza-burger). Settings -> Online Ordering was never
+  // changed and kept the id form, so the SAME restaurant was handing out two
+  // different links from two screens — and the operator could see for
+  // themselves that only one of them opened in a fresh browser.
+  //
+  // The id form is the one every printed QR, every APK and every saved
+  // bookmark already carries, and it needs no lookup before the page can read
+  // anything. So it is what this page hands out again, and both screens now
+  // agree. resolveSlugTenant() stays, so a slug link someone already shared
+  // still opens — it is simply not what we generate.
+  const tidSeg = tid ? `/${tid}` : '';
   const links = [
     { key: 'order',    label: 'Customer Website',    emoji: '🛒', icon: ShoppingBag, url: `${origin}/#/order${tidSeg}`,                       color: 'bg-blue-500/10 text-blue-700 border-blue-500/30',     sourceKey: 'website' },
     { key: 'takeaway', label: 'Takeaway QR Portal',  emoji: '🛍️', icon: Package,    url: `${origin}/#/order${tidSeg}?mode=takeaway`,         color: 'bg-orange-500/10 text-orange-700 border-orange-500/30', sourceKey: 'takeaway_qr' },

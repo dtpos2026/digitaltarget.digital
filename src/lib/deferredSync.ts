@@ -40,6 +40,7 @@
 
 import { getTenantId, getDeviceId } from './tenant';
 import { localDb } from './localDb';
+import { isPermanentSyncError as isPermanentFailure } from './syncErrors';
 
 export type SyncMode = 'auto' | 'manual';
 
@@ -512,12 +513,31 @@ export async function flushDeferredOps(): Promise<{
 
     setProgress({ running: true, processedCount: 0, totalCount: batch.length, currentCollection: null });
 
-    /** Record one entity's failure: backoff, or dead-letter once exhausted. */
-    const noteFailure = async (item: DeferredOp, err: string) => {
+    /**
+     * Record one entity's failure: backoff, or dead-letter once exhausted.
+     *
+     * v1.56.3 — a failure the server will NEVER accept is parked at once.
+     *
+     * REPORTED, as a toast on the till mid-service: "Sync rejected (save
+     * branches/mqpll26zktfpb1): new row violates row-level security policy".
+     * That record belongs to another restaurant (its derived cloud id lands on
+     * that tenant's row), so RLS refuses it — correctly, and permanently.
+     *
+     * The classifier already knew that: cloudFail() has called this class
+     * "permanent" since v1.22.0. But the queue did not ask, so the op still
+     * burned six attempts on a backoff that stretches to five minutes, showing
+     * the operator the same alarming message each round, before finally being
+     * parked. Six rounds of a question already answered.
+     *
+     * Nothing is lost either way — a parked op goes to the dead-letter store
+     * and the Data Integrity panel lists it — it simply stops pretending there
+     * is something to wait for.
+     */
+    const noteFailure = async (item: DeferredOp, err: string, permanent = false) => {
       if (!firstError) firstError = err;
       const cur = mem.get(item.id);
       if (!cur) return;
-      cur.attempts = (cur.attempts || 0) + 1;
+      cur.attempts = permanent ? MAX_ATTEMPTS : (cur.attempts || 0) + 1;
       cur.lastError = err;
       if (cur.attempts >= MAX_ATTEMPTS) {
         try { await localDb.putRow('deferredOpsDeadLetter' as any, { ...cur, deadLetteredAt: Date.now() }); }
@@ -573,7 +593,10 @@ export async function flushDeferredOps(): Promise<{
           const errById = new Map((res.failed ?? []).map(f => [f.id, f.error]));
           for (const item of chunk) {
             if (ok.has(item.entityId)) noteSuccess(item);
-            else await noteFailure(item, errById.get(item.entityId) ?? 'not accepted by the server');
+            else {
+              const why = errById.get(item.entityId) ?? 'not accepted by the server';
+              await noteFailure(item, why, isPermanentFailure({ message: why }));
+            }
           }
         } catch (e: any) {
           // The whole chunk call failed (offline, auth, 5xx). Every entity in
@@ -585,7 +608,9 @@ export async function flushDeferredOps(): Promise<{
       } else {
         for (const item of chunk) {
           try { await _flusher(item.col, item.entityId, item.op); noteSuccess(item); }
-          catch (e: any) { await noteFailure(item, e?.message || String(e)); }
+          catch (e: any) {
+            await noteFailure(item, e?.message || String(e), isPermanentFailure(e));
+          }
         }
       }
 
