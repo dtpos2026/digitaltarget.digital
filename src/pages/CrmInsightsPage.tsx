@@ -6,12 +6,35 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { getCustomers, getOrders, getBranches } from '@/lib/store';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
+// ===== v1.57.0 — "customer tu CRM module click karein to atak jata hai" =====
+//
+// getCustomers() and getOrders() each return a FRESH array on every call —
+// they hand back loadData().customers / .orders, a new object identity each
+// time. They were called in the component body, so every render produced new
+// arrays, and the useMemo below listed those arrays as its dependencies.
+//
+// A dependency whose identity changes on every render defeats the memo
+// completely: the whole computation — sorting every customer by lifetime
+// spend, reducing every paid order, bucketing the lot — ran again on each
+// render, including on the branch dropdown opening and on every parent
+// re-render. The memo looked like a cache and was never once a cache.
+//
+// On top of that this page's chunk carries recharts, so the first click pays
+// for a large lazy import as well. That part is expected; the recompute was
+// not, and it is what made the screen sit there.
+//
+// Read once, into state. The page is a report over a point in time, so a
+// stable snapshot is also the more correct thing to render.
 export default function CrmInsightsPage() {
-  const customers = getCustomers();
-  const branches = getBranches();
+  const [customers] = useState(() => getCustomers());
+  const [branches] = useState(() => getBranches());
   const [branchId, setBranchId] = useState<string>('all');
-  const allOrders = getOrders().filter(o => o.status === 'paid' || o.status === 'credit_received');
-  const orders = branchId === 'all' ? allOrders : allOrders.filter(o => o.branchId === branchId);
+  const [allOrders] = useState(() =>
+    getOrders().filter(o => o.status === 'paid' || o.status === 'credit_received'));
+  const orders = useMemo(
+    () => (branchId === 'all' ? allOrders : allOrders.filter(o => o.branchId === branchId)),
+    [allOrders, branchId],
+  );
 
   const insights = useMemo(() => {
     const totalCustomers = customers.length;

@@ -3241,6 +3241,39 @@ export default function SettingsPage() {
                 })}
               </div>
               <p className="text-[10px] text-muted-foreground mt-2">All presets are tuned for continuous roll with a zero top margin so you don't get blank feed at the top.</p>
+
+              {/* v1.57.0 — bold on ANY design, Compact included. A weight alone
+                  does not survive a design that sets its own, so the glyphs are
+                  stroked instead: darker print, identical layout. */}
+              <div className="mt-3 flex items-start justify-between gap-3 rounded-lg border p-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-bold">Bold receipt text</div>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Darkens every line on whichever design you picked — Compact stays
+                    compact, the letters just print heavier. Useful when the thermal
+                    roll or the print head is worn and receipts come out faint.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setSettings({ ...settings, receiptBoldText: !settings.receiptBoldText })}
+                  className={`px-4 py-2 rounded-md text-xs font-bold whitespace-nowrap transition-colors ${
+                    settings.receiptBoldText
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted text-muted-foreground'
+                  }`}
+                >
+                  {settings.receiptBoldText ? 'ON' : 'OFF'}
+                </button>
+              </div>
+
+              {/* Margins: the preset above IS the automatic setting. A device
+                  that needs its own values overrides them in Printing Center,
+                  and "Use Auto" there hands it back to the preset. */}
+              <p className="text-[10px] text-muted-foreground mt-2">
+                Left/right margins come from the preset above automatically. To tune one
+                printer by hand, use <strong>Printing Center → Print Margins</strong> —
+                that device then keeps its own values until you press “Use Auto”.
+              </p>
             </div>
 
             {/* FP-1100 Raster One-Click Preset */}

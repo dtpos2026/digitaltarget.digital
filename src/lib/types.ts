@@ -677,6 +677,19 @@ export interface RestaurantSettings {
   printHeaderFooter?: boolean;
   printerDriverType?: 'windows' | 'escpos';
   receiptSizePreset?: 'compact-80' | 'standard-80' | 'bold-80';
+  /**
+   * v1.57.0 — thicken every glyph on the receipt, whatever design is chosen.
+   *
+   * REPORTED: "font text bold hota compact py b or wesy b" — the text should
+   * come out bold on the Compact receipt too, not only on the Bold preset.
+   *
+   * A font-weight alone does not do it: each receipt design sets its own
+   * weights, so a wrapper weight is overridden the moment a design says
+   * otherwise. Stroking the glyphs thickens them without changing weight,
+   * without reflowing a single line, and it survives the rasteriser the
+   * thermal path prints through — which is what actually reaches the paper.
+   */
+  receiptBoldText?: boolean;
   disableExtraFeed?: boolean;
   autoCut?: boolean;
   cutMode?: 'full' | 'partial';

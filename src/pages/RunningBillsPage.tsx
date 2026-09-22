@@ -45,20 +45,60 @@ export default function RunningBillsPage() {
     return () => { cancel = true; clearInterval(t); unsub(); };
   }, []);
 
+  // ===== v1.57.0 — "Retrieve se KOT print karun to aata nahi" =====
+  //
+  // enqueueKot() RETURNS NULL when it declines the job — an order still
+  // awaiting approval, KOT printing switched off, a duplicate already in the
+  // queue. Every one of those was thrown away here, and the toast said "sent
+  // to the kitchen" regardless. The operator was told the ticket had gone
+  // while nothing had been queued at all.
+  //
+  // A job that IS queued can still never print if no KOT printer is resolved:
+  // enqueuePrint() records "No KOT printer resolved — check Printer Settings"
+  // in the print log and nowhere the operator can see. That is the same
+  // silence one step later, so it is reported too.
   const reprintKot = (order: Order) => {
-    // If prior KOT was printed AND there are item changes, send an UPDATE slip
-    // (annotated NEW / EXTRA / CANCELLED / ALREADY SENT). Otherwise plain reprint.
     try {
       if (order.kotPrinted) {
         const diff = computeKotDiff(order);
         if (diff.hasDiff) {
-          enqueueKotUpdate(order);
+          const job = enqueueKotUpdate(order);
+          if (!job) {
+            toast.error('Kitchen update could not be queued — open Printing Center to see why.');
+            return;
+          }
+          if (!job.printerId) {
+            toast.warning('Kitchen update queued, but no KOT printer is set — Settings → Printers.');
+            return;
+          }
           toast.success(`KOT update sent — ${diff.diffItemIds.length} new/extra items to the kitchen`);
           return;
         }
       }
-    } catch {}
-    enqueueKot(order, { force: true });
+    } catch (e) {
+      // Never silent: a failure to work out the diff must not masquerade as
+      // "nothing changed", because the next line then sends a full reprint.
+      console.error('[kot] could not compute the kitchen diff', e);
+    }
+
+    const job = enqueueKot(order, { force: true });
+    if (!job) {
+      const why = order.status === 'pending_approval'
+        ? 'This order is still awaiting approval, so it cannot go to the kitchen yet.'
+        : order.status === 'rejected'
+          ? 'This order was rejected, so it cannot go to the kitchen.'
+          : 'KOT was not queued — it may be switched off in Settings, or one is already queued.';
+      toast.error(why, { duration: 7000 });
+      return;
+    }
+    if (!job.printerId) {
+      toast.warning(
+        `KOT #${order.orderNumber} is queued, but no KOT printer is configured — `
+        + 'set one in Settings → Printers, then retry from Printing Center.',
+        { duration: 9000 },
+      );
+      return;
+    }
     toast.success(`KOT #${order.orderNumber} sent to the kitchen`);
   };
 

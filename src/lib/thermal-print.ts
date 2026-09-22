@@ -10,7 +10,7 @@
 import type { RestaurantSettings } from './types';
 import { buildPrintCss as buildCss, injectPrintCss, paperWidthToMicrons, paperWidthToMm } from '@/printing';
 import type { PaperSize } from '@/printing';
-import { loadPrintMargins } from '@/lib/printMargins';
+import { loadPrintMargins, hasDevicePrintMargins } from '@/lib/printMargins';
 
 // ============================================================
 // v1.5.0 — TOP-FEED / MARGIN GUARDRAIL
@@ -50,14 +50,31 @@ export function getPaperWidthMm(paperWidth: RestaurantSettings['paperSize']) {
 }
 
 export function getEffectiveReceiptMargins(settings: RestaurantSettings) {
+  // v1.57.0 — AUTO when this device has set no margins of its own, MANUAL
+  // when it has.
+  //
+  // This used to read `deviceMargins.left ?? settings.receiptMarginLeft`, but
+  // loadPrintMargins() always returns numbers, so the right-hand side was
+  // unreachable and every receipt preset's margins were dead. See
+  // hasDevicePrintMargins() for the full note.
+  //
+  // A device that HAS been tuned keeps winning, including when it was tuned
+  // to 0 — "0mm" is a decision, not a missing value, and the Printing Center
+  // offers it as a button.
+  const manual = hasDevicePrintMargins();
   const deviceMargins = loadPrintMargins();
+  const pick = (device: number, fromSettings: unknown, fallback: number, max: number) =>
+    manual ? safeMm(device, fallback, max) : safeMm(fromSettings, fallback, max);
+
   return {
     // Top margin uses the tight shared ceiling — this is the value that
     // caused the reported "too much blank paper before the receipt" bug.
-    top: clampTopMarginMm(deviceMargins.top ?? settings.receiptMarginTop, 0),
-    bottom: safeMm(deviceMargins.bottom ?? settings.receiptMarginBottom, 0, 30),
-    left: safeMm(deviceMargins.left ?? settings.receiptMarginLeft, 4, 30),
-    right: safeMm(deviceMargins.right ?? settings.receiptMarginRight, 4, 30),
+    top: manual
+      ? clampTopMarginMm(deviceMargins.top, 0)
+      : clampTopMarginMm(settings.receiptMarginTop, 0),
+    bottom: pick(deviceMargins.bottom, settings.receiptMarginBottom, 0, 30),
+    left:   pick(deviceMargins.left,   settings.receiptMarginLeft,   4, 30),
+    right:  pick(deviceMargins.right,  settings.receiptMarginRight,  4, 30),
   };
 }
 

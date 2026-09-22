@@ -32,9 +32,11 @@ export default function PrintMarginsCard() {
     toast.success('Print margins saved (is device par)');
   };
   const handleReset = () => {
+    // v1.57.0 — back to AUTO: this device stops overriding and follows the
+    // receipt size preset (Compact / Standard / Bold) again.
     resetPrintMargins();
-    setM({ ...DEFAULT_MARGINS });
-    toast.success('Default margins restored');
+    setM(loadPrintMargins());
+    toast.success('Following the receipt preset again — this device no longer overrides the margins');
   };
 
   return (
@@ -72,7 +74,7 @@ export default function PrintMarginsCard() {
 
       <div className="flex flex-wrap gap-2">
         <Button onClick={handleSave}>Save Margins</Button>
-        <Button variant="outline" onClick={handleReset}>Reset (4mm equal)</Button>
+        <Button variant="outline" onClick={handleReset} title="Stop overriding — follow the receipt size preset again">Use Auto (follow preset)</Button>
         <Button variant="outline" onClick={() => { const z = { top: 0, right: 0, bottom: 0, left: 0 }; setM(z); savePrintMargins(z); toast.success('All margins set to 0'); }}>
           Set All 0
         </Button>

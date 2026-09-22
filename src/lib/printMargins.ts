@@ -22,6 +22,32 @@ function clamp(n: number): number {
   return Math.round(n * 10) / 10;
 }
 
+/**
+ * v1.57.0 — has THIS device been given its own margins?
+ *
+ * REPORTED: "left right margin printer ke hisab se adjust ho sake, auto aur
+ * manually bhi."
+ *
+ * Manual already worked. Auto never did, and this is why: loadPrintMargins()
+ * always returns concrete numbers — DEFAULT_MARGINS when nothing is saved —
+ * and getEffectiveReceiptMargins() then did
+ *
+ *     deviceMargins.left ?? settings.receiptMarginLeft
+ *
+ * `??` only falls through on null/undefined, and the left value is always a
+ * number, so settings.receiptMarginLeft was NEVER read. The Compact /
+ * Standard / Bold presets each set margins and not one of them ever reached
+ * the paper.
+ *
+ * Asking whether the device has its own saved value is what separates the two
+ * cases: no saved value means "follow the preset" (auto), a saved value means
+ * "this printer needs its own" (manual), and a manual 0 stays 0 rather than
+ * being mistaken for "unset".
+ */
+export function hasDevicePrintMargins(): boolean {
+  try { return localStorage.getItem(KEY) !== null; } catch { return false; }
+}
+
 export function loadPrintMargins(): PrintMargins {
   try {
     const raw = localStorage.getItem(KEY);
@@ -59,6 +85,17 @@ export function applyPrintMargins(m: PrintMargins = loadPrintMargins()) {
   r.setProperty('--dt-print-padding-left', `${m.left}mm`);
 }
 
+/**
+ * Hand this device back to the receipt preset (AUTO).
+ *
+ * v1.57.0 — this used to SAVE the defaults, which left the key in place. With
+ * margins now meaning "device has its own" when the key exists, saving would
+ * have made auto unreachable: once a device had ever been tuned it could
+ * never follow a preset again. Removing the key is what "reset" always meant.
+ */
 export function resetPrintMargins() {
-  savePrintMargins({ ...DEFAULT_MARGINS });
+  try { localStorage.removeItem(KEY); } catch { /* private mode — nothing saved anyway */ }
+  const back = loadPrintMargins();
+  applyPrintMargins(back);
+  try { window.dispatchEvent(new CustomEvent('dtpos-print-margins-changed', { detail: back })); } catch {}
 }

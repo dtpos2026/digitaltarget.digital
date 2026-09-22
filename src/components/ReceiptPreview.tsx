@@ -306,7 +306,13 @@ export default function ReceiptPreview({ order, settings, showPrintButton = true
     maxWidth: paperWidth,
     fontFamily: "Arial, 'Roboto Mono', 'Courier New', sans-serif",
     fontSize: '13px',
-    fontWeight: 700,
+    fontWeight: settings.receiptBoldText ? 800 : 700,
+    // v1.57.0 — see receiptBoldText in types.ts. Stroking the glyph thickens
+    // every character no matter what weight the chosen design sets on it, and
+    // costs no reflow, so a Compact receipt stays exactly as compact.
+    ...(settings.receiptBoldText
+      ? { WebkitTextStroke: '0.3px currentColor' } as React.CSSProperties
+      : {}),
     lineHeight: 1.28,
     WebkitPrintColorAdjust: 'exact',
     printColorAdjust: 'exact',

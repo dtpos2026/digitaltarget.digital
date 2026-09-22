@@ -27,7 +27,6 @@ export const PAGES: PageDef[] = [
   { key: 'credits',    path: '/credits',    title: 'Credits / Udhaar', group: 'Operations', defaultRoles: ['admin', 'manager', 'cashier'] },
   { key: 'credit-customers', path: '/credit-customers', title: 'Credit Customers (Ledger)', group: 'Operations', defaultRoles: ['admin', 'manager', 'cashier'] },
   { key: 'void-bills', path: '/void-bills', title: 'Void / Comp / Cancel', group: 'Operations', defaultRoles: ['admin', 'manager'] },
-  { key: 'retray',     path: '/retray',     title: 'Retray (Reprint/Pay)', group: 'Operations', defaultRoles: ['admin', 'manager', 'cashier'] },
   { key: 'tokens',     path: '/tokens',     title: 'Token Management', group: 'Operations', defaultRoles: ['admin', 'manager', 'cashier'] },
   { key: 'itemSalesReport', path: '/item-sales-report', title: 'Item Sales Report', group: 'Reports', defaultRoles: ['admin', 'manager'] },
   { key: 'praEims', path: '/pra-eims', title: 'PRA EIMS', group: 'Admin', defaultRoles: ['admin'] },

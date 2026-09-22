@@ -42,7 +42,6 @@ const ICON_BY_KEY: Record<string, any> = {
   bills: FileText, delivery: Truck, pickup: Package, kitchen: ChefHat,
   credits: Receipt,
   'void-bills': X,
-  retray: RotateCcw,
   tokens: Ticket,
   'pending-payments': Receipt,
   'bill-reprint': Receipt,

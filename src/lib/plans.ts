@@ -28,7 +28,7 @@ const TRIAL_FEATURES = [
 
 const STARTER_FEATURES = [
   ...TRIAL_FEATURES,
-  'delivery', 'pickup', 'retray', 'pending-payments', 'void-bills', 'credits',
+  'delivery', 'pickup', 'pending-payments', 'void-bills', 'credits',
   'customers', 'whatsapp', 'inventory', 'hr', 'accounts',
   'reports', 'backup',
 ];

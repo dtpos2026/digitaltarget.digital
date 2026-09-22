@@ -38,7 +38,6 @@ const WhatsAppPage = lazy(() => import("@/pages/WhatsAppPage"));
 const DevicesPage = lazy(() => import("@/pages/DevicesPage"));
 const MarketingPage = lazy(() => import("@/pages/MarketingPage"));
 const RecipesPage = lazy(() => import("@/pages/RecipesPage"));
-const RetrayPage = lazy(() => import("@/pages/RetrayPage"));
 const TokensPage = lazy(() => import("@/pages/TokensPage"));
 const ItemSalesReportPage = lazy(() => import("@/pages/ItemSalesReportPage"));
 const PraEimsSettingsPage = lazy(() => import("@/pages/PraEimsSettingsPage"));
@@ -851,7 +850,6 @@ const App = () => {
                 <Route path="/credit-customers" element={<CreditCustomersPage />} />
                 <Route path="/promo-codes" element={<PromoCodesPage />} />
                 <Route path="/void-bills" element={<VoidBillsPage />} />
-                <Route path="/retray" element={<RetrayPage />} />
                 <Route path="/tokens" element={<TokensPage />} />
                 <Route path="/item-sales-report" element={<ItemSalesReportPage />} />
                 <Route path="/pra-eims" element={<PraEimsSettingsPage />} />
