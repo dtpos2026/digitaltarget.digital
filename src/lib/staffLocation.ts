@@ -101,7 +101,10 @@ export function captureOnce(): Promise<StaffPoint | null> {
         resolve(point);
       },
       () => resolve(null),
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 },
+      // v1.62.0 — maximumAge was 30000, so a rider in traffic could be drawn
+      // where they were half a minute ago. High accuracy was already right;
+      // only the staleness was wrong. A live map wants a live fix.
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
     );
   });
 }

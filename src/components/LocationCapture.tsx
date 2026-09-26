@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { MapPin, ExternalLink, X, Loader2 } from 'lucide-react';
-import { getBrowserLocation } from '@/lib/geo';
+import { getBestBrowserLocation, describeAccuracy } from '@/lib/geo';
 import { toast } from 'sonner';
 
 interface Props {
@@ -12,14 +12,32 @@ interface Props {
 }
 
 export default function LocationCapture({ lat, lng, capturedAt, onChange }: Props) {
+  // v1.62.0 — kept so the pin can be judged, not just seen.
+  const [accuracy, setAccuracy] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
 
   const share = async () => {
     setBusy(true);
     try {
-      const pos = await getBrowserLocation();
-      onChange({ lat: pos.coords.latitude, lng: pos.coords.longitude, capturedAt: new Date().toISOString() });
-      toast.success('Location captured');
+      // v1.62.0 — wait for a real fix, then SAY how good it is.
+      //
+      // This used to take whatever the browser offered first, which on a
+      // desktop or a cold phone is a network estimate that can be kilometres
+      // out — and nothing on screen said so, so a rider was sent to it.
+      const fix = await getBestBrowserLocation({ desiredAccuracyM: 30, timeoutMs: 15000 });
+      onChange({
+        lat: fix.position.coords.latitude,
+        lng: fix.position.coords.longitude,
+        capturedAt: new Date().toISOString(),
+      });
+      setAccuracy(fix.accuracyM);
+      if (fix.accuracyM > 500) {
+        toast.warning(`Pin saved, but it is ${describeAccuracy(fix.accuracyM)}`, { duration: 9000 });
+      } else if (fix.approximate) {
+        toast.success(`Location captured — ${describeAccuracy(fix.accuracyM)}`);
+      } else {
+        toast.success(`Location captured — ${describeAccuracy(fix.accuracyM)}`);
+      }
     } catch (e: any) {
       toast.error(e?.message || 'Location denied');
     } finally {
@@ -47,9 +65,22 @@ export default function LocationCapture({ lat, lng, capturedAt, onChange }: Prop
         )}
       </div>
       {has ? (
-        <div className="text-[11px] font-mono bg-background rounded px-2 py-1 break-all">
-          {lat!.toFixed(6)}, {lng!.toFixed(6)}
-        </div>
+        <>
+          <div className="text-[11px] font-mono bg-background rounded px-2 py-1 break-all">
+            {lat!.toFixed(6)}, {lng!.toFixed(6)}
+          </div>
+          {/* v1.62.0 — a pin that is a kilometre out must not look like a pin
+              that is five metres out. A rider is sent to this. */}
+          {accuracy != null && (
+            <p className={`text-[10px] font-semibold ${
+              accuracy <= 100 ? 'text-green-600'
+              : accuracy <= 500 ? 'text-amber-600'
+              : 'text-red-600'
+            }`}>
+              {describeAccuracy(accuracy)}
+            </p>
+          )}
+        </>
       ) : (
         <p className="text-[11px] text-muted-foreground">No location captured yet.</p>
       )}

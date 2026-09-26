@@ -423,10 +423,17 @@ let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
 async function sendHeartbeat(deviceId: string): Promise<void> {
   const coords = await new Promise<{ lat: number; lng: number } | null>((resolve) => {
     if (typeof navigator === 'undefined' || !navigator.geolocation) return resolve(null);
+    // v1.62.0 — this is the dot on the Super Admin map, and it was wrong twice.
+    //
+    // enableHighAccuracy was not set, so it defaulted to FALSE and the browser
+    // answered from wifi/cell triangulation. maximumAge 300000 then allowed a
+    // cached fix up to FIVE MINUTES old. So a till could be drawn hundreds of
+    // metres from the restaurant, using a position from before the shift
+    // started — and the map gave no hint of either.
     navigator.geolocation.getCurrentPosition(
       (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
       () => resolve(null),
-      { timeout: 8000, maximumAge: 300000 },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 },
     );
   });
   const { error } = await sb().rpc('device_heartbeat', {
