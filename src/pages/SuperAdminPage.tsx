@@ -191,6 +191,28 @@ export default function SuperAdminPage({ onLogout }: Props) {
 
   // ===== Create New Restaurant dialog =====
   const [showCreate, setShowCreate] = useState(false);
+
+  // v1.60.0 — the credentials a freshly created restaurant needs, kept where a
+  // refresh cannot lose them. See the note at setJustCreated() below.
+  const JUST_CREATED_KEY = 'dt-sa-just-created';
+  type JustCreated = {
+    restaurant: string; email: string;
+    posUsername: string; posPassword: string;
+    workspaceCode: string; generated: boolean;
+  };
+  const [justCreated, setJustCreatedState] = useState<JustCreated | null>(() => {
+    try {
+      const raw = sessionStorage.getItem(JUST_CREATED_KEY);
+      return raw ? JSON.parse(raw) as JustCreated : null;
+    } catch { return null; }
+  });
+  const setJustCreated = (v: JustCreated | null) => {
+    setJustCreatedState(v);
+    try {
+      if (v) sessionStorage.setItem(JUST_CREATED_KEY, JSON.stringify(v));
+      else sessionStorage.removeItem(JUST_CREATED_KEY);
+    } catch { /* it is on screen either way */ }
+  };
   const [creating, setCreating] = useState(false);
   const [newRest, setNewRest] = useState({ name: '', email: '', password: '', plan: 'trial' });
 
@@ -226,7 +248,11 @@ export default function SuperAdminPage({ onLogout }: Props) {
           p_name: name, p_email: email, p_plan: newRest.plan,
         });
         if (error) throw error;
-        const r = data as { tenant_id: string; slug: string; workspace_code?: string };
+        const r = data as {
+          tenant_id: string; slug: string; workspace_code?: string;
+          pos_username?: string; pos_password?: string;
+          pos_password_generated?: boolean;
+        };
 
         // Keep the owner's email on record straight away. If provisioning
         // below fails, the panel still shows who this restaurant belongs to
@@ -294,6 +320,34 @@ export default function SuperAdminPage({ onLogout }: Props) {
 
           { duration: 15000 },
         );
+        // ===== v1.60.0 — the POS password was generated and then thrown away =====
+        //
+        // REPORTED: "default user hota ha user pass jb resturant create hota ha
+        // super admin sy, or nzr ana chyi mujy super admin me ky user ky pass
+        // kya ha ... qky some time login nhi hota ... ye meny last time set
+        // krwaya tha nhi howa".
+        //
+        // sa_create_restaurant has ALWAYS returned pos_username and
+        // pos_password — the random one it mints for the `admin` POS login.
+        // This screen read neither. The toast said "POS user: admin" and
+        // stopped there, so the password existed for exactly as long as the
+        // RPC's reply and was then unrecoverable: it is stored bcrypt-hashed,
+        // like every other password, and cannot be read back.
+        //
+        // That is the whole reason a new restaurant "sometimes does not log
+        // in" — nobody was ever told its password.
+        //
+        // Held in sessionStorage, not component state: a refresh in the middle
+        // of handing a restaurant over used to lose the one copy that existed.
+        // Same lesson as v1.56.2, which cost three live accounts.
+        setJustCreated({
+          restaurant: name,
+          email,
+          posUsername: r.pos_username || 'admin',
+          posPassword: r.pos_password || '',
+          workspaceCode: wsCode,
+          generated: r.pos_password_generated !== false,
+        });
         setNewRest({ name: '', email: '', password: '', plan: 'trial' });
         setShowCreate(false);
         load();
@@ -1115,6 +1169,44 @@ export default function SuperAdminPage({ onLogout }: Props) {
               </div>
             )}
 
+            {/* v1.60.0 — what the restaurant actually needs to sign in.
+                sa_create_restaurant has always returned these; nothing showed
+                them, so a new restaurant had a password nobody had ever seen. */}
+            {justCreated && (
+              <div className="mb-4 rounded-xl border-2 border-green-500/40 bg-green-500/10 p-4">
+                <div className="text-sm font-extrabold text-green-700 dark:text-green-400 mb-2">
+                  ✅ {justCreated.restaurant} — hand these over now
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <CredRow label="Owner email (website login)" value={justCreated.email} />
+                  <CredRow label="Workspace Code (Rider / Order Taker / Customer apps)" value={justCreated.workspaceCode} />
+                  <CredRow label="POS username" value={justCreated.posUsername} />
+                  <CredRow label="POS password" value={justCreated.posPassword} highlight />
+                </div>
+                <div className="text-[11px] text-muted-foreground mt-2 flex items-start gap-1.5">
+                  <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-600" />
+                  <span>
+                    {justCreated.generated
+                      ? 'This POS password was generated once and is stored only as a hash — it cannot be shown again. '
+                      : ''}
+                    Write it down before closing. If it is lost, use
+                    <strong> Devices → Staff Logins → Reset Password</strong> on this restaurant.
+                    The POS will ask them to choose their own password at first sign-in.
+                  </span>
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="mt-2 h-8 text-xs"
+                  onClick={() => {
+                    if (window.confirm('Have you saved these? They cannot be shown again.')) setJustCreated(null);
+                  }}
+                >
+                  Done — I have them
+                </Button>
+              </div>
+            )}
+
             <BulkBar
               mode={bulkMode}
               setMode={(v) => { setBulkMode(v); if (!v) clearSelection(); }}
@@ -1731,6 +1823,35 @@ function SuperAdminLiveMap({ devices, restaurants }: { devices: DeviceRow[]; res
 }
 
 function escape(s: string) { return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]!)); }
+
+function CredRow({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true); setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard is blocked in plenty of browsers. The value is on screen
+      // either way — say so rather than pretending the copy worked.
+      toast.error('Could not copy — read it from the screen.');
+    }
+  };
+  return (
+    <div className="rounded-lg bg-background border p-2">
+      <div className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">{label}</div>
+      <div className="flex items-center gap-2 mt-0.5">
+        <code className={`flex-1 min-w-0 truncate font-mono select-all ${highlight ? 'text-base font-extrabold' : 'text-sm font-bold'}`}>
+          {value || '—'}
+        </code>
+        {value && (
+          <Button size="sm" variant="outline" className="h-7 px-2 shrink-0" onClick={() => void copy()}>
+            {copied ? <CheckCircle2 className="h-3 w-3 text-green-600" /> : <Download className="h-3 w-3" />}
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function StatCard({ icon, label, value, tone }: { icon: ReactNode; label: string; value: number; tone: 'amber' | 'green' }) {
   const toneClasses = tone === 'amber'

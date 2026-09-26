@@ -51,9 +51,24 @@ function electronApi(): any {
 export function praBrowserLimitation(cfg: PraConfig): string | null {
   if (isElectron()) return null;
   if (cfg.transport === 'local') {
-    return 'A web browser cannot reach the localhost fiscal device — use the Windows desktop app for PRA.';
+    // v1.60.0 — this one really cannot be fixed from here, and the reason is
+    // worth stating exactly, because the obvious idea (proxy it) does not work.
+    //
+    // The device answers with no Access-Control-Allow-Origin, and Chrome also
+    // demands a Private Network Access preflight for a public page reaching a
+    // private address. Both are the DEVICE's to send; it is PRAL's software.
+    // A server-side proxy cannot help either: our server is not on the
+    // restaurant's LAN, so it cannot see their localhost at all.
+    //
+    // (The old wording blamed mixed content. That was wrong — browsers treat
+    // http://localhost as potentially trustworthy — but the conclusion held.)
+    return 'The fiscal device sits on this computer\'s own network, which a website cannot reach — '
+      + 'use the Windows desktop app for the local device, or switch PRA to the Cloud transport, '
+      + 'which now works on the web.';
   }
-  return 'The PRAL cloud endpoint may be blocked from a browser by CORS — the desktop app or a server-side proxy may be required.';
+  // Cloud is no longer a browser limitation: CORS is a browser rule and the
+  // call goes through our own server now. See src/lib/pra.functions.ts.
+  return null;
 }
 
 async function rawRequest(
@@ -71,6 +86,32 @@ async function rawRequest(
       return r as RawResult;
     } catch (e: any) {
       return { success: false, error: e?.message || String(e) };
+    }
+  }
+
+  // v1.60.0 — a browser reaches PRAL's CLOUD through our own server.
+  //
+  // CORS is a browser rule; a server has none. This is the same shape
+  // submitPublicOrder uses, and it is what makes PRA work on the web. The
+  // proxy only ever calls ims.pral.com.pk — forwarding an arbitrary url would
+  // be an SSRF hole.
+  if (!isElectron() && /^https:\/\/ims\.pral\.com\.pk\//i.test(url)) {
+    try {
+      const { praCloudRequest } = await import('./pra.functions');
+      const r = await praCloudRequest({ data: { url, method, body, token: token || undefined, timeoutMs } });
+      let parsed: unknown = undefined;
+      try { parsed = r.text ? JSON.parse(r.text) : undefined; } catch { /* not json */ }
+      return {
+        success: r.success,
+        status: r.status,
+        body: parsed,
+        text: r.text,
+        timeout: r.timeout || undefined,
+        error: r.error || undefined,
+      };
+    } catch (e: any) {
+      // Never silent: a restaurant must not believe it filed with PRA.
+      return { success: false, error: e?.message || 'Could not reach the PRA service' };
     }
   }
 
