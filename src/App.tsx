@@ -54,6 +54,7 @@ const BranchesPage = lazy(() => import("@/pages/BranchesPage"));
 const ProfitabilityPage = lazy(() => import("@/pages/ProfitabilityPage"));
 const VariationsDealsPage = lazy(() => import("@/pages/VariationsDealsPage"));
 const CrmInsightsPage = lazy(() => import("@/pages/CrmInsightsPage"));
+const OwnerManagementPage = lazy(() => import("@/pages/OwnerManagementPage"));
 const CostingReportsPage = lazy(() => import("@/pages/CostingReportsPage"));
 const CreditsPage = lazy(() => import("@/pages/CreditsPage"));
 const CreditCustomersPage = lazy(() => import("@/pages/CreditCustomersPage"));
@@ -875,6 +876,7 @@ const App = () => {
                 <Route path="/profitability" element={<ProfitabilityPage />} />
                 <Route path="/variations" element={<VariationsDealsPage />} />
                 <Route path="/crm" element={<CrmInsightsPage />} />
+                <Route path="/owner" element={<OwnerManagementPage />} />
                 <Route path="/reports" element={<ReportsPage />} />
                 <Route path="/costing" element={<CostingReportsPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
