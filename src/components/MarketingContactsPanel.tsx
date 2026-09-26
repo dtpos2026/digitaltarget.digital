@@ -82,7 +82,7 @@ export default function MarketingContactsPanel() {
   const onDelete = async (c: MarketingContact) => {
     if (!confirm(`Delete contact "${c.name}"?`)) return;
     try { await deleteContact(c.id); toast.success('Deleted'); load(); }
-    catch (e: any) { toast.error(e?.message); }
+    catch (e: any) { toast.error(e?.message || 'Could not save — the server refused it. Check your connection and try again.'); }
   };
 
   const tenantById = (id?: string) => tenants.find(t => t.id === id);
@@ -263,7 +263,7 @@ function ContactForm({ initial, onClose, onSaved }: {
       if (initial) { await updateContact(initial.id, payload); toast.success('Contact updated'); }
       else { await createContact(payload); toast.success('Contact added'); }
       onSaved();
-    } catch (e: any) { toast.error(e?.message); }
+    } catch (e: any) { toast.error(e?.message || 'Could not save — the server refused it. Check your connection and try again.'); }
     setSaving(false);
   };
 
@@ -358,7 +358,7 @@ function LinkDialog({ contact, tenants, onClose, onSaved }: {
           snap.forEach(d => list.push({ id: d.id, ...(d.data() as any) }));
           setDevices(list);
         }
-      } catch (e: any) { toast.error(e?.message); }
+      } catch (e: any) { toast.error(e?.message || 'Could not save — the server refused it. Check your connection and try again.'); }
       setLoadingDev(false);
     })();
   }, [linkedTenantId]);
@@ -386,7 +386,7 @@ function LinkDialog({ contact, tenants, onClose, onSaved }: {
       });
       toast.success('Linked');
       onSaved();
-    } catch (e: any) { toast.error(e?.message); }
+    } catch (e: any) { toast.error(e?.message || 'Could not save — the server refused it. Check your connection and try again.'); }
     setSaving(false);
   };
 

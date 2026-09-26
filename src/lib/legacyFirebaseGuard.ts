@@ -19,16 +19,35 @@
 // measure of what is left to migrate.
 // ============================================================================
 
-/** True when the current session is on Supabase, so Firestore is unreachable. */
+/**
+ * True when the current session is on Supabase, so Firestore is unreachable.
+ *
+ * ===== v1.58.0 — this disagreed with authProvider, and clients stopped saving
+ *
+ * REPORTED: "super admin me clien save nhi hota, na he resturan bill wagahesab".
+ *
+ * v1.25.3 HARD PINNED usingSupabaseAuth() to true, with the note "Firebase is
+ * gone. There is exactly one backend, so there is nothing left to resolve and
+ * no state that can put a device on the wrong path." This function was not
+ * changed with it, and kept consulting the same per-device flag that change
+ * had just finished removing:
+ *
+ *     if (explicit === 'firebase') return false;
+ *
+ * So on any device still carrying that stale flag — a browser used before the
+ * migration, or one a POS login had stamped — every platform module took the
+ * FIRESTORE branch: marketing contacts (the client list), client billing,
+ * packages, plans, releases, support. Firestore has no identity for a
+ * Supabase-authenticated Super Admin, so each write was refused. Both symptoms
+ * reported are the same line: the clients tab and the restaurant billing both
+ * go through here.
+ *
+ * Pinned to true for the same reason usingSupabaseAuth() is: there is one
+ * backend. A device cannot opt itself back into a system that no longer
+ * exists.
+ */
 export function firestoreUnavailable(): boolean {
-  try {
-    const explicit = localStorage.getItem('dtpos-auth-backend');
-    if (explicit === 'supabase') return true;
-    if (explicit === 'firebase') return false;
-  } catch { /* storage unavailable */ }
-  const env = (import.meta as any).env ?? {};
-  return !!env.VITE_SUPABASE_URL
-    && !!(env.VITE_SUPABASE_PUBLISHABLE_KEY ?? env.VITE_SUPABASE_ANON_KEY);
+  return true;
 }
 
 /**
