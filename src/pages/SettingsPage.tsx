@@ -29,6 +29,7 @@ import OptionalFeaturesPanel from '@/components/OptionalFeaturesPanel';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { isElectron, getPrinters, getAutoStart, setAutoStart } from '@/lib/electron';
 import { Slider } from '@/components/ui/slider';
+import { PREMIUM_THEME_IDS } from '@/lib/premiumTheme';
 import { themes, getActiveTheme, setActiveTheme, ThemeId } from '@/lib/themes';
 import { getWhatsAppTemplates } from '@/lib/whatsapp';
 import { getTenantId, getTenantName } from '@/lib/tenant';
@@ -1713,7 +1714,8 @@ export default function SettingsPage() {
             <p className="text-xs text-muted-foreground">اپنی پسند کا تھیم منتخب کریں — تمام سکرینز آٹو اپڈیٹ ہو جائیں گی</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {themes.map(theme => {
-                const isPremium = theme.id === 'vince-premium';
+                // v1.61.0 — every premium theme is gated, not just the first.
+                const isPremium = PREMIUM_THEME_IDS.includes(theme.id);
                 const premiumAllowed = !!(settings as any).premiumThemeAllowed;
                 const locked = isPremium && !premiumAllowed;
                 return (

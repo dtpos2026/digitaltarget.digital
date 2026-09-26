@@ -1,4 +1,4 @@
-export type ThemeId = 'blink-style' | 'dt-pos-purple' | 'emerald-prestige' | 'maroon-classic' | 'dark-modern' | 'light-clean' | 'touch-pos' | 'luxury-gold' | 'teal-restaurant' | 'vince-premium';
+export type ThemeId = 'blink-style' | 'dt-pos-purple' | 'emerald-prestige' | 'maroon-classic' | 'dark-modern' | 'light-clean' | 'touch-pos' | 'luxury-gold' | 'teal-restaurant' | 'vince-premium' | 'soft-light';
 
 export interface ThemeConfig {
   id: ThemeId;
@@ -365,6 +365,76 @@ export const themes: ThemeConfig[] = [
       '--sidebar-accent-foreground': '262 60% 38%',
       '--sidebar-border': '270 25% 90%',
       '--sidebar-ring': '262 60% 45%',
+    },
+  },
+  {
+    // ========================================================================
+    // v1.61.0 — "Soft Light", drawn from the screens you sent
+    //
+    // REQUESTED: "bg pos ui white theme b add kro ok profassinal ... sary
+    // software ky asy table anl tu nhi ... taky softness ay software me, abi
+    // logo ko asan nhi lagta, khty han bohat feature ha".
+    //
+    // The complaint is not about colour, it is about DENSITY. Every screen
+    // reads as a spreadsheet, so a restaurant looks at it and sees work rather
+    // than a tool. The reference screens answer that the same way each time:
+    // a white ground, generous radius, one quiet accent, and borders light
+    // enough to separate without drawing a grid.
+    //
+    // So this theme lifts the ground to white, softens every border, and
+    // carries a single warm red for the one action that matters on a screen
+    // (Add to Cart, Checkout) with a mint green for "available / paid" — the
+    // exact pairing in those mock-ups. --radius is raised too: index.css sets
+    // 0.625rem, and the corners are most of why the reference feels calm.
+    //
+    // Nothing about POS behaviour changes. This is CSS variables only.
+    // ========================================================================
+    id: 'soft-light',
+    name: 'Soft Light',
+    description: 'White, rounded and roomy — the least "spreadsheet" of the set',
+    emoji: '🤍',
+    variables: {
+      '--radius': '0.9rem',
+
+      '--background': '220 20% 98%',        // warm off-white page
+      '--foreground': '222 24% 14%',        // near-black, never pure
+      '--card': '0 0% 100%',
+      '--card-foreground': '222 24% 14%',
+
+      '--primary': '356 72% 48%',           // the warm red on Checkout
+      '--primary-foreground': '0 0% 100%',
+
+      '--secondary': '160 46% 92%',         // mint chip, as on the table cards
+      '--secondary-foreground': '167 52% 22%',
+
+      '--muted': '220 16% 96%',
+      '--muted-foreground': '220 10% 44%',
+
+      '--accent': '160 44% 82%',            // mint, for available / paid
+      '--accent-foreground': '167 52% 20%',
+
+      // Light enough to separate, too light to read as a grid.
+      '--border': '220 16% 91%',
+      '--input': '220 16% 89%',
+      '--ring': '356 72% 55%',
+
+      '--gold': '38 92% 55%',               // the "Popular" badge amber
+      '--gold-foreground': '30 40% 16%',
+
+      // The sidebar is WHITE here, which is most of the softness.
+      '--pos-sidebar': '0 0% 100%',
+      '--pos-sidebar-foreground': '222 24% 16%',
+      '--pos-cart': '0 0% 100%',
+      '--pos-grid-bg': '220 20% 98%',
+
+      '--sidebar-background': '0 0% 100%',
+      '--sidebar-foreground': '222 20% 24%',
+      '--sidebar-primary': '356 72% 48%',
+      '--sidebar-primary-foreground': '0 0% 100%',
+      '--sidebar-accent': '220 18% 95%',
+      '--sidebar-accent-foreground': '356 72% 44%',
+      '--sidebar-border': '220 16% 92%',
+      '--sidebar-ring': '356 72% 55%',
     },
   },
 ];

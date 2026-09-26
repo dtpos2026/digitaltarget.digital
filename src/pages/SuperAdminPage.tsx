@@ -768,9 +768,16 @@ export default function SuperAdminPage({ onLogout }: Props) {
           { tenant_id: tid, branch_id: '00000000-0000-0000-0000-000000000000', settings: merged },
           { onConflict: 'tenant_id,branch_id' });
         if (error) throw error;
+        // v1.61.0 — this flag now unlocks the whole premium set (VINCE and
+        // Soft Light), so say what the restaurant actually gets and where.
+        // The rollout needs no separate mechanism: the flag lives in
+        // tenant_settings, so the web picks it up on the next refresh and the
+        // Windows build on the next restart.
         toast.success(next
-          ? `👑 Premium UI allotted to ${r.restaurantName || r.email}`
-          : `Premium UI revoked from ${r.restaurantName || r.email}`);
+          ? `👑 Premium UI unlocked for ${r.restaurantName || r.email} — they pick it in `
+            + 'Settings → Theme (Soft Light / VINCE). Web: next refresh. Windows: next restart.'
+          : `Premium UI revoked from ${r.restaurantName || r.email} — they go back to DT POS Purple.`,
+          { duration: 10000 });
         load();
       } catch (e: any) { toast.error(e?.message || 'Toggle failed'); }
       return;
