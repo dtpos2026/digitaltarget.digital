@@ -12,6 +12,7 @@ import ReceiptPreview from '@/components/ReceiptPreview';
 import ReceivePaymentButton from '@/components/ReceivePaymentButton';
 import { balanceDue, isPartialSale } from '@/lib/sales';
 import { enqueueReceipt } from '@/lib/printQueue';
+import { startVisiblePoll } from '@/lib/visiblePoll';
 import { toast } from 'sonner';
 
 export default function PendingPaymentsPage() {
@@ -32,9 +33,9 @@ export default function PendingPaymentsPage() {
       if (!cancel) refresh();
     };
     pull();
-    const t = setInterval(pull, 10000);
+    const stopPoll = startVisiblePoll(pull, 10000);
     const unsub = onDataChange((col) => { if (!cancel && col === 'orders') refresh(); });
-    return () => { cancel = true; clearInterval(t); unsub(); };
+    return () => { cancel = true; stopPoll(); unsub(); };
   }, []);
 
   const filtered = orders.filter(o => {

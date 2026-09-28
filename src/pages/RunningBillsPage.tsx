@@ -16,6 +16,7 @@ import { useNavigate } from '@/lib/hash-router';
 import ReceivePaymentButton from '@/components/ReceivePaymentButton';
 import { balanceDue } from '@/lib/sales';
 import { scopeOrders, getCurrentScope } from '@/lib/cashierScope';
+import { startVisiblePoll } from '@/lib/visiblePoll';
 
 export default function RunningBillsPage() {
   const scope = getCurrentScope();
@@ -40,9 +41,9 @@ export default function RunningBillsPage() {
       if (!cancel) refresh();
     };
     pull();
-    const t = setInterval(pull, 10000);
+    const stopPoll = startVisiblePoll(pull, 10000);
     const unsub = onDataChange((col) => { if (!cancel && col === 'orders') refresh(); });
-    return () => { cancel = true; clearInterval(t); unsub(); };
+    return () => { cancel = true; stopPoll(); unsub(); };
   }, []);
 
   // ===== v1.57.0 — "Retrieve se KOT print karun to aata nahi" =====

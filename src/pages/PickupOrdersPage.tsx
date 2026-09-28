@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { getOrders, saveOrder, getSettings, refreshOrdersFromCloud } from '@/lib/store';
 import { Order } from '@/lib/types';
 import { normalizePhone, openWhatsApp } from '@/lib/whatsapp';
+import { startVisiblePoll } from '@/lib/visiblePoll';
 import ReceiptPreview from '@/components/ReceiptPreview';
 import ReadyNotificationBus from '@/components/ReadyNotificationBus';
 import ReadyOrderPoller from '@/components/ReadyOrderPoller';
@@ -57,8 +58,8 @@ export default function PickupOrdersPage() {
       if (!cancel) setOrders(getOrders());
     };
     pull();
-    const t = setInterval(pull, 8000);
-    return () => { cancel = true; clearInterval(t); };
+    const stopPoll = startVisiblePoll(pull, 8000);
+    return () => { cancel = true; stopPoll(); };
   }, []);
 
   const pickups = useMemo(() => orders.filter(isPickupOrder), [orders]);

@@ -22,6 +22,9 @@ import { getSyncDeviceId } from './supabaseSync';
 import { getDeviceId } from './tenant';
 import { authTenantId, authBranchId } from './authProvider';
 import { isPublicTenantRoute, parsePublicTenantId } from './publicTenant';
+import {
+  ENABLE_ORDERS_DELTA_PULL, ORDERS_DELTA_OVERLAP_MS, ORDERS_FULL_RECONCILE_MS,
+} from './featureFlags';
 
 import { allocateServerOrderNumber, isOrderNumberCollision, emitOrderRenumbered } from './orderNumbers';
 
@@ -780,6 +783,150 @@ export async function sbLoadCollection(col: string, opts: LoadOptions = {}): Pro
     throw error;
   }
   return (data ?? []).map((r: any) => rowFromDb(r, table));
+}
+
+// ---------------------------------------------------------------------------
+// v1.65.0 — the orders DELTA read
+//
+// `sbLoadCollection('orders')` re-downloads every live order on every call.
+// Measured on a real restaurant: 352 rows, 1,765 kB, and thirteen screens ask
+// for it — four of them on an 8–15 second timer. The rows that actually
+// changed between two of those calls are almost always zero.
+//
+// This is the same query with one extra condition. Deliberately NOT the
+// `pull_orders_delta` RPC, for two reasons worth writing down:
+//
+//   1. That RPC returns `to_jsonb(o)` with no `deleted_at` / `archived_at`
+//      filter, so it would load closed days and deleted bills straight back
+//      into the till — the exact behaviour Day Close exists to prevent.
+//   2. It is branch-scoped (`p_branch`), so it would hide the online orders
+//      that landed at another branch. v1.55.0 was about that being wrong.
+//
+// Going through PostgREST keeps the tenant filter, the RLS policy, the two
+// soft-delete filters and `rowFromDb()` byte-for-byte identical to the full
+// read. The only difference is how many rows come back.
+// ---------------------------------------------------------------------------
+
+// Both keys use the `pos-` prefix on purpose: sessionIsolation.ts wipes every
+// `pos-*` key when the browser switches restaurant, so a cursor can never
+// outlive the rows it accounts for.
+const ORDERS_CURSOR_PREFIX = 'pos-orders-delta-cursor::';
+const ORDERS_FULL_AT_PREFIX = 'pos-orders-full-read-at::';
+
+/**
+ * The cursor is keyed BY TENANT. One browser can sign into a second
+ * restaurant, and one restaurant's newest timestamp says nothing about
+ * another's — a shared cursor would silently skip the new tenant's orders.
+ */
+function ordersCursorKey(tenantId: string): string {
+  return ORDERS_CURSOR_PREFIX + tenantId;
+}
+
+function readOrdersCursorMs(tenantId: string): number {
+  try {
+    const raw = localStorage.getItem(ordersCursorKey(tenantId));
+    if (!raw) return 0;
+    const ms = Date.parse(raw);
+    return Number.isFinite(ms) ? ms : 0;
+  } catch { return 0; }
+}
+
+function writeOrdersCursorMs(tenantId: string, ms: number): void {
+  try {
+    localStorage.setItem(ordersCursorKey(tenantId), new Date(ms).toISOString());
+  } catch { /* private mode / quota — the next read is simply a full one */ }
+}
+
+function readOrdersFullAtMs(tenantId: string): number {
+  try {
+    const raw = localStorage.getItem(ORDERS_FULL_AT_PREFIX + tenantId);
+    const ms = Number(raw || 0);
+    return Number.isFinite(ms) ? ms : 0;
+  } catch { return 0; }
+}
+
+function writeOrdersFullAtMs(tenantId: string, ms: number): void {
+  try { localStorage.setItem(ORDERS_FULL_AT_PREFIX + tenantId, String(ms)); }
+  catch { /* ignore */ }
+}
+
+/**
+ * Forget the cursor, so the next read is a full one.
+ *
+ * Called when the local order cache is thrown away (sign-out, switching
+ * restaurant, a repair) — a cursor without the rows it accounts for would
+ * leave the screen permanently empty.
+ */
+export function resetOrdersDeltaCursor(tenantId?: string | null): void {
+  const t = tenantId ?? readTenantId();
+  if (!t) return;
+  try {
+    localStorage.removeItem(ordersCursorKey(t));
+    localStorage.removeItem(ORDERS_FULL_AT_PREFIX + t);
+  } catch { /* ignore */ }
+}
+
+export interface OrdersDeltaRead {
+  /** Rows, already through `rowFromDb` — identical shape to sbLoadCollection. */
+  rows: any[];
+  /** TRUE when this read returned the whole collection, not a delta. */
+  full: boolean;
+}
+
+/**
+ * Read the orders that changed since the last read.
+ *
+ * Returns a FULL collection — and says so — when there is no usable cursor,
+ * when the caller forces it, or when the reconcile interval has elapsed. A
+ * caller that merges the rows in must only trust `rows` to be complete when
+ * `full` is true.
+ */
+export async function sbLoadOrdersDelta(
+  opts: { force?: boolean; includeArchived?: boolean } = {},
+): Promise<OrdersDeltaRead> {
+  const table = 'orders';
+  const tenantId = readTenantId();
+  if (!tenantId) return { rows: [], full: false };
+
+  const cursorMs = ENABLE_ORDERS_DELTA_PULL ? readOrdersCursorMs(tenantId) : 0;
+  const lastFullMs = readOrdersFullAtMs(tenantId);
+  const now = Date.now();
+  const reconcileDue =
+    ORDERS_FULL_RECONCILE_MS > 0 && now - lastFullMs >= ORDERS_FULL_RECONCILE_MS;
+  // An archived read is a different result set from the one the cursor was
+  // built against, so it never rides on the cursor.
+  const full = !!opts.force || !!opts.includeArchived || cursorMs <= 0 || reconcileDue;
+
+  let request = sb().from(table).select('*').eq('tenant_id', tenantId)
+    .is('deleted_at', null);
+  if (!opts.includeArchived) request = request.is('archived_at', null);
+  if (!full) {
+    const sinceMs = Math.max(0, cursorMs - ORDERS_DELTA_OVERLAP_MS);
+    request = request.gte('updated_at', new Date(sinceMs).toISOString());
+  }
+
+  const { data, error } = await request;
+  if (error) {
+    console.error(`[supabase] load orders delta failed`, error.message);
+    // Throw, never return []: an empty array reads as "this restaurant has no
+    // orders" and would wipe good local rows. Same rule as sbLoadCollection.
+    throw error;
+  }
+
+  const raw = (data ?? []) as any[];
+  // Advance the cursor from the rows themselves, never from the local clock:
+  // the device clock and the database clock are not the same clock.
+  let newestMs = 0;
+  for (const r of raw) {
+    const ms = Date.parse(r?.updated_at || '');
+    if (Number.isFinite(ms) && ms > newestMs) newestMs = ms;
+  }
+  if (!opts.includeArchived) {
+    if (newestMs > cursorMs) writeOrdersCursorMs(tenantId, newestMs);
+    if (full) writeOrdersFullAtMs(tenantId, now);
+  }
+
+  return { rows: raw.map((r: any) => rowFromDb(r, table)), full };
 }
 
 /**

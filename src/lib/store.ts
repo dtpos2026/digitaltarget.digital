@@ -2200,14 +2200,53 @@ export async function loadHistoricalOrders(fromMs: number, toMs?: number): Promi
  * Online Portal / Delivery Board / New-Order Notifier so website orders
  * appear without a full page reload.
  */
+/**
+ * v1.65.0 — one refresh at a time.
+ *
+ * Thirteen screens call refreshOrdersFromCloud(), and NewOrderNotifier runs
+ * its own timer on top of whichever screen is open. Two timers landing in the
+ * same second issued two identical reads of the same rows. This hands the
+ * second caller the first caller's promise instead: one request, and both
+ * callers still receive the same merged orders, so no screen behaves
+ * differently.
+ */
+let ordersRefreshInFlight: Promise<Order[]> | null = null;
+
 export async function refreshOrdersFromCloud(): Promise<Order[]> {
+  if (ordersRefreshInFlight) return ordersRefreshInFlight;
+  const run = refreshOrdersFromCloudOnce().finally(() => {
+    if (ordersRefreshInFlight === run) ordersRefreshInFlight = null;
+  });
+  ordersRefreshInFlight = run;
+  return run;
+}
+
+async function refreshOrdersFromCloudOnce(): Promise<Order[]> {
   if (!useCloudStore()) return getOrders();
   try {
       if (useSupabaseBackend()) {
-        const { sbLoadCollection } = await import('./supabaseStore');
-        const arr = await sbLoadCollection('orders') as Order[];
+        // ===== v1.65.0 — read what CHANGED, not the whole collection =====
+        //
+        // MEASURED: First Chef has 352 live orders and `select('*')` returns
+        // 1,765 kB for them, because every row carries its full order
+        // document. Running Bills polls this every 10 seconds, so one till on
+        // one screen pulled ~10.6 MB a minute — about 7.6 GB over a twelve
+        // hour shift — to learn that two rows had changed.
+        //
+        // sbLoadOrdersDelta() is the SAME query, the same tenant filter, the
+        // same RLS policy and the same rowFromDb(); it adds an `updated_at >=`
+        // condition. The merge below is unchanged, and it has to be: it is
+        // what keeps a locally-paid bill from being overwritten by a stale
+        // server copy.
+        const { sbLoadOrdersDelta } = await import('./supabaseStore');
         const d = loadData();
-        const localById = new Map(d.orders.map(o => [o.id, o]));
+        const localArr = (d.orders || []) as Order[];
+        // A delta can only ADD to rows that are already cached. On a device
+        // holding none — a fresh install, a cleared browser, a second profile
+        // — a delta would leave the screen empty, so that read is a full one.
+        const { rows } = await sbLoadOrdersDelta({ force: localArr.length === 0 });
+        const arr = rows as Order[];
+        const localById = new Map(localArr.map(o => [o.id, o]));
         for (const remote of arr) {
           const local = localById.get(remote.id) as any;
           if (!local || Number((remote as any)._updatedAt || 0) >= Number(local?._updatedAt || 0)) {

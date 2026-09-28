@@ -47,3 +47,56 @@ export const AUTO_DETECT_LONG_POLLING = true;
  * `{ force: true }` to fetchInvoices / fetchPayments.
  */
 export const BILLING_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
+// ============================================================
+// v1.65.0 — Supabase egress: the orders poll
+// ============================================================
+
+/**
+ * When TRUE (default), `refreshOrdersFromCloud()` reads only the orders that
+ * CHANGED since the last read instead of re-downloading the whole collection.
+ *
+ * WHY THIS EXISTS — measured, not assumed:
+ *
+ *   One restaurant (First Chef) has 352 live order rows. `select('*')` on
+ *   `orders` returns 1,765 kB for them, because each row carries the full
+ *   order document in its `data` jsonb. Thirteen screens call
+ *   `refreshOrdersFromCloud()`, four of them on an 8–15 second timer. One
+ *   till sitting on Running Bills therefore pulled ~10.6 MB per minute —
+ *   about 7.6 GB across a twelve-hour shift, for a set of orders that
+ *   changed by two or three rows in that whole time.
+ *
+ * The delta uses the SAME table, the SAME tenant filter and the SAME RLS
+ * policy as the full read — it adds one `updated_at >=` condition, nothing
+ * else. `public.orders` has a BEFORE UPDATE trigger (`orders_updated_at`)
+ * that sets `updated_at = now()` on every write, whichever path performs it,
+ * so no change can slip past the cursor.
+ *
+ * Set to FALSE to restore the full-collection read exactly as it was.
+ */
+export const ENABLE_ORDERS_DELTA_PULL = true;
+
+/**
+ * How far BACK of the stored cursor each delta read starts, in milliseconds.
+ *
+ * Postgres `now()` is transaction-start time, so a long transaction can
+ * commit a row whose `updated_at` is older than a row committed before it. A
+ * strict "greater than the newest timestamp I saw" cursor would step over
+ * that row and lose a bill. Re-reading a few seconds of overlap costs a
+ * handful of rows and cannot lose one; the merge is idempotent, so a row
+ * arriving twice changes nothing.
+ */
+export const ORDERS_DELTA_OVERLAP_MS = 30 * 1000;
+
+/**
+ * How often the delta path takes a FULL read anyway, in milliseconds.
+ *
+ * A cursor is only as good as the write that follows it: if the cursor
+ * advances and `saveLocal()` then fails (storage quota), the device would
+ * never ask for those rows again. This is the self-healing floor — at worst
+ * the till is one reconcile behind, never permanently wrong. At 15 minutes a
+ * device takes 4 full reads an hour instead of 450.
+ *
+ * Set to 0 to never reconcile (pure delta after the first read).
+ */
+export const ORDERS_FULL_RECONCILE_MS = 15 * 60 * 1000;

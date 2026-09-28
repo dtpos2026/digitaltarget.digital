@@ -1,0 +1,32 @@
+-- ============================================================================
+-- v1.65.0 — an index for the orders delta read
+--
+-- WHAT CHANGED IN THE APP
+--
+-- refreshOrdersFromCloud() used to read the whole live orders collection every
+-- time it was called, and it is called by thirteen screens, four of them on an
+-- 8-15 second timer. Measured on a real restaurant: 352 rows, 1,765 kB per
+-- read, roughly 10.6 MB a minute from one till sitting on Running Bills.
+--
+-- It now reads only the rows whose `updated_at` moved since the last read:
+--
+--     select * from orders
+--      where tenant_id = :t and deleted_at is null and archived_at is null
+--        and updated_at >= :cursor
+--
+-- THIS MIGRATION
+--
+-- `orders` already has orders_branch_updated_idx (branch_id, updated_at) and
+-- orders_tenant_idx (tenant_id). Neither serves the query above: the delta is
+-- tenant-scoped, not branch-scoped, deliberately -- a till must still see the
+-- online orders that landed at another branch of the same restaurant (v1.55.0).
+-- Without a matching index Postgres reads every one of the restaurant's rows
+-- to discard all but the two that changed.
+--
+-- Additive and idempotent. No table is altered, no row is read or written, no
+-- policy or grant changes. `create index if not exists` is a no-op on a
+-- database that already has it.
+-- ============================================================================
+
+create index if not exists orders_tenant_updated_idx
+  on public.orders (tenant_id, updated_at);

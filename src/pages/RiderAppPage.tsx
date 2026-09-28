@@ -15,6 +15,7 @@ import DeliveryRouteMap from '@/components/DeliveryRouteMap';
 import ReadyNotificationBus from '@/components/ReadyNotificationBus';
 import ReadyOrderPoller from '@/components/ReadyOrderPoller';
 import { portalClaimOrder, portalSetDeliveryStage } from '@/lib/portalData';
+import { startVisiblePoll } from '@/lib/visiblePoll';
 import PortalRestaurantBadge from '@/components/PortalRestaurantBadge';
 import StaffProfileCard from '@/components/StaffProfileCard';
 
@@ -147,11 +148,11 @@ export default function RiderAppPage() {
       if (!cancel) { setOrders(getOrders()); setTick(x => x + 1); }
     };
     pull();
-    const t = setInterval(pull, 15000);
+    const stopPoll = startVisiblePoll(pull, 15000);
     const unsub = onDataChange((col) => {
       if (col === 'orders' && !cancel) { setOrders(getOrders()); setTick(x => x + 1); }
     });
-    return () => { cancel = true; clearInterval(t); unsub(); };
+    return () => { cancel = true; stopPoll(); unsub(); };
   }, []);
 
   // Rider heartbeat: every 60s stamp lastSeenAt so admin sees online/offline.
