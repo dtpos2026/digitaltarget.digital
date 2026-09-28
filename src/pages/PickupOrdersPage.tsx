@@ -14,6 +14,7 @@ import { getOrders, saveOrder, getSettings, refreshOrdersFromCloud } from '@/lib
 import { Order } from '@/lib/types';
 import { normalizePhone, openWhatsApp } from '@/lib/whatsapp';
 import { startVisiblePoll } from '@/lib/visiblePoll';
+import { scopeToBranch } from '@/lib/cashierScope';
 import ReceiptPreview from '@/components/ReceiptPreview';
 import ReadyNotificationBus from '@/components/ReadyNotificationBus';
 import ReadyOrderPoller from '@/components/ReadyOrderPoller';
@@ -45,7 +46,7 @@ function fmtClock(ms: number) {
 
 export default function PickupOrdersPage() {
   const settings = getSettings();
-  const [orders, setOrders] = useState<Order[]>(() => getOrders());
+  const [orders, setOrders] = useState<Order[]>(() => scopeToBranch(getOrders()));
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState<'awaiting' | 'collected'>('awaiting');
   const [printOrder, setPrintOrder] = useState<Order | null>(null);
@@ -55,7 +56,7 @@ export default function PickupOrdersPage() {
     let cancel = false;
     const pull = async () => {
       await refreshOrdersFromCloud();
-      if (!cancel) setOrders(getOrders());
+      if (!cancel) setOrders(scopeToBranch(getOrders()));
     };
     pull();
     const stopPoll = startVisiblePoll(pull, 8000);
@@ -112,7 +113,7 @@ export default function PickupOrdersPage() {
         <h2 className="text-lg font-bold flex items-center gap-2">
           <Package className="h-5 w-5 text-primary" /> Pickup Orders
         </h2>
-        <Button size="sm" variant="outline" onClick={async () => { await refreshOrdersFromCloud(); setOrders(getOrders()); }}>
+        <Button size="sm" variant="outline" onClick={async () => { await refreshOrdersFromCloud(); setOrders(scopeToBranch(getOrders())); }}>
           <RefreshCw className="h-4 w-4 mr-1" /> Refresh
         </Button>
       </div>

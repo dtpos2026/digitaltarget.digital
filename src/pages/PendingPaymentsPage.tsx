@@ -13,6 +13,7 @@ import ReceivePaymentButton from '@/components/ReceivePaymentButton';
 import { balanceDue, isPartialSale } from '@/lib/sales';
 import { enqueueReceipt } from '@/lib/printQueue';
 import { startVisiblePoll } from '@/lib/visiblePoll';
+import { scopeToBranch } from '@/lib/cashierScope';
 import { toast } from 'sonner';
 
 export default function PendingPaymentsPage() {
@@ -22,7 +23,7 @@ export default function PendingPaymentsPage() {
   const [orders, setOrders] = useState<Order[]>(() => loadPending());
 
   function loadPending(): Order[] {
-    return getOrders().filter(o => isPartialSale(o));
+    return scopeToBranch(getOrders()).filter(o => isPartialSale(o));
   }
   const refresh = () => setOrders(loadPending());
 

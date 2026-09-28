@@ -13,6 +13,7 @@ import ReceiptPreview from '@/components/ReceiptPreview';
 import { enqueueReceipt } from '@/lib/printQueue';
 import { toast } from 'sonner';
 import { logReprint, getReprintLog, fetchCloudReprintLog, ReprintAuditEntry } from '@/lib/reprintAudit';
+import { scopeToBranch } from '@/lib/cashierScope';
 import ManagerAuthDialog from '@/components/ManagerAuthDialog';
 import { CreditCard } from 'lucide-react';
 
@@ -20,7 +21,7 @@ type Filter = 'all' | 'paid' | 'partial' | 'running' | 'void' | 'cancelled' | 'f
 
 export default function BillReprintPage() {
   const settings = getSettings();
-  const [orders, setOrders] = useState<Order[]>(() => getOrders());
+  const [orders, setOrders] = useState<Order[]>(() => scopeToBranch(getOrders()));
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
   const [view, setView] = useState<Order | null>(null);
@@ -31,8 +32,8 @@ export default function BillReprintPage() {
   const [showLog, setShowLog] = useState(false);
 
   useEffect(() => {
-    refreshOrdersFromCloud().then(() => setOrders(getOrders())).catch(() => {});
-    const off = onDataChange((col) => { if (col === 'orders' || col === '*') setOrders(getOrders()); });
+    refreshOrdersFromCloud().then(() => setOrders(scopeToBranch(getOrders()))).catch(() => {});
+    const off = onDataChange((col) => { if (col === 'orders' || col === '*') setOrders(scopeToBranch(getOrders())); });
     fetchCloudReprintLog().then(cloud => {
       const local = getReprintLog();
       const map = new Map<string, ReprintAuditEntry>();
@@ -202,7 +203,7 @@ export default function BillReprintPage() {
                           user?.name || user?.username || 'manager');
                         if (r.ok) {
                           toast.success(`#${correctTarget.orderNumber} is now recorded against ${op.accountName || op.method.toUpperCase()}`);
-                          setOrders(getOrders());
+                          setOrders(scopeToBranch(getOrders()));
                         } else toast.error(r.error || 'Correction fail');
                         setCorrectTarget(null);
                       }}

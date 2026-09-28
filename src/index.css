@@ -869,3 +869,70 @@ h3, h4 { letter-spacing: -0.012em; }
 }
 .pos-scrollbar::-webkit-scrollbar-thumb:hover { background: hsl(var(--foreground) / 0.28); }
 .pos-scrollbar::-webkit-scrollbar-track { background: transparent; }
+
+/* ============================================================
+   SOFT LIGHT — component polish (v1.66.0)
+   Every selector is scoped under [data-theme="soft-light"], so no
+   other theme is touched. Colours come from the theme's own
+   variables; nothing here hard-codes a colour or changes layout,
+   sizes that drive behaviour, or any handler.
+   ============================================================ */
+[data-theme="soft-light"] {
+  --soft-shadow: 0 1px 2px hsl(222 24% 14% / 0.04), 0 8px 22px -14px hsl(222 24% 14% / 0.14);
+  --soft-shadow-hover: 0 2px 6px hsl(222 24% 14% / 0.06), 0 16px 32px -16px hsl(222 24% 14% / 0.22);
+}
+
+/* Category pills — rounded chips, filled with the primary when active */
+[data-theme="soft-light"] .cat-pill {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  color: hsl(var(--muted-foreground));
+  font-weight: 700;
+  padding-inline: 1.1rem;
+  box-shadow: none;
+}
+[data-theme="soft-light"] .cat-pill:hover {
+  border-color: hsl(var(--primary) / 0.35);
+  color: hsl(var(--foreground));
+}
+[data-theme="soft-light"] .cat-pill[data-active="true"] {
+  background: hsl(var(--primary));
+  border-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  box-shadow: 0 8px 18px -10px hsl(var(--primary) / 0.7);
+}
+[data-theme="soft-light"] .cat-ribbon { padding-block: 0.7rem; }
+
+/* Product tiles — white cards, faint border, gentle lift */
+[data-theme="soft-light"] .bg-pos-grid button.bg-card {
+  border: 1px solid hsl(var(--border));
+  border-radius: calc(var(--radius) + 2px);
+  box-shadow: var(--soft-shadow);
+}
+[data-theme="soft-light"] .bg-pos-grid button.bg-card:hover {
+  box-shadow: var(--soft-shadow-hover);
+  border-color: hsl(var(--primary) / 0.3);
+}
+[data-theme="soft-light"] .bg-pos-grid button.bg-card:active { transform: scale(0.985); }
+
+/* Top bar (search) */
+[data-theme="soft-light"] .bg-pos-grid input {
+  border-radius: 999px;
+  border-color: hsl(var(--border));
+  background: hsl(var(--muted));
+}
+
+/* Cart panel — white, with a hairline instead of a heavy shadow */
+[data-theme="soft-light"] .bg-pos-cart {
+  background: hsl(var(--pos-cart));
+  border-left: 1px solid hsl(var(--border));
+  box-shadow: -10px 0 30px -24px hsl(222 24% 14% / 0.25);
+}
+[data-theme="soft-light"] .bg-pos-cart ul > li,
+[data-theme="soft-light"] .bg-pos-cart [data-cart-line] {
+  border-radius: var(--radius);
+}
+[data-theme="soft-light"] .bg-pos-cart button.bg-primary {
+  border-radius: var(--radius);
+  box-shadow: 0 10px 22px -12px hsl(var(--primary) / 0.7);
+}

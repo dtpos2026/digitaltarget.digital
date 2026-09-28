@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Clock, CheckCircle, ChefHat, AlertTriangle, ChefHat as PrepIcon, Bell, Check, Maximize2, Minimize2, Volume2, VolumeX, ThumbsUp, Truck, Tv } from 'lucide-react';
 import { ENABLE_REDUNDANT_ORDER_POLL } from '@/lib/featureFlags';
+import { scopeToBranch } from '@/lib/cashierScope';
 
 function getTimerInfo(createdAt: string, settings: RestaurantSettings) {
   const preparingThreshold = Math.max(1, settings.kitchenPreparingMinutes || 5);
@@ -93,7 +94,7 @@ export default function KitchenDisplayPage() {
   useEffect(() => {
     const refresh = () => {
       setSettings(getSettings());
-      const all = getOrders().filter(o => {
+      const all = scopeToBranch(getOrders()).filter(o => {
         if (o.status === 'void' || o.status === 'cancelled') return false;
         // Rider dispatched / delivered → food is out of kitchen, drop from KDS
         const ds = (o as any).deliveryStatus;
@@ -151,7 +152,7 @@ export default function KitchenDisplayPage() {
   // ===== Analytics =====
   const stats = useMemo(() => {
     const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-    const allToday = getOrders().filter(o => new Date(o.createdAt) >= todayStart);
+    const allToday = scopeToBranch(getOrders()).filter(o => new Date(o.createdAt) >= todayStart);
     const completed = allToday.filter(o => o.kitchenStatus === 'served' || o.kitchenStatus === 'delivered');
     let avgPrepMins = 0;
     if (completed.length > 0) {

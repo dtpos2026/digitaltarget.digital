@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { uploadTenantImage } from '@/lib/storage';
+import { scopeToBranch } from '@/lib/cashierScope';
 import { Globe, Copy, ExternalLink, ShoppingBag, MapPin, Bike, Users, Power, Truck, Package, Settings as SettingsIcon, RefreshCw, Phone, Search, Palette, Image as ImageIcon, Upload } from 'lucide-react';
 
 /**
@@ -21,7 +22,7 @@ import { Globe, Copy, ExternalLink, ShoppingBag, MapPin, Bike, Users, Power, Tru
 export default function OnlinePortalPage() {
   const navigate = useNavigate();
   const [settings, setSettings] = useState<RestaurantSettings>(() => getSettings());
-  const [orders, setOrders] = useState<Order[]>(() => getOrders());
+  const [orders, setOrders] = useState<Order[]>(() => scopeToBranch(getOrders()));
   const [tick, setTick] = useState(0);
   const [search, setSearch] = useState('');
   const [qrLink, setQrLink] = useState<{ url: string; label: string } | null>(null);
@@ -32,9 +33,9 @@ export default function OnlinePortalPage() {
 
   useEffect(() => {
     // Initial pull, then rely on realtime onSnapshot listeners (no polling)
-    refreshOrdersFromCloud().then(() => { setOrders(getOrders()); setTick(x => x + 1); }).catch(() => {});
+    refreshOrdersFromCloud().then(() => { setOrders(scopeToBranch(getOrders())); setTick(x => x + 1); }).catch(() => {});
     const off = onDataChange((col) => {
-      if (col === 'orders' || col === '*') { setOrders(getOrders()); setTick(x => x + 1); }
+      if (col === 'orders' || col === '*') { setOrders(scopeToBranch(getOrders())); setTick(x => x + 1); }
       if (col === 'settings') setSettings(getSettings());
     });
     return () => { off(); };
@@ -380,7 +381,7 @@ export default function OnlinePortalPage() {
         <div className="flex items-center gap-2">
           <ShoppingBag className="h-4 w-4 text-primary" />
           <h3 className="text-sm font-bold">Live Website Orders ({activeOrders.length})</h3>
-          <Button size="sm" variant="ghost" className="ml-auto h-7 text-[11px]" onClick={() => setOrders(getOrders())}>
+          <Button size="sm" variant="ghost" className="ml-auto h-7 text-[11px]" onClick={() => setOrders(scopeToBranch(getOrders()))}>
             <RefreshCw className="h-3 w-3 mr-1" /> Refresh
           </Button>
           <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={() => navigate('/delivery')}>

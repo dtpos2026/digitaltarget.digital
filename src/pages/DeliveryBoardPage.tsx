@@ -13,6 +13,7 @@ import { notifyReady } from '@/lib/readyNotify';
 import { triggerAutoKot } from '@/components/AutoKotPrinter';
 import { enqueuePrint } from '@/lib/printQueue';
 import { ENABLE_REDUNDANT_ORDER_POLL } from '@/lib/featureFlags';
+import { scopeToBranch } from '@/lib/cashierScope';
 
 const columns: { id: DeliveryStatus; label: string; color: string }[] = [
   { id: 'pending', label: 'Pending', color: 'bg-status-pending' },
@@ -35,7 +36,7 @@ export default function DeliveryBoardPage() {
   const settings = getSettings();
   const riders = getRiders().filter(r => r.isActive);
   const [orders, setOrders] = useState(() =>
-    getOrders().filter(o => o.orderType === 'delivery' && o.deliveryStatus)
+    scopeToBranch(getOrders()).filter(o => o.orderType === 'delivery' && o.deliveryStatus)
   );
 
   // Auto-refresh website / cloud orders every 8s so new customer orders appear live.
@@ -44,7 +45,7 @@ export default function DeliveryBoardPage() {
     const pull = async () => {
       await refreshOrdersFromCloud();
       if (cancelled) return;
-      setOrders(getOrders().filter(o => o.orderType === 'delivery' && o.deliveryStatus));
+      setOrders(scopeToBranch(getOrders()).filter(o => o.orderType === 'delivery' && o.deliveryStatus));
     };
     // Live Firestore listener in store.ts already streams orders.
     // Legacy 8s poll kept behind a flag (default off).

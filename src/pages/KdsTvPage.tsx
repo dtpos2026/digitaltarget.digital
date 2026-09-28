@@ -3,6 +3,7 @@ import { getOrders, getSettings, getKitchens, getMenuItems, onDataChange, setOrd
 import { Order, RestaurantSettings, CartItem } from '@/lib/types';
 import { Maximize2, Volume2, VolumeX, AlertTriangle, Clock, ChefHat } from 'lucide-react';
 import { ENABLE_REDUNDANT_ORDER_POLL } from '@/lib/featureFlags';
+import { scopeToBranch } from '@/lib/cashierScope';
 
 function playBeep(urgent = false) {
   try {
@@ -62,7 +63,7 @@ export default function KdsTvPage() {
   useEffect(() => {
     const refresh = () => {
       setSettings(getSettings());
-      const all = getOrders().filter(o => {
+      const all = scopeToBranch(getOrders()).filter(o => {
         if (o.status === 'void' || o.status === 'cancelled') return false;
         const ds = (o as any).deliveryStatus;
         if (ds === 'rider_picked' || ds === 'onway' || ds === 'rider_reached' || ds === 'delivered') return false;
