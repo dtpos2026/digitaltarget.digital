@@ -81,18 +81,14 @@ server (Cloudflare) and never reaches the desktop app.
 
 - **Windows SmartScreen warns on first run.** The installer is not code-signed (that needs a certificate you buy).
   Choose *More info → Run anyway*. Add a certificate later with the settings above.
-- **"Cannot create symbolic link … A required privilege is not held by the client"** while packaging
-  (it follows several `downloading … winCodeSign` lines). Windows will not let an ordinary user create the
-  symbolic links inside electron-builder's `winCodeSign` download, and the step that stamps the icon and version into
-  `DT POS.exe` needs that download even for an unsigned build. Everything before this point (install, build) has
-  already worked. Fix:
+- **"Cannot create symbolic link … A required privilege is not held by the client"** while packaging.
+  `npm run dist` now prepares electron-builder's `winCodeSign` download itself (`scripts/wincodesign.mjs`: downloads the
+  same file, checks its SHA-512, extracts it without the two macOS symlinks Windows will not let a normal user create),
+  so this should no longer happen. If it still does, the build prints why it could not prepare it. Then:
   1. Open **Command Prompt as Administrator** (Start → type `cmd` → right-click → *Run as administrator*).
   2. `cd /d "<the folder that holds package.json>"` (the `/d` is needed when the folder is on another drive).
-  3. `rmdir /s /q "%LOCALAPPDATA%\electron-builder\Cache\winCodeSign"` (removes the half-extracted download).
+  3. `rmdir /s /q "%LOCALAPPDATA%\electron-builder\Cache\winCodeSign"`
   4. `npm run dist`
-
-  Alternative: turn on Windows *Developer Mode* (Settings → For developers), open a **new** CMD, repeat steps 2–4.
-  Admin is the surer of the two.
 - **`npm install` is slow or fails behind a company proxy.** Set `HTTPS_PROXY` first.
 - **"No client bundle at …"** — run `npm run build` before `npm run dist`.
 - **Upgrading keeps your data.** The installer leaves the app's local data folder alone on upgrade and on uninstall.

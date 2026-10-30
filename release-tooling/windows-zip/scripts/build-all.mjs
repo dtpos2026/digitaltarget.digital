@@ -20,6 +20,8 @@
 // ============================================================================
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -74,6 +76,25 @@ function stampVersion() {
   return webVersion;
 }
 
+// Packaging needs electron-builder's winCodeSign download, and on Windows extracting it needs the symbolic-link
+// privilege an ordinary user does not have. Put it in place ourselves so no Administrator prompt is needed.
+// Never fatal: see scripts/wincodesign.mjs.
+async function prepareWinCodeSign() {
+  const { ensureWinCodeSign } = await import('./wincodesign.mjs');
+  const cacheRoot = process.env.ELECTRON_BUILDER_CACHE
+    || join(process.env.LOCALAPPDATA || join(homedir(), 'AppData', 'Local'), 'electron-builder', 'Cache');
+  let sevenZip;
+  try { sevenZip = createRequire(join(DESK, 'package.json'))('7zip-bin').path7za; }
+  catch { console.warn('[dt-pos] 7zip-bin not found in the shell; leaving winCodeSign to electron-builder'); return; }
+  const r = await ensureWinCodeSign({ cacheRoot, sevenZip });
+  if (r.status === 'skipped') {
+    console.warn(`[dt-pos] could not prepare winCodeSign (${r.reason}).`);
+    console.warn('[dt-pos] Packaging will try on its own. If it stops with "Cannot create symbolic link", open CMD as Administrator and run npm run dist again.');
+  } else {
+    console.log(`[dt-pos] winCodeSign ${r.status}: ${r.dir}`);
+  }
+}
+
 function build() {
   const version = stampVersion();
   run('build the POS client bundle (web, desktop target)', 'npm', ['run', 'build:desktop'], WEB);
@@ -97,6 +118,7 @@ if (step === 'build') {
 if (step === 'dist') {
   if (!win) console.warn('[dt-pos] NOTE: the Windows installer is built on Windows (or by the CI workflow). On this OS it stops at the unpacked app.');
   const version = build();
+  if (win) await prepareWinCodeSign();
   run('package the Windows installer', 'node', ['scripts/build-windows.mjs'], DESK);
   console.log(`\n[dt-pos] done. Installer: ${join(DESK, 'release', `DT-POS-Setup-${version}.exe`)}`);
   console.log(`[dt-pos]       Portable:  ${join(DESK, 'release', `DT-POS-Portable-${version}.exe`)}`);
