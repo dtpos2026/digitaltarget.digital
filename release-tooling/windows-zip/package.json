@@ -1,0 +1,16 @@
+{
+  "name": "dt-pos-enterprise-windows",
+  "version": "0.0.0",
+  "private": true,
+  "description": "DT POS Enterprise - the website and the Windows desktop app. npm install, npm run build, npm run dist (Windows app); npm run deploy (website).",
+  "scripts": {
+    "postinstall": "node scripts/build-all.mjs install",
+    "build": "node scripts/build-all.mjs build",
+    "dist": "node scripts/build-all.mjs dist",
+    "test": "node scripts/build-all.mjs test",
+    "deploy": "node scripts/build-all.mjs deploy"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

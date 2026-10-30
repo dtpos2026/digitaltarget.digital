@@ -28,6 +28,11 @@ Supabase dashboard → project `drpzxzpvkpqfxcjbwypo` → **Database → Backups
 Database changes in this release are already applied (below), so this is for safety, not because step 2 touches the database.
 
 ### 2. Deploy the website (this is what makes all of it live)
+From the ZIP's root folder (needs `npm install -g wrangler` and `wrangler login` once):
+```bat
+npm run deploy
+```
+or, from a checkout of the repository, the same thing as before:
 ```bat
 cd digitaltarget.digital
 npm install
