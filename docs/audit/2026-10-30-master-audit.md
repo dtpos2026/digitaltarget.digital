@@ -395,7 +395,7 @@ refuses a service-role key (`supabase.ts`, `buildConfig.test.ts`). Git **history
 
 ## 17. Shipped since this audit (2026-10-30)
 
-*References received after this audit — an ER target model, a floor-plan screen and a dashboard — are noted in `docs/design-references/2026-10-30-references.md`, with a comparison to the live schema.*
+*References received after this audit — an ER target model, a floor-plan screen, a dashboard and a POS wireframe flow — are noted in `docs/design-references/2026-10-30-references.md`, with a comparison to the live schema.*
 
 | Release | What | Verified by |
 |---|---|---|

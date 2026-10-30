@@ -1,8 +1,8 @@
-# References received 2026-10-30 (three images)
+# References received 2026-10-30 (four images)
 
-Noted at the user's request ("Note plz"). Nothing here is implemented yet; each section says what the reference shows, what the
+Noted at the user's request ("Note plz"); D arrived afterwards with no text and was noted the same way. Nothing here is implemented yet; each section says what the reference shows, what the
 product already has, and what is missing. Per the brief: *use as guidance, do not blindly copy*. Only reference A (the ER diagram) is
-stored in the repo (`er-target-model.jpg`); B and C are third-party designs (bindolabs.com, dribbble.com) and are described, not copied.
+stored in the repo (`er-target-model.jpg`); B, C and D are third-party designs (bindolabs.com, dribbble.com, medium.com) and are described, not copied.
 
 ---
 
@@ -75,8 +75,44 @@ Missing: **period-over-period comparison** ("vs last month") and sparklines on t
 
 ---
 
+## D. A POS restaurant app — UI/UX case study wireframes (medium.com)
+
+A sheet of **16 greyscale wireframe screens** (the image is small; only what is legible is recorded). It is one end-to-end tablet flow:
+
+1. **Sign-in** — "Welcome back!", email, password, *Remember me*, *Forgot password?*, an image panel on the left (shown empty and filled).
+2. **Floor** — a grid of tables with a small status chip each; tabs along the top.
+3. **New Order** modal — name / table / guest-count style fields, with an error state shown in a second variant.
+4. **Order screen** — category tabs (Burgers, Impossible Burgers, Pasta, Salads …), a product grid with images and prices, an **Order panel on the right** that has an empty state and a filled state with subtotal / tax / total.
+5. **Product detail modal** — large image, description, **option groups (toppings)** with a quantity stepper and an *Add* button.
+6. **Order Details + "Order Successful"** — a summary on the left and a confirmation (tick) on the right, with *Share by email* and *Print*.
+7. **Payment method** modal (cash / card choices) → **"Waiting for payment"** modal with *Cancel* (the card-terminal step) → **"Payment Success"** modal.
+8. **Share to email** modal over the success screen, and a printable **receipt** view with *Share to email* / *Print*.
+
+What it adds beyond the references already noted: the **explicit states between screens** — empty order, waiting for a card terminal, success, share — and **modifier groups** on a product.
+
+Where the product stands against it:
+
+| Wireframe screen | In DT POS today |
+|---|---|
+| Sign-in with *Remember me* | **Yes** (`LoginPage.tsx`, remember-username). A *Forgot password?* link was not found on the staff login; `ResetPasswordPage` exists separately. |
+| Floor / tables | **Yes** (`TablesPage`) — see reference B for what it lacks. |
+| New Order modal on a table | **Yes** (creating an order from a table, `TablesPage.tsx` ~466). |
+| Category tabs, product grid, order panel, totals | **Yes** (`POSScreen`), restyled by the v1.67–v1.69 work. |
+| Product options | **Partly** — a size / inch **variant** picker exists; **no modifier / add-on (topping) groups** were found in the POS screen (not checked in the online-ordering page). The brief's Phase 7 asks for add-ons and modifiers. |
+| Payment method → success | **Yes** (`PaymentDialog`, v1.67.0). |
+| **Waiting for payment** (card terminal) | **No.** "Online" records an account; nothing waits on a terminal. |
+| **Order Successful** screen | **No dedicated screen.** The sale ends in a toast and `lastOrder` (used for reprint). |
+| **Share receipt by email** | **No** — no email-receipt code exists. Print exists. |
+
+The two gaps with real value are a proper **post-sale screen** (confirmation, print receipt, print token, share) and **modifier groups**. The first ties into
+the receipt/token templates (Phase 16) and the invoice-number work (Phase 5): the post-sale screen is the natural place to show the invoice number once it is issued.
+Email sharing needs a decision about the sending service and the customer's consent, so it is not started.
+
+---
+
 ## Next, when the user says go
 1. A → fold into the Phase 11 multi-branch architecture document as the target model; then a dry-run design for `organizations`.
 2. B → a Tables-page pass: status legend with counts, elapsed pills, actions panel, then reservations (needs a small additive table).
 3. C → KPI cards with comparison and sparklines, period switch, recent-orders thumbnails.
+4. D → a post-sale "Order successful" screen (confirmation, print receipt, print token, invoice number), then modifier / add-on groups on products; email sharing only after the sending service and consent are decided; a terminal-wait step only if a card terminal is actually integrated.
 Figma is connected (verified); when a Figma link for any of these arrives, the design is read from it directly.
