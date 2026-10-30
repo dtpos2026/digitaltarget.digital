@@ -31,6 +31,8 @@ import CustomerAutocomplete from '@/components/CustomerAutocomplete';
 import LocationCapture from '@/components/LocationCapture';
 // Phase-1: lazy-load PaymentDialog (heavy child — only mounted on checkout)
 const PaymentDialog = lazy(() => import('@/components/PaymentDialog'));
+import WeightPanel from '@/components/WeightPanel';
+import type { WeightLine } from '@/lib/weightPricing';
 import { enqueueKot, enqueueReceipt, enqueueKotUpdate, enqueueKotCancel, computeKotDiff, enqueueKotByPolicy } from '@/lib/printQueue';
 import BillingStatusBar from '@/components/BillingStatusBar';
 import { useRestrictedAction } from '@/components/RestrictedActionGate';
@@ -103,9 +105,10 @@ export default function POSScreen() {
 
   // Inline numpad state
   const [numpadValue, setNumpadValue] = useState('');
-  const [numpadTarget, setNumpadTarget] = useState<'price' | 'weight' | null>(null);
+  const [numpadTarget, setNumpadTarget] = useState<'price' | null>(null);
+  // v1.67.0 — items sold by weight are entered in their own panel (WeightPanel).
+  const [weightItem, setWeightItem] = useState<MenuItem | null>(null);
   const [numpadItem, setNumpadItem] = useState<MenuItem | null>(null);
-  const [weightUnit, setWeightUnit] = useState<'KG' | 'Gram' | 'Pao'>('KG');
 
   // Payment - integrated (no separate dialog)
   const [paymentReceived, setPaymentReceived] = useState('');
@@ -359,10 +362,7 @@ export default function POSScreen() {
 
   const addToCart = useCallback((item: MenuItem) => {
     if (item.pricingType === 'weight') {
-      setNumpadItem(item);
-      setNumpadTarget('weight');
-      setNumpadValue('');
-      setWeightUnit('KG');
+      setWeightItem(item);
       return;
     }
     if (item.pricingType === 'manual') {
@@ -421,22 +421,22 @@ export default function POSScreen() {
     setNumpadValue(v => v + key);
   };
 
+  // v1.67.0 — a weight item confirmed in WeightPanel. The line is exactly what
+  // the inline numpad used to build: same fields, same price rounding, same note.
+  const addWeightLine = (item: MenuItem, line: WeightLine) => {
+    setCart(prev => [...prev, {
+      id: genId(), menuItemId: item.id, name: item.name,
+      pricingType: 'weight', price: line.price, quantity: 1,
+      weightGrams: line.grams, lineTotal: line.price, note: line.note,
+    }]);
+    setWeightItem(null);
+  };
+
   const applyNumpadValue = () => {
     const val = parseFloat(numpadValue);
     if (isNaN(val) || val <= 0) { toast.error('Enter a valid number'); return; }
 
-    if (numpadTarget === 'weight' && numpadItem) {
-      let kgValue = val;
-      if (weightUnit === 'Gram') kgValue = val / 1000;
-      if (weightUnit === 'Pao') kgValue = val * 0.25;
-      const grams = Math.round(kgValue * 1000);
-      const price = Math.round(kgValue * numpadItem.ratePerKg);
-      setCart(prev => [...prev, {
-        id: genId(), menuItemId: numpadItem.id, name: numpadItem.name,
-        pricingType: 'weight', price, quantity: 1,
-        weightGrams: grams, lineTotal: price, note: `${kgValue.toFixed(2)} KG`
-      }]);
-    } else if (numpadTarget === 'price' && numpadItem) {
+    if (numpadTarget === 'price' && numpadItem) {
       setCart(prev => [...prev, {
         id: genId(), menuItemId: numpadItem.id, name: numpadItem.name,
         pricingType: 'manual', price: val, quantity: 1,
@@ -1850,9 +1850,7 @@ export default function POSScreen() {
           <div className="bg-card rounded-lg px-3 py-1 mb-1.5 flex items-center justify-between border border-border/50 shadow-sm">
             <span className="text-[10px] text-muted-foreground font-semibold">
               {numpadItem ? (
-                numpadTarget === 'weight'
-                  ? `⚖️ ${numpadItem.name} (${numpadItem.ratePerKg}/KG)`
-                  : `💰 ${numpadItem.name} — Enter Price`
+                `💰 ${numpadItem.name} — Enter Price`
               ) : selectedCartItem ? (
                 <span className="flex items-center gap-1">
                   ✏️ {cart.find(c => c.id === selectedCartItem)?.name}
@@ -1863,28 +1861,8 @@ export default function POSScreen() {
             </span>
             <span className="text-base font-extrabold font-mono text-foreground tracking-wider">
               {numpadValue || '0'}
-              {numpadTarget === 'weight' && <span className="text-[10px] text-muted-foreground ml-1">{weightUnit}</span>}
             </span>
           </div>
-
-          {/* Weight unit buttons */}
-          {numpadTarget === 'weight' && (
-            <div className="flex gap-1.5 mb-2">
-              {(['KG', 'Gram', 'Pao'] as const).map(u => (
-                <button
-                  key={u}
-                  onClick={() => setWeightUnit(u)}
-                  className={`flex-1 h-8 rounded-lg text-[11px] font-bold transition-all ${
-                    weightUnit === u
-                      ? 'bg-status-teal text-status-teal-foreground shadow-sm'
-                      : 'bg-card border hover:bg-accent'
-                  }`}
-                >
-                  {u}
-                </button>
-              ))}
-            </div>
-          )}
 
           {/* Numpad grid */}
           <div className="grid grid-cols-3 gap-1">
@@ -2311,6 +2289,8 @@ export default function POSScreen() {
       </Dialog>
 
       {/* Payment Receive Dialog (cash / online account) — lazy mounted */}
+      <WeightPanel item={weightItem} onClose={() => setWeightItem(null)} onAdd={addWeightLine} />
+
       {showPaymentDialog && (
         <Suspense fallback={null}>
           <PaymentDialog
