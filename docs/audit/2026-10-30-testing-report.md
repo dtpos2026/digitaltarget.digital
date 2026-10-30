@@ -17,7 +17,7 @@ Four kinds of evidence were used. They are not equal, and each row below says wh
 | Test suite | **1,961 passed, 0 failed, 1 skipped** (125 files). The skip, `version.test.ts:59`, predates this work. Start of the session: 1,762 passing → **+199 tests**. |
 | Production web build | **OK** (`npm run build`) |
 | Windows shell, from the delivered ZIP | **27 / 27 tests**, typecheck clean, `npm run build` OK (9 s) |
-| ZIP, fresh extract | `npm install` exit 0 (23 s); `npm run build` OK; shell version stamped 1.26.9 → 1.70.1 |
+| ZIP v1.70.1, fresh extract | `npm install` exit 0 (33 s); `npm run build` OK (9 s); shell version stamped 1.26.9 → 1.70.1; inside the extract the web suite is **1,961 passed / 125 files** and the shell **27 / 27**. `npm run dist` on Linux builds `release/win-unpacked/DT POS.exe` (189 MB) and then stops with `wine is required` — the installer step, which does not need wine on Windows. **The `.exe` installer itself is therefore NOT VERIFIED.** |
 | Production database changes made in this whole session | **two**, both non-data: the `orders (tenant_id, updated_at)` index (v1.65.0) and the `pin_hash` column grant (v1.70.0) — confirmed against the migration list. Every other probe was read-only or rolled back. |
 
 ### Phase 19 checklist (the 17 items in the brief)
