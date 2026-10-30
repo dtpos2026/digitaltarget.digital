@@ -59,7 +59,7 @@ Live data: 4 restaurants, ~3,700 bills (First Chef ≈ 3,400), 13 staff accounts
 | Phase | Status | Evidence |
 |---|---|---|
 | 1 Inspection | **Done** (this document) | — |
-| 2 Electron Windows app | **Already built; one packaging gap** (§3) | `dtpos-desktop`: sandbox, contextIsolation, NSIS + portable, CI |
+| 2 Electron Windows app | **Built. Single-ZIP build delivered and verified up to packaging; the installer `.exe` itself is NOT VERIFIED here** (§3, §17) | `dtpos-desktop`; ZIP: `npm install` + `npm run build` pass from a fresh extract |
 | 3 Data protection | Strategy below (§4). **Backup restore NOT VERIFIED** | — |
 | 4 PRA | **Largely built**; real gaps listed (§6). Endpoints NOT VERIFIED | 1,185 lines in `praEims/praQueue/praTransport` |
 | 5 Invoice numbering | **Root cause found, fix designed, not applied** (§5) | live data |
@@ -71,11 +71,11 @@ Live data: 4 restaurants, ~3,700 bills (First Chef ≈ 3,400), 13 staff accounts
 | 12 Duplicate modules | Report in §10 — **waiting for your approval** | — |
 | 13 Login bug | Root cause fixed in v1.56.2; data confirms (§11) | 0 case collisions |
 | 14 Super Admin | Message bug **not reproducible**; "client" flow **unclear** (§12) | — |
-| 15 UI/UX | References analysed (§13); implementation in progress | — |
+| 15 UI/UX | References analysed (§13). **Shipped v1.67–v1.69:** Payment screen, kilogram panel, 21 themes, product icon | tests + Chromium screenshots (§17) |
 | 16 Receipts/KOT/tokens | Engine exists; 58/80 mm supported; template catalogue in references (§13) | — |
 | 17 Owner dashboard | `/owner` page exists (v1.64.0), read-only | — |
 | 18 Security/perf | §14 | advisors read in full |
-| 19 Testing | §15 | 1,798 unit tests pass |
+| 19 Testing | §15 | 1,943 unit tests pass |
 
 ---
 
@@ -93,10 +93,14 @@ Repository `dtpos-desktop` (v1.26.9, 27 files, 1,735 lines of source). Checked a
 | 12 | Session handling | Same Supabase session as web; CSP limits `connect-src` to Supabase + the site |
 | 13–16 | Installer, version, packaging | `electron-builder.yml`: NSIS (per-machine, not one-click) + portable; `deleteAppDataOnUninstall: false` |
 
-**The one real gap:** the brief wants *one ZIP* that builds with `npm install → npm run build → npm run dist`. Today it is two
-repos: the Electron repo needs the web bundle copied in first (`npm run build:desktop` in the web repo, then `npm run renderer`).
-Fix: a combined, documented ZIP with a root script that runs both steps. **NOT VERIFIED:** I cannot build a Windows installer
-here (needs Windows or 32-bit wine); the existing CI workflow builds it on `windows-latest`.
+**The gap, and what was done:** the brief wants *one ZIP* that builds with `npm install → npm run build → npm run dist`. It was two
+repos: the Electron repo needs the web bundle copied in first. A combined ZIP now exists (§17) with a root `scripts/build-all.mjs`
+that runs both in order. **NOT VERIFIED:** the Windows installer `.exe` — packaging stops at `release/win-unpacked/DT POS.exe`
+on Linux because the icon/version step needs wine. On Windows that step uses its own binary; the existing CI workflow builds on `windows-latest`.
+
+**A versioning defect found while doing it:** the shell was `1.26.9` while the POS was `1.6x`. The POS decides "update available" by
+comparing its own version with `getAppVersion()` of the installed shell, so every installed copy looked permanently out of date
+until reinstalled. The ZIP's build script now stamps the shell's version from the POS's, so the installer is named after what it contains.
 
 No code-signing certificate is configured → Windows SmartScreen will warn on first run. That is a purchase, not a code change.
 
@@ -320,9 +324,9 @@ print documents never inherit screen CSS; **contrast checked by a test, not by e
 
 Not ported (the document itself advises against): the Windows print host / raster printing (`escposRaster.cjs`), offline licence/device slots, plaintext local passwords.
 
-Requested for implementation (your message): the **Payment screen** and the **kilogram panel** as in the references, themes with branding, a better product icon.
-Observed defect while reading: with a premium theme active the sidebar shows the fixed text `VINCE BY TAIMOOR / Premium Edition` instead of the
-restaurant's name (`AppLayout.tsx:163`). The reference rule is "the restaurant's name and logo lead"; this applies to Soft Light too and will be fixed.
+Requested for implementation (your message): the **Payment screen** and the **kilogram panel** as in the references, themes with branding, a better product icon. **All four shipped — §17.**
+Defect found while reading, now fixed (v1.68.0): with any premium theme active the sidebar showed the fixed text `VINCE BY TAIMOOR / Premium Edition` instead of the
+restaurant's name (`AppLayout.tsx:163`). The reference rule is "the restaurant's name and logo lead"; Soft Light had inherited the swap too.
 
 ---
 
@@ -351,7 +355,7 @@ refuses a service-role key (`supabase.ts`, `buildConfig.test.ts`). Git **history
 
 | Area | Result |
 |---|---|
-| Unit/integration suite | **1,798 passed, 0 failed, 1 skipped** (`version.test.ts:59`, pre-existing) at v1.66.0 |
+| Unit/integration suite | **1,943 passed, 0 failed, 1 skipped** (`version.test.ts:59`, pre-existing) at v1.69.0 |
 | Typecheck / production build | pass |
 | Live DB checks in this audit | read-only; numbers above |
 | **Not tested** | A real browser session; the Windows installer build; any thermal printer (58/80 mm); PRA sandbox; Rider/Order-Taker on a phone; multi-till concurrency on a real shop floor |
@@ -362,11 +366,33 @@ refuses a service-role key (`supabase.ts`, `buildConfig.test.ts`). Git **history
 
 ## 16. Recommended sequence
 
-1. You: confirm Supabase backups (§4.1), run `npm run deploy` (10 versions are undeployed), merge the `dtpos.apk` branch.
-2. UI you asked for: Payment screen, kilogram panel, theme set with branding, product icon (in progress).
+1. You: confirm Supabase backups (§4.1), run `npm run deploy` (14 versions are undeployed: v1.56.3 → v1.69.0), merge the `dtpos.apk` branch.
+2. ~~UI you asked for: Payment screen, kilogram panel, theme set with branding, product icon~~ — **shipped (§17).**
 3. Invoice numbering (§5), after the backup check and your option choice for offline receipts.
 4. PRA: server-side log table + report, then sandbox once you send the spec and credentials.
 5. Branch policies, one table at a time, each with a cashier-isolation test (§9).
-6. Combined Windows source ZIP with a single build script (§3).
+6. ~~Combined Windows source ZIP with a single build script~~ — **delivered (§17); the Windows `.exe` still needs one real build on Windows.**
 7. External website integration schema (§8) on your go-ahead.
 8. Duplicate consolidation — only what you approve (§10).
+
+---
+
+## 17. Shipped since this audit (2026-10-30)
+
+| Release | What | Verified by |
+|---|---|---|
+| **v1.67.0** `cae618e` | **Payment screen** as in the reference: hero *Total payable*, method tiles, *Amount received* with Exact/quick amounts, Change and Due cards, footer *Back to cart* / *Complete Sale [Enter]*. **Kilogram panel**: right-hand, *By weight* (kg/g/pao) or *By amount*, keypad, Quantity/Price. Layout only — the arithmetic moved unchanged into `lib/weightPricing.ts`; the cart line has the same fields. Roman-Urdu UI strings replaced with English. | 42 tests (every payment payload unchanged: exact, over-tender, partial, online; weight maths; keyboard); mutation checks (tests fail when the guard or the maths is broken); Chromium screenshots of both screens in two themes |
+| **v1.68.0** `16bc29c` | **21 themes** (13 Modern + 8 DT Retail) from a data table, premium-gated, with the DT Retail look (gradient sidebar and hero, accent pill, branding card). Fixes: the Vince brand name replacing the restaurant's; hero banners fading under white text; light-sidebar highlight. | 77 tests incl. WCAG contrast for every theme (7:1 body, 4.5:1 text, accent-as-text); Chromium screenshots in 6 themes |
+| **v1.69.0** `011a5a3` | **Product icon** (the Digital Target mark on a purple squircle; SVG source in `branding/`) for favicon, PWA, Apple touch icon; desktop icon in `dtpos-desktop` (`b7b79e5`). **Currency:** the POS cart panel no longer prints a hand-typed "PKR". | 5 tests; icon checked at 16–128 px on light and dark |
+| **ZIP** | `release-zip/DT-POS-Enterprise-Windows-source-v1.69.0.zip` — 754 files, 3.9 MB, no `node_modules`/build output. Root `npm install`, `npm run build`, `npm run dist`; `README-BUILD.md`; `.env.example`. | From a **fresh extract**: `npm install` exit 0 (23 s), `npm run build` OK (9 s), shell tests 27/27, shell typecheck clean |
+
+### Multi-country gap (new finding)
+The currency layer exists (`lib/currency.ts`), but **136 hand-typed "PKR" strings in 20 files** bypass it, so a restaurant on SAR/AED still sees rupees.
+10 were fixed in the POS cart panel through `screenAmount()`, which prints exactly what a PKR install always printed. About 126 remain
+(Credit Customers 33, Reports 25, Credits 13, Receiving 10, Analytics 6, Tables/Settings 5 each, and a handful elsewhere).
+They sit in accounting-adjacent screens and exports, so they need a pass of their own with tests — not a find-and-replace.
+
+### Not verified
+- The real `AppLayout` was not rendered (it imports server-only TanStack Start code and cannot run in a plain page); the sidebar was checked from a copy of its markup and the same class strings.
+- The Windows installer `.exe`; the installed app starting; a thermal printer; a cashier using the new payment/kg screens on a real shop floor.
+- Android launcher icons: they are built into each APK by `dtpos.apk`; changing a web file does not change an installed app's icon.

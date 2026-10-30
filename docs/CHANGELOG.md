@@ -1,0 +1,106 @@
+# DT POS Enterprise — Changelog
+
+Generated from the git history of `digitaltarget.digital` on 2026-10-30 (93 commits; newest first).
+Each line is `version — title` and the commit it lives in: `git show <hash>` gives the full reasoning,
+which every release commit carries (what was reported, the root cause, and how it was verified).
+
+Not in this list: the Windows shell (`dtpos-desktop`) and the Android apps (`dtpos.apk`) have their own histories.
+
+## Releases
+
+- **v1.69.0** · 2026-10-30 · a real product icon, and the POS total follows the restaurant's currency  `011a5a3`
+- **v1.68.0** · 2026-10-30 · the reference theme set: 13 Modern + 8 DT Retail, with branding  `16bc29c`
+- **v1.67.0** · 2026-10-30 · Payment screen and kilogram panel, as in the reference  `cae618e`
+- **v1.66.0** · 2026-09-28 · Soft Light components, and branch scoping on the order screens  `dda3715`
+- **v1.65.0** · 2026-09-28 · the orders poll read the whole table, every time  `1585bfd`
+- **v1.64.0** · 2026-09-26 · Owner Management, branch by branch  `7fd57e5`
+- **v1.63.0** · 2026-09-26 · a till in one branch was shown every branch's bills  `05e5ed3`
+- **v1.62.0** · 2026-09-26 · the pin was a guess, and nothing said so  `f26179a`
+- **v1.61.0** · 2026-09-26 · Soft Light, and premium as a set  `92361e5`
+- **v1.60.0** · 2026-09-26 · a password nobody had seen, and PRA on the web  `79b32d8`
+- **v1.59.0** · 2026-09-26 · the website threw away the size the customer picked  `157dac3`
+- **v1.58.0** · 2026-09-26 · Super Admin was still writing to a backend that is gone  `f9487a2`
+- **v1.57.0** · 2026-09-22 · the duplicate Retrieve, the KOT that never went, and margins  `ef80ca8`
+- **v1.56.3** · 2026-09-17 · one link per portal, and a rejection that stops pretending  `4d88262`
+- **v1.56.2** · 2026-09-15 · "Wrong username or password" for a password that was correct  `dcee962`
+- **v1.54.0** · 2026-09-06 · the tracking link: one builder, readable, and it survives a refresh  `58419d4`
+- **v1.53.0** · 2026-09-05 · upload the app icon instead of going to find hosting for it  `b7fb4c4`
+- **v1.52.0** · 2026-09-05 · the Order Taker's amount, the missing order, and the dead button  `d0d59a7`
+- **v1.51.0** · 2026-09-05 · the heavy libraries loaded with the page, not with the button  `b54d41c`
+- **v1.50.1** · 2026-09-05 · the device fix could have reattributed another till's record  `7873a16`
+- **v1.50.0** · 2026-09-05 · a real performance profile for the Order Taker and the Rider  `5fe8971`
+- **v1.49.1** · 2026-09-05 · "Rs.0" was not a price, it was a gap  `958b8ef`
+- **v1.49.0** · 2026-09-05 · four root causes from the audit PDF  `7726714`
+- **v1.48.0** · 2026-09-05 · Super Admin can build the staff apps, and can no longer brand them  `5737c6f`
+- **v1.47.0** · 2026-09-05 · a portal APK can no longer open somebody else's screen  `c802fff`
+- **v1.46.0** · 2026-09-05 · a face on the profile: customer, rider, order taker  `ac07f4d`
+- **v1.45.0** · 2026-09-04 · one answer to "which restaurant am I?", on every screen  `c796c58`
+- **v1.44.0** · 2026-09-04 · close every path where a portal write could vanish quietly  `b860fd3`
+- **v1.43.0** · 2026-09-04 · the menu, the restaurant's identity, and a rider's own record  `f8c06b8`
+- **v1.42.0** · 2026-09-04 · order taker writes, the undefined order number, and a readable link  `85af773`
+- **v1.41.0** · 2026-09-04 · the rider app's writes never left the phone  `539c865`
+- **v1.40.0** · 2026-09-04 · fix both white screens, and make the version visible  `bf73f84`
+- **v1.33.0** · 2026-09-01 · CRITICAL: the recycle-bin purge could have destroyed sales history  `ac788ee`
+- **v1.31.6** · 2026-08-31 · a network failure is not an empty menu  `bb983fa`
+- **v1.31.4** · 2026-08-31 · the billing guard had two gaps  `5fe1779`
+- **v1.30.0** · 2026-08-31 · Firebase out. Supabase only.  `34e49af`
+- **v1.29.9** · 2026-08-30 · a rider's and an order taker's phone can be reached  `ee5a646`
+- **v1.29.8** · 2026-08-30 · switching the customer app off actually switches it off  `31f3f68`
+- **v1.29.7** · 2026-08-30 · a tracking link the customer can send to whoever is waiting  `5fc94db`
+- **v1.29.6** · 2026-08-30 · the Super Admin map pin shows the restaurant's own logo  `335045d`
+- **v1.29.5** · 2026-08-30 · the customer app knows which restaurant it is  `f9acc8f`
+- **v1.29.4** · 2026-08-30 · printing no longer takes over the till's screen  `436db11`
+- **v1.29.3** · 2026-08-30 · Close Day actually clears, and deleted rows can be recovered  `bfd1ff9`
+- **v1.26.9** · 2026-08-22 · close five cross-tenant holes in SECURITY DEFINER RPCs  `1cddf0e`
+- **v1.26.9** · 2026-08-22 · realtime channel lifecycle, id-aware merge, device screen, sync test  `dd271fe`
+
+## Other commits (no version in the title)
+
+- 2026-10-30 · Audit report: architecture, data protection, numbering root cause, PRA, security  `f0e1fbf`
+- 2026-09-15 · v1.56: Super Admin password reset, and the readable link that broke the portals  `6f172ec`
+- 2026-09-15 · v1.55: cross-branch orders, the missing waiter roster, and portal refresh  `b3d9e64`
+- 2026-09-05 · Pin the search_path on the money-mirror trigger  `f5b3cb2`
+- 2026-09-05 · Three things found by re-reading the last four versions' diff  `6f207c2`
+- 2026-09-05 · Docs: the APK build section described a build that does not exist  `43226d0`
+- 2026-09-03 · Add a smoke run that opens every module in a real browser  `68962fd`
+- 2026-09-02 · A broken page must not blank the whole till  `1287d3e`
+- 2026-09-02 · Retire the duplicate Android project, and show staff their Workspace Code  `65a9480`
+- 2026-09-02 · Take Firebase out of the POS repo's Android project too  `6bae2ae`
+- 2026-09-02 · Stop publishing 17 trigger functions as REST endpoints  `d36dfb1`
+- 2026-09-02 · Build the six remaining gaps: order_items mirror, purge schedule, deleted_by, tenant branding, promotions, payment method  `0c86821`
+- 2026-09-01 · v1.31.7 + v1.32.0 — a regression I caused, and the last two customer features  `32c5d06`
+- 2026-08-31 · v1.31.0–1.31.3 — production audit: two CRITICAL security findings, fixed  `36275cf`
+- 2026-08-29 · Show a customer's order before any till has synced it back  `2dc561d`
+- 2026-08-29 · Sign staff in without needing an HTTP origin  `cfd138d`
+- 2026-08-29 · Let the staff portals read the restaurant they signed into  `558d25f`
+- 2026-08-28 · Build a restaurant's APK from Super Admin  `fa392b2`
+- 2026-08-28 · Give the customer app twelve themes instead of a colour wheel  `2976356`
+- 2026-08-28 · Refuse to offer a login the build cannot possibly complete  `d5ff68a`
+- 2026-08-28 · Make the app act on the version the restaurant published  `a55973f`
+- 2026-08-28 · Retire the parked ops even when the local cache is gone  `49b6507`
+- 2026-08-28 · Make the APK build say what is actually missing  `345db20`
+- 2026-08-28 · Stop new restaurants from fighting over the same eight rows  `2bf4414`
+- 2026-08-27 · Make phone verification optional; prove the backlog drain with real rows  `97703f7`
+- 2026-08-27 · Batch the sync engine and backup import; fix the payment column index  `39260a2`
+- 2026-08-23 · Fix cross-format phone matching; verify branding and the customer surface  `dcb003c`
+- 2026-08-23 · Phase 2: customer profile, live tracking, push notifications, Android project  `fa9384c`
+- 2026-08-23 · fix(super-admin): the Live Map had no restaurants and no online devices  `fd29dc4`
+- 2026-08-23 · fix: Close Day was destroying the sales record — it now archives  `cf1db15`
+- 2026-08-23 · feat(crm): birthdays a restaurant can act on, and the Android build target  `4c550b2`
+- 2026-08-23 · feat(customer app): per-restaurant branding, WhatsApp and feature switches  `3d8ca40`
+- 2026-08-23 · feat(customer app): accounts, and order history that follows the customer  `ac2b15c`
+- 2026-08-23 · feat(super-admin): Premium Customer Apps  `db3cc1b`
+- 2026-08-23 · feat(db): customer accounts that exist on the server, and orders that find them  `daea20c`
+- 2026-08-23 · build: add a desktop (Electron) target that emits a loadable client bundle  `328ddd6`
+- 2026-08-22 · fix: support messaging never worked, and one PC counted as three devices  `92d61e5`
+- 2026-08-22 · feat: switch on the Workspace Code, close the branch hole, branch sales  `d17c720`
+- 2026-08-22 · fix: a QR table order no longer lands in the wrong branch  `9b20a1d`
+- 2026-08-22 · fix: customer website orders now actually arrive in the POS  `1450ef1`
+- 2026-08-22 · fix: the order tracker crash, and the refresh that emptied the device  `0e0142c`
+- 2026-08-22 · sync: a shift used to reach the cloud as a shell  `f40b5b3`
+- 2026-08-22 · docs: record the multi-device fixes and the migration gap  `a449731`
+- 2026-08-22 · sync: a write that gives up now says so  `9edbafb`
+- 2026-08-22 · sync: non-expiring asset URLs, correct project ref, and tests for all of it  `de6f3b4`
+- 2026-08-22 · sync: give settings and the module mirror the same durability as billing  `1fa38a3`
+- 2026-08-22 · sync: replicate deletions, versions and settings between devices  `f531b85`
+- 2026-08-22 · Baseline: DT POS v1.25.23 (SYNC_FIXED) as uploaded  `c302b4f`
