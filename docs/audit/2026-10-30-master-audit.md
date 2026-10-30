@@ -67,7 +67,7 @@ Live data: 4 restaurants, ~3,700 bills (First Chef ≈ 3,400), 13 staff accounts
 | 7 Customer website | Exists; redesign waits for your references | — |
 | 8 External integration | **Does not exist** — design in §8 | no tables, no API keys, no webhooks |
 | 9 / 10 Order Taker / Rider | Backend exists (`portal_*`); redesign waits for your references | — |
-| 11 Multi-branch | Partly enforced in DB; **16 tables have no branch policy** (§9) | live query |
+| 11 Multi-branch | Core money tables (orders, items, counters) **proven isolated**; **real leaks found in 5 other tables** and role-gating gaps (§9, `2026-10-30-security-findings.md`) | rolled-back probes as a branch cashier |
 | 12 Duplicate modules | Report in §10 — **waiting for your approval** | — |
 | 13 Login bug | Root cause fixed in v1.56.2; data confirms (§11) | 0 case collisions |
 | 14 Super Admin | Message bug **not reproducible**; "client" flow **unclear** (§12) | — |
@@ -259,7 +259,14 @@ staff_audit_logs, staff_locations, staff_portal_sessions, sync_operations, tenan
 Classification (a judgement from table purpose — **NOT VERIFIED** per table):
 - Probably correct tenant-wide: `account_categories, parties, recipes, tenant_settings, user_profiles`; `staff_portal_sessions` has no policy at all (deny-all, accessed only through RPCs — correct); `pending_owners` is sign-up.
 - **Branch-sensitive and worth fixing:** `employees, advances, leaves, payslips` (payroll), `service_calls`, `staff_audit_logs`, `staff_locations`, `sync_operations`, and `module_documents` (many kinds).
-  A branch-bound staff member can read these for sibling branches. Frontend filtering (v1.63/v1.66 `scopeToBranch`) is cosmetic, **not security**.
+  Frontend filtering (v1.63/v1.66 `scopeToBranch`) is cosmetic, **not security**.
+
+**Now measured, not assumed** (rolled-back probes as a burewala cashier; full detail in `2026-10-30-security-findings.md`):
+`orders` 36 own / 0 other, `order_items` 97 / 0, `order_counters` 1 / 0 — **the money path is isolated by branch in the database.**
+Real leaks to sibling branches: `staff_audit_logs` (86 rows), `staff_locations` (37 — staff GPS), `module_documents` (17).
+Beyond branches, **role** gates are missing: any cashier can read and write `employees` / `payslips` / `advances` (CNIC, salary) and
+`tenant_settings` (which holds the licence flags Super Admin sets), and could read colleagues' PIN hashes (fixed in v1.70.0).
+Most other branch-scoped tables hold no rows today, so their isolation is **unproven** until a seeded test harness exists.
 
 Safest rollout: add branch-aware *restrictive* policies only for branch-bound roles, leaving owners/admins (who see every branch)
 exactly as they are; ship one table at a time behind a test that signs in as a branch cashier and asserts zero sibling rows.
@@ -384,6 +391,7 @@ refuses a service-role key (`supabase.ts`, `buildConfig.test.ts`). Git **history
 | **v1.67.0** `cae618e` | **Payment screen** as in the reference: hero *Total payable*, method tiles, *Amount received* with Exact/quick amounts, Change and Due cards, footer *Back to cart* / *Complete Sale [Enter]*. **Kilogram panel**: right-hand, *By weight* (kg/g/pao) or *By amount*, keypad, Quantity/Price. Layout only — the arithmetic moved unchanged into `lib/weightPricing.ts`; the cart line has the same fields. Roman-Urdu UI strings replaced with English. | 42 tests (every payment payload unchanged: exact, over-tender, partial, online; weight maths; keyboard); mutation checks (tests fail when the guard or the maths is broken); Chromium screenshots of both screens in two themes |
 | **v1.68.0** `16bc29c` | **21 themes** (13 Modern + 8 DT Retail) from a data table, premium-gated, with the DT Retail look (gradient sidebar and hero, accent pill, branding card). Fixes: the Vince brand name replacing the restaurant's; hero banners fading under white text; light-sidebar highlight. | 77 tests incl. WCAG contrast for every theme (7:1 body, 4.5:1 text, accent-as-text); Chromium screenshots in 6 themes |
 | **v1.69.0** `011a5a3` | **Product icon** (the Digital Target mark on a purple squircle; SVG source in `branding/`) for favicon, PWA, Apple touch icon; desktop icon in `dtpos-desktop` (`b7b79e5`). **Currency:** the POS cart panel no longer prints a hand-typed "PKR". | 5 tests; icon checked at 16–128 px on light and dark |
+| **v1.70.0** | **Security:** staff can no longer read each other's PIN hashes (column-level grant on `user_profiles`; applied to production, verified, one-statement rollback). Six findings recorded, five still open — `docs/audit/2026-10-30-security-findings.md`. | 8 guard tests (mutation-checked); post-apply probes: hash refused, app reads / RLS helpers / orders / login path unchanged |
 | **ZIP** | `release-zip/DT-POS-Enterprise-Windows-source-v1.69.0.zip` — 754 files, 3.9 MB, no `node_modules`/build output. Root `npm install`, `npm run build`, `npm run dist`; `README-BUILD.md`; `.env.example`. | From a **fresh extract**: `npm install` exit 0 (23 s), `npm run build` OK (9 s), shell tests 27/27, shell typecheck clean |
 
 ### Multi-country gap (new finding)

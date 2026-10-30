@@ -8,6 +8,7 @@ Not in this list: the Windows shell (`dtpos-desktop`) and the Android apps (`dtp
 
 ## Releases
 
+- **v1.70.0** · 2026-10-30 · staff can no longer read each other's PIN hashes; security findings recorded  `(this commit)`
 - **v1.69.0** · 2026-10-30 · a real product icon, and the POS total follows the restaurant's currency  `011a5a3`
 - **v1.68.0** · 2026-10-30 · the reference theme set: 13 Modern + 8 DT Retail, with branding  `16bc29c`
 - **v1.67.0** · 2026-10-30 · Payment screen and kilogram panel, as in the reference  `cae618e`
