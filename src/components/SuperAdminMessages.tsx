@@ -3,6 +3,7 @@
 // support panels showed an empty sender.
 import { currentAuthUser } from '@/lib/authProvider';
 // Super Admin → Messages tab (WhatsApp-style: left list, right chat)
+import { toast } from 'sonner';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { MessageCircle, Send, Phone, Search, ShieldCheck, Image as ImgIcon, Loader2 } from 'lucide-react';
 import {
@@ -133,6 +134,7 @@ export default function SuperAdminMessages({ clients }: Props) {
 
   // Alert the Super Admin whenever a restaurant raises a new issue.
   const prevUnread = useRef(0);
+  const markReadWarned = useRef(false);
   useEffect(() => {
     if (totalUnread > prevUnread.current) {
       try {
@@ -166,8 +168,22 @@ export default function SuperAdminMessages({ clients }: Props) {
 
   useEffect(() => {
     if (!selected) { setPhone(''); return; }
-    markRead(selected, 'admin');
-    fetchTenantPhone(selected).then(setPhone);
+    const tid = selected;
+    void markRead(tid, 'admin').then(ok => {
+      if (ok) {
+        // The server confirmed: show it NOW instead of waiting for the realtime echo.
+        setAll(prev => {
+          const list = prev[tid];
+          if (!list || !list.some(m => m.from === 'owner' && !m.read)) return prev;
+          return { ...prev, [tid]: list.map(m => (m.from === 'owner' && !m.read ? { ...m, read: true } : m)) };
+        });
+      } else if (!markReadWarned.current) {
+        // Say so once, rather than leaving the badge wrong with no explanation.
+        markReadWarned.current = true;
+        toast.error('Could not mark these messages as read — they will stay unread until it works. Check your connection and permissions.');
+      }
+    });
+    fetchTenantPhone(tid).then(setPhone);
   }, [selected, activeMsgs.length]);
 
   useEffect(() => {

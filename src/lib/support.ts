@@ -201,15 +201,34 @@ export async function setMessageStatus(
   await updateDoc(doc(fbDb(), 'tenants', tenantId, 'support', messageId), { status });
 }
 
-export async function markRead(tenantId: string, side: SupportFrom) {
+/**
+ * Mark the other side's messages in a conversation as read.
+ *
+ * Returns true when the server confirmed it, false when it did not — callers
+ * use that to update the screen (or to say so), never to guess.
+ *
+ * ===== v1.70.1 — this used to fail in silence =====
+ * `await sb().rpc(...)` was awaited and its result thrown away. supabase-js does
+ * NOT throw on a failed call: it resolves to `{ data, error }`. The surrounding
+ * try/catch therefore never fired, and a refused or failed call (a permission
+ * error, a 4xx, a dropped request) left the messages unread on the server while
+ * the screen carried on as if nothing had happened — "I opened it and it still
+ * says unread", with nothing in the console either.
+ */
+export async function markRead(tenantId: string, side: SupportFrom): Promise<boolean> {
   if (firestoreUnavailable()) {
     try {
       const { sb } = await import('./supabase');
-      await sb().rpc('support_mark_read', {
+      const { data, error } = await sb().rpc('support_mark_read', {
         p_tenant: tenantId, p_side: side === 'admin' ? 'admin' : 'owner',
       });
-    } catch (e) { console.warn('[support] markRead failed', e); }
-    return;
+      if (error) throw error;
+      if ((data as any)?.ok === false) throw new Error(String((data as any)?.reason || 'support_mark_read refused'));
+      return true;
+    } catch (e) {
+      console.error('[support] markRead failed — these messages will keep showing as unread', e);
+      return false;
+    }
   }
   const other: SupportFrom = side === 'admin' ? 'owner' : 'admin';
   try {
@@ -217,11 +236,12 @@ export async function markRead(tenantId: string, side: SupportFrom) {
       collection(fbDb(), 'tenants', tenantId, 'support'),
       where('from', '==', other), where('read', '==', false),
     ));
-    if (snap.empty) return;
+    if (snap.empty) return true;
     const batch = writeBatch(fbDb());
     snap.docs.forEach(d => batch.update(d.ref, { read: true }));
     await batch.commit();
-  } catch (e) { console.warn('markRead', e); }
+    return true;
+  } catch (e) { console.error('[support] markRead failed', e); return false; }
 }
 
 export async function fetchUnreadCounts(tenantIds: string[]): Promise<Record<string, number>> {
