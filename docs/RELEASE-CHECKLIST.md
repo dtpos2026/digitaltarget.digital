@@ -74,6 +74,10 @@ Result in `dtpos-desktop\release\`:
 `README-BUILD.md` inside the ZIP lists the settings and the known snags (SmartScreen warning on an unsigned installer, proxy, etc.).
 **If `npm run dist` fails, copy the last 30 lines of the output** — that is the one step I could not run on Linux.
 
+*If it stops with `Cannot create symbolic link … A required privilege is not held by the client`:* open CMD **as Administrator**, `cd /d` to the same folder,
+run `rmdir /s /q "%LOCALAPPDATA%\electron-builder\Cache\winCodeSign"`, then `npm run dist` again (details in `README-BUILD.md`).
+This was hit on the first real Windows build (2026-10-30). The earlier claim that an unsigned build never needs that download was wrong for Windows.
+
 ### 5. Smoke test the Windows app
 | Step | Expect |
 |---|---|
