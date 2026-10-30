@@ -147,6 +147,24 @@ export function formatMoney(amount: number | string | null | undefined, opts: Mo
 export const money = formatMoney;
 
 /** Just the symbol — for input adornments and column headers. */
+/**
+ * An amount as the POS panels print it on screen.
+ *
+ * Several screens spelled the currency out by hand ("PKR 1,200"), so a restaurant
+ * set to SAR or AED still saw rupees on its POS total. This follows the
+ * restaurant's currency instead.
+ *
+ * PKR installs keep the exact wording they have always had ("PKR 1,200" — note:
+ * not formatMoney's "Rs.1,200"), because the rule of this module is that nothing
+ * changes for an existing restaurant unless its owner changes the currency.
+ * Display only: it never feeds a calculation, a saved value or a printed slip.
+ */
+export function screenAmount(amount: number | string | null | undefined): string {
+  const n = Number(amount) || 0;
+  if (getActiveCurrency().code === DEFAULT_CURRENCY) return `PKR ${n.toLocaleString()}`;
+  return formatMoney(n);
+}
+
 export function currencySymbol(code?: string): string {
   return (code ? getCurrencyDef(code) : getActiveCurrency()).symbol;
 }

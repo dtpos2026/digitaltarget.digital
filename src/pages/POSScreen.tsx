@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
-import { money } from '@/lib/currency';
+import { money, screenAmount } from '@/lib/currency';
 import { releasedTable } from '@/lib/tableRelease';
 import { sortOrdersNewestFirst, liveOrdersForTable } from '@/lib/orderOrder';
 import { Search, Plus, Minus, Trash2, CreditCard, Pause, Weight, Edit3, ShoppingCart, RotateCcw, Delete, User, Phone, Ban, Gift, XCircle, ChefHat, MessageCircle, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
@@ -463,7 +463,7 @@ export default function POSScreen() {
     } else if (!numpadTarget && !numpadItem && !selectedCartItem && cart.length > 0) {
       // Free calculator → set as Cash Received
       setPaymentReceived(String(val));
-      toast.success(`Cash Received: PKR ${val.toLocaleString()}`);
+      toast.success(`Cash Received: ${screenAmount(val)}`);
     }
     setNumpadValue('');
     setNumpadItem(null);
@@ -1659,12 +1659,12 @@ export default function POSScreen() {
         <div className="shrink-0 border-t-2 border-primary/20 bg-gradient-to-b from-card to-accent/10 px-3 py-2 space-y-1.5">
           <div className="flex justify-between text-xs">
             <span className="text-muted-foreground font-medium">Subtotal</span>
-            <span className="font-bold">PKR {subtotal.toLocaleString()}</span>
+            <span className="font-bold">{screenAmount(subtotal)}</span>
           </div>
           {eventActive && eventDiscountAmt > 0 && (
             <div className="flex justify-between text-xs text-green-700">
               <span className="font-medium">{settings.eventDiscountTitle || 'Event Discount'} {evtType === 'percent' ? `${eventPct}%` : ''}</span>
-              <span>- PKR {eventDiscountAmt.toLocaleString()}</span>
+              <span>- {screenAmount(eventDiscountAmt)}</span>
             </div>
           )}
           {!isOrderTaker && (() => {
@@ -1805,18 +1805,18 @@ export default function POSScreen() {
           {taxAmount > 0 && (
             <div className="flex justify-between text-xs">
               <span className="text-muted-foreground font-medium">Tax</span>
-              <span>PKR {taxAmount.toLocaleString()}</span>
+              <span>{screenAmount(taxAmount)}</span>
             </div>
           )}
           {serviceCharge > 0 && (
             <div className="flex justify-between text-xs">
               <span className="text-muted-foreground font-medium">Service ({scPercent}%)</span>
-              <span>PKR {serviceCharge.toLocaleString()}</span>
+              <span>{screenAmount(serviceCharge)}</span>
             </div>
           )}
           <div className="flex justify-between items-center pt-2 border-t-2 border-primary/30">
             <span className="text-sm font-extrabold tracking-tight">GRAND TOTAL</span>
-            <span className="text-primary text-xl font-black tracking-tight">PKR {grandTotal.toLocaleString()}</span>
+            <span className="text-primary text-xl font-black tracking-tight">{screenAmount(grandTotal)}</span>
           </div>
 
           {/* Payment area */}
@@ -1837,7 +1837,7 @@ export default function POSScreen() {
                 <div className={`h-8 rounded-md border px-2 flex items-center justify-end text-sm font-extrabold ${
                   changeAmount >= 0 ? 'text-status-success bg-status-success/10 border-status-success/30' : 'text-destructive bg-destructive/10 border-destructive/30'
                 }`}>
-                  {paymentReceivedNum > 0 ? `PKR ${Math.abs(changeAmount).toLocaleString()}` : '—'}
+                  {paymentReceivedNum > 0 ? screenAmount(Math.abs(changeAmount)) : '—'}
                 </div>
               </div>
             </div>
@@ -2276,7 +2276,7 @@ export default function POSScreen() {
           <div className="space-y-3">
             <div className="bg-primary/10 rounded-lg p-3 text-center">
               <p className="text-xs text-muted-foreground">AMOUNT DUE</p>
-              <p className="text-2xl font-bold text-primary">PKR {grandTotal.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-primary">{screenAmount(grandTotal)}</p>
             </div>
             <Input placeholder="Customer Name *" value={creditName} onChange={e => setCreditName(e.target.value)} autoFocus />
             <Input placeholder="Phone Number" value={creditPhone} onChange={e => setCreditPhone(e.target.value)} />
@@ -2420,7 +2420,7 @@ export default function POSScreen() {
                   <Badge variant="secondary" className="text-[10px]">Dlv: {dlvCount}</Badge>
                   <Badge variant="secondary" className="text-[10px]">T/A: {taCount}</Badge>
                   <div className="text-[11px] font-bold text-primary border-l border-primary/30 pl-2 ml-1">
-                    Total: PKR {totalAmt.toLocaleString()}
+                    Total: {screenAmount(totalAmt)}
                   </div>
                 </div>
               );
@@ -2488,7 +2488,7 @@ export default function POSScreen() {
                         <td className="py-2 px-2 text-muted-foreground">
                           {new Date(order.createdAt).toLocaleTimeString('en-PK', { hour: '2-digit', minute: '2-digit' })}
                         </td>
-                        <td className="py-2 px-2 text-right font-bold text-primary">PKR {order.grandTotal.toLocaleString()}</td>
+                        <td className="py-2 px-2 text-right font-bold text-primary">{screenAmount(order.grandTotal)}</td>
                         <td className="py-2 px-2">
                           <div className="flex items-center justify-center gap-1">
                             <Button size="sm" className="h-8 text-[10px] px-3" onClick={() => retrieveOrder(order)}>
