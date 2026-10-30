@@ -43,8 +43,11 @@ Cloudflare environment (`client.server.ts`); the browser only ever holds the pub
 
 ### Data model (important)
 - 71 public tables, **RLS enabled on all 71**, 112 `SECURITY DEFINER` functions, 43 tables carry `branch_id`.
-- Orders are stored as a **jsonb document** (`orders.data`); the flat columns are an index of it. `order_items` and
-  `order_payments` exist but are empty. `rowFromDb()` documents which one wins on a conflict.
+- Orders are stored as a **jsonb document** (`orders.data`); the flat columns are an index of it. `order_items` is **populated**
+  (7,007 rows covering 3,724 of 3,733 orders) — filled by the trigger `trg_sync_order_items_mirror` (v1.34.0) as a relational copy of the
+  document. `order_payments` and `kot_revisions` exist but are **empty**: payments live only inside `orders.data`. (An earlier version of this
+  report, and `ARCHITECTURE.md` §7, said `order_items` was empty; that was out of date.) `rowFromDb()` documents which one wins on a conflict.
+  `orders` also carries triggers for the number (`trg_resolve_order_number`), money mirror, customer link and sync push — see §5.
 - Local ids are not UUIDs; `cloudId()` derives a deterministic UUID from the local id **alone, with no tenant salt**
   (cross-tenant id collision is theoretically possible — see §9).
 
@@ -75,7 +78,7 @@ Live data: 4 restaurants, ~3,700 bills (First Chef ≈ 3,400), 13 staff accounts
 | 16 Receipts/KOT/tokens | Engine exists; 58/80 mm supported; template catalogue in references (§13) | — |
 | 17 Owner dashboard | `/owner` page exists (v1.64.0), read-only | — |
 | 18 Security/perf | §14 | advisors read in full |
-| 19 Testing | §15 | 1,943 unit tests pass |
+| 19 Testing | `2026-10-30-testing-report.md` | 1,951 unit tests pass; 17-item checklist with status |
 
 ---
 
@@ -157,8 +160,14 @@ alter table public.orders drop column if exists invoice_no, drop column if exist
    a number and the till falls back to its *local* counter (a different series). Abandoned/removed bills also leave holes.
 3. **Local counter fallback** (offline, no branch selected as owner/admin → `canAllocateFromServer()` false) mints numbers from
    a per-device counter that never reconciles with the server one. Several tenants show two series (e.g. 1…30 and 1000+).
-4. **Printed numbers can change afterwards**: `emitOrderRenumbered` rewrites a bill's number after a collision on sync. A receipt
-   already handed to a customer then disagrees with the system. For tax compliance this must never happen.
+4. **Printed numbers change afterwards — measured.** Two mechanisms: the client's `emitOrderRenumbered`, and a **server-side BEFORE INSERT trigger,
+   `trg_resolve_order_number`**, which on a collision gives the arriving bill `max(order_number) + 1` and keeps the number the till printed in
+   `data.originalOrderNumber`. **181 bills (4.8% of 3,733) carry `originalOrderNumber`** — 138 at First Chef Main Branch, 21 Butt Grilled fish,
+   14 + 6 at My Restaurant, 2 at First Chef's second branch; **163 of them are paid**. The biggest jump is 889 numbers. So the receipt in the customer's
+   hand shows a different number from the system for those bills, and they land at the *end* of the sequence rather than where they were made.
+   The printed number is preserved, so a paper receipt can be traced — which is the right instinct — but for tax compliance a bill's number must never
+   change after it is printed. The proposed `invoice_no` (below) is issued once, at payment, and is never rewritten, so it removes the cause; this trigger
+   would stay for `order_number` (the kitchen/token reference) and be left exactly as it is.
 5. Historical: before v1.27.1 Day Close hard-deleted bills (stated in the code's own comments). That *probably* explains the 329-number hole in one band, but the data cannot prove it — **NOT VERIFIED**.
 
 ### Proposed fix (design only — **not applied**)
@@ -385,6 +394,8 @@ refuses a service-role key (`supabase.ts`, `buildConfig.test.ts`). Git **history
 ---
 
 ## 17. Shipped since this audit (2026-10-30)
+
+*References received after this audit — an ER target model, a floor-plan screen and a dashboard — are noted in `docs/design-references/2026-10-30-references.md`, with a comparison to the live schema.*
 
 | Release | What | Verified by |
 |---|---|---|
