@@ -1,4 +1,4 @@
-# Testing report — 2026-10-30 (build under test: v1.70.0)
+# Testing report — 2026-10-30 (build under test: v1.70.1)
 
 Four kinds of evidence were used. They are not equal, and each row below says which one it rests on.
 
@@ -14,10 +14,10 @@ Four kinds of evidence were used. They are not equal, and each row below says wh
 | Check | Result |
 |---|---|
 | TypeScript, whole web app | **clean** |
-| Test suite | **1,951 passed, 0 failed, 1 skipped** (123 files). The skip, `version.test.ts:59`, predates this work. Start of the session: 1,762 passing → **+189 tests**. |
+| Test suite | **1,961 passed, 0 failed, 1 skipped** (125 files). The skip, `version.test.ts:59`, predates this work. Start of the session: 1,762 passing → **+199 tests**. |
 | Production web build | **OK** (`npm run build`) |
 | Windows shell, from the delivered ZIP | **27 / 27 tests**, typecheck clean, `npm run build` OK (9 s) |
-| ZIP, fresh extract | `npm install` exit 0 (23 s); `npm run build` OK; shell version stamped 1.26.9 → 1.69.0 |
+| ZIP, fresh extract | `npm install` exit 0 (23 s); `npm run build` OK; shell version stamped 1.26.9 → 1.70.1 |
 | Production database changes made in this whole session | **two**, both non-data: the `orders (tenant_id, updated_at)` index (v1.65.0) and the `pin_hash` column grant (v1.70.0) — confirmed against the migration list. Every other probe was read-only or rolled back. |
 
 ### Phase 19 checklist (the 17 items in the brief)
@@ -33,7 +33,7 @@ Four kinds of evidence were used. They are not equal, and each row below says wh
 | 7 | Branch-level data isolation | **MIXED** | **PASSED**: `orders` 36 own / 0 other, `order_items` 97 / 0, `order_counters` 1 / 0, as a branch cashier. **FAILED**: staff audit logs, staff GPS locations, branch-tagged documents visible across branches; HR/payroll and settings readable and writable by every role. **UNPROVEN**: every branch table that holds no rows. See `2026-10-30-security-findings.md`. |
 | 8 | Owner consolidated reporting | **PARTIAL** | `/owner` page unit-tested; not exercised against live multi-branch data |
 | 9 | Super Admin client management | **NOT REPRODUCED / UNCLEAR** | no `clients` table and no "No Restaurant" label exist; needs the screen |
-| 10 | Message read / unread | **NOT REPRODUCED** | server functions correct; production holds 0 restaurant messages; client hardening not done |
+| 10 | Message read / unread | **NOT REPRODUCED live; client hardened (v1.70.1)** | server functions correct; production holds 0 restaurant messages; the client no longer ignores a failed `support_mark_read` (10 tests) |
 | 11 | Password reset | **PARTIAL** | unit tests; a live reset was deliberately not run (it would change a real password) |
 | 12 | Electron startup | **NOT VERIFIED** | shell unit tests pass; the boot smoke test needs a display |
 | 13 | Electron production build | **PASSED** to packaging | compile + renderer sync from a fresh extract; packaging reached `release/win-unpacked/DT POS.exe` |
@@ -52,10 +52,11 @@ Four kinds of evidence were used. They are not equal, and each row below says wh
 | v1.68.0 themes | 77 (contrast of all 21, shared CSS scoped, applying/clearing attributes) | mutation check; Chromium screenshots in six themes |
 | v1.69.0 currency, icon | 5 | icon checked at 16–128 px |
 | v1.70.0 PIN hashes | 8 (mutation-checked) | live probe after applying: hash refused, app reads and orders unchanged, login path unchanged |
+| v1.70.1 message read | 10 (7 fail against the old code) | production holds 0 restaurant messages, so the failure was not reproduced live — it is a hardening, not a proven live bug |
 
 ## Pending / needs you
 
 - **Credentials needed:** PRA sandbox; a restaurant login for a real sign-in test.
 - **Real restaurant / real hardware needed:** thermal printers (58 / 80 mm), a cashier using the new Payment and kilogram screens, a Rider / Order Taker device, two tills at once.
 - **A Windows machine needed:** the installer `.exe`, and starting the installed app.
-- **Deploy needed:** `npm run deploy` — none of v1.56.3 → v1.70.0 is live yet, so nothing above has been seen by a customer.
+- **Deploy needed:** `npm run deploy` — none of v1.56.3 → v1.70.1 is live yet, so nothing above has been seen by a customer.
