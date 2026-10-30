@@ -936,3 +936,44 @@ h3, h4 { letter-spacing: -0.012em; }
   border-radius: var(--radius);
   box-shadow: 0 10px 22px -12px hsl(var(--primary) / 0.7);
 }
+
+/* ============================================================
+   REFERENCE THEMES — shared rules (v1.68.0)
+   Every selector hangs off an attribute that applyTheme() sets
+   only for the themes that need it and removes otherwise, so no
+   other theme is touched.
+   ============================================================ */
+
+/* Some accents cannot be both a button colour and readable text (Sunny Yellow, and
+   the dark-page themes). Those themes carry a second shade for text. */
+[data-accent="split"] .text-primary { color: hsl(var(--primary-text)); }
+
+/* A light sidebar: the brand strip drops the dark wash meant for dark sidebars, and the active
+   item is shown by the sidebar's own tint (the 10%-white used elsewhere is invisible on white). */
+[data-sidebar="light"] aside > div:first-child { background: transparent; backdrop-filter: none; }
+[data-sidebar="light"] aside [data-nav-active="true"] {
+  background: hsl(var(--sidebar-accent));
+  color: hsl(var(--sidebar-accent-foreground));
+}
+[data-sidebar="light"] aside nav button:not([data-nav-active="true"]):hover { background: hsl(var(--sidebar-accent) / 0.6); }
+
+/* DT Retail look: the active sidebar item is a filled accent pill, not a gold bar. */
+[data-look="retail"] aside [data-nav-active="true"] {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  box-shadow: 0 8px 18px -10px hsl(var(--primary) / 0.7);
+}
+[data-look="retail"] aside [data-nav-active="true"] svg { color: currentColor; opacity: 1; }
+[data-look="retail"] aside [data-nav-active="true"] > .absolute { display: none; }
+[data-look="retail"] aside nav button { border-radius: 0.75rem; }
+
+/* The "Powered by Digital Target" card takes the sidebar's own dark tone
+   instead of the fixed brand purple, which would clash with a warm sidebar. */
+[data-look="retail"] .dt-powered {
+  background: var(--brand-card-bg) !important;
+  border: 1px solid hsl(var(--sidebar-border));
+}
+
+/* Rounder, quieter cards for the DT Retail family. */
+[data-look="retail"] [data-slot="card"],
+[data-look="retail"] .bg-card.rounded-xl { border-radius: var(--radius); }

@@ -101,7 +101,14 @@ describe('Super Admin gates it, like every premium theme', () => {
     // Soft Light would silently keep a look it is no longer entitled to.
     const src = stripTs(read('src/lib/premiumTheme.ts'));
     expect(src).toContain('isPremiumTheme(getActiveTheme()) && !isPremiumThemeAllowed()');
-    expect(src).not.toContain("getActiveTheme() === PREMIUM_THEME_ID");
+    // Scoped to the ENTITLEMENT function. isVinceBrandActive() (v1.68.0) legitimately
+    // compares to the one id — it decides whose NAME the sidebar shows, not who is
+    // allowed a theme — so the whole file can no longer be held to this rule.
+    const start = src.indexOf('export function enforcePremiumThemeGate');
+    expect(start, 'enforcePremiumThemeGate not found').toBeGreaterThan(-1);
+    const next = src.indexOf('\nexport function', start + 10);
+    const gate = src.slice(start, next === -1 ? undefined : next);
+    expect(gate).not.toContain("getActiveTheme() === PREMIUM_THEME_ID");
   });
 
   it('the settings screen gates on the set too', () => {

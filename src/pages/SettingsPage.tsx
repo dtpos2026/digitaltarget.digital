@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Fragment } from 'react';
 import { currencySymbol, currencyOptions, getCurrencyDef, formatMoney } from '@/lib/currency';
 import { getSettings, saveSettings, saveSettingsNow, getTables, saveTable, deleteTable, getFloors, saveFloor, deleteFloor, getKitchens, saveKitchen, deleteKitchen, getWaiters, saveWaiter, deleteWaiter, getRiders, saveRider, deleteRider, genId, getOrders, deleteOrder, deleteOrdersBulk, archiveOrdersBulk, resetOrderCounter, exportData, getCategories, getCurrentUser, clearCollectionsForDayClose } from '@/lib/store';
 import { RestaurantSettings, DiningTable, Floor, Kitchen, Waiter, Rider, ReceiptTextStyle } from '@/lib/types';
@@ -1713,14 +1713,19 @@ export default function SettingsPage() {
             </div>
             <p className="text-xs text-muted-foreground">اپنی پسند کا تھیم منتخب کریں — تمام سکرینز آٹو اپڈیٹ ہو جائیں گی</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {themes.map(theme => {
+              {themes.map((theme, themeIdx) => {
+                // v1.68.0 — a heading wherever the group changes (the reference collections).
+                const groupHeading = theme.group && theme.group !== themes[themeIdx - 1]?.group ? theme.group : null;
                 // v1.61.0 — every premium theme is gated, not just the first.
                 const isPremium = PREMIUM_THEME_IDS.includes(theme.id);
                 const premiumAllowed = !!(settings as any).premiumThemeAllowed;
                 const locked = isPremium && !premiumAllowed;
                 return (
+                  <Fragment key={theme.id}>
+                  {groupHeading && (
+                    <div className="col-span-full mt-2 text-xs font-extrabold uppercase tracking-wider text-muted-foreground">{groupHeading}</div>
+                  )}
                   <button
-                    key={theme.id}
                     disabled={locked}
                     onClick={() => {
                       if (locked) {
@@ -1775,6 +1780,7 @@ export default function SettingsPage() {
                       ))}
                     </div>
                   </button>
+                  </Fragment>
                 );
               })}
             </div>

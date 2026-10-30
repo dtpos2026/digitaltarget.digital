@@ -10,7 +10,7 @@ import {
 import { getSettings, getUsers, getBranches, getCurrentBranchId, setCurrentBranchId, canSwitchBranch, onDataChange } from '@/lib/store';
 import { loadBranchAccess, filterAllowedBranches, isBranchAllowed } from '@/lib/branchAccess';
 
-import { isPremiumThemeActive, PREMIUM_BRAND_NAME } from '@/lib/premiumTheme';
+import { isVinceBrandActive, PREMIUM_BRAND_NAME } from '@/lib/premiumTheme';
 import { cn } from '@/lib/utils';
 import { PAGES, visiblePagesForUser, GROUP_ORDER, type PageGroup } from '@/lib/permissions';
 import PersistentWhatsApp from '@/components/PersistentWhatsApp';
@@ -160,10 +160,10 @@ function Sidebar({
         {!collapsed && (
           <div className="min-w-0 flex-1">
             <div className="text-[13px] font-bold text-sidebar-foreground truncate leading-tight tracking-tight">
-              {isPremiumThemeActive() ? PREMIUM_BRAND_NAME : (settings.name || 'DT POS')}
+              {isVinceBrandActive() ? PREMIUM_BRAND_NAME : (settings.name || 'DT POS')}
             </div>
             <div className="text-[9px] uppercase tracking-[0.18em] text-gold/80 font-semibold">
-              {isPremiumThemeActive() ? 'Premium Edition' : 'Restaurant System'}
+              {isVinceBrandActive() ? 'Premium Edition' : 'Restaurant System'}
             </div>
           </div>
         )}
@@ -200,6 +200,7 @@ function Sidebar({
                         key={item.key}
                         onClick={() => handleNav(item.path)}
                         title={collapsed ? item.title : undefined}
+                        data-nav-active={active ? 'true' : undefined}
                         className={cn(
                           "w-full h-8 flex items-center gap-2.5 px-3 rounded-md text-[13px] transition-smooth group relative",
                           collapsed && "justify-center px-2",
@@ -533,7 +534,7 @@ export default function AppLayout({ children, userRole, onLogout }: Props) {
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <div className="h-5 w-1 rounded-full bg-gradient-gold shrink-0" />
             <h1 className="text-sm font-bold text-foreground tracking-tight truncate min-w-0">
-              {isPremiumThemeActive() ? PREMIUM_BRAND_NAME : (settings.name || 'DT POS')} <span className="text-muted-foreground font-medium">— {currentTitle}</span>
+              {isVinceBrandActive() ? PREMIUM_BRAND_NAME : (settings.name || 'DT POS')} <span className="text-muted-foreground font-medium">— {currentTitle}</span>
             </h1>
             <div className="ml-1 flex items-center gap-2 min-w-0 overflow-x-auto dt-header-chips">
               <HeaderNotificationBar />

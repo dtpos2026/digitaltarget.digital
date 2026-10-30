@@ -5,6 +5,7 @@
 
 import { getSettings } from './store';
 import { setActiveTheme, getActiveTheme, type ThemeId } from './themes';
+import { REFERENCE_THEME_SPECS } from './referenceThemes';
 
 export const PREMIUM_THEME_ID: ThemeId = 'vince-premium';
 export const PREMIUM_BRAND_NAME = 'VINCE BY TAIMOOR';
@@ -26,7 +27,11 @@ export const PREMIUM_BRAND_NAME = 'VINCE BY TAIMOOR';
  * next refresh and the Windows build on the next restart. Nothing about POS
  * behaviour is touched either way — a theme is CSS variables.
  */
-export const PREMIUM_THEME_IDS: readonly ThemeId[] = ['vince-premium', 'soft-light'];
+export const PREMIUM_THEME_IDS: readonly ThemeId[] = [
+  'vince-premium', 'soft-light',
+  // v1.68.0 — the reference set (13 Modern + 8 DT Retail) is premium too: one gate, one switch.
+  ...REFERENCE_THEME_SPECS.map(s => s.id),
+];
 
 export function isPremiumTheme(id: ThemeId): boolean {
   return PREMIUM_THEME_IDS.includes(id);
@@ -48,6 +53,19 @@ export function isPremiumThemeEnabled(): boolean {
 
 export function isPremiumThemeActive(): boolean {
   return isPremiumThemeEnabled() && isPremiumTheme(getActiveTheme());
+}
+
+/**
+ * v1.68.0 — only the Vince theme carries the "VINCE BY TAIMOOR" brand.
+ *
+ * isPremiumThemeActive() is true for EVERY premium theme, and the sidebar used it
+ * to swap the restaurant's name for Vince's. Soft Light (v1.61.0) and the whole
+ * reference set joined the premium gate and inherited that swap, so a restaurant on
+ * Soft Light saw another company's name where its own belongs. The restaurant's name
+ * and logo lead on every theme except the one that is itself a brand.
+ */
+export function isVinceBrandActive(): boolean {
+  return isPremiumThemeEnabled() && getActiveTheme() === PREMIUM_THEME_ID;
 }
 
 /** Auto-revert if a user has a premium theme active but allotment was revoked. */

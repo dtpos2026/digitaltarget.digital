@@ -1,4 +1,5 @@
-export type ThemeId = 'blink-style' | 'dt-pos-purple' | 'emerald-prestige' | 'maroon-classic' | 'dark-modern' | 'light-clean' | 'touch-pos' | 'luxury-gold' | 'teal-restaurant' | 'vince-premium' | 'soft-light';
+import { referenceThemes, type ReferenceThemeId } from './referenceThemes';
+export type ThemeId = 'blink-style' | 'dt-pos-purple' | 'emerald-prestige' | 'maroon-classic' | 'dark-modern' | 'light-clean' | 'touch-pos' | 'luxury-gold' | 'teal-restaurant' | 'vince-premium' | 'soft-light' | ReferenceThemeId;
 
 export interface ThemeConfig {
   id: ThemeId;
@@ -6,6 +7,8 @@ export interface ThemeConfig {
   description: string;
   emoji: string;
   variables: Record<string, string>;
+  /** Optional heading the Settings picker files this theme under. */
+  group?: string;
 }
 
 export const themes: ThemeConfig[] = [
@@ -422,6 +425,10 @@ export const themes: ThemeConfig[] = [
       '--gold-foreground': '30 40% 16%',
 
       // The sidebar is WHITE here, which is most of the softness.
+      '--theme-sidebar': 'light',
+      // Own hero gradient: the derived one ran from the red to a pale tint and white banner text vanished.
+      '--hero-from': '356 72% 38%',
+      '--hero-to': '356 72% 48%',
       '--pos-sidebar': '0 0% 100%',
       '--pos-sidebar-foreground': '222 24% 16%',
       '--pos-cart': '0 0% 100%',
@@ -437,6 +444,8 @@ export const themes: ThemeConfig[] = [
       '--sidebar-ring': '356 72% 55%',
     },
   },
+  // v1.68.0 — the reference set (13 Modern + 8 DT Retail), built from data.
+  ...referenceThemes,
 ];
 
 export function getActiveTheme(): ThemeId {
@@ -483,13 +492,29 @@ export function applyTheme(id: ThemeId) {
     '--gold': gold,
     '--gold-foreground': goldFg,
     '--gold-soft': gold,
-    '--gradient-primary': `linear-gradient(135deg, hsl(${primary}), hsl(${sidebarAccent}))`,
+    // DT Retail themes carry their own hero gradient; every other theme derives it as before.
+    '--gradient-primary': v['--hero-from'] && v['--hero-to']
+      ? `linear-gradient(135deg, hsl(${v['--hero-from']}), hsl(${v['--hero-to']}))`
+      : `linear-gradient(135deg, hsl(${primary}), hsl(${sidebarAccent}))`,
     '--gradient-gold': `linear-gradient(135deg, hsl(${gold}), hsl(${gold} / 0.75))`,
-    '--gradient-sidebar': `linear-gradient(180deg, hsl(${sidebarBg}), hsl(${sidebarBg} / 0.88))`,
+    '--gradient-sidebar': v['--sidebar-gradient-from'] && v['--sidebar-gradient-to']
+      ? `linear-gradient(180deg, hsl(${v['--sidebar-gradient-from']}), hsl(${v['--sidebar-gradient-to']}))`
+      : `linear-gradient(180deg, hsl(${sidebarBg}), hsl(${sidebarBg} / 0.88))`,
     '--shadow-elegant': `0 10px 30px -12px hsl(${primary} / 0.35)`,
     '--shadow-gold': `0 8px 24px -10px hsl(${gold} / 0.45)`,
     '--shadow-soft': `0 1px 3px hsl(${primary} / 0.08), 0 1px 2px hsl(${primary} / 0.05)`,
     '--shadow-card': `0 2px 8px hsl(${primary} / 0.08), 0 1px 3px hsl(${primary} / 0.05)`,
   };
   Object.entries(tokens).forEach(([k, val]) => root.style.setProperty(k, val));
+
+  // Look / mode / split-accent switches for scoped CSS (split = the accent has its own text shade). Set from the theme being
+  // applied and REMOVED otherwise, so switching back to an ordinary theme leaves
+  // nothing of a DT Retail one behind.
+  const flag = (attr: string, on: string | null) => {
+    try { on ? root.setAttribute(attr, on) : root.removeAttribute(attr); } catch {}
+  };
+  flag('data-look', v['--theme-look'] || null);
+  flag('data-ui-mode', v['--theme-mode'] || null);
+  flag('data-accent', v['--primary-text'] ? 'split' : null);
+  flag('data-sidebar', v['--theme-sidebar'] || null);
 }

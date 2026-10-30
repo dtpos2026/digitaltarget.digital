@@ -27,7 +27,7 @@ export default function PoweredByBrand({ collapsed = false }: { collapsed?: bool
   useEffect(() => { getInstalledVersion().then(setAppVer).catch(() => {}); }, []);
   return (
     <div
-      className="rounded-lg p-2 text-white shadow-md"
+      className="dt-powered rounded-lg p-2 text-white shadow-md"
       style={{ background: BRAND_BG }}
       title="Software by Digital Target"
     >

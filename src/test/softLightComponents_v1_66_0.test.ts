@@ -4,7 +4,9 @@ import { readFileSync } from 'node:fs';
 
 const css = readFileSync('src/index.css', 'utf8');
 const start = css.indexOf('SOFT LIGHT — component polish');
-const block = css.slice(start);
+// This block ends where the next section's header begins; it is not the last thing in the file.
+const nextHeader = css.indexOf('/* ====', start);
+const block = css.slice(start, nextHeader === -1 ? undefined : nextHeader);
 
 describe('Soft Light component polish', () => {
   it('exists', () => { expect(start).toBeGreaterThan(0); });
