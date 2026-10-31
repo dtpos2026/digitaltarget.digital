@@ -1,0 +1,73 @@
+// REPRODUCTION (audit, not a fix): how a client / a saved change can vanish after a refresh.
+// Drives the REAL Super Admin <App/> with a controllable Firestore listener. The existing 1,517 tests turn every
+// watcher into a no-op, so the live sync loop in App.tsx (cloud wins -> replace state -> mirror to localStorage) is never run.
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent, waitFor, within, act, cleanup } from '@testing-library/react';
+
+const h = vi.hoisted(() => ({ snap: null as null | ((l: any[]) => void), pushed: [] as any[], failPush: true }));
+vi.mock('../../superadmin/src/cloud', async (orig) => {
+  const real: any = await orig();
+  const out: any = { ...real };
+  for (const k of Object.keys(real)) if (k.startsWith('watch')) out[k] = () => () => {};
+  out.watchAdmin = (cb: (u: any) => void) => { cb({ email: 'admin@digitaltarget.pk' }); return () => {}; };
+  out.watchClients = (cb: (l: any[]) => void) => { h.snap = cb; return () => {}; };
+  out.pushClient = async (c: any) => { h.pushed.push(c); if (h.failPush) throw new Error('Missing or insufficient permissions.'); };
+  out.removeClient = async () => {};
+  return out;
+});
+vi.mock('../../superadmin/src/DeviceMap', () => ({ default: () => null, escapeHtml: (s: string) => s }));
+vi.mock('../../superadmin/src/LiveDeviceMap', () => ({ default: () => null }));
+
+const DAY = 86400000, REGISTRY_KEY = 'dtpos-superadmin-registry';
+const client = (key: string, business: string) => ({
+  key, business, owner: 'Owner', phone: '0300', plan: 'yearly', maxDevices: 2,
+  expiryDate: Date.now() + 200 * DAY, issuedAt: Date.now() - 30 * DAY, notes: '', devices: [],
+});
+const mirror = () => JSON.parse(localStorage.getItem(REGISTRY_KEY) || '[]').map((c: any) => c.business);
+
+beforeEach(() => { cleanup(); localStorage.clear(); h.snap = null; h.pushed = []; h.failPush = true; });
+
+async function open() {
+  const { default: App } = await import('../../superadmin/src/App');
+  render(<App />);
+  await waitFor(() => expect(h.snap).not.toBeNull());
+}
+const goClients = async () => { fireEvent.click(screen.getAllByRole('button', { name: /^Clients/ })[0]); await screen.findByText('Al-Madina'); };
+
+describe('REPRO: a change whose cloud write fails is erased by the next snapshot — and so is the error message', () => {
+  it('edit -> push rejected -> banner shown -> Firestore rolls back -> edit, banner AND local mirror are gone', async () => {
+    const cloud = [client('DTPOS-AAAA-0001', 'Al-Madina')];
+    await open();
+    act(() => h.snap!(cloud));
+    await goClients();
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Edit' })[0]);
+    const dlg = await screen.findByRole('dialog', { name: 'Edit licence' });
+    fireEvent.change(within(dlg).getByLabelText('Business'), { target: { value: 'Al-Madina RENAMED' } });
+    fireEvent.click(within(dlg).getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() => expect(screen.getByText('Al-Madina RENAMED')).toBeInTheDocument());   // looks saved
+    await waitFor(() => expect(screen.getByText(/Could not save Al-Madina RENAMED/)).toBeInTheDocument()); // banner
+    expect(mirror()).toEqual(['Al-Madina RENAMED']);                                          // mirror has it too
+    expect(h.pushed.length).toBeGreaterThan(0);
+
+    // Firestore drops the rejected local write and re-emits the server state (this is what the SDK does)
+    act(() => h.snap!(cloud));
+
+    expect(screen.queryByText('Al-Madina RENAMED')).toBeNull();            // the change vanished
+    expect(screen.getByText('Al-Madina')).toBeInTheDocument();
+    expect(screen.queryByText(/Could not save/)).toBeNull();               // ...and the only warning vanished with it
+    expect(mirror()).toEqual(['Al-Madina']);                               // ...and the offline copy was overwritten
+  });
+});
+
+describe('REPRO: an empty first snapshot (cache-first / not yet connected) wipes the screen and the offline mirror', () => {
+  it('registry in localStorage -> snapshot [] -> screen empty AND localStorage emptied', async () => {
+    localStorage.setItem(REGISTRY_KEY, JSON.stringify([client('DTPOS-AAAA-0001', 'Al-Madina')]));
+    await open();
+    expect(mirror()).toEqual(['Al-Madina']);
+    act(() => h.snap!([]));
+    expect(screen.queryByText('Al-Madina')).toBeNull();
+    await waitFor(() => expect(mirror()).toEqual([]));
+  });
+});
