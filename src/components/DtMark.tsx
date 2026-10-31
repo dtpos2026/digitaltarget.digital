@@ -3,6 +3,8 @@
 // (`currentColor`): white on a brand panel, the theme's foreground on its primary colour,
 // purple on an invoice. One mark for the sign-in, the owner portal, the invoices and the
 // app icons, so the brand looks the same wherever it appears.
+import { BRAND, MARK_TRIANGLES } from '@/lib/brand';
+
 interface Props {
   size?: number;
   className?: string;
@@ -10,9 +12,8 @@ interface Props {
   title?: string | null;
 }
 
-const TRIANGLES = ['0,0 1,0 1,1', '1,0 2,0 2,1', '0,1 1,1 1,2', '1,1 2,1 2,2'];
 
-export default function DtMark({ size = 48, className, title = 'Digital Target' }: Props) {
+export default function DtMark({ size = 48, className, title = BRAND.name }: Props) {
   return (
     <svg
       width={size}
@@ -25,7 +26,7 @@ export default function DtMark({ size = 48, className, title = 'Digital Target' 
       fill="currentColor"
       data-dt-mark
     >
-      {TRIANGLES.map(points => <polygon key={points} points={points} />)}
+      {MARK_TRIANGLES.map(points => <polygon key={points} points={points} />)}
     </svg>
   );
 }

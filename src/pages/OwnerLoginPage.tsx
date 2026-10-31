@@ -15,6 +15,7 @@ import { APP_VERSION } from '@/lib/version';
 import { effectiveDeviceLimit, setCurrentTenantPlan, setCurrentTenantOverrides } from '@/lib/plans';
 import { setCurrentTenantExpiry, tsToDate, isExpired } from '@/lib/billing';
 import LoginShell from '@/components/LoginShell';
+import { BRAND } from '@/lib/brand';
 import ContactDigitalTargetDialog from '@/components/ContactDigitalTargetDialog';
 
 interface Props {
@@ -412,7 +413,7 @@ export default function OwnerLoginPage({ onSuccess }: Props) {
               <Loader2 className="h-4 w-4 animate-spin" /> Live listening for approval…
             </div>
             <div className="text-[11px] text-muted-foreground">
-              Device limit cross hone par admin se rabta karein: <b className="text-foreground">0345-1873354</b>
+              Device limit cross hone par admin se rabta karein: <b className="text-foreground">{BRAND.phoneShort}</b>
             </div>
             <Button variant="outline" className="w-full" onClick={cancelPendingWait}>
               Cancel & Logout
@@ -526,7 +527,7 @@ export default function OwnerLoginPage({ onSuccess }: Props) {
 
               <p className="text-[11px] text-muted-foreground text-center pt-1 leading-relaxed">
                 New restaurant accounts are created only by the Digital Target Super Admin.
-                To open an account, contact <b className="text-foreground">0345-1873354</b>.
+                To open an account, contact <b className="text-foreground">{BRAND.phoneShort}</b>.
               </p>
 
               {info && (

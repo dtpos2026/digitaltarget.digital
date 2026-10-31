@@ -4,16 +4,17 @@
 // to say (no discount, no setup fee, no bank details) are left out rather than printed empty.
 // Inline styles on purpose: html2canvas (PNG/JPG/PDF) and the print window both paint exactly what is here.
 import { forwardRef, type CSSProperties } from 'react';
-import DtMark from '@/components/DtMark';
+import BrandLockup from '@/components/BrandLockup';
+import { BRAND, PALETTE } from '@/lib/brand';
 import { Invoice, tsToDate, formatRs } from '@/lib/billing';
 import { getAdminSignature } from '@/components/BrandSignaturePanel';
 import { getInvoiceProfile, hasPaymentDetails, invoiceAmounts, invoiceBadge, type InvoiceProfile } from '@/lib/invoiceProfile';
 
-const PURPLE_DEEP = '#3c096c';
-const PURPLE = '#5b21b6';
-const LAVENDER = '#f3effc';
-const INK = '#1a1523';
-const MUTED = '#6b6478';
+const PURPLE_DEEP = PALETTE.purpleDeep;
+const PURPLE = PALETTE.purple;
+const LAVENDER = PALETTE.lavender;
+const INK = PALETTE.ink;
+const MUTED = PALETTE.muted;
 
 interface Props {
   invoice: Invoice;
@@ -73,11 +74,8 @@ const A4Invoice = forwardRef<HTMLDivElement, Props>(function A4Invoice(
         background: `linear-gradient(120deg, ${PURPLE_DEEP} 0%, ${PURPLE} 100%)`, padding: '34px 40px 30px',
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
       }}>
-        <div style={{ background: '#fff', borderRadius: 14, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 11, color: PURPLE_DEEP }}>
-          <DtMark size={38} title={null} />
-          <div style={{ lineHeight: 1, fontWeight: 700, fontSize: 19, letterSpacing: 0.5 }}>
-            <div>DIGITAL</div><div style={{ marginTop: 3 }}>TARGET</div>
-          </div>
+        <div style={{ background: '#fff', borderRadius: 14, padding: '14px 18px', color: PURPLE_DEEP }}>
+          <BrandLockup size={38} />
         </div>
         <div style={{ textAlign: 'right', color: '#fff' }}>
           <div style={{ fontSize: 42, fontWeight: 800, letterSpacing: 9, lineHeight: 1 }}>INVOICE</div>
@@ -94,8 +92,8 @@ const A4Invoice = forwardRef<HTMLDivElement, Props>(function A4Invoice(
         <div style={{ display: 'flex', gap: 26, alignItems: 'flex-start' }}>
           <div style={{ flex: '0 0 138px' }}>
             <div style={label}>From</div>
-            <div style={{ fontSize: 19, fontWeight: 800 }}>Digital Target</div>
-            <div style={small}>+92 345 1873354<br />+92 332 2373354</div>
+            <div style={{ fontSize: 19, fontWeight: 800 }}>{BRAND.name}</div>
+            <div style={small}>{BRAND.phones[0]}<br />{BRAND.phones[1]}</div>
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={label}>Bill to</div>
@@ -208,7 +206,7 @@ const A4Invoice = forwardRef<HTMLDivElement, Props>(function A4Invoice(
           <div style={{ width: 270, textAlign: 'center' }}>
             {sig && <img src={sig} alt="signature" style={{ height: 62, maxWidth: 220, objectFit: 'contain', display: 'block', margin: '0 auto 4px' }} />}
             <div style={{ borderTop: `3px solid ${PURPLE_DEEP}`, paddingTop: 8 }}>
-              <div style={{ fontSize: 15, fontWeight: 700 }}>Hafiz Muhammad Taimoor Younas</div>
+              <div style={{ fontSize: 15, fontWeight: 700 }}>{BRAND.signatory}</div>
               <div style={{ ...small, fontSize: 13 }}>Authorized Signatory</div>
             </div>
           </div>
@@ -221,7 +219,7 @@ const A4Invoice = forwardRef<HTMLDivElement, Props>(function A4Invoice(
         padding: '15px 40px', display: 'flex', justifyContent: 'space-between', fontSize: 13,
       }}>
         <span style={{ fontWeight: 800, color: PURPLE_DEEP }}>Thank you for your business!</span>
-        <span style={{ color: MUTED }}>Digital Target | 0345-1873354 | digitaltarget.digital@gmail.com</span>
+        <span style={{ color: MUTED }}>{BRAND.name} | {BRAND.phoneShort} | {BRAND.email}</span>
       </div>
     </div>
   );

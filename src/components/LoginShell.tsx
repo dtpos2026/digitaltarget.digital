@@ -1,6 +1,8 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { Store, Building2, ChefHat, BarChart3, Zap, WifiOff, ShieldCheck, Phone, MessageCircle, Mail } from 'lucide-react';
 import DtMark, { DtAppIcon } from '@/components/DtMark';
+import BrandLockup from '@/components/BrandLockup';
+import { BRAND } from '@/lib/brand';
 import { APP_NAME, APP_VERSION, getInstalledVersion } from '@/lib/version';
 
 // The sign-in screen's frame: a brand panel in the active theme's colour on the left, a quiet page with the
@@ -42,13 +44,7 @@ export function LoginBrandPanel() {
       <div aria-hidden className="absolute inset-0 pointer-events-none bg-gradient-to-b from-transparent to-black/15" />
 
       <div className="relative">
-        <div className="flex items-center gap-4">
-          <DtMark size={60} title={null} />
-          <div className="leading-none">
-            <div className="text-[28px] font-semibold tracking-wide">DIGITAL</div>
-            <div className="mt-1.5 text-[28px] font-semibold tracking-wide">TARGET</div>
-          </div>
-        </div>
+        <BrandLockup size={60} />
 
         <div className="mt-8 flex items-center gap-3">
           <span className="h-px flex-1 border-t" style={line(40)} />
@@ -78,8 +74,8 @@ export function LoginBrandPanel() {
 
       <div className="relative">
         <div className="border-t pt-6" style={line(40)}>
-          <div className="text-xl font-bold italic">Smarter Business with Digital Target</div>
-          <p className="mt-1 text-sm font-medium">Professional restaurant management, built for speed.</p>
+          <div className="text-xl font-bold italic">{BRAND.tagline}</div>
+          <p className="mt-1 text-sm font-medium">{BRAND.subtagline}</p>
         </div>
       </div>
     </aside>
@@ -109,8 +105,8 @@ export default function LoginShell({ logo, children }: { logo?: string | null; c
               <DtAppIcon size={80} />
             )}
             <div className="leading-tight">
-              <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">DT POS Enterprise</h1>
-              <p className="mt-1 text-base text-muted-foreground">Powered by Digital Target</p>
+              <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">{BRAND.product}</h1>
+              <p className="mt-1 text-base text-muted-foreground">{BRAND.poweredBy}</p>
             </div>
           </div>
 
@@ -123,14 +119,14 @@ export default function LoginShell({ logo, children }: { logo?: string | null; c
               <DtMark size={26} title={null} className="mt-0.5 opacity-25" />
               <div>
                 <div className="font-semibold text-foreground"><VersionLine /></div>
-                <div className="mt-1">© {new Date().getFullYear()} Digital Target</div>
+                <div className="mt-1">© {new Date().getFullYear()} {BRAND.name}</div>
               </div>
             </div>
             <div className="space-y-1">
-              <div className="inline-flex items-center gap-1.5"><Phone className="h-3 w-3" /> +92 345 1873354</div>
-              <div className="flex items-center gap-1.5"><MessageCircle className="h-3 w-3" /> +92 332 2373354</div>
+              <div className="inline-flex items-center gap-1.5"><Phone className="h-3 w-3" /> {BRAND.phones[0]}</div>
+              <div className="flex items-center gap-1.5"><MessageCircle className="h-3 w-3" /> {BRAND.phones[1]}</div>
             </div>
-            <div className="inline-flex items-center gap-1.5 self-start"><Mail className="h-3 w-3 shrink-0" /> digitaltarget.digital@gmail.com</div>
+            <div className="inline-flex items-center gap-1.5 self-start"><Mail className="h-3 w-3 shrink-0" /> {BRAND.email}</div>
           </div>
         </footer>
       </main>
