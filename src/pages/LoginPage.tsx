@@ -6,7 +6,7 @@ import { getUsers, getSettings, setCurrentBranchId } from '@/lib/store';
 import { Lock, User as UserIcon, LogIn, Eye, EyeOff, ArrowLeft, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import dtLogo from '@/assets/digital-target-logo.png';
-import LoginMarketingPanel, { LoginVersionBadge } from '@/components/LoginMarketingPanel';
+import LoginShell from '@/components/LoginShell';
 import ContactDigitalTargetDialog from '@/components/ContactDigitalTargetDialog';
 
 interface Props {
@@ -470,21 +470,18 @@ export default function LoginPage({ onLogin }: Props) {
   // way past is to set a password, or to reload and not sign in at all.
   if (pendingChange) {
     return (
-      <div
-        className="min-h-screen relative overflow-hidden text-white flex items-center justify-center p-6"
-        style={{ background: 'linear-gradient(135deg, #10002b 0%, #240046 45%, #3c096c 100%)' }}
-      >
-        <div className="w-full max-w-md rounded-3xl border border-gold/25 bg-white/[0.04] backdrop-blur-xl p-8 shadow-elegant space-y-4">
+      <LoginShell logo={brandLogo}>
+        <div className="rounded-2xl border border-border bg-card text-card-foreground shadow-sm p-6 sm:p-7 space-y-4">
           <div className="space-y-1.5">
-            <h1 className="text-xl font-extrabold">Choose a new password</h1>
-            <p className="text-sm text-white/70">
+            <h2 className="text-xl font-bold">Choose a new password</h2>
+            <p className="text-sm text-muted-foreground">
               Hello {pendingChange.name}. This account is still using the password it
               was created with, which is not private. Set your own before you carry on.
             </p>
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-white/80" htmlFor="dt-new-pass">New password</label>
+            <label className="text-xs font-semibold" htmlFor="dt-new-pass">New password</label>
             <input
               id="dt-new-pass"
               type="password"
@@ -493,13 +490,13 @@ export default function LoginPage({ onLogin }: Props) {
               value={newPass}
               onChange={(e) => setNewPass(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') void submitPasswordChange(); }}
-              className="w-full h-11 rounded-xl bg-white/10 border border-white/15 px-3 text-white placeholder-white/40 outline-none focus:border-gold/60"
+              className="w-full h-11 rounded-xl bg-background border border-input px-3 outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
               placeholder="At least 6 characters"
             />
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-white/80" htmlFor="dt-confirm-pass">Repeat it</label>
+            <label className="text-xs font-semibold" htmlFor="dt-confirm-pass">Repeat it</label>
             <input
               id="dt-confirm-pass"
               type="password"
@@ -507,7 +504,7 @@ export default function LoginPage({ onLogin }: Props) {
               value={confirmPass}
               onChange={(e) => setConfirmPass(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') void submitPasswordChange(); }}
-              className="w-full h-11 rounded-xl bg-white/10 border border-white/15 px-3 text-white placeholder-white/40 outline-none focus:border-gold/60"
+              className="w-full h-11 rounded-xl bg-background border border-input px-3 outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
               placeholder="Type it again"
             />
           </div>
@@ -516,7 +513,7 @@ export default function LoginPage({ onLogin }: Props) {
             type="button"
             onClick={() => void submitPasswordChange()}
             disabled={changing || newPass.length < 6 || newPass !== confirmPass}
-            className="w-full h-11 rounded-xl bg-gold text-black font-extrabold disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full h-11 rounded-xl bg-primary text-primary-foreground font-bold disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {changing ? 'Saving…' : 'Save and continue'}
           </button>
@@ -524,159 +521,135 @@ export default function LoginPage({ onLogin }: Props) {
           <button
             type="button"
             onClick={() => { setPendingChange(null); setNewPass(''); setConfirmPass(''); }}
-            className="w-full text-xs text-white/60 hover:text-white/90 underline-offset-2 hover:underline"
+            className="w-full text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
           >
             Cancel and sign in as someone else
           </button>
         </div>
-      </div>
+      </LoginShell>
     );
   }
 
   return (
-    <div
-      className="min-h-screen relative overflow-hidden text-white"
-      style={{ background: 'linear-gradient(135deg, #10002b 0%, #240046 45%, #3c096c 100%)' }}
-    >
-      {/* Decorative glows */}
-      <div className="absolute top-0 -left-32 h-[28rem] w-[28rem] rounded-full bg-purple-500/20 blur-3xl pointer-events-none" />
-      <div className="absolute bottom-0 right-1/3 h-[24rem] w-[24rem] rounded-full bg-fuchsia-600/15 blur-3xl pointer-events-none" />
-      <div className="absolute inset-0 opacity-[0.05]" style={{
-        backgroundImage: 'radial-gradient(circle, #c9a84c 1px, transparent 1px)',
-        backgroundSize: '38px 38px',
-      }} />
+    <>
+      <LoginShell logo={brandLogo}>
+        <div className="rounded-2xl border border-border bg-card text-card-foreground shadow-sm p-6 sm:p-7">
+          <div className="flex items-center justify-between mb-5">
+            <button
+              type="button"
+              onClick={handleBackToOwner}
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+              title="Go back to the owner email/password screen"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" /> Back
+            </button>
+            <button
+              type="button"
+              onClick={handleRefreshCache}
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+              title="Clear the local cache (IndexedDB / Service Worker) to enable instant login"
+            >
+              <RefreshCw className="h-3.5 w-3.5" /> Refresh &amp; Clear Cache
+            </button>
+          </div>
 
-      <LoginVersionBadge />
+          <div className="flex items-center gap-3 mb-6">
+            <div className="h-11 w-11 shrink-0 rounded-xl bg-primary text-primary-foreground flex items-center justify-center">
+              <Lock className="h-5 w-5" />
+            </div>
+            <div className="leading-tight">
+              <h2 className="text-xl font-bold">Sign in</h2>
+              <p className="text-xs text-muted-foreground">Use your restaurant staff account</p>
+            </div>
+          </div>
 
-      <div className="relative z-10 min-h-screen grid lg:grid-cols-2">
-        <LoginMarketingPanel />
-
-        {/* Right form */}
-        <div className="flex items-center justify-center p-6 lg:p-10">
-          <div className="w-full max-w-md">
-            <div className="rounded-3xl border border-gold/25 bg-white/[0.04] backdrop-blur-xl p-8 shadow-elegant">
-              <div className="flex items-center justify-between mb-3">
-                <button
-                  type="button"
-                  onClick={handleBackToOwner}
-                  className="inline-flex items-center gap-1 text-xs text-white/80 hover:text-white"
-                  title="Go back to the owner email/password screen"
-                >
-                  <ArrowLeft className="h-3.5 w-3.5" /> Back
-                </button>
-                <button
-                  type="button"
-                  onClick={handleRefreshCache}
-                  className="inline-flex items-center gap-1 text-xs text-white/80 hover:text-white"
-                  title="Clear the local cache (IndexedDB / Service Worker) to enable instant login"
-                >
-                  <RefreshCw className="h-3.5 w-3.5" /> Refresh &amp; Clear Cache
-                </button>
+          <div className="space-y-5">
+            <div>
+              <label className="text-xs font-semibold mb-1.5 block">Username</label>
+              <div className="relative">
+                <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Enter your username"
+                  value={username}
+                  onChange={e => setUsername(e.target.value)}
+                  className="pl-9 h-11"
+                  autoFocus
+                  onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                />
               </div>
-              <div className="flex flex-col items-center text-center mb-6">
-                <div className="h-16 w-16 rounded-2xl ring-1 ring-gold/40 bg-white/5 p-2 flex items-center justify-center">
-                  <img src={brandLogo} alt="Logo" className="h-full w-full object-contain" />
-                </div>
-                <h2 className="mt-4 text-3xl font-extrabold tracking-tight">Welcome Back!</h2>
-                <p className="mt-1 text-sm text-white/70">Sign in to your restaurant account</p>
-                <div className="mt-3 h-[1px] w-24 bg-gradient-to-r from-transparent via-gold/60 to-transparent" />
-              </div>
+            </div>
 
-              <div className="space-y-5">
-                <div>
-                  <label className="text-[10px] uppercase tracking-widest text-white/70 font-bold mb-1.5 block">Username</label>
-                  <div className="relative">
-                    <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/60" />
-                    <Input
-                      placeholder="Enter your username"
-                      value={username}
-                      onChange={e => setUsername(e.target.value)}
-                      className="pl-9 h-12 bg-white/5 border-white/15 text-white placeholder:text-white/40 focus:border-gold focus:ring-gold/20"
-                      autoFocus
-                      onKeyDown={e => e.key === 'Enter' && handleLogin()}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-[10px] uppercase tracking-widest text-white/70 font-bold mb-1.5 block">Password</label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/60" />
-                    <Input
-                      type={showPassword ? 'text' : 'password'}
-                      placeholder="Enter your password"
-                      value={password}
-                      onChange={e => setPassword(e.target.value)}
-                      className="pl-9 pr-10 h-12 bg-white/5 border-white/15 text-white placeholder:text-white/40 focus:border-gold focus:ring-gold/20"
-                      onKeyDown={e => e.key === 'Enter' && handleLogin()}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(v => !v)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60 hover:text-white"
-                      tabIndex={-1}
-                    >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between text-xs">
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={remember}
-                      onChange={e => setRemember(e.target.checked)}
-                      className="h-4 w-4 rounded border-white/30 bg-white/10 accent-gold"
-                    />
-                    <span className="text-white/80">Remember me</span>
-                  </label>
-                  <span className="text-gold/90 font-semibold">Contact Admin</span>
-                </div>
-
-                <Button
-                  className="w-full h-12 text-sm font-bold tracking-wider text-white hover:opacity-95 shadow-lg uppercase"
-                  style={{ background: 'linear-gradient(90deg, #7b2cbf 0%, #9d4edd 50%, #c77dff 100%)' }}
-                  onClick={handleLogin}
-                  disabled={loading}
-                >
-                  <LogIn className="h-4 w-4 mr-2" /> {loading ? 'Signing in…' : 'Sign In'}
-                </Button>
-
-                {timedOut && (
-                  <div className="rounded-md border border-red-400/40 bg-red-500/10 p-3 text-xs text-red-100">
-                    <p className="font-bold mb-1">Login failed</p>
-                    <p>Login slow ho raha hai. Internet/cache check karein ya Retry dabayein.</p>
-                    <button
-                      type="button"
-                      onClick={() => { setTimedOut(false); handleLogin(); }}
-                      className="mt-2 text-xs font-bold underline"
-                    >Retry</button>
-                  </div>
-                )}
-
+            <div>
+              <label className="text-xs font-semibold mb-1.5 block">Password</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  className="pl-9 pr-10 h-11"
+                  onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                />
                 <button
                   type="button"
-                  onClick={() => setShowContact(true)}
-                  className="block w-full text-center text-xs text-white/70 hover:text-white pt-2 transition"
+                  onClick={() => setShowPassword(v => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  tabIndex={-1}
                 >
-                  Need an account?{' '}
-                  <span className="text-gold font-semibold underline underline-offset-2">
-                    Contact Digital Target
-                  </span>
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
             </div>
+
+            <div className="flex items-center justify-between text-xs">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={remember}
+                  onChange={e => setRemember(e.target.checked)}
+                  className="h-4 w-4 rounded border-input accent-primary"
+                />
+                <span className="text-muted-foreground">Remember me</span>
+              </label>
+              <span className="text-muted-foreground font-semibold">Contact Admin</span>
+            </div>
+
+            <Button
+              className="w-full h-12 text-sm font-bold tracking-wider hover:opacity-95 shadow-sm uppercase"
+              onClick={handleLogin}
+              disabled={loading}
+            >
+              <LogIn className="h-4 w-4 mr-2" /> {loading ? 'Signing in…' : 'Sign In'}
+            </Button>
+
+            {timedOut && (
+              <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
+                <p className="font-bold mb-1">Login failed</p>
+                <p>Login slow ho raha hai. Internet/cache check karein ya Retry dabayein.</p>
+                <button
+                  type="button"
+                  onClick={() => { setTimedOut(false); handleLogin(); }}
+                  className="mt-2 text-xs font-bold underline"
+                >Retry</button>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setShowContact(true)}
+              className="block w-full text-center text-xs text-muted-foreground hover:text-foreground pt-2 transition"
+            >
+              Need an account?{' '}
+              <span className="text-primary font-semibold underline underline-offset-2">
+                Contact Digital Target
+              </span>
+            </button>
           </div>
         </div>
-      </div>
+      </LoginShell>
 
       <ContactDigitalTargetDialog open={showContact} onClose={() => setShowContact(false)} />
-
-
-      <div className="relative z-10 text-center text-[10px] tracking-[0.3em] uppercase text-white/50 pb-4">
-        © {new Date().getFullYear()} Digital Target — All Rights Reserved
-      </div>
-    </div>
+    </>
   );
 }
