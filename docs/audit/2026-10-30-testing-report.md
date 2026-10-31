@@ -14,7 +14,7 @@ Four kinds of evidence were used. They are not equal, and each row below says wh
 | Check | Result |
 |---|---|
 | TypeScript, whole web app | **clean** |
-| Test suite | **2,052 passed, 0 failed, 1 skipped** (128 files). The skip, `version.test.ts:59`, predates this work. Start of the session: 1,762 passing → **+290 tests**. |
+| Test suite | **2,053 passed, 0 failed, 1 skipped** (128 files). The skip, `version.test.ts:59`, predates this work. Start of the session: 1,762 passing → **+291 tests**. |
 | Production web build | **OK** (`npm run build`) |
 | Windows shell, from the delivered ZIP | **27 / 27 tests**, typecheck clean, `npm run build` OK (9 s) |
 | ZIP v1.70.1, fresh extract | `npm install` exit 0 (33 s); `npm run build` OK (9 s); shell version stamped 1.26.9 → 1.70.1; inside the extract the web suite is **1,961 passed / 125 files** and the shell **27 / 27**. `npm run dist` on Linux builds `release/win-unpacked/DT POS.exe` (189 MB) and then stops with `wine is required` — the installer step, which does not need wine on Windows. **The `.exe` installer itself is therefore NOT VERIFIED.** The ZIP's root `npm run deploy` was run only as far as its guard: with `wrangler` absent it stops before building anything and prints the two commands to install and log in. **A real deploy was not run (no Cloudflare credentials in this environment).** |

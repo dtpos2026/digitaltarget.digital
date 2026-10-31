@@ -8,7 +8,7 @@ Not in this list: the Windows shell (`dtpos-desktop`) and the Android apps (`dtp
 
 ## Releases
 
-- **v1.73.0** · 2026-10-31 · the brand system: one source, shared components, role icons for the phone apps, a brand guide and an Android drop-in kit  `(this commit)`
+- **v1.73.0** · 2026-10-31 · the brand system: one source, shared components, role icons for the phone apps, a brand guide and an Android drop-in kit  `2ec0595`
 - **v1.72.0** · 2026-10-31 · one brand: the logo placed as in the reference, the owner sign-in on the same frame, the Super Admin invoice in the reference layout  `8a4875d`
 - **v1.71.0** · 2026-10-31 · the sign-in screen takes the reference look (brand panel + quiet card, follows every theme)  `543abaf`
 - **v1.70.1** · 2026-10-30 · marking messages read no longer fails in silence  `dd2c328`
