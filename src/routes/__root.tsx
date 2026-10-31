@@ -11,6 +11,7 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { BOOT_THEME_SCRIPT } from "../lib/bootTheme";
 
 function NotFoundComponent() {
   return (
@@ -74,6 +75,8 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
+    // Puts the restaurant's colours back before the first paint, so the splash opens in them.
+    scripts: [{ children: BOOT_THEME_SCRIPT }],
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },

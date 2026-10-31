@@ -937,6 +937,37 @@ h3, h4 { letter-spacing: -0.012em; }
   box-shadow: 0 10px 22px -12px hsl(var(--primary) / 0.7);
 }
 
+/* ============================================================================
+   Splash — the welcome (SplashScreen) and the boot screen before it (BootSplash).
+   Made only of the theme's primary colour and its text colour. Everything laid over them darkens or is a
+   translucent shape in the text colour, so the pair's contrast is the whole story. Motion stops for reduced-motion.
+   ========================================================================== */
+.dt-splash-shade { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to bottom, transparent, rgb(0 0 0 / 0.18)); }
+.dt-splash-orb { position: absolute; border-radius: 999px; filter: blur(70px); opacity: 0.16; background: hsl(var(--primary-foreground)); pointer-events: none; }
+.dt-splash-orb-a { width: 420px; height: 420px; top: -120px; left: -100px; }
+.dt-splash-orb-b { width: 360px; height: 360px; bottom: -120px; right: -80px; }
+.dt-splash-name { margin-top: 1.1rem; font-size: 1.85rem; font-weight: 800; letter-spacing: 0.16em; line-height: 1.15; }
+.dt-splash-tag { margin-top: 0.35rem; font-size: 0.8rem; font-weight: 600; letter-spacing: 0.3em; text-transform: uppercase; }
+.dt-splash-bar { margin-top: 1.5rem; width: 14rem; height: 3px; border-radius: 999px; overflow: hidden; background: color-mix(in srgb, hsl(var(--primary-foreground)) 24%, transparent); }
+.dt-splash-bar > span { display: block; height: 100%; width: 35%; border-radius: 999px; background: linear-gradient(90deg, transparent, hsl(var(--primary-foreground)), transparent); }
+.dt-splash-bar-boot { margin-top: 0; }
+.dt-splash-foot { position: absolute; bottom: 1.6rem; font-size: 10.5px; font-weight: 600; letter-spacing: 0.26em; text-transform: uppercase; }
+.dt-mark-tri { transform-box: fill-box; transform-origin: center; }
+@keyframes dtSplashPop { 0% { opacity: 0; transform: scale(0.2) rotate(-25deg); } 70% { opacity: 1; transform: scale(1.12) rotate(3deg); } 100% { opacity: 1; transform: none; } }
+@keyframes dtSplashRise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes dtSplashStreak { 0% { transform: translateX(-120%); } 100% { transform: translateX(320%); } }
+@keyframes dtSplashFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-16px); } }
+@media (prefers-reduced-motion: no-preference) {
+  .dt-mark-tri { animation: dtSplashPop 0.55s cubic-bezier(0.2, 1.3, 0.4, 1) backwards; }
+  .dt-splash-name { animation: dtSplashRise 0.6s ease-out 0.85s backwards; }
+  .dt-splash-tag { animation: dtSplashRise 0.6s ease-out 1s backwards; }
+  .dt-splash-card .dt-splash-bar { animation: dtSplashRise 0.4s ease-out 1.05s backwards; }
+  .dt-splash-bar > span { animation: dtSplashStreak 1.3s ease-in-out infinite; }
+  .dt-splash-card .dt-splash-bar > span { animation-delay: 1.1s; }
+  .dt-splash-orb-a { animation: dtSplashFloat 13s ease-in-out infinite; }
+  .dt-splash-orb-b { animation: dtSplashFloat 11s ease-in-out infinite reverse; }
+}
+
 /* ============================================================
    REFERENCE THEMES — shared rules (v1.68.0)
    Every selector hangs off an attribute that applyTheme() sets

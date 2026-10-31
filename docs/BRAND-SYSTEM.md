@@ -21,6 +21,8 @@ This page is the rule set and an honest status per surface. What is not done is 
 |---|---|
 | Brand source, components, icons, marks, guide, generator | **Done** v1.73.0 (21 tests) |
 | Staff sign-in (web + Windows) | **Done** v1.71.0 / v1.72.0 |
+| **Welcome splash** (web + Windows): the mark pops in triangle by triangle, name rises, progress bar; once per session; any key/click skips; stops for reduced-motion | **Done** v1.74.0 |
+| **Boot screen** before the app loads, in the restaurant's colour (saved by `applyTheme`, restored by a head script before first paint) | **Done** v1.74.0 |
 | Owner portal sign-in (incl. device-approval wait screen) | **Done** v1.72.0 |
 | Super Admin invoice (A4) | **Done** v1.72.0 |
 | **Rider app** icon + splash (orange, motorbike badge) | **Done** — `dtpos.apk`, branch `claude/brand-system`; **not built in Android Studio** |

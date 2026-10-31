@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ClientOnly } from "@tanstack/react-router";
 import { lazy, Suspense } from "react";
+import BootSplash from "@/components/BootSplash";
 
 // The DT POS app is a fully client-side (hash-routed, IndexedDB backed) POS
 // shell, so it is mounted client-only under a single TanStack route.
 // Kick the chunk download off immediately (module scope) so hydration does not
-// wait for the lazy boundary to request it — this removes the "Loading DT POS…"
+// wait for the lazy boundary to request it — this removes the
 // stall on first paint.
 const posAppPromise =
   typeof window !== "undefined" ? import("@/App") : Promise.resolve({ default: () => null });
@@ -37,19 +38,9 @@ export const Route = createFileRoute("/")({
 function Index() {
   return (
     <ClientOnly
-      fallback={
-        <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
-          Loading DT POS…
-        </div>
-      }
+      fallback={<BootSplash />}
     >
-      <Suspense
-        fallback={
-          <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
-            Loading DT POS…
-          </div>
-        }
-      >
+      <Suspense fallback={<BootSplash />}>
         <PosApp />
       </Suspense>
     </ClientOnly>

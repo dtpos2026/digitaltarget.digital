@@ -1,3 +1,4 @@
+import { saveBootColors } from './bootTheme';
 import { referenceThemes, type ReferenceThemeId } from './referenceThemes';
 export type ThemeId = 'blink-style' | 'dt-pos-purple' | 'emerald-prestige' | 'maroon-classic' | 'dark-modern' | 'light-clean' | 'touch-pos' | 'luxury-gold' | 'teal-restaurant' | 'vince-premium' | 'soft-light' | ReferenceThemeId;
 
@@ -468,6 +469,8 @@ export function applyTheme(id: ThemeId) {
   const theme = themes.find(t => t.id === id);
   if (!theme) return;
   const root = document.documentElement;
+  // The splash is made of these two; keep them for the next start so its first frame is already in this theme.
+  saveBootColors(theme.variables['--primary'], theme.variables['--primary-foreground']);
   // Expose the active theme id so CSS can scope premium polish, etc.
   try { root.setAttribute('data-theme', id); } catch {}
   Object.entries(theme.variables).forEach(([key, value]) => {

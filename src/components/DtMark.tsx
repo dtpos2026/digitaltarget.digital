@@ -10,10 +10,12 @@ interface Props {
   className?: string;
   /** Read by assistive technology; decorative uses pass `title={null}`. */
   title?: string | null;
+  /** Pop the four triangles in one after another (the splash). The motion lives in index.css and stops for reduced-motion. */
+  animate?: boolean;
 }
 
 
-export default function DtMark({ size = 48, className, title = BRAND.name }: Props) {
+export default function DtMark({ size = 48, className, title = BRAND.name, animate = false }: Props) {
   return (
     <svg
       width={size}
@@ -26,7 +28,14 @@ export default function DtMark({ size = 48, className, title = BRAND.name }: Pro
       fill="currentColor"
       data-dt-mark
     >
-      {MARK_TRIANGLES.map(points => <polygon key={points} points={points} />)}
+      {MARK_TRIANGLES.map((points, i) => (
+        <polygon
+          key={points}
+          points={points}
+          className={animate ? 'dt-mark-tri' : undefined}
+          style={animate ? { animationDelay: `${(0.1 + i * 0.2).toFixed(1)}s` } : undefined}
+        />
+      ))}
     </svg>
   );
 }

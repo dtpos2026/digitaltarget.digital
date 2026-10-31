@@ -600,7 +600,7 @@ const App = () => {
   };
 
   if (showSplash && !isPublicOrderRoute) {
-    return <SplashScreen onDone={handleSplashDone} duration={550} />;
+    return <SplashScreen onDone={handleSplashDone} />;
   }
 
 
