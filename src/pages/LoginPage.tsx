@@ -5,7 +5,6 @@ import { Input } from '@/components/ui/input';
 import { getUsers, getSettings, setCurrentBranchId } from '@/lib/store';
 import { Lock, User as UserIcon, LogIn, Eye, EyeOff, ArrowLeft, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
-import dtLogo from '@/assets/digital-target-logo.png';
 import LoginShell from '@/components/LoginShell';
 import ContactDigitalTargetDialog from '@/components/ContactDigitalTargetDialog';
 
@@ -461,7 +460,8 @@ export default function LoginPage({ onLogin }: Props) {
     setTimeout(() => window.location.reload(), 400);
   };
 
-  const brandLogo = settings.appLogo || settings.logo || dtLogo;
+  // The restaurant's own logo when it has one; otherwise the shell shows the Digital Target app icon.
+  const brandLogo = settings.appLogo || settings.logo || null;
 
   // ===== v1.31.1 — the forced password change =====
   //

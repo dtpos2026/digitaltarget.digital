@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Mail, Lock, Store, Shield, LogIn, Loader2, MonitorSmartphone } from 'lucide-react';
-import dtLogo from '@/assets/digital-target-logo.png';
 import { toast } from 'sonner';
 // isCloudConfigured replaces isFirebaseConfigured: the question is whether a
 // cloud backend exists, which on this build means Supabase and nothing else.
@@ -15,7 +14,7 @@ import { registerThisDevice } from '@/lib/supabaseSync';
 import { APP_VERSION } from '@/lib/version';
 import { effectiveDeviceLimit, setCurrentTenantPlan, setCurrentTenantOverrides } from '@/lib/plans';
 import { setCurrentTenantExpiry, tsToDate, isExpired } from '@/lib/billing';
-import LoginMarketingPanel, { LoginVersionBadge } from '@/components/LoginMarketingPanel';
+import LoginShell from '@/components/LoginShell';
 import ContactDigitalTargetDialog from '@/components/ContactDigitalTargetDialog';
 
 interface Props {
@@ -397,195 +396,169 @@ export default function OwnerLoginPage({ onSuccess }: Props) {
 
   
   return (
-    <div
-      className="min-h-screen relative overflow-hidden text-white"
-      style={{ background: 'linear-gradient(135deg, #10002b 0%, #240046 45%, #3c096c 100%)' }}
-    >
-      {/* Decorative glows */}
-      <div className="absolute top-0 -left-32 h-[28rem] w-[28rem] rounded-full bg-purple-500/20 blur-3xl pointer-events-none" />
-      <div className="absolute bottom-0 right-1/3 h-[24rem] w-[24rem] rounded-full bg-fuchsia-600/15 blur-3xl pointer-events-none" />
-      <div className="absolute inset-0 opacity-[0.05]" style={{
-        backgroundImage: 'radial-gradient(circle, #c9a84c 1px, transparent 1px)',
-        backgroundSize: '38px 38px',
-      }} />
-
-      <LoginVersionBadge />
-
-      <div className="relative z-10 min-h-screen grid lg:grid-cols-2">
-        <LoginMarketingPanel />
-
-        <div className="flex items-center justify-center p-6 lg:p-10">
-          <div className="w-full max-w-md">
-            {pendingDevice ? (
-              <div className="rounded-3xl border border-gold/25 bg-white/[0.04] backdrop-blur-xl p-8 shadow-elegant text-center space-y-4">
-                <div className="h-16 w-16 mx-auto rounded-2xl ring-1 ring-gold/40 bg-white/5 flex items-center justify-center">
-                  <MonitorSmartphone className="h-8 w-8 text-gold" />
-                </div>
-                <h2 className="text-2xl font-extrabold">Waiting for Device Approval</h2>
-                <p className="text-sm text-white/80">
-                  Aap ka device <b>{pendingDevice.deviceName}</b> Super Admin ki approval ka intezaar kar raha hai.
-                  Approval hote hi ye screen <b>khud b khud aage barhegi</b> — dobara login karne ki zaroorat nahi.
-                </p>
-                <div className="flex items-center justify-center gap-2 text-xs text-white/70">
-                  <Loader2 className="h-4 w-4 animate-spin" /> Live listening for approval…
-                </div>
-                <div className="text-[11px] text-white/50">
-                  Device limit cross hone par admin se rabta karein: <b>0345-1873354</b>
-                </div>
-                <Button variant="outline" className="w-full text-white border-white/30 hover:bg-white/10" onClick={cancelPendingWait}>
-                  Cancel & Logout
-                </Button>
+    <>
+      <LoginShell>
+        {pendingDevice ? (
+          <div className="rounded-2xl border border-border bg-card text-card-foreground shadow-sm p-6 sm:p-7 text-center space-y-4">
+            <div className="h-14 w-14 mx-auto rounded-xl bg-primary text-primary-foreground flex items-center justify-center">
+              <MonitorSmartphone className="h-7 w-7" />
+            </div>
+            <h2 className="text-xl font-bold">Waiting for Device Approval</h2>
+            <p className="text-sm text-muted-foreground">
+              Aap ka device <b className="text-foreground">{pendingDevice.deviceName}</b> Super Admin ki approval ka intezaar kar raha hai.
+              Approval hote hi ye screen <b className="text-foreground">khud b khud aage barhegi</b> — dobara login karne ki zaroorat nahi.
+            </p>
+            <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Live listening for approval…
+            </div>
+            <div className="text-[11px] text-muted-foreground">
+              Device limit cross hone par admin se rabta karein: <b className="text-foreground">0345-1873354</b>
+            </div>
+            <Button variant="outline" className="w-full" onClick={cancelPendingWait}>
+              Cancel & Logout
+            </Button>
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-border bg-card text-card-foreground shadow-sm p-6 sm:p-7">
+            {(initialEmail || initialRemember) && (
+              <button
+                type="button"
+                onClick={handleSwitchAccount}
+                disabled={loading || !!pendingDevice}
+                className="mb-4 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
+              >
+                ← Switch Account
+              </button>
+            )}
+            <div className="flex items-center gap-3 mb-6">
+              <div className="h-11 w-11 shrink-0 rounded-xl bg-primary text-primary-foreground flex items-center justify-center">
+                <Lock className="h-5 w-5" />
               </div>
-            ) : (
-            <div className="rounded-3xl border border-gold/25 bg-white/[0.04] backdrop-blur-xl p-8 shadow-elegant">
-              {(initialEmail || initialRemember) && (
-                <button
-                  type="button"
-                  onClick={handleSwitchAccount}
-                  disabled={loading || !!pendingDevice}
-                  className="mb-3 inline-flex items-center gap-1 text-xs text-white/80 hover:text-white disabled:opacity-50"
-                >
-                  ← Switch Account
-                </button>
-              )}
-              <div className="flex flex-col items-center text-center mb-6">
-                <div className="h-16 w-16 rounded-2xl ring-1 ring-gold/40 bg-white/5 p-2 flex items-center justify-center">
-                  <img src={dtLogo} alt="Digital Target" className="h-full w-full object-contain" />
-                </div>
-                <h2 className="mt-4 text-3xl font-extrabold tracking-tight">Welcome Back!</h2>
-                <p className="mt-1 text-sm text-white/70">Sign in to your restaurant account</p>
-                <div className="mt-3 h-[1px] w-24 bg-gradient-to-r from-transparent via-gold/60 to-transparent" />
-              </div>
-
-              <div className="space-y-5">
-                <div>
-                  <label className="text-[10px] uppercase tracking-widest text-white/70 font-bold mb-1.5 block">Email / Username</label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/60" />
-                    <Input
-                      type="email"
-                      placeholder="owner@restaurant.com"
-                      value={email}
-                      onChange={e => setEmail(e.target.value)}
-                      className="pl-9 h-12 bg-white/5 border-white/15 text-white placeholder:text-white/40 focus:border-gold focus:ring-gold/20"
-                      autoFocus
-                      onKeyDown={e => e.key === 'Enter' && handleSubmit()}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-[10px] uppercase tracking-widest text-white/70 font-bold">Password</label>
-                    <button
-                      type="button"
-                      onClick={handleForgotPassword}
-                      disabled={resetSending}
-                      className="text-[10px] uppercase tracking-widest text-gold/80 hover:text-gold font-bold disabled:opacity-50"
-                    >
-                      {resetSending ? 'Sending…' : 'Forgot password?'}
-                    </button>
-                  </div>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/60" />
-                    <Input
-                      type="password"
-                      placeholder="Enter your password"
-                      value={password}
-                      onChange={e => setPassword(e.target.value)}
-                      className="pl-9 h-12 bg-white/5 border-white/15 text-white placeholder:text-white/40 focus:border-gold focus:ring-gold/20"
-                      onKeyDown={e => e.key === 'Enter' && handleSubmit()}
-                    />
-                  </div>
-                </div>
-
-                <label className="flex items-center gap-2 text-xs text-white/80 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={remember}
-                    onChange={e => setRemember(e.target.checked)}
-                    className="h-4 w-4 rounded border-white/30 bg-white/10 accent-gold"
-                  />
-                  Remember my email on this device
-                </label>
-
-                {timedOut && (
-                  <div className="rounded-md border border-red-400/40 bg-red-500/10 p-3 text-xs text-red-100">
-                    <p className="font-bold mb-1">Login failed</p>
-                    <p>Server slow ho raha hai. Internet stable ho to Retry dabayein.</p>
-                    <button
-                      type="button"
-                      onClick={() => { setTimedOut(false); handleSubmit(); }}
-                      className="mt-2 text-xs font-bold underline"
-                    >Retry</button>
-                  </div>
-                )}
-
-                <Button
-                  className="w-full h-12 text-sm font-bold tracking-wider text-white hover:opacity-95 shadow-lg uppercase"
-                  style={{ background: 'linear-gradient(90deg, #7b2cbf 0%, #9d4edd 50%, #c77dff 100%)' }}
-                  onClick={handleSubmit}
-                  disabled={loading}
-                >
-                  <LogIn className="h-4 w-4 mr-2" />
-                  {loading ? 'Please wait…' : 'Sign In'}
-                </Button>
-
-                {loading && slowLogin && (
-                  <div className="rounded-md border border-gold/30 bg-gold/10 p-3 text-xs text-white/90 text-center">
-                    <p className="mb-1">Taking longer than usual…</p>
-                    <button
-                      type="button"
-                      onClick={() => { setLoading(false); setSlowLogin(false); setTimeout(() => handleSubmit(), 60); }}
-                      className="text-xs font-bold underline text-gold"
-                    >Tap to retry</button>
-                  </div>
-                )}
-
-                <p className="text-[11px] text-white/55 text-center pt-1 leading-relaxed">
-                  New restaurant accounts are created only by the Digital Target Super Admin.
-                  To open an account, contact <b className="text-gold">0345-1873354</b>.
-                </p>
-
-
-                {info && (
-                  <div className="mt-2 rounded-lg border border-gold/30 bg-gold/10 p-3 text-xs text-white flex gap-2">
-                    <Shield className="h-4 w-4 shrink-0 text-gold mt-0.5" />
-                    <span>{info}</span>
-                  </div>
-                )}
-
-                {!isCloudConfigured() && (
-                  <p className="text-[10px] text-red-300 text-center pt-2">
-                    ⚠ This build has no Supabase configuration — set
-                    VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY and rebuild.
-                  </p>
-                )}
-
-                <button
-                  type="button"
-                  onClick={() => setShowContact(true)}
-                  className="block w-full text-center text-xs text-white/70 hover:text-white pt-2 transition"
-                >
-                  Need an account?{' '}
-                  <span className="text-gold font-semibold underline underline-offset-2">
-                    Contact Digital Target
-                  </span>
-                </button>
-
+              <div className="leading-tight">
+                <h2 className="text-xl font-bold">Welcome back</h2>
+                <p className="text-xs text-muted-foreground">Sign in to your restaurant account</p>
               </div>
             </div>
-            )}
+
+            <div className="space-y-5">
+              <div>
+                <label className="text-xs font-semibold mb-1.5 block">Email / Username</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="email"
+                    placeholder="owner@restaurant.com"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    className="pl-9 h-11"
+                    autoFocus
+                    onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-semibold">Password</label>
+                  <button
+                    type="button"
+                    onClick={handleForgotPassword}
+                    disabled={resetSending}
+                    className="text-xs text-primary hover:underline font-semibold disabled:opacity-50"
+                  >
+                    {resetSending ? 'Sending…' : 'Forgot password?'}
+                  </button>
+                </div>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="password"
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    className="pl-9 h-11"
+                    onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+                  />
+                </div>
+              </div>
+
+              <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={remember}
+                  onChange={e => setRemember(e.target.checked)}
+                  className="h-4 w-4 rounded border-input accent-primary"
+                />
+                Remember my email on this device
+              </label>
+
+              {timedOut && (
+                <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
+                  <p className="font-bold mb-1">Login failed</p>
+                  <p>Server slow ho raha hai. Internet stable ho to Retry dabayein.</p>
+                  <button
+                    type="button"
+                    onClick={() => { setTimedOut(false); handleSubmit(); }}
+                    className="mt-2 text-xs font-bold underline"
+                  >Retry</button>
+                </div>
+              )}
+
+              <Button
+                className="w-full h-12 text-sm font-bold tracking-wider hover:opacity-95 shadow-sm uppercase"
+                onClick={handleSubmit}
+                disabled={loading}
+              >
+                <LogIn className="h-4 w-4 mr-2" />
+                {loading ? 'Please wait…' : 'Sign In'}
+              </Button>
+
+              {loading && slowLogin && (
+                <div className="rounded-md border border-primary/30 bg-primary/10 p-3 text-xs text-center">
+                  <p className="mb-1">Taking longer than usual…</p>
+                  <button
+                    type="button"
+                    onClick={() => { setLoading(false); setSlowLogin(false); setTimeout(() => handleSubmit(), 60); }}
+                    className="text-xs font-bold underline text-primary"
+                  >Tap to retry</button>
+                </div>
+              )}
+
+              <p className="text-[11px] text-muted-foreground text-center pt-1 leading-relaxed">
+                New restaurant accounts are created only by the Digital Target Super Admin.
+                To open an account, contact <b className="text-foreground">0345-1873354</b>.
+              </p>
+
+              {info && (
+                <div className="mt-2 rounded-lg border border-primary/30 bg-primary/10 p-3 text-xs flex gap-2">
+                  <Shield className="h-4 w-4 shrink-0 text-primary mt-0.5" />
+                  <span>{info}</span>
+                </div>
+              )}
+
+              {!isCloudConfigured() && (
+                <p className="text-[10px] text-destructive text-center pt-2">
+                  ⚠ This build has no Supabase configuration — set
+                  VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY and rebuild.
+                </p>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setShowContact(true)}
+                className="block w-full text-center text-xs text-muted-foreground hover:text-foreground pt-2 transition"
+              >
+                Need an account?{' '}
+                <span className="text-primary font-semibold underline underline-offset-2">
+                  Contact Digital Target
+                </span>
+              </button>
+            </div>
           </div>
-        </div>
-      </div>
+        )}
+      </LoginShell>
 
       <ContactDigitalTargetDialog open={showContact} onClose={() => setShowContact(false)} />
-
-      <div className="relative z-10 text-center text-[10px] tracking-[0.3em] uppercase text-white/50 pb-4">
-
-        © {new Date().getFullYear()} Digital Target — All Rights Reserved
-      </div>
-    </div>
+    </>
   );
 }

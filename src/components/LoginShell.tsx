@@ -1,6 +1,6 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { Store, Building2, ChefHat, BarChart3, Zap, WifiOff, ShieldCheck, Phone, MessageCircle, Mail } from 'lucide-react';
-import dtLogo from '@/assets/digital-target-logo.png';
+import DtMark, { DtAppIcon } from '@/components/DtMark';
 import { APP_NAME, APP_VERSION, getInstalledVersion } from '@/lib/version';
 
 // The sign-in screen's frame: a brand panel in the active theme's colour on the left, a quiet page with the
@@ -42,13 +42,11 @@ export function LoginBrandPanel() {
       <div aria-hidden className="absolute inset-0 pointer-events-none bg-gradient-to-b from-transparent to-black/15" />
 
       <div className="relative">
-        <div className="flex items-center gap-3">
-          <div className="h-12 w-12 rounded-xl bg-white p-1.5 flex items-center justify-center shadow-sm">
-            <img src={dtLogo} alt="Digital Target" className="h-full w-full object-contain" />
-          </div>
-          <div className="leading-tight">
-            <div className="text-xl font-extrabold tracking-wide">DIGITAL</div>
-            <div className="text-xl font-extrabold tracking-wide">TARGET</div>
+        <div className="flex items-center gap-4">
+          <DtMark size={60} title={null} />
+          <div className="leading-none">
+            <div className="text-[28px] font-semibold tracking-wide">DIGITAL</div>
+            <div className="mt-1.5 text-[28px] font-semibold tracking-wide">TARGET</div>
           </div>
         </div>
 
@@ -94,21 +92,25 @@ function VersionLine() {
   return <span data-login-version>{APP_NAME} v{v}</span>;
 }
 
-/** `logo` is the restaurant's own logo when it has one, otherwise the Digital Target mark. */
-export default function LoginShell({ logo, children }: { logo: string; children: ReactNode }) {
+/** `logo` is the restaurant's own logo when it has one; without one the Digital Target app icon is shown. */
+export default function LoginShell({ logo, children }: { logo?: string | null; children: ReactNode }) {
   return (
     <div data-login-shell className="min-h-screen grid lg:grid-cols-[44%_1fr] bg-background text-foreground">
       <LoginBrandPanel />
 
       <main className="flex min-h-screen flex-col">
         <div className="flex flex-1 flex-col justify-center px-6 sm:px-10 py-8 mx-auto w-full max-w-xl">
-          <div className="mb-6 flex items-center gap-4">
-            <div className="h-14 w-14 shrink-0 rounded-2xl bg-card border border-border p-2 flex items-center justify-center shadow-sm">
-              <img src={logo} alt="Logo" className="h-full w-full object-contain" />
-            </div>
+          <div className="mb-7 flex items-center gap-5">
+            {logo ? (
+              <span data-login-own-logo className="h-20 w-20 shrink-0 rounded-[22px] bg-card border border-border p-2.5 flex items-center justify-center shadow-sm">
+                <img src={logo} alt="Logo" className="h-full w-full object-contain" />
+              </span>
+            ) : (
+              <DtAppIcon size={80} />
+            )}
             <div className="leading-tight">
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">DT POS Enterprise</h1>
-              <p className="text-sm text-muted-foreground">Powered by Digital Target</p>
+              <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">DT POS Enterprise</h1>
+              <p className="mt-1 text-base text-muted-foreground">Powered by Digital Target</p>
             </div>
           </div>
 
@@ -117,9 +119,12 @@ export default function LoginShell({ logo, children }: { logo: string; children:
 
         <footer className="border-t border-border px-6 sm:px-10 py-5 text-xs text-muted-foreground">
           <div className="mx-auto w-full max-w-xl grid gap-3 sm:grid-cols-[auto_auto_auto] sm:justify-between whitespace-nowrap">
-            <div>
-              <div className="font-semibold text-foreground"><VersionLine /></div>
-              <div className="mt-1">© {new Date().getFullYear()} Digital Target</div>
+            <div className="flex items-start gap-2.5">
+              <DtMark size={26} title={null} className="mt-0.5 opacity-25" />
+              <div>
+                <div className="font-semibold text-foreground"><VersionLine /></div>
+                <div className="mt-1">© {new Date().getFullYear()} Digital Target</div>
+              </div>
             </div>
             <div className="space-y-1">
               <div className="inline-flex items-center gap-1.5"><Phone className="h-3 w-3" /> +92 345 1873354</div>

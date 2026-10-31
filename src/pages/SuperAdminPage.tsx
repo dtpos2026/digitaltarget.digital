@@ -32,6 +32,7 @@ import StaffAppsBuilder from '@/components/StaffAppsBuilder';
 import StaffPasswordResetPanel from '@/components/StaffPasswordResetPanel';
 import PlansManager from '@/components/PlansManager';
 import BrandSignaturePanel from '@/components/BrandSignaturePanel';
+import InvoiceDetailsPanel from '@/components/InvoiceDetailsPanel';
 import MarketingContactsPanel from '@/components/MarketingContactsPanel';
 import { tsToDate, daysUntil, isExpired } from '@/lib/billing';
 import { exportClientsToExcel, exportClientsToCSV, exportClientsToPDF } from '@/lib/clientExport';
@@ -1379,6 +1380,7 @@ export default function SuperAdminPage({ onLogout }: Props) {
         ) : tab === 'packages' ? (
           <div className="space-y-4">
             <BrandSignaturePanel />
+            <InvoiceDetailsPanel />
             <PackagesManager />
           </div>
         ) : tab === 'plans' ? (
