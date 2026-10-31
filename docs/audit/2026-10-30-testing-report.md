@@ -14,7 +14,7 @@ Four kinds of evidence were used. They are not equal, and each row below says wh
 | Check | Result |
 |---|---|
 | TypeScript, whole web app | **clean** |
-| Test suite | **2,072 passed, 0 failed, 1 skipped** (129 files). The skip, `version.test.ts:59`, predates this work. Start of the session: 1,762 passing → **+310 tests**. |
+| Test suite | **2,078 passed, 0 failed, 1 skipped** (129 files). The skip, `version.test.ts:59`, predates this work. Start of the session: 1,762 passing → **+316 tests**. |
 | Production web build | **OK** (`npm run build`) |
 | Windows shell, from the delivered ZIP | **27 / 27 tests**, typecheck clean, `npm run build` OK (9 s) |
 | ZIP v1.70.1, fresh extract | `npm install` exit 0 (33 s); `npm run build` OK (9 s); shell version stamped 1.26.9 → 1.70.1; inside the extract the web suite is **1,961 passed / 125 files** and the shell **27 / 27**. `npm run dist` on Linux builds `release/win-unpacked/DT POS.exe` (189 MB) and then stops with `wine is required` — the installer step, which does not need wine on Windows. **The `.exe` installer itself is therefore NOT VERIFIED.** The ZIP's root `npm run deploy` was run only as far as its guard: with `wrangler` absent it stops before building anything and prints the two commands to install and log in. **A real deploy was not run (no Cloudflare credentials in this environment).** |
@@ -35,7 +35,7 @@ Four kinds of evidence were used. They are not equal, and each row below says wh
 | 9 | Super Admin client management | **NOT REPRODUCED / UNCLEAR** | no `clients` table and no "No Restaurant" label exist; needs the screen |
 | 10 | Message read / unread | **NOT REPRODUCED live; client hardened (v1.70.1)** | server functions correct; production holds 0 restaurant messages; the client no longer ignores a failed `support_mark_read` (10 tests) |
 | 11 | Password reset | **PARTIAL** | unit tests; a live reset was deliberately not run (it would change a real password) |
-| 12 | Electron startup | **NOT VERIFIED** | shell unit tests pass; the boot smoke test needs a display |
+| 12 | Electron startup | **VERIFIED on Linux (virtual display), not on Windows** | From the fresh-extract ZIP, the real shell was launched under Xvfb (Playwright `_electron`): the window opens hidden, shows on `ready-to-show` in the POS purple (`#40066F`, no white frame), the boot screen → the animated splash → the new owner sign-in frame appeared in order, 0 page errors. Windows itself, the installer, and printing remain unverified. |
 | 13 | Electron production build | **PASSED** to packaging | compile + renderer sync from a fresh extract; packaging reached `release/win-unpacked/DT POS.exe` |
 | 14 | Windows installer generation | **NOT VERIFIED** | Linux stops at the icon/version step (needs wine); build on Windows or via the CI workflow |
 | 15 | API integration | **NOT VERIFIED / NEEDS CREDENTIALS** | PRA mapping and validation unit-tested; sandbox needs the restaurant's PRA registration and credentials. External-website API does not exist yet. |
@@ -52,7 +52,7 @@ Four kinds of evidence were used. They are not equal, and each row below says wh
 | v1.68.0 themes | 77 (contrast of all 21, shared CSS scoped, applying/clearing attributes) | mutation check; Chromium screenshots in six themes |
 | v1.69.0 currency, icon | 5 | icon checked at 16–128 px |
 | v1.70.0 PIN hashes | 8 (mutation-checked) | live probe after applying: hash refused, app reads and orders unchanged, login path unchanged |
-| v1.74.0 splash | 19 (content, 1.8 s timing and fade, skip keys, no leaked timers, theme-only colours, darkening-only overlay, reduced-motion, boot screen has no app imports, first-paint colour script is injection-proof) + 1 shell test | mutation-checked; Chromium frames at 0.25 / 0.7 / 1.5 s in 6 themes, reduced-motion and phone width |
+| v1.74.0 splash | 25 (content, 1.8 s timing and fade, skip keys, no leaked timers, theme-only colours, darkening-only overlay, reduced-motion, boot screen has no app imports, first-paint colour script is injection-proof, the page is painted in the restaurant's colour from the first frame, public routes are exempt) + 1 shell test | mutation-checked; Chromium frames at 0.25 / 0.7 / 1.5 s in 6 themes, reduced-motion and phone width |
 | v1.73.0 brand system | 21 (one source, contrast of every app colour, role badges, Android sizes, vector-only artwork, no phone/e-mail typed in a branded component, self-contained guide) | mutation-checked; guide and icons checked visually; the 54 replaced Android PNGs keep their dimensions; **Android build NOT verified** |
 | v1.72.0 brand + invoice | 27 (invoice arithmetic in every state, sections absent when empty, no bank details in code, footer in flow, logo placement, owner sign-in on the shared frame) | mutation-checked; Chromium screenshots of the invoice in 4 states and the sign-in in 5 themes |
 | v1.71.0 sign-in look | 43 (frame renders; no hard-coded colour; darkening-only overlay; primary/primary-foreground contrast for all 32 themes; sign-in logic anchors) | mutation-checked; Chromium screenshots in 5 themes + phone width (markup copy of the card) |

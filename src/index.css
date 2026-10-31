@@ -951,6 +951,8 @@ h3, h4 { letter-spacing: -0.012em; }
 .dt-splash-bar { margin-top: 1.5rem; width: 14rem; height: 3px; border-radius: 999px; overflow: hidden; background: color-mix(in srgb, hsl(var(--primary-foreground)) 24%, transparent); }
 .dt-splash-bar > span { display: block; height: 100%; width: 35%; border-radius: 999px; background: linear-gradient(90deg, transparent, hsl(var(--primary-foreground)), transparent); }
 .dt-splash-bar-boot { margin-top: 0; }
+/* the customer site and the portals are not the POS: no POS-coloured boot screen in front of them */
+html[data-public-route] [data-boot-splash] { display: none; }
 .dt-splash-foot { position: absolute; bottom: 1.6rem; font-size: 10.5px; font-weight: 600; letter-spacing: 0.26em; text-transform: uppercase; }
 .dt-mark-tri { transform-box: fill-box; transform-origin: center; }
 @keyframes dtSplashPop { 0% { opacity: 0; transform: scale(0.2) rotate(-25deg); } 70% { opacity: 1; transform: scale(1.12) rotate(3deg); } 100% { opacity: 1; transform: none; } }

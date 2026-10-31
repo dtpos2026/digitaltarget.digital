@@ -43,12 +43,9 @@ export function packagedTenantId(): string | null {
 //
 // It carries no tenant id, so parsePublicTenantId() returns null and
 // applyPublicTenantFromUrl() leaves the current tenant untouched.
-const PUBLIC_PREFIXES = ['#/order', '#/track', '#/rider-portal', '#/order-taker', '#/reset-password'];
-
-export function isPublicTenantRoute(hash?: string): boolean {
-  const h = hash ?? (typeof window !== 'undefined' ? window.location.hash : '');
-  return PUBLIC_PREFIXES.some(p => h.startsWith(p));
-}
+// The list lives in publicRoutes.ts (no imports) so the document head can use it too.
+import { isPublicTenantRoute } from './publicRoutes';
+export { isPublicTenantRoute };
 
 /** Parse tenantId out of `#/order/abcd` or `#/order?t=abcd`. Returns null if absent. */
 export function parsePublicTenantId(hash?: string): string | null {

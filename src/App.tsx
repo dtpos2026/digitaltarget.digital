@@ -9,6 +9,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HashRouter, Routes, Route, Navigate } from '@/lib/hash-router';
 import AppLayout from "@/components/AppLayout";
 import SplashScreen from '@/components/SplashScreen';
+import { releaseBootBackground } from '@/lib/bootTheme';
 import LoginPage from "@/pages/LoginPage";
 import BusinessTypeSetupScreen from "@/components/BusinessTypeSetupScreen";
 import { getSettings, onLowStock } from "@/lib/store";
@@ -258,6 +259,8 @@ const App = () => {
     toast.warning(`Low stock: ${names}${more}`, { duration: 8000 });
   }), []);
   const [showSplash, setShowSplash] = useState(() => !sessionStorage.getItem('pos-splash-seen'));
+  // The page was painted in the restaurant's colour until now (see lib/bootTheme); the app draws its own from here on.
+  useEffect(() => { releaseBootBackground(); }, []);
   const [hashTick, setHashTick] = useState(0);
   useEffect(() => {
     const onHash = () => setHashTick(t => t + 1);

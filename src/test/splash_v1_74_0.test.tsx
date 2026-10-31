@@ -20,12 +20,13 @@ vi.mock('@/lib/version', () => ({ APP_VERSION: '1.2.3', getInstalledVersion: asy
 import SplashScreen from '@/components/SplashScreen';
 import BootSplash from '@/components/BootSplash';
 import { applyTheme } from '@/lib/themes';
-import { BOOT_COLORS_KEY, BOOT_THEME_SCRIPT, saveBootColors } from '@/lib/bootTheme';
+import { BOOT_COLORS_KEY, BOOT_THEME_SCRIPT, DEFAULT_BOOT_PRIMARY, saveBootColors, releaseBootBackground } from '@/lib/bootTheme';
+import { PUBLIC_PREFIXES, isPublicTenantRoute } from '@/lib/publicRoutes';
 
 const read = (f: string) => readFileSync(f, 'utf8');
 let m: ReturnType<typeof mount> | null = null;
 beforeEach(() => { vi.useFakeTimers(); localStorage.clear(); (globalThis as any).__settings = undefined; });
-afterEach(() => { m?.unmount(); m = null; vi.useRealTimers(); document.documentElement.removeAttribute('style'); });
+afterEach(() => { m?.unmount(); m = null; vi.useRealTimers(); document.documentElement.removeAttribute('style'); document.documentElement.removeAttribute('data-public-route'); location.hash = ''; });
 
 describe('what it shows', () => {
   it('the product name, the restaurant, a progress bar and who made it', () => {
@@ -157,11 +158,55 @@ describe('the restaurant\'s colour before the first paint', () => {
       expect(document.documentElement.style.getPropertyValue('--primary')).toBe('');
     }
   });
+  it('the page itself is painted in that colour from the first frame — the saved one, or the default purple — so no white frame comes first', () => {
+    new Function(BOOT_THEME_SCRIPT)();
+    expect(document.documentElement.style.backgroundColor).toMatch(/^(hsl\(273, ?89%, ?23%\)|rgb\(64, ?6, ?111\))$/);   // hsl(273 89% 23%)
+    expect(DEFAULT_BOOT_PRIMARY).toBe('273 89% 23%');
+    document.documentElement.removeAttribute('style');
+    saveBootColors('16 88% 42%', '0 0% 100%');
+    new Function(BOOT_THEME_SCRIPT)();
+    expect(document.documentElement.style.backgroundColor).toMatch(/^(hsl\(16, ?88%, ?42%\)|rgb\(20[0-9], ?6[0-9], ?1[0-9]\))$/);   // hsl(16 88% 42%)
+  });
+  it('the app releases that background once it is up', () => {
+    new Function(BOOT_THEME_SCRIPT)();
+    expect(document.documentElement.style.backgroundColor).not.toBe('');
+    releaseBootBackground();
+    expect(document.documentElement.style.backgroundColor).toBe('');
+  });
   it('saveBootColors ignores a theme that has no pair', () => {
     saveBootColors(undefined, '0 0% 100%');
     expect(localStorage.getItem(BOOT_COLORS_KEY)).toBeNull();
   });
   it('the root document carries the script in its head', () => {
     expect(read('src/routes/__root.tsx')).toContain('scripts: [{ children: BOOT_THEME_SCRIPT }]');
+  });
+});
+
+describe('public routes are not the POS', () => {
+  it('the customer site, tracking, the portals and password reset get no POS colour and no boot screen', () => {
+    saveBootColors('16 88% 42%', '0 0% 100%');
+    for (const hash of ['#/order/abcd1234', '#/track/x', '#/rider-portal', '#/order-taker', '#/reset-password']) {
+      document.documentElement.removeAttribute('style'); document.documentElement.removeAttribute('data-public-route');
+      location.hash = hash;
+      new Function(BOOT_THEME_SCRIPT)();
+      expect(document.documentElement.hasAttribute('data-public-route'), hash).toBe(true);
+      expect(document.documentElement.style.backgroundColor, hash).toBe('');
+      expect(document.documentElement.style.getPropertyValue('--primary'), hash).toBe('');
+    }
+  });
+  it('a POS route is not public', () => {
+    location.hash = '#/pos';
+    new Function(BOOT_THEME_SCRIPT)();
+    expect(document.documentElement.hasAttribute('data-public-route')).toBe(false);
+  });
+  it('the CSS hides the boot screen on a public route', () => {
+    expect(read('src/index.css')).toContain('html[data-public-route] [data-boot-splash] { display: none; }');
+  });
+  it('the script and the app share one list of public routes', () => {
+    expect(BOOT_THEME_SCRIPT).toContain(JSON.stringify(PUBLIC_PREFIXES));
+    expect(read('src/lib/publicTenant.ts')).toContain("from './publicRoutes'");
+    expect(isPublicTenantRoute('#/order/abcd')).toBe(true);
+    expect(isPublicTenantRoute('#/pos')).toBe(false);
+    expect(read('src/App.tsx')).toContain('releaseBootBackground()');
   });
 });
