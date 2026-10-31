@@ -1,6 +1,6 @@
 # DT POS Enterprise — Changelog
 
-Generated from the git history of `digitaltarget.digital` on 2026-10-30 (99 commits; newest first).
+Generated from the git history of `digitaltarget.digital` on 2026-10-30 (101 commits; newest first).
 Each line is `version — title` and the commit it lives in: `git show <hash>` gives the full reasoning,
 which every release commit carries (what was reported, the root cause, and how it was verified).
 
@@ -8,6 +8,7 @@ Not in this list: the Windows shell (`dtpos-desktop`) and the Android apps (`dtp
 
 ## Releases
 
+- **v1.71.0** · 2026-10-31 · the sign-in screen takes the reference look (brand panel + quiet card, follows every theme)  `543abaf`
 - **v1.70.1** · 2026-10-30 · marking messages read no longer fails in silence  `dd2c328`
 - **v1.70.0** · 2026-10-30 · staff can no longer read each other's PIN hashes; security findings recorded  `ed145fa`
 - **v1.69.0** · 2026-10-30 · a real product icon, and the POS total follows the restaurant's currency  `011a5a3`
