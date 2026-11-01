@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Bike, MapPin, RefreshCw, Truck, Navigation } from 'lucide-react';
 import LeafletMap, { type MapMarker, type MapPolyline } from '@/components/LeafletMap';
-import { getOrders, getRiders, getBranches, getSettings } from '@/lib/store';
+import { getOrders, getRiders, getBranches, getSettings, onDataChange } from '@/lib/store';
 import { Order } from '@/lib/types';
 import { DELIVERY_STAGE_LABEL } from '@/lib/delivery';
 import { ENABLE_REDUNDANT_ORDER_POLL } from '@/lib/featureFlags';
@@ -40,7 +40,11 @@ export default function LiveRidersMapPage() {
     const t: any = ENABLE_REDUNDANT_ORDER_POLL
       ? setInterval(() => { setOrders(getOrders()); setTick(x => x + 1); }, 8000)
       : null;
-    return () => { if (t) clearInterval(t); };
+    // v1.75.0 — follow the store, so a rider's new position moves the pin without a page change.
+    const off = onDataChange(col => {
+      if (col === 'orders' || col === '*') { setOrders(getOrders()); setTick(x => x + 1); }
+    });
+    return () => { off(); if (t) clearInterval(t); };
   }, []);
 
   const active = useMemo(() => orders.filter(isActiveDelivery), [orders]);

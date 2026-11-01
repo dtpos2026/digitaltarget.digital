@@ -1,4 +1,5 @@
-# Customer mobile app (Android) — screen inventory
+# Customer mobile app — PARKED for later — screen inventory
+> **Parked for later.** Not part of the current scope — customers order on the ordering website. Kept so a branded multi-restaurant customer app can be built later.
 25 screens. Preview PNGs: `previews/<id>.png`; full-size HTML: `screens/<id>.html`. Sample content only — no figure on any screen is real data.
 | Status | Meaning |
 |---|---|

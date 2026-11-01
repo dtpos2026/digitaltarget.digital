@@ -8,9 +8,9 @@ Everything below was read from the repository (`dtpos2026/digitaltarget.digital`
 | Windows POS | `dtpos-desktop` (Electron 33 shell) loading the web app via `app://` | Offline store + sync; installer `.exe` NOT VERIFIED (never built on Windows by me) |
 | Web POS + all modules | `src/` (React 19, TanStack Start/Router, Tailwind 4, Supabase) | 32 themes (21 reference themes) |
 | Customer website | `src/pages/OnlineOrderPage.tsx`, route `#/order/<restaurant>`, tracking `#/track` | Guest checkout; cash on delivery / pay at pickup; no payment gateway |
-| Customer Android app | `dtpos.apk` (Capacitor shell, Customer flavour) | Splash/icon NOT yet applied; Android build NOT VERIFIED |
+| Customer Android app | `capacitor.customer.config.json` exists; nothing else | **Parked by the product owner** — customers order on the website; a branded multi-restaurant app comes later |
 | Rider app | `src/pages/RiderAppPage.tsx`, route `#/rider-portal`; Android shell in `dtpos.apk` | Username/phone + PIN + workspace code; no OTP; Go Live GPS pings; Google Maps links |
-| Order Taker app | `src/pages/OrderTakerPortalPage.tsx`, `#/order-taker` | Not redesigned in this package (not in the five products of the brief) |
+| Order Taker app | `src/pages/OrderTakerPortalPage.tsx`, `#/order-taker`; thin Android shell (`capacitor.ordertaker.config.json`) | One of the three APKs in scope: Owner, Order Taker, Rider |
 | Owner | `OwnerLoginPage.tsx`, `OwnerManagementPage.tsx`, `OnlinePortalPage.tsx`, `DevicesPage.tsx` | There is no separate owner mobile app today; the owner uses the web app |
 | Super Admin | `SuperAdminPage.tsx`, `SuperAdminPortfolioPage.tsx` … | Licences, portfolio; shares the brand system |
 

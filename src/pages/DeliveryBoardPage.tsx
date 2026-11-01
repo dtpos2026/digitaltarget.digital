@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { getOrders, saveOrder, getRiders, getSettings, refreshOrdersFromCloud, saveRider } from '@/lib/store';
+import { getOrders, saveOrder, getRiders, getSettings, refreshOrdersFromCloud, saveRider, onDataChange } from '@/lib/store';
 import { Order, DeliveryStatus } from '@/lib/types';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Phone, MapPin, User, ChefHat, Truck, CheckCircle, XCircle, MessageCircle, PackageCheck, Navigation, Bike } from 'lucide-react';
+import { Phone, MapPin, User, ChefHat, Truck, CheckCircle, XCircle, MessageCircle, PackageCheck, Navigation, Bike, Map as MapIcon } from 'lucide-react';
+import OrderTrackingDialog from '@/components/OrderTrackingDialog';
 import { toast } from 'sonner';
 import { normalizePhone, buildDeliveryMessage, openWhatsApp } from '@/lib/whatsapp';
 import { buildTrackingMessage, buildTrackingWhatsAppText, setDeliveryStage, notifyCustomerStage } from '@/lib/delivery';
@@ -35,6 +36,7 @@ const statusButtons: { status: DeliveryStatus; label: string; icon: typeof ChefH
 export default function DeliveryBoardPage() {
   const settings = getSettings();
   const riders = getRiders().filter(r => r.isActive);
+  const [trackingId, setTrackingId] = useState<string | null>(null);
   const [orders, setOrders] = useState(() =>
     scopeToBranch(getOrders()).filter(o => o.orderType === 'delivery' && o.deliveryStatus)
   );
@@ -50,7 +52,14 @@ export default function DeliveryBoardPage() {
     // Live Firestore listener in store.ts already streams orders.
     // Legacy 8s poll kept behind a flag (default off).
     const t: any = ENABLE_REDUNDANT_ORDER_POLL ? setInterval(pull, 8000) : null;
-    return () => { cancelled = true; if (t) clearInterval(t); };
+    // v1.75.0 — follow the store. A rider moving the order along (or a customer's new order) changes the store; the
+    // board only re-read it after the board's own actions, so a status or position set on a phone never appeared
+    // until something else on this screen was touched.
+    const off = onDataChange(col => {
+      if (cancelled || (col !== 'orders' && col !== '*')) return;
+      setOrders(scopeToBranch(getOrders()).filter(o => o.orderType === 'delivery' && o.deliveryStatus));
+    });
+    return () => { cancelled = true; off(); if (t) clearInterval(t); };
   }, []);
 
   const assignRider = (orderId: string, riderId: string) => {
@@ -249,6 +258,17 @@ export default function DeliveryBoardPage() {
                                 </Button>
                               </div>
 
+                              {/* The customer's view of this order — progress, rider and map */}
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                data-track-order={order.id}
+                                className="w-full h-7 text-[11px]"
+                                onClick={(e) => { e.stopPropagation(); setTrackingId(order.id); }}
+                              >
+                                <MapIcon className="h-3 w-3 mr-1" /> Live tracking
+                              </Button>
+
                               {/* Manual status buttons */}
                               <div className="flex flex-wrap gap-1 pt-1 border-t border-dashed">
                                 {getAvailableActions(order.deliveryStatus!).map(btn => (
@@ -276,6 +296,7 @@ export default function DeliveryBoardPage() {
           })}
         </div>
       </DragDropContext>
+      <OrderTrackingDialog orderId={trackingId} onClose={() => setTrackingId(null)} />
     </div>
   );
 }

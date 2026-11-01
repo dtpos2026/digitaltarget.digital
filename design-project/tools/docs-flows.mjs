@@ -4,9 +4,9 @@ const N = (id, c, r, label, kind = 'screen', sub, extra = {}) => ({ id, x: X(c),
 const LEG = [['start', 'Start'], ['screen', 'Screen / step'], ['system', 'System / data'], ['decision', 'Decision'], ['end', 'Done'], ['gap', 'Does not exist yet']];
 
 export const FLOWS = [
-  { id: 'FLOW-01', file: 'flow-01-customer-ordering', title: 'Customer ordering — website and Android app',
-    note: 'The same eight steps in both products. Guest checkout works today; a sign-in code and push notifications do not exist yet (dashed).',
-    svg: flow({ title: 'Customer ordering — website and Android app', subtitle: 'Public route #/order/<restaurant> and the customer app · data via public_place_order and track_order', w: 1700, h: 360, legendItems: LEG,
+  { id: 'FLOW-01', file: 'flow-01-customer-ordering', title: 'Customer ordering — the ordering website',
+    note: 'Customers order on the website (no customer app). Guest checkout works today; a sign-in code and push notifications do not exist yet (dashed).',
+    svg: flow({ title: 'Customer ordering — the ordering website', subtitle: 'Public route #/order/<restaurant> · data via public_place_order and public_track_order', w: 1700, h: 360, legendItems: LEG,
       lanes: [[12, 8, 1676, 108, 'Browse and build the cart'], [12, 116, 1676, 108, 'Checkout and after the order'], [12, 224, 1676, 100, 'Not built yet']],
       nodes: [
         N('s', 0, 0, 'Open website or app', 'start', 'link, QR or APK'),
@@ -54,7 +54,7 @@ export const FLOWS = [
   { id: 'FLOW-03', file: 'flow-03-delivery-rider', title: 'Delivery — from kitchen to customer',
     note: 'Cash handover is not recorded by the system (the status change is). The customer sees the same status steps through track_order.',
     svg: flow({ title: 'Delivery — from kitchen to customer', subtitle: 'Four people, one order · Rider app = src/pages/RiderAppPage.tsx', w: 1700, h: 470, legendItems: LEG.slice(0, 5).concat([['gap', 'Not built yet']]),
-      lanes: [[12, 8, 1676, 100, 'Restaurant staff'], [12, 112, 1676, 120, 'Rider (Android app)'], [12, 236, 1676, 100, 'Customer (website / app)'], [12, 340, 1676, 100, 'Owner (phone or software)']],
+      lanes: [[12, 8, 1676, 100, 'Restaurant staff'], [12, 112, 1676, 120, 'Rider (Android app)'], [12, 236, 1676, 100, 'Customer (ordering website)'], [12, 340, 1676, 100, 'Owner (phone or software)']],
       nodes: [
         N('ready', 0, 0, 'Order ready', 'start', 'kitchen marks it ready'),
         N('assign', 1, 0, 'Assign a rider', 'screen', 'POS · or leave open'),
@@ -69,7 +69,7 @@ export const FLOWS = [
         N('track', 3, 2.2, 'Tracking steps update', 'system', 'track_order · Realtime'),
         N('pod', 6, 2.2, 'Proof of delivery', 'gap', 'photo or code · not built'),
         N('map', 0, 3.3, 'Live riders map', 'screen', 'pins from the pings'),
-        N('board', 3, 3.3, 'Delivery board', 'screen', 'who is stuck'),
+        N('board', 3, 3.3, 'Delivery board + Live tracking', 'screen', 'same view the customer sees'),
         N('cash', 6, 3.3, 'Cash settlement', 'gap', 'handover not recorded'),
       ],
       edges: [['ready', 'assign'], ['assign', 'avail', { from: 'b', to: 't' }], ['live', 'avail'], ['avail', 'claim'], ['claim', 'pick'], ['pick', 'way'], ['way', 'reach'], ['reach', 'del'], ['del', 'earn'], ['pick', 'track', { from: 'b', to: 't', dashed: true }], ['live', 'map', { from: 'b', to: 't', dashed: true, via: [[X(0) + 85, Y(2.2) + 20]] }], ['del', 'cash', { from: 'b', to: 't', dashed: true, via: [[X(6) + 85, Y(2.2) - 12], [X(6) + 85 - 70, Y(2.2) - 12], [X(6) + 15, Y(3.3) - 40]] }]] }) },

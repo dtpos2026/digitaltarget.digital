@@ -72,6 +72,8 @@ describe('the page the link opens honours it', () => {
   });
 
   it('still draws the rider for a delivery order', () => {
-    expect(TRACK).toContain('DeliveryRouteMap');
+    // v1.75.0: the page draws the shared OrderTrackingPanel, which is what holds the map.
+    expect(TRACK).toContain('<OrderTrackingPanel');
+    expect(src('src/components/OrderTrackingPanel.tsx')).toContain('DeliveryRouteMap');
   });
 });

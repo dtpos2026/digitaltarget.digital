@@ -2,11 +2,12 @@ import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } fro
 import { money, screenAmount } from '@/lib/currency';
 import { releasedTable } from '@/lib/tableRelease';
 import { sortOrdersNewestFirst, liveOrdersForTable } from '@/lib/orderOrder';
-import { Search, Plus, Minus, Trash2, CreditCard, Pause, Weight, Edit3, ShoppingCart, RotateCcw, Delete, User, Phone, Ban, Gift, XCircle, ChefHat, MessageCircle, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, CreditCard, Pause, Weight, Edit3, ShoppingCart, RotateCcw, Delete, User, Phone, Ban, Gift, XCircle, ChefHat, MessageCircle, ChevronLeft, ChevronRight, AlertTriangle, LayoutGrid } from 'lucide-react';
 import { normalizePhone, buildPaidMessage, buildDeliveryMessage, openWhatsApp } from '@/lib/whatsapp';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import CategoryGridDialog from '@/components/pos/CategoryGridDialog';
 import {
   Category, MenuItem, CartItem, OrderType, Order, PaymentMethod,
 } from '@/lib/types';
@@ -52,6 +53,8 @@ function buildDealNote(dealId: string, allItems: MenuItem[]): string {
 
 export default function POSScreen() {
   const [categories, setCategories] = useState<Category[]>([]);
+  // The 4-box button next to "All" opens every category as a grid, so a long list never has to be scrolled.
+  const [showCatGrid, setShowCatGrid] = useState(false);
   const catRibbonRef = useRef<HTMLDivElement | null>(null);
   const scrollCatRibbon = (dir: 'left' | 'right') => {
     const el = catRibbonRef.current;
@@ -270,6 +273,18 @@ export default function POSScreen() {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, []);
+
+  // Active items per category (and in total) — shown on the All Categories picker.
+  const catCounts = useMemo(() => {
+    const byCat = new Map<string, number>();
+    let all = 0;
+    for (const it of menuItems) {
+      if (!it.isActive) continue;
+      all++;
+      byCat.set(it.categoryId, (byCat.get(it.categoryId) || 0) + 1);
+    }
+    return { all, byCat };
+  }, [menuItems]);
 
   // Items inside the currently selected category (used for both flavor grid and items grid)
   const categoryItems = useMemo(() => {
@@ -1290,6 +1305,16 @@ export default function POSScreen() {
             style={{ scrollbarWidth: 'thin' }}
           >
             <button
+              type="button"
+              onClick={() => setShowCatGrid(true)}
+              data-pos-cat-grid
+              aria-label="All categories"
+              title="All categories"
+              className="cat-pill cat-grid-btn inline-flex items-center justify-center"
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+            <button
               onClick={() => setSelectedCat('all')}
               data-active={selectedCat === 'all'}
               className="cat-pill"
@@ -1337,13 +1362,25 @@ export default function POSScreen() {
         <div className="flex-1 flex overflow-hidden">
           {(settings.categoryLayout === 'side') && (
             <aside className="w-36 md:w-44 shrink-0 border-r-2 border-border/60 bg-card/40 overflow-y-auto pos-scrollbar py-2">
-              <button
-                onClick={() => setSelectedCat('all')}
-                data-active={selectedCat === 'all'}
-                className="cat-pill w-[calc(100%-12px)] mx-1.5 mb-1.5 justify-start"
-              >
-                📋 All
-              </button>
+              <div className="mx-1.5 mb-1.5 flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setShowCatGrid(true)}
+                  data-pos-cat-grid
+                  aria-label="All categories"
+                  title="All categories"
+                  className="cat-pill cat-grid-btn inline-flex shrink-0 items-center justify-center"
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => setSelectedCat('all')}
+                  data-active={selectedCat === 'all'}
+                  className="cat-pill min-w-0 flex-1 justify-start"
+                >
+                  📋 All
+                </button>
+              </div>
               {categories.map(cat => {
                 const catFont = settings.categoryStyle;
                 const catFontStyle: React.CSSProperties = catFont && catFont.font !== 'default' ? {
@@ -1357,15 +1394,16 @@ export default function POSScreen() {
                     key={cat.id}
                     onClick={() => setSelectedCat(cat.id)}
                     data-active={selectedCat === cat.id}
-                    className="cat-pill w-[calc(100%-12px)] mx-1.5 mb-1.5 flex items-center gap-1.5 justify-start"
+                    className="cat-pill cat-pill-side w-[calc(100%-12px)] mx-1.5 mb-1.5 flex items-center gap-1.5 justify-start"
                     style={catFontStyle}
+                    title={cat.name}
                   >
                     {cat.image ? (
                       <img src={cat.image} alt={cat.name} className="h-5 w-5 rounded-full object-cover shrink-0" />
                     ) : (
                       <span className="text-sm shrink-0">{cat.icon}</span>
                     )}
-                    <span className="truncate text-left">{cat.name}</span>
+                    <span data-cat-name className="min-w-0 text-left leading-snug break-words">{cat.name}</span>
                   </button>
                 );
               })}
@@ -2532,6 +2570,23 @@ export default function POSScreen() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ===== All Categories picker (the 4-box button next to "All") ===== */}
+      <CategoryGridDialog
+        open={showCatGrid}
+        onOpenChange={setShowCatGrid}
+        categories={categories}
+        counts={catCounts}
+        selected={selectedCat}
+        onSelect={id => setSelectedCat(id)}
+        fontStyle={(() => {
+          const f = settings.categoryStyle;
+          return f && f.font !== 'default' ? {
+            fontFamily: `'${f.font}', serif`,
+            direction: ['Aseer Unicode', 'AA Sameer Armaa', 'Jameel Noori Nastaleeq', 'Jameel Noori Nastaleeq Regular'].includes(f.font) ? 'rtl' as const : 'ltr' as const,
+          } : undefined;
+        })()}
+      />
 
       {/* ===== Size / Inch Variant Picker (Advanced Menu Flow) ===== */}
       <Dialog open={!!variantPickerItem} onOpenChange={(v) => { if (!v) setVariantPickerItem(null); }}>

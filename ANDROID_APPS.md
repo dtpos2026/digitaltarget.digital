@@ -1,5 +1,7 @@
 # Rider aur Order Taker Android apps — poora tareeqa
 
+> **Customer app (`capacitor.customer.config.json`) — parked (2026-11-01).** Customers order on the ordering website; a branded multi-restaurant customer app (Foodpanda-style) is a later project. Its config is left in place, unused, and its design is kept in `design-project/10-future-customer-app/`. The three Android apps in scope are **Owner, Order Taker and Rider**.
+
 Dono apps ki config pehle se maujood hai:
 
 | App | Config file | Package name | Kaunsa page kholta hai |

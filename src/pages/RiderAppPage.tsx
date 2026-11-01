@@ -345,6 +345,10 @@ export default function RiderAppPage() {
     saveOrder(next);
     setOrders(getOrders());
     toast.success(`Order #${o.orderNumber} claimed`);
+    // v1.75.0 — the customer's tracking page shows the rider only while the rider is Live. A rider who has never
+    // chosen either way is switched on when they take an order; one who switched it OFF on purpose stays off
+    // (and is reminded by the banner below).
+    if (localStorage.getItem('rider-tracking') === null) { localStorage.setItem('rider-tracking', '1'); setTracking(true); }
   };
 
   const advance = async (o: Order, stage: DeliveryStatus) => {
@@ -619,6 +623,18 @@ export default function RiderAppPage() {
         <div className="text-[10px] text-muted-foreground text-center">
           📍 {myPos.lat.toFixed(5)}, {myPos.lng.toFixed(5)} · pings save automatically
         </div>
+      )}
+
+      {/* v1.75.0 — the customer (and the restaurant's tracking view) can only see a rider who is Live. */}
+      {myOrders.length > 0 && !tracking && (
+        <Card data-rider-live-reminder className="p-3 flex items-center gap-3 border-status-warning bg-status-warning/10">
+          <Radio className="h-5 w-5 text-status-warning shrink-0" />
+          <div className="flex-1 text-xs">
+            <p className="font-extrabold">Your location is OFF</p>
+            <p className="text-muted-foreground">The customer cannot see where you are. Turn on Live so they can follow their order.</p>
+          </div>
+          <Button size="sm" onClick={toggleTracking}>Go Live</Button>
+        </Card>
       )}
 
       {/* My Orders */}

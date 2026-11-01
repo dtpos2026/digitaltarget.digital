@@ -73,36 +73,6 @@ Generated from the screen specs by `tools/build-docs.mjs`; do not edit by hand �
 | WEB-20 | Restaurant closed / item unavailable | Any screen | customer (public) | needs backend | menu_items.is_active, branch is_active; (opening hours — needs backend) | src/pages/OnlineOrderPage.tsx |
 | WEB-21 | Menu failed to load | Any screen | customer (public) | exists | — | src/pages/OnlineOrderPage.tsx |
 
-## Customer mobile app (Android) (25)
-
-| ID | Screen | Route / entry | Roles | Status | Data | Evidence |
-|---|---|---|---|---|---|---|
-| APP-01 | Splash | app launch (native splash → web view) | customer | new UI, existing data | customer_apps (app_name, logo_url, theme) — cached from the last launch | branding/ (Customer icon family), scripts/brand/build-brand-assets.mjs |
-| APP-02 | Onboarding | first launch only | customer | new UI, existing data | static text; restaurant name | dtpos.apk (Customer shell) + src/pages/OnlineOrderPage.tsx |
-| APP-03 | Sign in | Profile → Sign in, or at checkout | customer | needs backend | customers (phone, name) — a customer record is created from the phone number at first order | public_place_order (guest checkout exists); sign-in code = needs-backend |
-| APP-04 | Verify code | after Send code | customer | needs backend | one-time code (6 digits) | none today |
-| APP-05 | Home | tab: Home | customer | new UI, existing data | branches (open now?), categories, menu_items (popular = most ordered, needs order counts), promo_codes, customer_apps | dtpos.apk (Customer shell) + src/pages/OnlineOrderPage.tsx |
-| APP-06 | Menu and categories | tab: Menu | customer | exists | categories (sort_order, icon/image), menu_items (name, price, image, is_active, size/inch variants) | dtpos.apk (Customer shell) + src/pages/OnlineOrderPage.tsx |
-| APP-07 | Search | Home → search field | customer | new UI, existing data | menu_items name, sub_category | dtpos.apk (Customer shell) + src/pages/OnlineOrderPage.tsx |
-| APP-08 | Product details | Menu → item | customer | exists | menu_items (name, description, price, image, size_variants, inch_variants, flavors) | dtpos.apk (Customer shell) + src/pages/OnlineOrderPage.tsx |
-| APP-09 | Customisation sheet | Menu → add on an item with options | customer | exists | menu_items size_variants / flavors | dtpos.apk (Customer shell) + src/pages/OnlineOrderPage.tsx |
-| APP-10 | Cart | cart pill / Orders tab | customer | exists | local cart; promo_codes (code, value, min order, valid dates); branch delivery fee | dtpos.apk (Customer shell) + src/pages/OnlineOrderPage.tsx |
-| APP-11 | Checkout | Cart → Checkout | customer | exists | customer name, phone, address, branch, payment method, notes → RPC public_place_order | public_place_order |
-| APP-12 | Address book and map | Checkout → Change / Profile → Addresses | customer | new UI, existing data | customer addresses (label, text, landmark, lat/lng); branches.delivery_radius_km, delivery zone | customers / customer_addresses (verify), branch geo fields |
-| APP-13 | Order placed | after Place order | customer | exists | orders (order_number, status, total, payment), estimated time (branch setting) | public_place_order result |
-| APP-14 | Live order tracking | Orders → active order / tracking link | customer | exists | RPC track_order (status, delivery_status, rider name/phone, estimate), Realtime on the order row | track_order, delivery_status values |
-| APP-15 | Order history | tab: Orders | customer | new UI, existing data | orders by phone number: order_number, date, total, status | track_order / orders by customer phone |
-| APP-16 | Order detail and reorder | Orders → Details | customer | new UI, existing data | orders + order_items, totals, payment, address, branch | track_order |
-| APP-17 | Profile | tab: Profile | customer | new UI, existing data | customers (name, phone, email, birthday), addresses | customers table |
-| APP-18 | Notifications | Home → bell | customer | needs backend | notifications (order updates, offers) | none — no push channel today |
-| APP-19 | Offers | tab: Offers | customer | new UI, existing data | promo_codes (code, type, value, min order, valid_from/to, is_active) | promo_codes table; code field at checkout |
-| APP-20 | Support and help | Profile → Help / order → Get help | customer | exists | customer_apps (whatsapp_number), branches (phone), order context | customer_apps.whatsapp_number |
-| APP-21 | Empty states | cart · orders · addresses · offers | customer | new UI, existing data | — | dtpos.apk (Customer shell) + src/pages/OnlineOrderPage.tsx |
-| APP-22 | Loading states | every list while data loads | customer | new UI, existing data | — | dtpos.apk (Customer shell) + src/pages/OnlineOrderPage.tsx |
-| APP-23 | Error and offline states | any screen | customer | new UI, existing data | — | dtpos.apk (Customer shell) + src/pages/OnlineOrderPage.tsx |
-| APP-24 | Order status variations | Tracking | customer | exists | orders.status / delivery_status: pending, accepted, cooking, ready, rider_assigned, rider_picked, onway, rider_reached, delivered, cancelled, rejected | delivery_status values in the code |
-| APP-25 | Home (dark) | tab: Home — dark theme | customer | new UI, existing data | same as Home | dtpos.apk (Customer shell) + src/pages/OnlineOrderPage.tsx |
-
 ## Rider mobile app (Android) (22)
 
 | ID | Screen | Route / entry | Roles | Status | Data | Evidence |
@@ -129,6 +99,25 @@ Generated from the screen specs by `tools/build-docs.mjs`; do not edit by hand �
 | RID-20 | Notifications | Home → bell | rider | needs backend | notifications table | none — no push channel today |
 | RID-21 | Empty, loading and error states | all lists | rider | new UI, existing data | — | src/pages/RiderAppPage.tsx |
 | RID-22 | Home (dark, night shift) | tab: Home — dark | rider | new UI, existing data | same as Home | src/pages/RiderAppPage.tsx |
+
+## Order Taker mobile app (Android) (14)
+
+| ID | Screen | Route / entry | Roles | Status | Data | Evidence |
+|---|---|---|---|---|---|---|
+| OTK-01 | Splash | app launch | order_taker | new UI, existing data | none (saved portal session read locally) | branding/ (Order Taker icon: DT mark + clipboard badge) |
+| OTK-02 | Sign in | #/order-taker (public) | order_taker | exists | username or phone + PIN/password + workspace code → portalSignIn(expectedRole: order_taker) | src/pages/OrderTakerPortalPage.tsx |
+| OTK-03 | POS — take an order | tab: POS | order_taker | exists | menu_items, categories (same data and component as the cashier POS) | src/pages/OrderTakerPortalPage.tsx (renders POSScreen) |
+| OTK-04 | All categories | POS → 4-box button | order_taker | exists | categories with active-item counts | src/components/pos/CategoryGridDialog.tsx (v1.75.0, ported from the offline POS v1.21.0) |
+| OTK-05 | Item options | POS → item with sizes / flavours | order_taker | exists | menu_items size_variants / inch_variants / flavors; kg items use the weight panel | POSScreen variant picker, weight panel |
+| OTK-06 | Tables | tab: Tables | order_taker | exists | dining tables and floors (portal_tables): free / occupied / needs bill, running order per table | src/pages/OrderTakerPortalPage.tsx (TablesPage) |
+| OTK-07 | Order review and send | POS → View order | order_taker | exists | cart lines, table, notes → order saved through portal_upsert_order, KOT to the kitchen | portal_upsert_order (taker/rider write path), AutoKotPrinter |
+| OTK-08 | Running bills | tab: Bills | order_taker | exists | running orders for this restaurant / branch (RunningBillsPage) | src/pages/OrderTakerPortalPage.tsx (RunningBillsPage) |
+| OTK-09 | Bill detail | Bills → bill | order_taker | exists | order, items, status, kitchen status | RunningBillsPage |
+| OTK-10 | Order ready alert | in-app, any screen | order_taker | exists | kitchen status = ready for dine-in orders (ReadyOrderPoller, ReadyNotificationBus) | src/pages/OrderTakerPortalPage.tsx (ReadyNotificationBus, ReadyOrderPoller types=[dine-in]) |
+| OTK-11 | Customer calls the waiter | in-app, any screen | order_taker | exists | public_call_waiter (customer scans the table QR and taps "Call waiter") → ServiceCallNotifier | src/pages/OrderTakerPortalPage.tsx (ServiceCallNotifier), publicPortal.functions.ts (createPublicWaiterCall) |
+| OTK-12 | Me | tab: Me | order_taker | exists | portal_me (name, phone, photo), restaurant badge (name + code), location-sharing setting | src/pages/OrderTakerPortalPage.tsx (OrderTakerMe, StaffProfileCard, PortalRestaurantBadge) |
+| OTK-13 | Empty, offline and error states | all screens | order_taker | new UI, existing data | — | src/pages/OrderTakerPortalPage.tsx |
+| OTK-14 | POS (dark) | tab: POS — dark | order_taker | new UI, existing data | same as POS | src/pages/OrderTakerPortalPage.tsx |
 
 ## Owner management mobile app (24)
 
@@ -158,4 +147,34 @@ Generated from the screen specs by `tools/build-docs.mjs`; do not edit by hand �
 | OWN-22 | Profile and workspace | More → profile card | owner / admin | exists | user_profiles, workspace code (WorkspaceCodeCard), plan status | src/components/WorkspaceCodeCard.tsx, PlanStatusWidget.tsx |
 | OWN-23 | Empty, loading and error states | all lists | owner / admin | new UI, existing data | — | src/pages/OwnerManagementPage.tsx, OwnerLoginPage.tsx |
 | OWN-24 | Overview (dark) | tab: Overview — dark | owner / admin | new UI, existing data | same as Overview | src/pages/OwnerManagementPage.tsx, OwnerLoginPage.tsx |
+
+## Customer mobile app — PARKED for later (25)
+
+| ID | Screen | Route / entry | Roles | Status | Data | Evidence |
+|---|---|---|---|---|---|---|
+| APP-01 | Splash | app launch (native splash → web view) | customer | new UI, existing data | customer_apps (app_name, logo_url, theme) — cached from the last launch | branding/ (Customer icon family), scripts/brand/build-brand-assets.mjs |
+| APP-02 | Onboarding | first launch only | customer | new UI, existing data | static text; restaurant name | dtpos.apk (Customer shell) + src/pages/OnlineOrderPage.tsx |
+| APP-03 | Sign in | Profile → Sign in, or at checkout | customer | needs backend | customers (phone, name) — a customer record is created from the phone number at first order | public_place_order (guest checkout exists); sign-in code = needs-backend |
+| APP-04 | Verify code | after Send code | customer | needs backend | one-time code (6 digits) | none today |
+| APP-05 | Home | tab: Home | customer | new UI, existing data | branches (open now?), categories, menu_items (popular = most ordered, needs order counts), promo_codes, customer_apps | dtpos.apk (Customer shell) + src/pages/OnlineOrderPage.tsx |
+| APP-06 | Menu and categories | tab: Menu | customer | exists | categories (sort_order, icon/image), menu_items (name, price, image, is_active, size/inch variants) | dtpos.apk (Customer shell) + src/pages/OnlineOrderPage.tsx |
+| APP-07 | Search | Home → search field | customer | new UI, existing data | menu_items name, sub_category | dtpos.apk (Customer shell) + src/pages/OnlineOrderPage.tsx |
+| APP-08 | Product details | Menu → item | customer | exists | menu_items (name, description, price, image, size_variants, inch_variants, flavors) | dtpos.apk (Customer shell) + src/pages/OnlineOrderPage.tsx |
+| APP-09 | Customisation sheet | Menu → add on an item with options | customer | exists | menu_items size_variants / flavors | dtpos.apk (Customer shell) + src/pages/OnlineOrderPage.tsx |
+| APP-10 | Cart | cart pill / Orders tab | customer | exists | local cart; promo_codes (code, value, min order, valid dates); branch delivery fee | dtpos.apk (Customer shell) + src/pages/OnlineOrderPage.tsx |
+| APP-11 | Checkout | Cart → Checkout | customer | exists | customer name, phone, address, branch, payment method, notes → RPC public_place_order | public_place_order |
+| APP-12 | Address book and map | Checkout → Change / Profile → Addresses | customer | new UI, existing data | customer addresses (label, text, landmark, lat/lng); branches.delivery_radius_km, delivery zone | customers / customer_addresses (verify), branch geo fields |
+| APP-13 | Order placed | after Place order | customer | exists | orders (order_number, status, total, payment), estimated time (branch setting) | public_place_order result |
+| APP-14 | Live order tracking | Orders → active order / tracking link | customer | exists | RPC track_order (status, delivery_status, rider name/phone, estimate), Realtime on the order row | track_order, delivery_status values |
+| APP-15 | Order history | tab: Orders | customer | new UI, existing data | orders by phone number: order_number, date, total, status | track_order / orders by customer phone |
+| APP-16 | Order detail and reorder | Orders → Details | customer | new UI, existing data | orders + order_items, totals, payment, address, branch | track_order |
+| APP-17 | Profile | tab: Profile | customer | new UI, existing data | customers (name, phone, email, birthday), addresses | customers table |
+| APP-18 | Notifications | Home → bell | customer | needs backend | notifications (order updates, offers) | none — no push channel today |
+| APP-19 | Offers | tab: Offers | customer | new UI, existing data | promo_codes (code, type, value, min order, valid_from/to, is_active) | promo_codes table; code field at checkout |
+| APP-20 | Support and help | Profile → Help / order → Get help | customer | exists | customer_apps (whatsapp_number), branches (phone), order context | customer_apps.whatsapp_number |
+| APP-21 | Empty states | cart · orders · addresses · offers | customer | new UI, existing data | — | dtpos.apk (Customer shell) + src/pages/OnlineOrderPage.tsx |
+| APP-22 | Loading states | every list while data loads | customer | new UI, existing data | — | dtpos.apk (Customer shell) + src/pages/OnlineOrderPage.tsx |
+| APP-23 | Error and offline states | any screen | customer | new UI, existing data | — | dtpos.apk (Customer shell) + src/pages/OnlineOrderPage.tsx |
+| APP-24 | Order status variations | Tracking | customer | exists | orders.status / delivery_status: pending, accepted, cooking, ready, rider_assigned, rider_picked, onway, rider_reached, delivered, cancelled, rejected | delivery_status values in the code |
+| APP-25 | Home (dark) | tab: Home — dark theme | customer | new UI, existing data | same as Home | dtpos.apk (Customer shell) + src/pages/OnlineOrderPage.tsx |
 

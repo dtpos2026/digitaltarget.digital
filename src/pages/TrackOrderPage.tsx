@@ -1,13 +1,14 @@
-import { useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { money } from '@/lib/currency';
 import { initStore, getOrders, getSettings, refreshOrdersFromCloud, getOrderFromCloudById, getOrderFromCloudByLookup } from '@/lib/store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { Order } from '@/lib/types';
-import { Search, CheckCircle2, Clock, ChefHat, Package, Bike, MapPin, PhoneCall, ArrowLeft, BellRing, BellOff } from 'lucide-react';
+import { Search, PhoneCall, ArrowLeft, BellRing, BellOff } from 'lucide-react';
+import OrderTrackingPanel from '@/components/OrderTrackingPanel';
+import { trackingView } from '@/lib/trackingSteps';
 import WhatsAppFloat from '@/components/WhatsAppFloat';
-const DeliveryRouteMap = lazy(() => import('@/components/DeliveryRouteMap'));
 
 // Browser-safe beep with user-gesture unlocked AudioContext
 let _trackCtx: AudioContext | null = null;
@@ -242,39 +243,15 @@ export default function TrackOrderPage() {
 }
 
 function OrderStatus({ order, settings, onBack, tick }: { order: Order; settings: any; onBack: () => void; tick: number }) {
-  const status = order.deliveryStatus || 'pending';
-  const kStatus = order.kitchenStatus || 'pending';
+  // The status, the steps, the rider and the map are worked out once, in trackingView(), and drawn by
+  // OrderTrackingPanel — the software's Delivery Board draws the same thing for the same order.
+  const view = trackingView(order);
+  const isCancelled = view.isCancelled;
+  const currentLabel = view.currentLabel;
   // A tracked order comes from an RPC, so it never passed through the row
   // mapper that defaults these arrays. Rendering `order.items.length` on the
   // raw payload is what produced "Cannot read properties of undefined".
   const items = Array.isArray(order.items) ? order.items : [];
-  // OrderType is 'dining' | 'takeaway' | 'delivery' | 'foodpanda' — 'dine-in'
-  // is not a member, so both of those comparisons were dead and only the
-  // tableLabel fallback ever fired. A dine-in order without a table label was
-  // therefore shown the delivery timeline.
-  const isDineIn = !!(order as any).tableLabel
-    || (order as any).orderType === 'dining'
-    || (order as any).orderType === 'dine-in'
-    || (order as any).type === 'dine-in';
-
-  // Build timeline steps — dine-in skips delivery and ends at "Served"
-  const steps = isDineIn ? [
-    { key: 'placed', label: 'Order Placed', icon: CheckCircle2, done: true, at: order.createdAt },
-    { key: 'cooking', label: 'Kitchen Cooking', icon: ChefHat, done: kStatus === 'preparing' || kStatus === 'ready' || kStatus === 'served', at: order.kitchenStatusAt },
-    { key: 'ready', label: 'Ready to Serve', icon: Package, done: kStatus === 'ready' || kStatus === 'served', at: undefined },
-    { key: 'served', label: 'Served', icon: CheckCircle2, done: kStatus === 'served', at: (order as any).servedAt },
-  ] : [
-    { key: 'placed', label: 'Order Placed', icon: CheckCircle2, done: true, at: order.createdAt },
-    { key: 'cooking', label: 'Kitchen Cooking', icon: ChefHat, done: kStatus === 'preparing' || kStatus === 'ready' || kStatus === 'served' || ['ready', 'onway', 'rider_picked', 'rider_reached', 'delivered'].includes(status), at: order.kitchenStatusAt },
-    { key: 'ready', label: 'Ready for Pickup', icon: Package, done: kStatus === 'ready' || kStatus === 'served' || ['ready', 'onway', 'rider_picked', 'rider_reached', 'delivered'].includes(status), at: undefined },
-    { key: 'onway', label: 'On the Way', icon: Bike, done: ['onway', 'rider_picked', 'rider_reached', 'delivered'].includes(status), at: order.delivery?.onTheWayAt || order.dispatchedAt },
-    { key: 'delivered', label: 'Delivered', icon: CheckCircle2, done: status === 'delivered', at: order.deliveredAt },
-  ];
-
-  const isCancelled = status === 'cancelled';
-  const activeIndex = isCancelled ? -1 : steps.findIndex(s => !s.done);
-  const completedLabel = isDineIn ? 'Served' : 'Delivered';
-  const currentLabel = isCancelled ? 'Cancelled' : activeIndex === -1 ? completedLabel : steps[activeIndex - 1]?.label || 'Order Placed';
 
   return (
     <div className="space-y-4">
@@ -302,71 +279,11 @@ function OrderStatus({ order, settings, onBack, tick }: { order: Order; settings
         </div>
       </div>
 
-      {/* Timeline */}
-      {!isCancelled && (
-        <div className="bg-card border rounded-2xl shadow-card p-4">
-          <h3 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground mb-3">Progress</h3>
-          <div className="space-y-3">
-            {steps.map((s, i) => {
-              const Icon = s.icon;
-              const isCurrent = !s.done && i === activeIndex;
-              const isDone = s.done;
-              return (
-                <div key={s.key} className="flex items-start gap-3">
-                  <div className={`h-9 w-9 shrink-0 rounded-full flex items-center justify-center ${
-                    isDone ? 'bg-status-success text-white'
-                    : isCurrent ? 'bg-gold text-foreground animate-pulse'
-                    : 'bg-muted text-muted-foreground'
-                  }`}>
-                    <Icon className="h-4 w-4" />
-                  </div>
-                  <div className="flex-1 pt-1.5">
-                    <p className={`text-sm font-bold ${isDone || isCurrent ? 'text-foreground' : 'text-muted-foreground'}`}>{s.label}</p>
-                    {isDone && s.at && (
-                      <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
-                        <Clock className="h-3 w-3" /> {new Date(s.at).toLocaleTimeString()}
-                      </p>
-                    )}
-                    {isCurrent && <p className="text-[10px] text-gold font-bold mt-0.5">In progress…</p>}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Rider info */}
-      {order.riderName && (
-        <div className="bg-card border rounded-2xl shadow-card p-4 space-y-2">
-          <h3 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">Your Rider</h3>
-          <div className="flex items-center gap-3">
-            <div className="h-12 w-12 rounded-full bg-primary/15 text-primary flex items-center justify-center text-lg">
-              <Bike className="h-5 w-5" />
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-extrabold">{order.riderName}</p>
-              {order.riderPhone && <p className="text-[11px] text-muted-foreground">{order.riderPhone}</p>}
-            </div>
-            {order.riderPhone && (
-              <a href={`tel:${order.riderPhone}`} className="inline-flex items-center gap-1 bg-status-success text-white px-3 py-2 rounded-lg text-xs font-bold">
-                <PhoneCall className="h-3.5 w-3.5" /> Call
-              </a>
-            )}
-          </div>
-          {(() => {
-            const s = getSettings();
-            const branch = (s?.restaurantLat != null && s?.restaurantLng != null) ? { lat: s.restaurantLat, lng: s.restaurantLng } : null;
-            const rider = (order.delivery?.riderLat != null && order.delivery?.riderLng != null) ? { lat: order.delivery.riderLat, lng: order.delivery.riderLng } : null;
-            const customer = (order.delivery?.customerLat != null && order.delivery?.customerLng != null) ? { lat: order.delivery.customerLat, lng: order.delivery.customerLng } : null;
-            if (!rider && !customer) return null;
-            return <div className="mt-2"><Suspense fallback={<div className="h-[240px] bg-muted rounded animate-pulse" />}><DeliveryRouteMap branch={branch} rider={rider} customer={customer} height={240} /></Suspense></div>;
-          })()}
-          {order.delivery?.etaMinutes != null && (
-            <p className="text-center text-xs"><span className="text-muted-foreground">ETA:</span> <span className="font-extrabold">{order.delivery.etaMinutes} min</span></p>
-          )}
-        </div>
-      )}
+      {/* Progress, rider, map and arrival time — the same panel the software shows */}
+      <OrderTrackingPanel
+        order={order}
+        branch={(() => { const s = getSettings(); return s?.restaurantLat != null && s?.restaurantLng != null ? { lat: s.restaurantLat, lng: s.restaurantLng } : null; })()}
+      />
 
       {/* Items summary */}
       <div className="bg-card border rounded-2xl shadow-card p-4">

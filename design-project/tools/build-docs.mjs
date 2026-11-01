@@ -77,11 +77,11 @@ ${sec('05 · Icons', 'Icons', 'One icon family (Lucide, already in the app), 2 p
 ${sec('06 · Status', 'Status colours — the real statuses', 'Every status the software uses has one fixed badge, so "Cooking" looks the same in the POS, the kitchen screen, the owner app and the customer tracking page.', `<div class="row wrap">${['running', 'hold', 'paid', 'partial', 'void', 'cancelled', 'pending_approval', 'rejected', 'credit_pending', 'complimentary', 'pending', 'accepted', 'cooking', 'ready', 'rider_assigned', 'rider_picked', 'onway', 'rider_reached', 'delivered'].map(statusBadge).join('')}</div>`)}
 ${sec('07 · Components', 'Components — light and dark', 'The same components in both themes. Specifications (sizes, states, tokens) are in 09-handoff/COMPONENTS.md.', `<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">${compGrid('light')}${compGrid('dark')}</div>`)}
 ${sec('08 · Product accents', 'The same screen in each product\'s accent', 'Only --accent changes. Buttons, active tabs, badges and the hero all follow it.', `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px">${accents.map(k => `<div data-accent="${k === 'software' ? '' : k}" style="background:var(--bg);padding:16px;border-radius:16px;border:1px solid var(--border)" class="col g12"><b>${T.accent[k].name}</b><div class="hero" style="padding:14px"><div class="t-h3" style="color:#fff">Hero banner</div></div>${btn('Primary action', { kind: 'primary', block: true })}<div class="row">${chip('Active', { on: true })}${chip('Chip')}${badge('Badge', 'acc')}</div>${progress(60)}</div>`).join('')}</div>`)}
-${sec('09 · Rules', 'Rules that keep five products one product', '', `<ol style="max-width:90ch;line-height:1.8"><li>One logo mark (the DT mark). Apps add a small role badge in a corner of the icon (bike = rider, crown = owner); screens never restyle the mark.</li><li>The restaurant\'s own logo and name lead in customer-facing screens; "Powered by Digital Target" is the small line at the foot.</li><li>A screen shows only what the account can do: no greyed teasers for modules that are off or not permitted.</li><li>Anything that does not exist in the backend yet is drawn with the dashed "needs backend" tag and listed in 09-handoff — never faked as working.</li><li>Money is always the restaurant\'s currency symbol from settings, never a hard-coded "PKR" (the design uses Rs only because the sample restaurant is in Pakistan).</li><li>Every list has an empty, a loading and an error state, in that shape (see SCREENS.md of each product).</li><li>Dark theme is first-class on phones and the kitchen screen; contrast numbers above are measured for both.</li></ol>`)}`;
+${sec('09 · Rules', 'Rules that keep every product one product', '', `<ol style="max-width:90ch;line-height:1.8"><li>One logo mark (the DT mark). Apps add a small role badge in a corner of the icon (bike = rider, crown = owner); screens never restyle the mark.</li><li>The restaurant\'s own logo and name lead in customer-facing screens; "Powered by Digital Target" is the small line at the foot.</li><li>A screen shows only what the account can do: no greyed teasers for modules that are off or not permitted.</li><li>Anything that does not exist in the backend yet is drawn with the dashed "needs backend" tag and listed in 09-handoff — never faked as working.</li><li>Money is always the restaurant\'s currency symbol from settings, never a hard-coded "PKR" (the design uses Rs only because the sample restaurant is in Pakistan).</li><li>Every list has an empty, a loading and an error state, in that shape (see SCREENS.md of each product).</li><li>Dark theme is first-class on phones and the kitchen screen; contrast numbers above are measured for both.</li></ol>`)}`;
 w('01-design-system/design-system.html', page(ds, 'DT design system'));
 w('01-design-system/DESIGN-SYSTEM.md', `# DT design system
 
-One system for five products. Open \`design-system.html\` for the visual version (colour, measured contrast, type, spacing, shape, icons, statuses, components in light and dark, per-product accents).
+One system for the software, the ordering website and the three Android apps (Owner, Order Taker, Rider) — and for the parked customer app, if it is built later. Open \`design-system.html\` for the visual version (colour, measured contrast, type, spacing, shape, icons, statuses, components in light and dark, per-product accents).
 
 | File | What |
 |---|---|
@@ -111,20 +111,20 @@ w('08-architecture/ARCHITECTURE.md', `# Integration architecture
 ## Reading the diagram
 - **One Supabase project** (\`drpzxzpvkpqfxcjbwypo\`) serves all products. Every table row carries \`tenant_id\`; row-level security decides what a signed-in person (or the anonymous website visitor) can read or write. The Super Admin sees across tenants; nobody else does.
 - **Cloudflare Pages** (project \`dt-pos\`) serves the web app and runs the TanStack Start server functions. The Windows shell loads the same app through its \`app://\` protocol; the Android shells wrap the same web routes in Capacitor.
-- **Public routes** (\`#/order\`, \`#/track\`, \`#/rider-portal\`, \`#/order-taker\`, \`#/reset-password\`) are the entry points of the website, the customer app, the rider app and the order-taker app. They skip the staff sign-in and use their own portal login or none (customers).
+- **Public routes** (\`#/order\`, \`#/track\`, \`#/rider-portal\`, \`#/order-taker\`, \`#/reset-password\`) are the entry points of the ordering website, the rider app and the order-taker app. (The owner app signs in through Supabase Auth. A customer app is parked for later.) They skip the staff sign-in and use their own portal login or none (customers).
 - **Calls that matter to the redesign:** \`public_place_order\` and \`track_order\` (customer), \`staff_portal_*\` and \`portal_my_history\` (rider / order taker), owner sign-in through Supabase Auth, orders/menu/inventory tables for the owner app.
 - **Offline:** only the Windows POS (and the web POS in a browser) keeps a local copy and a sync queue — see FLOW-05. The customer, rider and owner apps need a connection; they show the last loaded data with a banner when offline.
 
 ## What does not exist (and the screens that wait for it)
 | Missing piece | Needed by | Effect today |
 |---|---|---|
-| Push notifications (FCM) + a notifications table | Customer APP-18, Rider RID-06 (background) / RID-20, Owner OWN-18 | The app must be open to see anything |
-| SMS / WhatsApp sending service + one-time code table | Customer APP-03/04, Rider RID-03 | Phone number + name only; riders use username + PIN |
-| Online payment gateway | Checkout (WEB-12, APP-11) | Cash on delivery / pay at pickup only |
-| Tenant banners, opening hours, social links | WEB-01/02, APP-05, OWN-20 | Hero banner and hours are placeholder slots |
-| Verified-phone order list | WEB-15, APP-15 | Guest orders reachable only by tracking link |
+| Push notifications (FCM) + a notifications table | Rider RID-06 (background) / RID-20, Owner OWN-18 (and the parked customer app) | The app must be open to see anything |
+| SMS / WhatsApp sending service + one-time code table | Rider RID-03 (and the parked customer app APP-03/04) | Phone number + name only; riders use username + PIN |
+| Online payment gateway | Checkout (WEB-12) | Cash on delivery / pay at pickup only |
+| Tenant banners, opening hours, social links | WEB-01/02, OWN-20 | Hero banner and hours are placeholder slots |
+| Verified-phone order list | WEB-15 | Guest orders reachable only by tracking link |
 | Proof of delivery, cash settlement | RID-13/14 | Status change only |
-| Public offers list | WEB-17, APP-19 | Codes are typed at checkout |
+| Public offers list | WEB-17 | Codes are typed at checkout |
 
 ## Security notes that affect the design
 Open findings S2–S6 of \`docs/audit/2026-10-30-security-findings.md\` (HR/payroll visibility, settings writable by a cashier, cross-branch logs, customer PIN hashes, anonymous-executable functions) are **not** changed by this design. The owner app therefore does not show salaries, and write actions on the phone are limited to: approve/reject online orders, menu availability, expenses, device approval and the website switches.
@@ -143,7 +143,7 @@ let matrix = `# Screen → route → data → status (generated)\n\nGenerated fr
 const counts = [];
 for (const [id, { P, screens }] of Object.entries(specs)) {
   const c = { existing: 0, 'ui-new': 0, 'needs-backend': 0 }; screens.forEach(s => c[s.support || 'existing']++);
-  counts.push([P.title, screens.length, c.existing, c['ui-new'], c['needs-backend']]);
+  if (!P.parked) counts.push([P.title, screens.length, c.existing, c['ui-new'], c['needs-backend']]);
   matrix += `## ${P.title} (${screens.length})\n\n| ID | Screen | Route / entry | Roles | Status | Data | Evidence |\n|---|---|---|---|---|---|---|\n${screens.map(s => `| ${s.id} | ${cell(s.name)} | ${cell(s.route)} | ${cell(s.roles)} | ${SUP[s.support || 'existing']} | ${cell(s.data)} | ${cell(s.evidence)} |`).join('\n')}\n\n`;
 }
 w('09-handoff/SCREEN-MAP.md', matrix);
@@ -157,7 +157,8 @@ w('09-handoff/HANDOFF.md', `# Developer handoff
 | \`01-design-system/\` | tokens (CSS + JSON), the visual reference with measured contrast |
 | \`02-restaurant-software/\` | 40 screens: Windows POS + web (sidebar, top bar, dashboard, every module) |
 | \`03-customer-website/\` | ${specs.website.screens.length} screens + desktop variants |
-| \`04-customer-app/\` | ${specs['customer-app'].screens.length} screens (Android) |
+| \`05b-order-taker-app/\` | ${specs['ordertaker-app'].screens.length} screens (Android) |
+| \`10-future-customer-app/\` | ${specs['customer-app'].screens.length} screens — **parked for later**, not in scope |
 | \`05-rider-app/\` | ${specs['rider-app'].screens.length} screens (Android) |
 | \`06-owner-app/\` | ${specs['owner-app'].screens.length} screens (Android) + desktop view of Owner Management |
 | \`07-flows/\` | 6 flow diagrams (SVG) |
@@ -185,8 +186,8 @@ ${needs.join('\n')}
 Also not designed because nothing supports them: customer ratings/reviews, loyalty points (fields exist, unused), table reservations, in-app calling/chat, rider documents, multi-restaurant customer accounts.
 
 ## Open decisions for the owner of the product
-1. Push notifications (FCM) and a notifications table — enables APP-18, RID-06/20, OWN-18.
-2. An SMS / WhatsApp provider — enables APP-03/04, RID-03.
+1. Push notifications (FCM) and a notifications table — enables RID-06/20, OWN-18.
+2. An SMS / WhatsApp provider — enables RID-03.
 3. Online payments — enables "Pay online" in checkout.
 4. A small \`tenant_storefront\` table (banners, opening hours per branch, social links) — enables hero banners, "open now", the About screen. See BUILD-ORDER step 3.
 5. Whether the owner app stays a Capacitor shell over the web routes (fastest, what exists) or becomes native (better push, offline, performance; large rewrite).
@@ -241,9 +242,9 @@ The order the product owner asked for. Each step names the screens it implements
 | 1 | **Windows POS inner shell** — sidebar, top bar, dashboard | SW-02 (dashboard) and the shell around every SW screen | Nothing in the backend. Add a "Refined" theme and swap layout components; keep every route | Low. Theme + layout only; permission-filtered sidebar must keep working |
 | 2 | **Owner portal pages** | OWN-04/05/06/07/11 first (all on existing data), then OWN-13/14/15 | Nothing in the backend (desktop version already exists as Owner Management) | Low–medium. Phone shell: Capacitor over the existing routes |
 | 3 | **Customer order site** — header, drawer, hero, then pages | **First the data**: banners, opening hours, social links (a small additive table, nothing existing is changed), then WEB-01/02 | A **database backup confirmation** and your approval of the table | Medium: touches production schema (additive) |
-| 4 | **Phone apps inner screens** | Customer APP-05…16, Rider RID-04…13/16/17, Owner rest | Steps 2–3 for shared components | Medium |
-| 5 | **Customer app splash** | APP-01 (and onboarding APP-02) | Extend \`scripts/brand/build-brand-assets.mjs\` with the Customer icon/splash; the Android build must be run by you | Low |
-| 6 | **Needs-backend items** | APP-03/04/18, RID-03/06/14/20, OWN-18 | Decisions 1–4 in HANDOFF.md | Each is its own small project |
+| 4 | **Phone apps inner screens** | Rider RID-04…13/16/17, Order Taker, Owner rest | Steps 2–3 for shared components | Medium |
+| 5 | **Android icons and splash** for Owner, Order Taker, Rider | RID-01, OWN-01, Order Taker splash | Already generated by \`scripts/brand/build-brand-assets.mjs\` (v1.73.0); the Android build must be run by you | Low |
+| 6 | **Needs-backend items** | RID-03/06/14/20, OWN-18 | Decisions 1–4 in HANDOFF.md | Each is its own small project |
 
 Rules for every step: ship behind the existing tests, add tests for new pure logic, keep Lovable history intact (no force-push), and update \`docs/CHANGELOG.md\`.
 `);
@@ -259,9 +260,9 @@ Everything below was read from the repository (\`dtpos2026/digitaltarget.digital
 | Windows POS | \`dtpos-desktop\` (Electron 33 shell) loading the web app via \`app://\` | Offline store + sync; installer \`.exe\` NOT VERIFIED (never built on Windows by me) |
 | Web POS + all modules | \`src/\` (React 19, TanStack Start/Router, Tailwind 4, Supabase) | 32 themes (21 reference themes) |
 | Customer website | \`src/pages/OnlineOrderPage.tsx\`, route \`#/order/<restaurant>\`, tracking \`#/track\` | Guest checkout; cash on delivery / pay at pickup; no payment gateway |
-| Customer Android app | \`dtpos.apk\` (Capacitor shell, Customer flavour) | Splash/icon NOT yet applied; Android build NOT VERIFIED |
+| Customer Android app | \`capacitor.customer.config.json\` exists; nothing else | **Parked by the product owner** — customers order on the website; a branded multi-restaurant app comes later |
 | Rider app | \`src/pages/RiderAppPage.tsx\`, route \`#/rider-portal\`; Android shell in \`dtpos.apk\` | Username/phone + PIN + workspace code; no OTP; Go Live GPS pings; Google Maps links |
-| Order Taker app | \`src/pages/OrderTakerPortalPage.tsx\`, \`#/order-taker\` | Not redesigned in this package (not in the five products of the brief) |
+| Order Taker app | \`src/pages/OrderTakerPortalPage.tsx\`, \`#/order-taker\`; thin Android shell (\`capacitor.ordertaker.config.json\`) | One of the three APKs in scope: Owner, Order Taker, Rider |
 | Owner | \`OwnerLoginPage.tsx\`, \`OwnerManagementPage.tsx\`, \`OnlinePortalPage.tsx\`, \`DevicesPage.tsx\` | There is no separate owner mobile app today; the owner uses the web app |
 | Super Admin | \`SuperAdminPage.tsx\`, \`SuperAdminPortfolioPage.tsx\` … | Licences, portfolio; shares the brand system |
 
@@ -287,9 +288,10 @@ Screens are generated from structured specs (\`design-project/tools/screens-*.mj
 
 // ---------------------------------------------------------------- top-level README + index.html
 const tot = counts.reduce((a, c) => a + c[1], 0);
+const parkedTot = specs['customer-app'].screens.length;
 w('README.md', `# DT POS ecosystem — UI/UX design package
 
-${tot} screens across five products, one design system, six flow diagrams, an integration architecture and a developer handoff. Everything is generated from source (\`tools/\`) with Node ≥ 22.18 and Playwright. The tools import \`src/lib/brand.ts\`, so rebuilding needs the repository (this folder sits at its root as \`design-project/\`). Viewing the package needs only a browser. To rebuild:
+${tot} screens across the software, the ordering website and three Android apps (plus ${parkedTot} parked customer-app screens), one design system, six flow diagrams, an integration architecture and a developer handoff. Everything is generated from source (\`tools/\`) with Node ≥ 22.18 and Playwright. The tools import \`src/lib/brand.ts\`, so rebuilding needs the repository (this folder sits at its root as \`design-project/\`). Viewing the package needs only a browser. To rebuild:
 
 \`\`\`
 node design-project/tools/build.mjs        # all screens → HTML + PNG + gallery + SCREENS.md
@@ -304,12 +306,13 @@ Open **\`index.html\`** first.
 | 01 | design-system | tokens, measured contrast, components, light + dark |
 | 02 | restaurant-software | ${specs.software.screens.length} screens — Windows POS + web |
 | 03 | customer-website | ${specs.website.screens.length} screens + desktop variants |
-| 04 | customer-app | ${specs['customer-app'].screens.length} screens |
+| 05b | order-taker-app | ${specs['ordertaker-app'].screens.length} screens |
 | 05 | rider-app | ${specs['rider-app'].screens.length} screens |
 | 06 | owner-app | ${specs['owner-app'].screens.length} screens |
 | 07 | flows | 6 diagrams |
 | 08 | architecture | integration diagram + gaps |
 | 09 | handoff | handoff, screen map, components, build order |
+| 10 | future-customer-app | ${parkedTot} screens — **parked for later**, not in scope |
 
 ## Honesty notes
 - **Sample content only.** Names, prices and figures are placeholders.
@@ -317,13 +320,13 @@ Open **\`index.html\`** first.
 - **Not Figma.** The Figma connector was not used: a Figma file would need to be rebuilt by hand from these screens. The HTML screens are the source of truth; \`tokens.json\` is ready to import as Figma variables.
 - **Not built into the app yet.** This package is the design. Implementation follows \`09-handoff/BUILD-ORDER.md\`.
 - **Maps** are drawn as a labelled placeholder where the device map SDK goes.
-- **Order Taker app** is in the product but not in the brief's five; it takes the same system with the teal accent (tokens only).
+- **Customer app parked.** \`10-future-customer-app/\` keeps the design for a later branded, multi-restaurant app; it is not in the current scope, not counted in the totals, and nothing in the build depends on it.
 `);
 w('index.html', page(`<div style="padding:32px 40px;background:linear-gradient(135deg,#5b21b6,#3c096c);color:#fff"><div class="row g16">${U.mark(44, '#fff')}<div><div class="t-h1" style="color:#fff">DT POS ecosystem — design package</div><div style="opacity:.8">${tot} screens · 5 products · 1 design system · ${FLOWS.length} flows · architecture · handoff</div></div></div></div><div style="padding:28px 40px;display:grid;grid-template-columns:repeat(3,1fr);gap:16px">${[
   ['01-design-system/design-system.html', 'Design system', 'Colour, measured contrast, type, shape, icons, components', 'Palette'],
-  ...Object.values(specs).map(({ P, screens }) => [`${P.dir}/index.html`, P.title, `${screens.length} screens`, 'LayoutGrid']),
+  ...Object.values(specs).filter(({ screens }) => screens.length).map(({ P, screens }) => [`${P.dir}/index.html`, P.title, P.parked ? `${screens.length} screens — kept for later, not in scope` : `${screens.length} screens`, P.parked ? 'Archive' : 'LayoutGrid']),
   ['07-flows/flows.html', 'User flows', `${FLOWS.length} diagrams from the real statuses`, 'GitBranch'],
-  ['08-architecture/architecture.svg', 'Integration architecture', 'One cloud, five products, and what is missing', 'Network'],
+  ['08-architecture/architecture.svg', 'Integration architecture', 'One cloud, every product, and what is missing', 'Network'],
   ['09-handoff/HANDOFF.md', 'Developer handoff', 'Screen map, components, build order, gaps', 'FileText'],
   ['00-source-analysis/SOURCE-ANALYSIS.md', 'Source analysis', 'What the code and database really do', 'Search'],
 ].map(c => `<a href="${c[0]}" class="card col g8" style="text-decoration:none;color:inherit"><span class="avatar" style="border-radius:12px">${icon(c[3], 20)}</span><b class="t-h3">${c[1]}</b><span class="muted">${c[2]}</span></a>`).join('')}</div>`, 'DT design package'));

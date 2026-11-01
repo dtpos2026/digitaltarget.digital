@@ -200,12 +200,13 @@ describe('the model knows which branch a table is in', () => {
 });
 
 describe('the tracker recognises a dine-in order', () => {
+  // v1.75.0: the steps are worked out in one place, shared by the customer page and the software.
   const tracker = fs.readFileSync(
-    path.join(process.cwd(), 'src', 'pages', 'TrackOrderPage.tsx'), 'utf8');
+    path.join(process.cwd(), 'src', 'lib', 'trackingSteps.ts'), 'utf8');
 
   it("matches 'dining', which is what OrderType actually is", () => {
     // It compared against 'dine-in', which is not a member of the union, so
     // only the tableLabel fallback ever fired.
-    expect(tracker).toContain("(order as any).orderType === 'dining'");
+    expect(tracker).toContain("o.orderType === 'dining'");
   });
 });

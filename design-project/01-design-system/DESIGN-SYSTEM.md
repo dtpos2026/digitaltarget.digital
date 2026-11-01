@@ -1,6 +1,6 @@
 # DT design system
 
-One system for five products. Open `design-system.html` for the visual version (colour, measured contrast, type, spacing, shape, icons, statuses, components in light and dark, per-product accents).
+One system for the software, the ordering website and the three Android apps (Owner, Order Taker, Rider) — and for the parked customer app, if it is built later. Open `design-system.html` for the visual version (colour, measured contrast, type, spacing, shape, icons, statuses, components in light and dark, per-product accents).
 
 | File | What |
 |---|---|

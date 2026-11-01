@@ -1,10 +1,10 @@
 # User flows
 
-## FLOW-01 — Customer ordering — website and Android app
+## FLOW-01 — Customer ordering — the ordering website
 
-![Customer ordering — website and Android app](flow-01-customer-ordering.svg)
+![Customer ordering — the ordering website](flow-01-customer-ordering.svg)
 
-The same eight steps in both products. Guest checkout works today; a sign-in code and push notifications do not exist yet (dashed).
+Customers order on the website (no customer app). Guest checkout works today; a sign-in code and push notifications do not exist yet (dashed).
 
 ## FLOW-02 — Order lifecycle — every real status
 
