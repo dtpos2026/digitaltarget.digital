@@ -93,6 +93,7 @@ export function seedData(): AppData {
     ledger: [],
     dailyCashCloses: [],
     receivingEntries: [],
+    purchaseOrders: [],
     marketingContacts: [],
     recipes: [],
     wastages: [],

@@ -35,9 +35,9 @@ const STARTER_FEATURES = [
 
 const BUSINESS_FEATURES = [
   ...STARTER_FEATURES,
-  'variations', 'recipes', 'wastage', 'receiving',
+  'variations', 'recipes', 'wastage', 'receiving', 'procurement',
   'promo-codes', 'marketing', 'crm', 'customer-map',
-  'profitability', 'costing', 'reports-center',
+  'profitability', 'costing', 'reports-center', 'financials',
   // v1.64.0 — the owner's branch-by-branch view. It sits with `branches`
   // because it only earns its place once a restaurant has more than one.
   'riders', 'rider-app', 'branches', 'owner-management',

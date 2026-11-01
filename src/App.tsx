@@ -59,6 +59,8 @@ const VariationsDealsPage = lazy(() => import("@/pages/VariationsDealsPage"));
 const CrmInsightsPage = lazy(() => import("@/pages/CrmInsightsPage"));
 const OwnerManagementPage = lazy(() => import("@/pages/OwnerManagementPage"));
 const CostingReportsPage = lazy(() => import("@/pages/CostingReportsPage"));
+const FinancialStatementsPage = lazy(() => import("@/pages/FinancialStatementsPage"));
+const ProcurementPage = lazy(() => import("@/pages/ProcurementPage"));
 const CreditsPage = lazy(() => import("@/pages/CreditsPage"));
 const CreditCustomersPage = lazy(() => import("@/pages/CreditCustomersPage"));
 const PromoCodesPage = lazy(() => import("@/pages/PromoCodesPage"));
@@ -893,6 +895,8 @@ const App = () => {
                 <Route path="/owner" element={<OwnerManagementPage />} />
                 <Route path="/reports" element={<ReportsPage />} />
                 <Route path="/costing" element={<CostingReportsPage />} />
+                <Route path="/financials" element={<FinancialStatementsPage />} />
+                <Route path="/procurement" element={<ProcurementPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/printing-center" element={<PrintingCenterPage />} />
                 {/* Legacy printing routes now redirect into the Printing Center */}

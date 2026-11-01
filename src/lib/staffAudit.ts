@@ -25,7 +25,13 @@ export type AuditAction =
   | 'LOGIN'
   | 'LOGOUT'
   | 'RESTRICTED_BLOCKED'
-  | 'MANAGER_APPROVAL';
+  | 'MANAGER_APPROVAL'
+  // v1.79.0 — procurement
+  | 'PO_CREATED'
+  | 'PO_APPROVED'
+  | 'PO_SENT'
+  | 'PO_RECEIVED'
+  | 'PO_CANCELLED';
 
 export interface StaffAuditEntry {
   id: string;
@@ -61,6 +67,11 @@ export const AUDIT_ACTION_TITLES: Record<AuditAction, string> = {
   LOGOUT: 'Signed out',
   RESTRICTED_BLOCKED: 'Restricted action blocked',
   MANAGER_APPROVAL: 'Manager approved a restricted action',
+  PO_CREATED: 'Purchase order created',
+  PO_APPROVED: 'Purchase order approved',
+  PO_SENT: 'Purchase order sent to supplier',
+  PO_RECEIVED: 'Goods received against a purchase order',
+  PO_CANCELLED: 'Purchase order cancelled',
 };
 
 function readLocal(): StaffAuditEntry[] {

@@ -64,6 +64,7 @@ export const PAGES: PageDef[] = [
   { key: 'recipes',    path: '/recipes',    title: 'Recipes',    group: 'Inventory',  defaultRoles: ['admin', 'manager'] },
   { key: 'wastage',    path: '/wastage',    title: 'Wastage',    group: 'Inventory',  defaultRoles: ['admin', 'manager'] },
   { key: 'receiving',  path: '/receiving',  title: 'Receiving',  group: 'Inventory',  defaultRoles: ['admin', 'manager'] },
+  { key: 'procurement', path: '/procurement', title: 'Procurement', group: 'Inventory', defaultRoles: ['admin', 'manager'] },
 
   // Accounts
   { key: 'accounts',   path: '/accounts',   title: 'Accounts',   group: 'Accounts',   defaultRoles: ['admin', 'manager'] },
@@ -80,6 +81,7 @@ export const PAGES: PageDef[] = [
   { key: 'dashboard',  path: '/dashboard',  title: 'Dashboard',  group: 'Reports',    defaultRoles: ['admin', 'manager'] },
   { key: 'profitability', path: '/profitability', title: 'Profitability', group: 'Reports', defaultRoles: ['admin', 'manager'] },
   { key: 'costing',    path: '/costing',    title: 'Cost Reports', group: 'Reports', defaultRoles: ['admin', 'manager'] },
+  { key: 'financials', path: '/financials', title: 'Financial Statements', group: 'Reports', defaultRoles: ['admin'] },
   { key: 'reports',    path: '/reports',    title: 'Reports',    group: 'Reports',    defaultRoles: ['admin', 'manager'] },
   { key: 'reports-center', path: '/reports-center', title: 'Reports Center', group: 'Reports', defaultRoles: ['admin', 'manager'] },
   { key: 'advanced-reports', path: '/advanced-reports', title: 'Advanced Item/Variant Reports', group: 'Reports', defaultRoles: ['admin', 'manager'] },

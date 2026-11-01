@@ -1408,6 +1408,47 @@ export interface ReceivingEntry {
   date: string;
 }
 
+// ============= PROCUREMENT (v1.79.0) =============
+export type PoStatus = 'draft' | 'approved' | 'sent' | 'partial' | 'received' | 'cancelled';
+
+export interface PurchaseOrderLine {
+  id: string;
+  inventoryItemId: string;
+  itemName: string;
+  unit: string;              // purchase unit (Gatta, Bag, kg, ...)
+  quantity: number;          // ordered, in `unit`
+  rate: number;              // per `unit`
+  receivedQty: number;       // arrived so far, in `unit`
+}
+
+export interface PurchaseOrderReceipt {
+  at: string;
+  by: string;
+  extraCharges: number;      // freight / loading spread over the received lines
+  lines: { lineId: string; quantity: number }[];
+}
+
+export interface PurchaseOrder {
+  id: string;
+  number: string;            // PO-0001
+  supplierId: string;        // a Party of type 'supplier'
+  supplierName: string;
+  branchId?: string;
+  status: PoStatus;
+  lines: PurchaseOrderLine[];
+  expectedDate?: string;     // YYYY-MM-DD
+  notes?: string;
+  createdAt: string;
+  createdBy?: string;
+  approvedAt?: string;
+  approvedBy?: string;
+  sentAt?: string;
+  cancelledAt?: string;
+  cancelledBy?: string;
+  receipts?: PurchaseOrderReceipt[];
+  closedShort?: { at: string; by: string };
+}
+
 export interface MarketingContact {
   id: string;
   no: string;
@@ -1446,6 +1487,7 @@ export interface AppData {
   tokenRecords: TokenRecord[];
   // Operations
   receivingEntries: ReceivingEntry[];
+  purchaseOrders: PurchaseOrder[];
   marketingContacts: MarketingContact[];
   // Recipes & Wastage (Phase 4)
   recipes: Recipe[];

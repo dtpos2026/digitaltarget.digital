@@ -8,6 +8,7 @@ Not in this list: the Windows shell (`dtpos-desktop`) and the Android apps (`dtp
 
 ## Releases
 
+- **v1.79.0** · 2026-11-01 · Procurement (purchase orders, receive-against-PO, reorder suggestions) and Financial Statements (profit and loss, cash movement, payables/receivables ageing); evidence-based Technosys benchmark  `PENDING`
 - **v1.78.0** · 2026-11-01 · the offline POS's Theme Manager (Modern 13 + DT Retail 8 + Custom + accent colour), Modern sidebar, "More" launcher and Module Management in the cloud app; the Windows app closes properly and a second launch always surfaces the window  `9fcf6d6`
 - **v1.77.0** · 2026-11-01 · egress: a realtime event re-reads only the rows that changed (not the whole collection), and a rider's GPS is written every 15 s / 20 m instead of every fix  `6ebaeb5`
 - **v1.76.0** · 2026-11-01 · the Printing Center, fast printing, margins and printer detection of the offline POS (v1.21.0) brought across; Hold prints once; the Kitchen button no longer prints two KOTs  `be2f9b6`

@@ -448,7 +448,7 @@ const ARRAY_COLLECTIONS = [
   'categories', 'menuItems', 'orders', 'tables', 'floors', 'kitchens', 'waiters', 'riders', 'users',
   'inventory', 'stockLogs', 'employees', 'attendance', 'leaves', 'payslips', 'advances',
   'accountCategories', 'transactions', 'parties', 'ledger', 'dailyCashCloses',
-  'receivingEntries', 'marketingContacts', 'recipes', 'wastages', 'customers', 'branches',
+  'receivingEntries', 'purchaseOrders', 'marketingContacts', 'recipes', 'wastages', 'customers', 'branches',
   'creditPayments', 'promoCodes', 'paymentAccounts', 'deals', 'shifts', 'refunds',
 ] as const;
 
@@ -1362,6 +1362,7 @@ export function startSupabaseRealtime() {
           // collections, so they go through the normal collection reload too.
           scheduleReload('waiters');
           scheduleReload('riders');
+          scheduleReload('purchaseOrders');
         });
       if (generation !== sbRealtimeGeneration) {
         try { sb().removeChannel(channel); } catch {}
@@ -3787,7 +3788,7 @@ export function savePaymentAccount(a: PaymentAccount) { saveEntity('paymentAccou
 export function deletePaymentAccount(id: string) { deleteEntity('paymentAccounts' as any, id); }
 
 // ============ Receiving (GRN) ============
-import type { ReceivingEntry, MarketingContact } from './types';
+import type { ReceivingEntry, MarketingContact, PurchaseOrder } from './types';
 import { toBaseQty, getBaseUnit } from './units';
 
 export function getReceivingEntries(): ReceivingEntry[] { return loadData().receivingEntries || []; }
@@ -3868,6 +3869,13 @@ export function saveReceivingEntry(e: ReceivingEntry) {
 }
 
 export function deleteReceivingEntry(id: string) { deleteEntity('receivingEntries', id); }
+
+// ============ Purchase orders (v1.79.0) ============
+// Stored in the backend document store (module_documents, kind 'purchaseOrders'): no table of its own, and tenant isolation is
+// the same RLS policy every other document module relies on.
+export function getPurchaseOrders(): PurchaseOrder[] { return loadData().purchaseOrders || []; }
+export function savePurchaseOrder(po: PurchaseOrder) { saveEntity('purchaseOrders', po); }
+export function deletePurchaseOrder(id: string) { deleteEntity('purchaseOrders', id); }
 
 // ============ Marketing ============
 export function getMarketingContacts(): MarketingContact[] { return loadData().marketingContacts || []; }
