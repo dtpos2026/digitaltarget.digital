@@ -226,3 +226,47 @@ export function labelPageCount(totalLabels: number, cfg: LabelSheetConfig, rowsP
   const perPage = Math.max(1, cfg.columns * rowsPerPage);
   return Math.ceil(Math.max(0, totalLabels) / perPage);
 }
+
+/**
+ * Keyboard-wedge barcode scanner listener.
+ * A scanner types much faster than a human — this speed is what
+ * identifies it, so it doesn't conflict with normal typing.
+ */
+export function attachBarcodeScanner(
+  onScan: (code: string) => void,
+  opts: { minLength?: number; maxKeyGapMs?: number } = {},
+): () => void {
+  const minLength = opts.minLength ?? 4;
+  const maxGap = opts.maxKeyGapMs ?? 40; // faster than 40ms = machine
+  let buf = '';
+  let lastAt = 0;
+
+  const handler = (e: KeyboardEvent) => {
+    // Don't interfere if the user is typing in a text field —
+    // unless it's our own scan-input field.
+    const el = document.activeElement as HTMLElement | null;
+    const inField = el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || (el as any).isContentEditable);
+    const isScanField = el?.getAttribute?.('data-barcode-input') === 'true';
+    if (inField && !isScanField) return;
+
+    const now = Date.now();
+    if (now - lastAt > maxGap) buf = ''; // large gap = new (human) typing
+    lastAt = now;
+
+    if (e.key === 'Enter') {
+      if (buf.length >= minLength) {
+        const code = buf;
+        buf = '';
+        onScan(code);
+        e.preventDefault();
+      }
+      buf = '';
+      return;
+    }
+    if (e.key.length === 1) buf += e.key;
+    if (buf.length > 64) buf = '';
+  };
+
+  window.addEventListener('keydown', handler, true);
+  return () => window.removeEventListener('keydown', handler, true);
+}

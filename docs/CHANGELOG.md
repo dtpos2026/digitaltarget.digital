@@ -8,6 +8,7 @@ Not in this list: the Windows shell (`dtpos-desktop`) and the Android apps (`dtp
 
 ## Releases
 
+- **v1.76.0** · 2026-11-01 · the Printing Center, fast printing, margins and printer detection of the offline POS (v1.21.0) brought across; Hold prints once; the Kitchen button no longer prints two KOTs  `(this release)`
 - **v1.75.0** · 2026-11-01 · the All Categories grid in the POS, one tracking view for the customer's page and the software, a Delivery Board that follows the store, rider Go Live reminder  `bc93e8d`
 - **v1.74.0** · 2026-10-31 · the animated welcome splash on web and Windows, a boot screen in the restaurant's colour before it, and a window that no longer flashes slate  `a81faf7`
 - **v1.73.0** · 2026-10-31 · the brand system: one source, shared components, role icons for the phone apps, a brand guide and an Android drop-in kit  `2ec0595`

@@ -34,7 +34,7 @@ import LocationCapture from '@/components/LocationCapture';
 const PaymentDialog = lazy(() => import('@/components/PaymentDialog'));
 import WeightPanel from '@/components/WeightPanel';
 import type { WeightLine } from '@/lib/weightPricing';
-import { enqueueKot, enqueueReceipt, enqueueKotUpdate, enqueueKotCancel, computeKotDiff, enqueueKotByPolicy } from '@/lib/printQueue';
+import { enqueueKot, enqueueReceipt, enqueueKotUpdate, enqueueKotCancel, computeKotDiff, enqueueKotByPolicy, printOnHold, holdMessage, kotRecentlyQueued } from '@/lib/printQueue';
 import BillingStatusBar from '@/components/BillingStatusBar';
 import { useRestrictedAction } from '@/components/RestrictedActionGate';
 import { logStaffAction } from '@/lib/staffAudit';
@@ -82,6 +82,19 @@ export default function POSScreen() {
   const [showReceipt, setShowReceipt] = useState(false);
   const [lastOrder, setLastOrder] = useState<Order | null>(null);
   const [showKitchenReceipt, setShowKitchenReceipt] = useState(false);
+  // v1.76.0 (ported from v1.21.0) — whether the Kitchen Slip window prints by itself when it opens. It must not when the
+  // print queue has just sent this order's KOT: the Kitchen button queues the ticket and then opened a window that
+  // printed the same ticket a second time, outside the queue's duplicate guards.
+  const [kitchenSlipAuto, setKitchenSlipAuto] = useState(true);
+  const lastOrderIdRef = useRef('');
+  const lastOrderKotSentRef = useRef(false);
+  // Every place that shows an order's slips goes through here, so the window always knows WHICH order it is about
+  // (React state is stale inside the handler that has just saved it).
+  const rememberLastOrder = (o: Order | null) => { lastOrderIdRef.current = o?.id || ''; lastOrderKotSentRef.current = !!o?.kotPrinted; setLastOrder(o); };
+  const openKitchenSlip = () => {
+    setKitchenSlipAuto(!kotRecentlyQueued(lastOrderIdRef.current) && !lastOrderKotSentRef.current);
+    setShowKitchenReceipt(true);
+  };
   const [pendingKitchenReceipt, setPendingKitchenReceipt] = useState(false);
   const [showDeliveryDialog, setShowDeliveryDialog] = useState(false);
   const [custName, setCustName] = useState('');
@@ -857,7 +870,7 @@ export default function POSScreen() {
           }
         }
 
-        setLastOrder(updated);
+        rememberLastOrder(updated);
         if (status === 'paid') {
           try { enqueueReceipt(updated, { force: true }); } catch {}
           setShowReceipt(true);
@@ -872,6 +885,9 @@ export default function POSScreen() {
           toast.info(`Order #${updated.orderNumber} marked complimentary`);
         } else if (status === 'cancelled') {
           toast.info(`Order #${updated.orderNumber} cancelled`);
+        } else if (status === 'hold' && existing.status !== 'hold') {
+          // v1.76.0 — entering Hold from an edit prints the bill once (the KOT diff above already covered the kitchen).
+          toast.success(holdMessage(updated.orderNumber, printOnHold(updated, { kot: false })));
         } else {
           toast.info(`Order #${updated.orderNumber} updated & held`);
         }
@@ -970,7 +986,7 @@ export default function POSScreen() {
       }
     }
 
-    setLastOrder(order);
+    rememberLastOrder(order);
     // ===== Centralized one-phase printing =====
     const role = localStorage.getItem('pos-user-role') || '';
     const isOrderTaker = role === 'order_taker';
@@ -1004,7 +1020,8 @@ export default function POSScreen() {
       const due = Math.max(0, (order.grandTotal || 0) - (order.amountPaid || 0));
       toast.success(`Order #${order.orderNumber} — Partial paid ${money((order.amountPaid||0))} · Pending ${money(due)}`);
     } else if (status === 'hold') {
-      toast.info(`Order #${order.orderNumber} on hold`);
+      // v1.76.0 — a bill saved straight to Hold used to print nothing. Bill + (if it never reached the kitchen) KOT, once.
+      toast.success(holdMessage(order.orderNumber, printOnHold(order, { kot: !isOrderTaker })));
     } else if (isOrderTaker) {
       toast.success(`Order #${order.orderNumber} sent to the kitchen ✅`);
     } else {
@@ -1074,7 +1091,7 @@ export default function POSScreen() {
     // and let the cashier keep adding items — they'll process later.
     if (cart.length > 0) {
       await processOrder('running');
-      if (pendingKitchenReceipt) { setShowKitchenReceipt(true); setPendingKitchenReceipt(false); }
+      if (pendingKitchenReceipt) { openKitchenSlip(); setPendingKitchenReceipt(false); }
     } else if (selectedTable) {
       setPendingKitchenReceipt(false);
       toast.success('Table selected — add items to start order');
@@ -1085,7 +1102,7 @@ export default function POSScreen() {
     setShowDeliveryDialog(false);
     if (cart.length > 0) {
       await processOrder('running');
-      if (pendingKitchenReceipt) { setShowKitchenReceipt(true); setPendingKitchenReceipt(false); }
+      if (pendingKitchenReceipt) { openKitchenSlip(); setPendingKitchenReceipt(false); }
     } else if (custName) {
       setPendingKitchenReceipt(false);
       toast.success('Customer saved — add items to start order');
@@ -1163,7 +1180,11 @@ export default function POSScreen() {
       try { enqueueKotCancel(updated); } catch {}
     }
     setRunningBills(prev => sortOrdersNewestFirst(prev.map(o => o.id === order.id ? updated : o).filter(o => o.status === 'running' || o.status === 'hold')));
-    toast.success(`Bill #${order.orderNumber} marked as ${status}`);
+    if (status === 'hold' && order.status !== 'hold') {
+      toast.success(holdMessage(order.orderNumber, printOnHold(updated)));
+    } else {
+      toast.success(`Bill #${order.orderNumber} marked as ${status}`);
+    }
   };
 
 
@@ -1202,7 +1223,7 @@ export default function POSScreen() {
       if (t) saveTable(releasedTable(t, updated));   // v1.15.1 — clears the dine timer too
     }
     setRunningBills(prev => prev.filter(o => o.id !== order.id));
-    setLastOrder(updated);
+    rememberLastOrder(updated);
     setShowReceipt(true);
     toast.success(`Bill #${order.orderNumber} paid — ${method}`);
   };
@@ -1996,9 +2017,9 @@ export default function POSScreen() {
                     return;
                   }
                   await processOrder('running');
-                  setShowKitchenReceipt(true);
+                  openKitchenSlip();
                 } else if (lastOrder) {
-                  setShowKitchenReceipt(true);
+                  openKitchenSlip();
                 }
               }}
               className="h-9 rounded-lg bg-accent/50 border border-border/50 text-xs font-black hover:bg-accent transition-all flex items-center justify-center gap-1.5 active:scale-[0.98]"
@@ -2036,7 +2057,7 @@ export default function POSScreen() {
                     notes: '',
                     customer: (custName || custPhone) ? { id: 'tmp', name: custName, phone: custPhone, address: custAddress } : undefined,
                   };
-                  setLastOrder(tempOrder);
+                  rememberLastOrder(tempOrder);
                   setShowReceipt(true);
                 }
               }}
@@ -2381,12 +2402,17 @@ export default function POSScreen() {
                 🧾 Customer Receipt
               </button>
               <button
-                onClick={() => { setShowKitchenReceipt(true); setShowReceipt(false); }}
+                onClick={() => { openKitchenSlip(); setShowReceipt(false); }}
                 className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors ${showKitchenReceipt && !showReceipt ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-accent'}`}
               >
                 🍳 Kitchen Slip
               </button>
             </div>
+          )}
+          {lastOrder && showKitchenReceipt && !kitchenSlipAuto && (
+            <p data-kot-already-sent className="mb-2 rounded-md border border-status-success/30 bg-status-success/10 px-3 py-2 text-[11px] text-foreground">
+              This order's KOT was sent to the kitchen printer. Press <b>Print</b> below only if you need another copy.
+            </p>
           )}
           {lastOrder && showReceipt && !showKitchenReceipt && (
             // v1.2.4 DOUBLE-PRINT FIX: the print queue already printed this
@@ -2396,9 +2422,8 @@ export default function POSScreen() {
             <ReceiptPreview key={`rcpt-${lastOrder.id}`} order={lastOrder} settings={settings} />
           )}
           {lastOrder && showKitchenReceipt && !showReceipt && (
-            // autoPrint ONLY when the queue didn't handle it (manual send-to-kitchen
-            // mode) — kotPrinted is stamped at enqueue, so this can't double-print.
-            <KitchenReceipt key={`kot-${lastOrder.id}`} order={lastOrder} settings={settings} autoPrint={!lastOrder.kotPrinted} />
+            // autoPrint ONLY when the queue didn't handle it (manual send-to-kitchen mode) — see openKitchenSlip.
+            <KitchenReceipt key={`kot-${lastOrder.id}`} order={lastOrder} settings={settings} autoPrint={kitchenSlipAuto} />
           )}
           {/* Combined mode: receipt visible + KOT auto-prints as separate cut job (staggered) */}
           {lastOrder && showReceipt && showKitchenReceipt && (
@@ -2406,7 +2431,7 @@ export default function POSScreen() {
               {/* v1.2.4: queue already prints paid receipts — no dialog autoPrint. */}
               <ReceiptPreview key={`rcpt-${lastOrder.id}`} order={lastOrder} settings={settings} />
               <div style={{ position: 'absolute', left: '-99999px', top: 0, width: 1, height: 1, overflow: 'hidden' }} aria-hidden="true">
-                <KitchenReceipt key={`kot-${lastOrder.id}`} order={lastOrder} settings={settings} autoPrint={!lastOrder.kotPrinted} autoPrintDelayMs={1800} showPrintButton={false} />
+                <KitchenReceipt key={`kot-${lastOrder.id}`} order={lastOrder} settings={settings} autoPrint={kitchenSlipAuto} autoPrintDelayMs={1800} showPrintButton={false} />
               </div>
             </>
           )}
@@ -2537,7 +2562,7 @@ export default function POSScreen() {
                               Pay
                             </Button>
                             <Button size="sm" variant="outline" className="h-8 text-[10px] px-2"
-                              onClick={() => { setLastOrder(order); setShowReceipt(true); }}>
+                              onClick={() => { rememberLastOrder(order); setShowReceipt(true); }}>
                               Print
                             </Button>
                             {isRunning ? (

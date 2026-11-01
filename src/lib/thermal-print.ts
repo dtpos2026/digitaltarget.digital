@@ -1,6 +1,6 @@
 // ============================================================
 // LEGACY shim — kept for backward compatibility.
-// All real logic now lives in src/printing/*.
+// All real logic now lives in the src/printing folder.
 // New code should import from '@/printing' directly.
 //
 // The previous implementation forced a minimum page height
@@ -10,36 +10,16 @@
 import type { RestaurantSettings } from './types';
 import { buildPrintCss as buildCss, injectPrintCss, paperWidthToMicrons, paperWidthToMm } from '@/printing';
 import type { PaperSize } from '@/printing';
-import { loadPrintMargins, hasDevicePrintMargins } from '@/lib/printMargins';
+import { loadPrintMargins, hasDevicePrintMargins, DEFAULT_MARGINS } from '@/lib/printMargins';
 
-// ============================================================
-// v1.5.0 — TOP-FEED / MARGIN GUARDRAIL
-//
-// Reported: "top margin bohot zyada feed kar raha hai" — a receipt with a
-// huge blank gap before the first line. Root cause: nothing in the print
-// pipeline ever capped how large a top-margin/top-feed value could be.
-// The old clamp allowed up to 30mm (over an inch), the per-printer
-// "Top Feed (mm)" field in Printer Settings had NO limit at all, and two
-// different screens enforced two different maximums (6mm vs 30mm) — so a
-// single typo (e.g. "30" instead of "3") silently produced exactly this.
-//
-// MAX_TOP_MARGIN_MM is now the ONE ceiling every top-margin/top-feed value
-// in the app is clamped to, and out-of-range values already saved on a
-// device are corrected the next time they're read (self-healing) — the
-// restaurant does not have to find and fix the setting themselves.
-// ============================================================
-export const MAX_TOP_MARGIN_MM = 10;
-
-function safeMm(value: unknown, fallback: number, max = 20) {
+function safeMm(value: unknown, fallback: number, max = 100) {
   return typeof value === 'number' && Number.isFinite(value)
-    ? Math.max(0, Math.min(max, value))
+    ? Math.max(-max, Math.min(max, value))
     : fallback;
 }
 
-/** Clamp any top-margin/top-feed number to the shared safe ceiling. */
-export function clampTopMarginMm(value: unknown, fallback = 0): number {
-  return safeMm(value, fallback, MAX_TOP_MARGIN_MM);
-}
+function positiveMm(value: number) { return Math.max(0, value); }
+function offsetMm(value: number) { return Math.min(0, value); }
 
 export function getThermalPaperWidthMicrons(paperWidth: RestaurantSettings['paperSize']) {
   return paperWidthToMicrons((paperWidth || '80mm') as PaperSize);
@@ -50,50 +30,197 @@ export function getPaperWidthMm(paperWidth: RestaurantSettings['paperSize']) {
 }
 
 export function getEffectiveReceiptMargins(settings: RestaurantSettings) {
-  // v1.57.0 — AUTO when this device has set no margins of its own, MANUAL
-  // when it has.
-  //
-  // This used to read `deviceMargins.left ?? settings.receiptMarginLeft`, but
-  // loadPrintMargins() always returns numbers, so the right-hand side was
-  // unreachable and every receipt preset's margins were dead. See
-  // hasDevicePrintMargins() for the full note.
-  //
-  // A device that HAS been tuned keeps winning, including when it was tuned
-  // to 0 — "0mm" is a decision, not a missing value, and the Printing Center
-  // offers it as a button.
+  // AUTO when this device has set no margins of its own, MANUAL when it has (cloud app, v1.57.0). The device value
+  // used to be read with `??`, but loadPrintMargins() always returns numbers, so the preset on the right-hand side was
+  // never reached and none of the Compact / Standard / Bold presets ever touched the paper. A device that HAS been
+  // tuned keeps winning, including when tuned to 0: "0 mm" is a decision, not a missing value.
   const manual = hasDevicePrintMargins();
   const deviceMargins = loadPrintMargins();
-  const pick = (device: number, fromSettings: unknown, fallback: number, max: number) =>
-    manual ? safeMm(device, fallback, max) : safeMm(fromSettings, fallback, max);
-
+  const pick = (device: number, fromSettings: unknown, fallback: number) =>
+    manual ? safeMm(device, fallback, 100) : safeMm(fromSettings, fallback, 100);
+  // A positive top margin has one ceiling (the cloud app's guard): a single typo — "30" for "3" — once ejected a blank
+  // strip of paper before every receipt. A NEGATIVE top (the v1.21.0 offset that pulls the slip up) is untouched.
+  const topRaw = manual ? deviceMargins.top : settings.receiptMarginTop;
+  const top = safeMm(topRaw, 0, 100);
   return {
-    // Top margin uses the tight shared ceiling — this is the value that
-    // caused the reported "too much blank paper before the receipt" bug.
-    top: manual
-      ? clampTopMarginMm(deviceMargins.top, 0)
-      : clampTopMarginMm(settings.receiptMarginTop, 0),
-    bottom: pick(deviceMargins.bottom, settings.receiptMarginBottom, 0, 30),
-    left:   pick(deviceMargins.left,   settings.receiptMarginLeft,   4, 30),
-    right:  pick(deviceMargins.right,  settings.receiptMarginRight,  4, 30),
+    top: top > 0 ? Math.min(MAX_TOP_MARGIN_MM, top) : top,
+    bottom: pick(deviceMargins.bottom, settings.receiptMarginBottom, 0),
+    left: pick(deviceMargins.left, settings.receiptMarginLeft, DEFAULT_MARGINS.left),
+    right: pick(deviceMargins.right, settings.receiptMarginRight, DEFAULT_MARGINS.right),
   };
 }
 
+/** No longer used to fix a page height — kept returning undefined so
+ *  callers fall back to `usePrinterDefaultPageSize: true` (auto height). */
+export function getThermalPrintJobHeightMm(rootEl: HTMLElement | null, _settings: RestaurantSettings): number | undefined {
+  // OLD-POS PORT: measure the content's actual height and send it as the
+  // page height — this makes the print start from the top and avoids extra
+  // blank feed after the receipt (the page is exactly as long as the
+  // content). Formula from the old software: px @96dpi → mm, +2mm safety, min 20mm.
+  // Callers hand over either the receipt or the portal that wraps it; measure the receipt itself (cloud app's
+  // findReceiptEl, below) so the wrapper's own box never stands in for the slip.
+  const el = findReceiptEl(rootEl);
+  if (!el || typeof el.getBoundingClientRect !== 'function') return undefined;
+  try {
+    const rect = el.getBoundingClientRect();
+    const px = Math.max(rect?.height || 0, el.scrollHeight || 0);
+    if (!px || px < 4) return undefined;
+    // +4mm slack — fonts/logo may grow slightly in the final render;
+    // the page being a few mm larger is fine, smaller means page-2 spill.
+    // The ceiling is the cloud app's guard (not in v1.21.0): a runaway measurement must never become a page size of
+    // many metres. No real slip comes near it.
+    return Math.min(1500, Math.max(20, Math.ceil((px / 96) * 25.4) + 4));
+  } catch { return undefined; }
+}
+
+export function measureThermalContentHeightMm(rootEl: HTMLElement | null, settings: RestaurantSettings, min = 18): number | undefined {
+  const h = getThermalPrintJobHeightMm(rootEl, settings);
+  return h == null ? undefined : Math.max(min, h);
+}
+
+export function shouldUsePrinterDefaultPageSize(_settings: RestaurantSettings) {
+  // OLD-POS PORT: always FALSE — an explicit pageSize (width + measured height)
+  // is sent for every print. Relying on the driver-default page was the root
+  // cause of top-offset, uneven margins, and extra blank feed.
+  return false;
+}
+
+/**
+ * Longest a slip may legitimately hold the POS in print mode. While
+ * `thermal-printing` is on the body the print CSS hides the whole POS UI, so
+ * if a cleanup is ever missed the cashier is left staring at a white screen
+ * with a slip in the corner and has to restart the app. Every session now
+ * carries its own watchdog as a last line of defence — cleanup is still done
+ * properly by the callers' `finally` blocks, this only catches the
+ * impossible case.
+ */
+const PRINT_SESSION_WATCHDOG_MS = 15000;
+
+/** Force the POS out of print mode, whatever left it there. */
+export function forceExitThermalPrintMode() {
+  if (typeof document === 'undefined') return;
+  const body = document.body;
+  body.classList.remove('thermal-printing');
+  body.classList.remove('thermal-compact');
+  body.classList.remove('thermal-compact-shrink-logo');
+  delete body.dataset.printActive;
+  document.querySelectorAll('.receipt-print-portal[data-active-print]')
+    .forEach(el => el.removeAttribute('data-active-print'));
+}
+
+export function prepareThermalPrintSession(rootEl: HTMLElement | null, compact: boolean = false) {
+  if (typeof document === 'undefined') return () => {};
+  const body = document.body;
+  const portal = rootEl?.closest('.receipt-print-portal') as HTMLElement | null;
+  body.classList.add('thermal-printing');
+  if (compact) body.classList.add('thermal-compact');
+  body.dataset.printActive = 'true';
+  if (portal) portal.dataset.activePrint = 'true';
+
+  let done = false;
+  const cleanup = () => {
+    if (done) return;
+    done = true;
+    clearTimeout(watchdog);
+    body.classList.remove('thermal-printing');
+    body.classList.remove('thermal-compact');
+    delete body.dataset.printActive;
+    if (portal) delete portal.dataset.activePrint;
+  };
+  const watchdog = setTimeout(() => {
+    if (done) return;
+    console.warn('[DT-Print] print session watchdog fired — restoring the POS screen');
+    cleanup();
+    forceExitThermalPrintMode();
+  }, PRINT_SESSION_WATCHDOG_MS);
+
+  return cleanup;
+}
+
+function applyPrintMarginVariables(rootEl: HTMLElement | null, settings?: RestaurantSettings) {
+  if (!rootEl || !settings) return;
+  const margins = getEffectiveReceiptMargins(settings);
+  rootEl.style.setProperty('--dt-print-padding-top', `${positiveMm(margins.top)}mm`);
+  rootEl.style.setProperty('--dt-print-padding-bottom', `${positiveMm(margins.bottom)}mm`);
+  rootEl.style.setProperty('--dt-print-padding-left', `${positiveMm(margins.left)}mm`);
+  rootEl.style.setProperty('--dt-print-padding-right', `${positiveMm(margins.right)}mm`);
+  rootEl.style.setProperty('--dt-print-offset-top', `${offsetMm(margins.top)}mm`);
+  rootEl.style.setProperty('--dt-print-offset-left', `${offsetMm(margins.left)}mm`);
+  rootEl.style.setProperty('--dt-print-offset-right', `${offsetMm(margins.right)}mm`);
+  rootEl.style.setProperty('--dt-print-offset-bottom', `${offsetMm(margins.bottom)}mm`);
+  // Compact mode tuning (user-set from Settings)
+  const s = settings as any;
+  const fs = typeof s.receiptCompactFontSize === 'number' ? Math.max(10, Math.min(16, s.receiptCompactFontSize)) : 12;
+  const lh = typeof s.receiptCompactLineHeight === 'number' ? Math.max(1, Math.min(2, s.receiptCompactLineHeight)) : 1.12;
+  rootEl.style.setProperty('--dt-compact-font-size', `${fs}px`);
+  rootEl.style.setProperty('--dt-compact-line-height', `${lh}`);
+}
+
+export function beginThermalPrintDomSession(
+  rootEl: HTMLElement | null,
+  paperWidth: NonNullable<RestaurantSettings['paperSize']>,
+  _heightMm?: number,
+  settings?: RestaurantSettings,
+) {
+  applyPrintMarginVariables(rootEl, settings);
+  const compact = !!(settings as any)?.receiptCompactMode || (settings as any)?.receiptDesign === 'compact-thermal';
+  const shrinkLogo = compact && (settings as any)?.receiptCompactPreserveLogo === false;
+  if (typeof document !== 'undefined') {
+    if (shrinkLogo) document.body.classList.add('thermal-compact-shrink-logo');
+    else document.body.classList.remove('thermal-compact-shrink-logo');
+  }
+  const removeStyle = injectPrintCss(paperWidth as PaperSize, compact);
+  const cleanupSession = prepareThermalPrintSession(rootEl, compact);
+  return () => {
+    cleanupSession();
+    removeStyle();
+    if (typeof document !== 'undefined') document.body.classList.remove('thermal-compact-shrink-logo');
+  };
+}
+
+/**
+ * Wait until the receipt is actually laid out and painted.
+ *
+ * Callers used to follow this with a flat `await sleep(150)` because a
+ * freshly injected print stylesheet could still be settling and the printer
+ * would capture a blank page. A fixed sleep is both too slow on a healthy
+ * machine and too short on a loaded one, so it now waits for the things that
+ * really matter: two animation frames (style + layout), webfonts (the usual
+ * cause of a late reflow on a thermal slip), then one more frame to paint.
+ * On a warm cache this returns in well under a frame's time.
+ */
+export function waitForThermalPrintLayout(): Promise<void> {
+  const frame = () => new Promise<void>(r => requestAnimationFrame(() => r()));
+  const fonts = (): Promise<void> => {
+    const f: any = typeof document !== 'undefined' ? (document as any).fonts : null;
+    if (!f?.ready) return Promise.resolve();
+    // Never let a stuck font loader hold a print job.
+    return Promise.race([
+      f.ready.then(() => undefined),
+      new Promise<void>(r => setTimeout(r, 250)),
+    ]);
+  };
+  return frame().then(frame).then(fonts).then(frame);
+}
+
+export function buildThermalPrintCss(paperWidth: NonNullable<RestaurantSettings['paperSize']>, _heightMm?: number, compact: boolean = false) {
+  return buildCss(paperWidth as PaperSize, compact);
+}
+
 // ============================================================
-// Blank-Receipt Fix v1.2.3 — exact content-height measurement.
-//
-// Why: Electron's silent print previously went out with either a forced
-// 500mm page (long blank feed / driver scale-to-fit -> BLANK output on
-// several thermal drivers) or no height at all. Measuring the rendered
-// receipt and sending its exact height means the printer feeds precisely
-// as much paper as the content needs.
-//
-// Measurement must run while the thermal-print DOM session is active
-// (portal visible at real mm width) and AFTER fonts/images have loaded.
+// Kept from the cloud app's own thermal-print.ts (not in v1.21.0): the blank-content guard, the asset wait that the
+// token slip uses, and the one ceiling for a top margin — a single typo ("30" for "3") once ejected a blank strip
+// of paper before every receipt, so the Settings screen clamps what a person types. The engine's own margin maths
+// above is v1.21.0's, unchanged.
 // ============================================================
-const PX_PER_MM = 96 / 25.4; // CSS px per mm (96 DPI CSS)
-const HEIGHT_BUFFER_MM = 4;  // safety so descenders/borders never clip
-const MIN_HEIGHT_MM = 25;
-const MAX_HEIGHT_MM = 1500;
+export const MAX_TOP_MARGIN_MM = 10;
+
+/** Clamp any top-margin / top-feed number typed by a person to the shared safe ceiling. */
+export function clampTopMarginMm(value: unknown, fallback = 0): number {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.max(0, Math.min(MAX_TOP_MARGIN_MM, value))
+    : fallback;
+}
 
 function findReceiptEl(rootEl: HTMLElement | null): HTMLElement | null {
   if (!rootEl) return null;
@@ -101,25 +228,6 @@ function findReceiptEl(rootEl: HTMLElement | null): HTMLElement | null {
   return (rootEl.querySelector?.('.print-receipt') as HTMLElement | null)
     || (rootEl.closest?.('.print-receipt') as HTMLElement | null)
     || rootEl;
-}
-
-export function measureThermalContentHeightMm(rootEl: HTMLElement | null, _settings: RestaurantSettings, min = MIN_HEIGHT_MM): number | undefined {
-  try {
-    const el = findReceiptEl(rootEl);
-    if (!el) return undefined;
-    // scrollHeight includes padding (print margins are applied as padding)
-    const px = Math.max(el.scrollHeight || 0, el.offsetHeight || 0, Math.ceil(el.getBoundingClientRect().height || 0));
-    if (!px || !Number.isFinite(px)) return undefined;
-    const mm = px / PX_PER_MM + HEIGHT_BUFFER_MM;
-    if (mm <= 1) return undefined;
-    return Math.max(min, Math.min(MAX_HEIGHT_MM, Math.ceil(mm)));
-  } catch {
-    return undefined;
-  }
-}
-
-export function getThermalPrintJobHeightMm(rootEl: HTMLElement | null, settings: RestaurantSettings): number | undefined {
-  return measureThermalContentHeightMm(rootEl, settings);
 }
 
 /**
@@ -167,97 +275,3 @@ export function hasPrintableContent(rootEl: HTMLElement | null): boolean {
   }
 }
 
-export function shouldUsePrinterDefaultPageSize(_settings: RestaurantSettings) {
-  // Always true — dynamic height is the rule.
-  return true;
-}
-
-export function prepareThermalPrintSession(rootEl: HTMLElement | null, compact: boolean = false) {
-  if (typeof document === 'undefined') return () => {};
-  const body = document.body;
-  const portal = rootEl?.closest('.receipt-print-portal') as HTMLElement | null;
-  body.classList.add('thermal-printing');
-  if (compact) body.classList.add('thermal-compact');
-  body.dataset.printActive = 'true';
-  if (portal) portal.dataset.activePrint = 'true';
-  return () => {
-    body.classList.remove('thermal-printing');
-    body.classList.remove('thermal-compact');
-    delete body.dataset.printActive;
-    if (portal) delete portal.dataset.activePrint;
-  };
-}
-
-function applyPrintMarginVariables(rootEl: HTMLElement | null, settings?: RestaurantSettings) {
-  if (!rootEl || !settings) return;
-  const margins = getEffectiveReceiptMargins(settings);
-  rootEl.style.setProperty('--dt-print-padding-top', `${margins.top}mm`);
-  rootEl.style.setProperty('--dt-print-padding-bottom', `${margins.bottom}mm`);
-  rootEl.style.setProperty('--dt-print-padding-left', `${margins.left}mm`);
-  rootEl.style.setProperty('--dt-print-padding-right', `${margins.right}mm`);
-  // Compact mode tuning (user-set from Settings)
-  const s = settings as any;
-  const fs = typeof s.receiptCompactFontSize === 'number' ? Math.max(8, Math.min(16, s.receiptCompactFontSize)) : 11;
-  const lh = typeof s.receiptCompactLineHeight === 'number' ? Math.max(1, Math.min(2, s.receiptCompactLineHeight)) : 1.15;
-  rootEl.style.setProperty('--dt-compact-font-size', `${fs}px`);
-  rootEl.style.setProperty('--dt-compact-line-height', `${lh}`);
-}
-
-export function beginThermalPrintDomSession(
-  rootEl: HTMLElement | null,
-  paperWidth: NonNullable<RestaurantSettings['paperSize']>,
-  _heightMm?: number,
-  settings?: RestaurantSettings,
-) {
-  applyPrintMarginVariables(rootEl, settings);
-  const compact = !!(settings as any)?.receiptCompactMode || (settings as any)?.receiptDesign === 'compact-thermal';
-  const shrinkLogo = compact && (settings as any)?.receiptCompactPreserveLogo === false;
-  if (typeof document !== 'undefined') {
-    if (shrinkLogo) document.body.classList.add('thermal-compact-shrink-logo');
-    else document.body.classList.remove('thermal-compact-shrink-logo');
-  }
-  const removeStyle = injectPrintCss(paperWidth as PaperSize, compact);
-  const cleanupSession = prepareThermalPrintSession(rootEl, compact);
-  // ===== v1.2.4 WHITE-SCREEN FIX =====
-  // If ANY print path throws between session start and cleanup (IPC error,
-  // component unmount, crashed dialog), the thermal-print CSS used to stay
-  // applied — hiding the whole app behind a white screen until restart, and
-  // losing unsynced work. Cleanup is now (a) idempotent, and (b) backed by a
-  // 30s watchdog that force-restores the UI even if no one calls cleanup.
-  let done = false;
-  const cleanup = () => {
-    if (done) return;
-    done = true;
-    if (watchdog) { clearTimeout(watchdog); watchdog = null; }
-    try { cleanupSession(); } catch {}
-    try { removeStyle(); } catch {}
-    if (typeof document !== 'undefined') {
-      document.body.classList.remove('thermal-compact-shrink-logo');
-      // belt-and-braces: make sure no print-session markers survive
-      document.body.classList.remove('thermal-printing');
-      delete (document.body as any).dataset?.printActive;
-      try { document.body.removeAttribute('data-print-active'); } catch {}
-    }
-  };
-  let watchdog: ReturnType<typeof setTimeout> | null =
-    typeof window !== 'undefined'
-      ? setTimeout(() => {
-          watchdog = null;
-          if (!done) {
-            console.warn('[DT-Print] print session watchdog fired — force-restoring UI');
-            cleanup();
-          }
-        }, 30000)
-      : null;
-  return cleanup;
-}
-
-export function waitForThermalPrintLayout() {
-  return new Promise<void>((resolve) => {
-    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
-  });
-}
-
-export function buildThermalPrintCss(paperWidth: NonNullable<RestaurantSettings['paperSize']>, _heightMm?: number, compact: boolean = false) {
-  return buildCss(paperWidth as PaperSize, compact);
-}

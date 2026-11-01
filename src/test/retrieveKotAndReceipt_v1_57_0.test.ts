@@ -128,7 +128,8 @@ describe('margins: automatic by preset, manual per device', () => {
 
   it('an untuned device follows the preset', () => {
     expect(thermal).toContain('const manual = hasDevicePrintMargins();');
-    expect(thermal).toContain('manual ? safeMm(device, fallback, max) : safeMm(fromSettings, fallback, max)');
+    // v1.76.0: same rule on the v1.21.0 margin maths (range -100..100 instead of 0..30; the top keeps its own ceiling).
+    expect(thermal).toContain('manual ? safeMm(device, fallback, 100) : safeMm(fromSettings, fallback, 100)');
   });
 
   it('reset hands the device back to auto instead of pinning defaults', () => {
@@ -144,10 +145,12 @@ describe('bold receipt text works on every design', () => {
     expect(read('src/lib/types.ts')).toContain('receiptBoldText?: boolean;');
   });
 
-  it('thickens the glyphs rather than only setting a weight', () => {
-    // A weight is overridden the moment a design sets its own; a stroke is not,
-    // and it reflows nothing, so Compact stays compact.
-    expect(preview).toContain("WebkitTextStroke: '0.3px currentColor'");
-    expect(preview).toContain('settings.receiptBoldText ? 800 : 700');
+  it('bold is the Print Quality text weight (v1.76.0: the offline POS\'s three-level model replaced the on/off switch)', () => {
+    // receiptBoldText was one switch that thickened the preview with a stroke. The offline POS (v1.21.0) prints
+    // through a raster path with three weights — Standard / Bold / Extra — chosen in Print Quality, and applied to the
+    // slip itself (textWeight.cjs in the shell), so what is previewed is what is sent.
+    const quality = read('src/lib/printQuality.ts');
+    expect(quality).toContain("export type TextWeight = 'standard' | 'bold' | 'extra';");
+    expect(read('src/components/PrintQualityCard.tsx')).toContain('WEIGHT_LABELS');
   });
 });

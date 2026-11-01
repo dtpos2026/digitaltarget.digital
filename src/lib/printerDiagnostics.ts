@@ -3,11 +3,12 @@
 // ------------------------------------------------------------
 // Runs a battery of checks against the local print environment
 // (Electron preferred, browser-mode fallback) and the configured
-// printers in Firestore. Returns structured results that the UI
+// printers in the cloud. Returns structured results that the UI
 // renders as green/red indicators plus a fix guide.
 // ============================================================
 import { isElectron } from './electron';
 import { loadPrinterSettings, type PrinterConfig } from './printerSettings';
+import { isPrinterInstalled } from '@/printing/printerMatch';
 
 export type CheckStatus = 'ok' | 'warn' | 'fail' | 'info' | 'skip';
 
@@ -168,13 +169,13 @@ export async function runFullDiagnostic(): Promise<DiagnosticReport> {
     }
   }
 
-  // 6. Configured printers from Firestore
+  // 6. Configured printers from the cloud
   const configured = settings.printers || [];
   checks.push({
     id: 'configured',
     label: 'Configured printers in DT POS',
     status: configured.length ? 'ok' : 'warn',
-    detail: configured.length ? `${configured.length} configured (${configured.filter((p) => p.enabled).length} enabled)` : 'No printers configured — open Printing Center → Printers.',
+    detail: configured.length ? `${configured.length} configured (${configured.filter((p) => p.enabled).length} enabled)` : 'No printers configured — go to Printers & Print Server.',
     fix: configured.length ? undefined : 'Open Printer Settings and add at least one printer.',
   });
 
@@ -192,7 +193,8 @@ export async function runFullDiagnostic(): Promise<DiagnosticReport> {
       });
     }
     if (cfg.connection === 'system' && runtime === 'electron') {
-      const exists = installed.some((p: any) => p.name === cfg.printerName);
+      // v1.0.39b: narm matching (Copy 1 / spacing / displayName)
+      const exists = isPrinterInstalled(cfg.printerName, installed as any);
       checks.push({
         id: `sys-${cfg.id}`,
         label: `Windows printer present: ${cfg.printerName || cfg.name}`,

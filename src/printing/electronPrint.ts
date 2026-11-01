@@ -3,6 +3,7 @@
 // PRINT_CONFIG. Rule 8 + Rule 9,10 (no feed / form-feed).
 // ============================================================
 import { PRINT_CONFIG, paperWidthToMicrons, type PaperSize } from './printConfig';
+import { ensurePrintAllowedFast } from '@/licensing/printGuard';
 
 interface ElectronPrintArgs {
   printerName?: string;
@@ -14,6 +15,10 @@ interface ElectronPrintArgs {
 }
 
 export async function electronPrintReceipt(args: ElectronPrintArgs = {}): Promise<{ success: boolean; error?: string }> {
+  // Device-bound licence guard (cached ~60s, so fast billing is unaffected).
+  const guard = await ensurePrintAllowedFast();
+  if (!guard.allowed) return { success: false, error: guard.message || 'License blocked' };
+
   const api = (window as any).electronAPI;
   if (!api?.printReceipt) {
     // Fallback for browser: trigger native print dialog
@@ -30,7 +35,7 @@ export async function electronPrintReceipt(args: ElectronPrintArgs = {}): Promis
     copies: Math.max(1, args.copies || 1),
     pageWidthMicrons: widthMicrons,
     // Rule 5,6: no fixed height — let printer handle paper feed
-    usePrinterDefaultPageSize: true,
+    usePrinterDefaultPageSize: false, // OLD-POS PORT: explicit pageSize default
     driverType: 'escpos',
     dpi: 203,
     autoCut: true,

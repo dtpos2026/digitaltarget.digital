@@ -11,19 +11,39 @@
 //   receiptShowDiscount, receiptShowTax, receiptShowFooter,
 //   receiptShowPoweredBy, receiptCompactMode
 // ============================================================
-import type { Order, RestaurantSettings, Branch } from '@/lib/types';
-import { money } from '@/lib/currency';
-import { getBranches, getCurrentBranchId } from '@/lib/store';
-
-/** Branch that produced this bill (falls back to the active branch). */
-function branchOf(order: Order): Branch | undefined {
-  const id = (order as any).branchId || getCurrentBranchId();
-  if (!id) return undefined;
-  return (getBranches() || []).find(b => b.id === id);
-}
-
+import type { CSSProperties } from 'react';
+import { serviceChargeLabel } from '@/lib/serviceCharge';
+import { discountLineTitle } from '@/lib/billLabels';
+import type { Order, RestaurantSettings } from '@/lib/types';
+import { applyReceiptTemplate } from '@/lib/receiptTemplates';
+import { ReceiptCodesSlot } from '@/components/ReceiptCodes';
 
 const mono = "'Lucida Console','Consolas','Courier New',monospace";
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// Order details as plain lines, the way the screen shows them. They used to
+// be a four-cell table, and the print stylesheet gives every table cell
+// padding and a border: at 80mm the cells could not hold "24 Sep 2026" and
+// "10:49 am", so the date ran into the Time label and the time off the paper.
+// Labels are padded to one width (monospace), each "label : value" group
+// stays whole, and on a narrow roll the right-hand group takes its own line.
+const INFO_LABEL: CSSProperties = { display: 'inline-block', minWidth: '9ch' };
+function infoPair(a: [string, string], b: [string, string]) {
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: '8px', padding: '1px 0' }}>
+      <span style={{ whiteSpace: 'nowrap' }}><span style={INFO_LABEL}>{a[0]}</span>: {a[1]}</span>
+      <span style={{ whiteSpace: 'nowrap', marginLeft: 'auto' }}>{b[0]} : {b[1]}</span>
+    </div>
+  );
+}
+function infoLine(label: string, value: string) {
+  return (
+    <div style={{ display: 'flex', padding: '1px 0' }}>
+      <span style={{ ...INFO_LABEL, flexShrink: 0 }}>{label}</span>
+      <span style={{ minWidth: 0, overflowWrap: 'break-word' }}>: {value}</span>
+    </div>
+  );
+}
 
 function fmt(n: number) {
   return (Math.round((n || 0) * 100) / 100).toLocaleString('en-PK', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -38,18 +58,16 @@ function orderTypeLabel(o: Order): string {
 
 interface Props { order: Order; settings: RestaurantSettings }
 
-export default function StandardReceipt({ order, settings }: Props) {
+export default function StandardReceipt({ order, settings: rawSettings }: Props) {
+  // Chosen ready-made template (Standard / Compact / Detailed) is merged on
+  // top of the shop's own settings — amounts never change, only the look.
+  const settings = applyReceiptTemplate(rawSettings as any) as RestaurantSettings;
   const s = settings as any;
-  const branch = branchOf(order);
-  // Branch overrides the restaurant-level address/phone when it has its own.
-  const addressLine = branch?.address || settings.address;
-  const phoneLine = branch?.phone || [settings.phone1, settings.phone2].filter(Boolean).join(' | ');
   const showLogo     = s.receiptShowLogo     !== false && !!settings.logo;
-  const showAddress  = s.receiptShowAddress  !== false && !!addressLine;
-  const showPhone    = s.receiptShowPhone    !== false && !!phoneLine;
-
+  const showAddress  = s.receiptShowAddress  !== false && !!settings.address;
+  const showPhone    = s.receiptShowPhone    !== false && (!!settings.phone1 || !!settings.phone2);
   const showDiscount = (s.receiptShowDiscount !== false) && (order.discount > 0);
-  const showTax      = (s.receiptShowTax !== false) && ((order.tax || 0) > 0 || (order.serviceCharge || 0) > 0);
+  const showTax      = (s.receiptShowTax !== false) && (order.tax || 0) > 0;
   const showFooter   = s.receiptShowFooter   !== false;
   const showPowered  = s.receiptShowPoweredBy !== false;
   const compact      = !!s.receiptCompactMode;
@@ -68,7 +86,10 @@ export default function StandardReceipt({ order, settings }: Props) {
   const hasCash = !!(order.cashReceived && order.cashReceived > 0);
   const change = Math.max(0, (order.cashReceived || 0) - order.grandTotal);
   const paid = order.status === 'paid' && order.paymentMethod !== 'credit';
-  const dateStr = new Date(order.createdAt).toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' });
+  // A fixed three-letter month: newer Chromium/ICU writes "Sept", which made
+  // the Date/Time line 6px wider than an 80mm slip.
+  const created = new Date(order.createdAt);
+  const dateStr = `${String(created.getDate()).padStart(2, '0')} ${MONTHS[created.getMonth()] || ''} ${created.getFullYear()}`;
   const timeStr = new Date(order.createdAt).toLocaleTimeString('en-PK', { hour: '2-digit', minute: '2-digit' });
   const supportNo = (s.supportPhone || '0345-1873354') as string;
 
@@ -86,66 +107,28 @@ export default function StandardReceipt({ order, settings }: Props) {
         <div style={{ fontSize: `${compact ? 14 : 16}px`, fontWeight: 900, letterSpacing: '1px', textTransform: 'uppercase', lineHeight: 1.15 }}>
           {settings.name}
         </div>
-        {!!branch?.name && (
-          <div style={{ fontSize: `${fsBody}px`, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '1px' }}>
-            {branch.name} BRANCH
-          </div>
-        )}
         {showAddress && (
-          <div style={{ fontSize: `${fsBody}px`, fontWeight: 700, marginTop: '2px', lineHeight: 1.25 }}>{addressLine}</div>
+          <div style={{ fontSize: `${fsBody}px`, fontWeight: 700, marginTop: '2px', lineHeight: 1.25 }}>{settings.address}</div>
         )}
         {showPhone && (
           <div style={{ fontSize: `${fsBody}px`, fontWeight: 700, marginTop: '1px' }}>
-            {phoneLine}
+            {settings.phone1}{settings.phone2 ? ` | ${settings.phone2}` : ''}
           </div>
         )}
-        {/* Optional identity lines — the label is printed only when a value exists. */}
-        {!!branch?.registrationNumber && (
-          <div style={{ fontSize: `${fsBody}px`, fontWeight: 700 }}>Registration No: {branch.registrationNumber}</div>
-        )}
-        {!!branch?.taxNumber && (
-          <div style={{ fontSize: `${fsBody}px`, fontWeight: 700 }}>Tax No: {branch.taxNumber}</div>
-        )}
-        {!!branch?.email && (
-          <div style={{ fontSize: `${fsBody}px`, fontWeight: 700 }}>{branch.email}</div>
-        )}
       </div>
-
 
       {/* CUSTOMER RECEIPT TITLE */}
       <div style={{ borderTop: '1px dashed #000', borderBottom: '1px dashed #000', textAlign: 'center', padding: `${pad}px 0`, margin: '3px 0' }}>
         <span style={{ fontSize: `${fsTitle}px`, fontWeight: 900, letterSpacing: '2px' }}>CUSTOMER RECEIPT</span>
       </div>
 
-      {/* INFO GRID — Date / Time / Order # / Type */}
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: `${fsBody}px`, fontWeight: 700 }}>
-        <tbody>
-          <tr>
-            <td style={{ padding: '1px 0', whiteSpace: 'nowrap' }}>Date</td>
-            <td style={{ padding: '1px 0', whiteSpace: 'nowrap' }}>: {dateStr}</td>
-            <td style={{ padding: '1px 0', whiteSpace: 'nowrap', textAlign: 'right' }}>Time</td>
-            <td style={{ padding: '1px 0', whiteSpace: 'nowrap', textAlign: 'right' }}>: {timeStr}</td>
-          </tr>
-          <tr>
-            <td style={{ padding: '1px 0', whiteSpace: 'nowrap' }}>Order No</td>
-            <td style={{ padding: '1px 0', whiteSpace: 'nowrap' }}>: {branch?.invoicePrefix || '#'}{order.orderNumber}</td>
-            <td style={{ padding: '1px 0', whiteSpace: 'nowrap', textAlign: 'right' }}>Type</td>
-            <td style={{ padding: '1px 0', whiteSpace: 'nowrap', textAlign: 'right' }}>: {orderTypeLabel(order)}</td>
-          </tr>
-          {order.tableName && (
-            <tr>
-              <td style={{ padding: '1px 0', whiteSpace: 'nowrap' }}>Table</td>
-              <td colSpan={3} style={{ padding: '1px 0' }}>: {order.tableName}</td>
-            </tr>
-          )}
-          {order.customer?.name && (
-            <tr>
-              <td style={{ padding: '1px 0', whiteSpace: 'nowrap' }}>Cust.</td>
-              <td colSpan={3} style={{ padding: '1px 0' }}>: {order.customer.name}{order.customer.phone ? ` · ${order.customer.phone}` : ''}</td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+      {/* ORDER DETAILS — Date / Time / Order # / Type (see infoPair) */}
+      <div style={{ fontSize: `${fsBody}px`, fontWeight: 700 }}>
+        {infoPair(['Date', dateStr], ['Time', timeStr])}
+        {infoPair(['Order No', `#${order.orderNumber}`], ['Type', orderTypeLabel(order)])}
+        {order.tableName && infoLine('Table', String(order.tableName))}
+        {order.customer?.name && infoLine('Cust.', `${order.customer.name}${order.customer.phone ? ` · ${order.customer.phone}` : ''}`)}
+      </div>
 
       {/* ITEMS TABLE */}
       <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '4px', fontSize: `${fsItem}px`, tableLayout: 'fixed' }}>
@@ -181,31 +164,39 @@ export default function StandardReceipt({ order, settings }: Props) {
       {/* TOTALS */}
       <div style={{ borderTop: '1px dashed #000', marginTop: '4px', paddingTop: '3px', fontSize: `${fsBody}px`, fontWeight: 700 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          <span>Subtotal</span><span>{money(fmt(order.subtotal))}</span>
+          <span>Subtotal</span><span>Rs. {fmt(order.subtotal)}</span>
         </div>
         {showDiscount && (
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span>Discount{order.discountTitle ? ` (${order.discountTitle})` : ''}</span>
-            <span>- {money(fmt(order.discount))}</span>
+            <span>{discountLineTitle(order)}</span>
+            <span>- Rs. {fmt(order.discount)}</span>
           </div>
         )}
         {showTax && (order.tax || 0) > 0 && (
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span>Tax</span><span>{money(fmt(order.tax))}</span>
+            <span>Tax</span><span>Rs. {fmt(order.tax)}</span>
           </div>
         )}
-        {showTax && (order.serviceCharge || 0) > 0 && (
+        {/* A charge that is in the total is always on the slip, whatever the tax switch says. */}
+        {(order.serviceCharge || 0) > 0 && (
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span>Service Charge{order.serviceChargePercent ? ` (${order.serviceChargePercent}%)` : ''}</span>
-            <span>{money(fmt(order.serviceCharge))}</span>
+            <span>{serviceChargeLabel(order)}</span>
+            <span>Rs. {fmt(order.serviceCharge)}</span>
+          </div>
+        )}
+        {(order.deliveryChargeAmount || 0) > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span>Delivery</span><span>Rs. {fmt(order.deliveryChargeAmount || 0)}</span>
           </div>
         )}
         <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #000', borderBottom: '1px solid #000', padding: '3px 0', margin: '3px 0', fontSize: `${compact ? 12 : 14}px`, fontWeight: 900 }}>
-          <span>TOTAL</span><span>{money(fmt(order.grandTotal))}</span>
+          <span>TOTAL</span><span>Rs. {fmt(order.grandTotal)}</span>
         </div>
 
         {/* Paid / Unpaid status */}
-        <div style={{ textAlign: 'center', padding: '3px 0', fontWeight: 900, letterSpacing: '2px', fontSize: `${compact ? 11 : 12}px`, background: paid ? '#fff' : '#000', color: paid ? '#000' : '#fff', border: paid ? '1px solid #000' : '1px solid #000' }}>
+        {/* Unpaid prints reversed; .dt-reverse keeps the print stylesheet
+            from repainting the white text black on the black fill. */}
+        <div className={paid ? undefined : 'dt-reverse'} style={{ textAlign: 'center', padding: '3px 0', fontWeight: 900, letterSpacing: '2px', fontSize: `${compact ? 11 : 12}px`, background: paid ? '#fff' : '#000', color: paid ? '#000' : '#fff', border: paid ? '1px solid #000' : '1px solid #000' }}>
           {paid ? '★ PAID ★' : '⚠ UNPAID ⚠'}
         </div>
 
@@ -213,10 +204,10 @@ export default function StandardReceipt({ order, settings }: Props) {
         {isCash && hasCash && (
           <div style={{ marginTop: '3px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Cash Received</span><span>{money(fmt(order.cashReceived!))}</span>
+              <span>Cash Received</span><span>Rs. {fmt(order.cashReceived!)}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Change Returned</span><span>{money(fmt(change))}</span>
+              <span>Change Returned</span><span>Rs. {fmt(change)}</span>
             </div>
           </div>
         )}
@@ -230,11 +221,11 @@ export default function StandardReceipt({ order, settings }: Props) {
           {settings.receiptFooter && (
             <div style={{ fontWeight: 700, marginTop: '2px', whiteSpace: 'pre-line', lineHeight: 1.3 }}>{settings.receiptFooter}</div>
           )}
-          {!!branch?.invoiceFooter && (
-            <div style={{ fontWeight: 700, marginTop: '2px', whiteSpace: 'pre-line', lineHeight: 1.3 }}>{branch.invoiceFooter}</div>
-          )}
         </div>
       )}
+
+      {/* Settings → Receipt → QR & Barcode, "Footer" position */}
+      <ReceiptCodesSlot position="footer" />
 
       {/* POWERED BY DIGITAL TARGET */}
       {showPowered && (

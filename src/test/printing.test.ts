@@ -43,7 +43,8 @@ describe('measureThermalContentHeightMm', () => {
   it('enforces a minimum height so drivers never get a micro page', () => {
     const portal = makeReceipt(20); // ~5mm content
     const mm = measureThermalContentHeightMm(portal, settings);
-    expect(mm).toBeGreaterThanOrEqual(25);
+    // v1.76.0: the measurement is the offline POS's (v1.21.0): content height + 4 mm slack, never under 20 mm.
+    expect(mm).toBeGreaterThanOrEqual(20);
     portal.remove();
   });
 

@@ -15,6 +15,7 @@ import { Bike } from 'lucide-react';
 import OrderTrackingPanel from '@/components/OrderTrackingPanel';
 import { getOrders, getSettings, onDataChange, refreshOrdersFromCloud } from '@/lib/store';
 import { trackingView } from '@/lib/trackingSteps';
+import { startVisiblePoll } from '@/lib/visiblePoll';
 import { money } from '@/lib/currency';
 
 interface Props {
@@ -23,7 +24,7 @@ interface Props {
   onClose: () => void;
 }
 
-const REFRESH_MS = 15_000;
+const REFRESH_MS = 20_000;
 
 export default function OrderTrackingDialog({ orderId, onClose }: Props) {
   const [tick, setTick] = useState(0);
@@ -41,8 +42,9 @@ export default function OrderTrackingDialog({ orderId, onClose }: Props) {
 
   useEffect(() => {
     if (!orderId || finished) return;
-    const t = setInterval(() => { void refreshOrdersFromCloud().then(() => setTick(x => x + 1)).catch(() => {}); }, REFRESH_MS);
-    return () => clearInterval(t);
+    // Egress: only while this window is on screen (a hidden tab asks for nothing), and the store's own listener already
+    // delivers changes made on this device — this is just the floor for ones made elsewhere.
+    return startVisiblePoll(() => { void refreshOrdersFromCloud().then(() => setTick(x => x + 1)).catch(() => {}); }, REFRESH_MS);
   }, [orderId, finished]);
 
   const s = getSettings();

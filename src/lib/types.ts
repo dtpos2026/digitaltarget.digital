@@ -52,8 +52,14 @@ export interface MenuItem {
   id: string;
   name: string;
   categoryId: string;
+  pricingType: PricingType;
+  /** Retail barcode (EAN-13/UPC) — minimart scanning ke liye. */
   /** v1.9.1 — barcode / SKU for scanner lookup (minimart use). */
   barcode?: string;
+  /** Scale label ka 5-digit PLU/item code (weight-embedded barcodes). */
+  plu?: string;
+  /** DIRECT stock link (retail/minimart): 1 sale = 1 unit deducted from inventory.
+   *  No recipe needed — if a recipe exists, it takes priority. */
   /**
    * v1.14.1 — RETAIL stock link.
    *
@@ -68,7 +74,6 @@ export interface MenuItem {
   stockPerUnit?: number;
   /** v1.9.1 — manual display order; lower sorts first. */
   sortOrder?: number;
-  pricingType: PricingType;
   price: number; // for fixed
   ratePerKg: number; // for weight-based
   image?: string;
@@ -342,7 +347,13 @@ export interface Order {
   discountTitle?: string;       // e.g. "Eid Discount 10%"
   tax: number;
   serviceCharge: number;
+  deliveryChargeAmount?: number;   // is order pe laga delivery charge
+  roundingAdjust?: number;         // cash rounding adjustment (+/-)
   serviceChargePercent: number;
+  /** 'percent' or a flat 'pkr' charge (see lib/serviceCharge.ts). Missing on older orders = percent. */
+  serviceChargeType?: 'percent' | 'pkr';
+  /** True when the charge was typed in by hand on this bill instead of coming from Settings. */
+  serviceChargeManual?: boolean;
   grandTotal: number;
   /**
    * v1.12.1 — set when this bill was folded into another during a table
@@ -459,6 +470,10 @@ export interface Order {
 
   receiptPrinted?: boolean;      // customer receipt already printed (at payment)
   printStatus?: 'none' | 'pending' | 'printed' | 'failed';
+  /** When the last print attempt for this bill gave up (ISO). */
+  lastPrintFailedAt?: string;
+  /** Why it gave up — kept for the reprint screen and the log, not shown raw. */
+  lastPrintError?: string;
   printCount?: number;           // total successful print jobs for this order
   lastPrintedAt?: string;        // ISO timestamp of last successful print
   // ===== Loyalty redemption =====
@@ -569,6 +584,8 @@ export interface User {
   featurePermissions?: string[];
   /** Phone number — used by Order Taker / Rider portal for phone+PIN login. */
   phone?: string;
+  /** 4-digit numeric PIN: portal login (Order Taker, Rider), and the optional
+   *  quick PIN sign-in on the login screen for everyone else. */
   /** 4-digit numeric PIN for portal login (Order Taker, Rider). */
   pin?: string;
 }
@@ -602,8 +619,10 @@ export interface RestaurantSettings {
   phone2: string;
   marketingFooter?: string;
   // ============ PREMIUM THEME (allotted by Super Admin) ============
+  /** Super Admin has allotted this restaurant the premium VINCE theme */
   /** Super Admin ne is restaurant ko premium VINCE theme allot kiya hai */
   premiumThemeAllowed?: boolean;
+  /** Restaurant owner has enabled the premium theme themselves (Settings → Theme) */
   /** Restaurant owner ne premium theme khud enable kiya hai (Settings → Theme) */
   premiumThemeEnabled?: boolean;
   // ============ BUSINESS DAY TIMING (Shift) ============
@@ -642,8 +661,34 @@ export interface RestaurantSettings {
   visitAgainText?: string;     // Editable "Please Visit Again" line on customer receipts
   kotThankYouText?: string;    // Editable footer text on KOT (default: "— Thank You —")
   kotFooterNote?: string;      // Editable secondary note on KOT (default: "Please check the order before preparing")
+  /**
+   * Print the restaurant's own name at the top of the KOT.
+   *
+   * The rendered KOT has always shown it; the raw one did not, so switching a
+   * kitchen printer to raw quietly stripped the shop's name off its tickets.
+   * On by default — the ticket belongs to the restaurant.
+   */
+  kotShowShopName?: boolean;
+  /** Print the one-line "Powered by Digital Target" credit under the KOT footer. */
+  kotShowDeveloperCredit?: boolean;
   taxAmount: number;
   serviceChargePercent: number;
+  /** Service charge: 'percent' (default) or a flat 'pkr' amount per bill. */
+  serviceChargeMode?: 'percent' | 'pkr';
+  /** The flat amount, when serviceChargeMode is 'pkr'. */
+  serviceChargeAmount?: number;
+  /** Which order types get the service charge automatically. A missing key = ON (older shops charged every type). */
+  serviceChargeOrderTypes?: { dining?: boolean; takeaway?: boolean; delivery?: boolean };
+  /** Allow adding / editing the service charge by hand on a bill (default on; cashiers follow the discount approval rule). */
+  serviceChargeEditable?: boolean;
+  /** Weight items (kg) open the side panel — By weight / By amount (default on). Off = the cart keypad, as before. */
+  weightEntryPanel?: boolean;
+  /** The weight panel's preset buttons, in kg (default 0.25, 0.5, 1, 1.5, 2, 5). */
+  weightPresetsKg?: number[];
+  /** The weight panel's preset buttons in its "By amount" tab (default 100, 200, 500, 1000, 2000). */
+  weightPresetsAmount?: number[];
+  /** Payment screen design: 'premium' (default) or 'classic' (the earlier compact popup). */
+  paymentDialogStyle?: 'premium' | 'classic';
   qrMode: 'auto' | 'custom';
   customQrImage: string;
   customQrWidth?: number; // px, default 80
@@ -672,6 +717,8 @@ export interface RestaurantSettings {
   kotPrinter?: string;         // Kitchen (KOT) printer — separate from receipt; falls back to defaultPrinter if empty
   tokenPrinter?: string;       // Token / customer-token printer — falls back to receipt printer if empty
   silentPrint?: boolean;
+  /** Payment ke baad bill screen par dikhaye? OFF (default) = sirf printer par jaye. */
+  showBillOnScreen?: boolean;
   paperSize?: '58mm' | '80mm' | '110mm'; // thermal paper width
   receiptMode?: 'continuous' | 'paged';
   printHeaderFooter?: boolean;
@@ -701,7 +748,26 @@ export interface RestaurantSettings {
   receiptMarginRight?: number; // mm
   receiptTrimMm?: number; // mm to trim from end of receipt to remove trailing blank paper (default 8)
   // Receipt design template
-  receiptDesign?: 'standard' | 'pre-receipt' | 'compact-thermal' | 'classic' | 'modern' | 'compact' | 'luxury' | 'executive' | 'royal' | 'bistro' | 'heritage' | 'metro' | 'shahenshah' | 'taste-bistro' | 'food-palace' | 'spice-house' | 'taimoor' | 'design1-table' | 'design2-box' | 'design3-modern' | 'design4-compact' | 'design5-delivery' | 'sero' | 'bero' | 'kot-style' | 'kot-classic';
+  receiptDesign?: 'standard' | 'pre-receipt' | 'compact-thermal' | 'classic' | 'modern' | 'compact' | 'luxury' | 'executive' | 'royal' | 'bistro' | 'heritage' | 'metro' | 'shahenshah' | 'taste-bistro' | 'food-palace' | 'spice-house' | 'taimoor' | 'design1-table' | 'design2-box' | 'design3-modern' | 'design4-compact' | 'design5-delivery' | 'sero' | 'bero' | 'kot-style' | 'kot-classic'
+    // ===== Premium reference-based templates (see lib/premiumReceiptTemplates.ts).
+    // Layout only — every word and number still comes from the live order. =====
+    | 'premium-paid-banner' | 'premium-tax-invoice' | 'premium-panel'
+    | 'premium-fine-dining' | 'premium-grid-invoice' | 'premium-hall-detail'
+    | 'premium-quick-bill' | 'premium-two-column' | 'premium-retail'
+    | 'premium-grouped' | 'premium-token-hero' | 'premium-boxed-ledger'
+    | 'premium-rounded-panel'
+    // Café designs: regular body type, "2 × Item" lines, pickup number.
+    | 'premium-cafe-classic' | 'premium-coffee-house' | 'premium-cafe-counter'
+    // DT Retail designs (lib/premiumReceiptTemplates.ts → components/DtRetailReceipt.tsx).
+    | 'dtr-classic' | 'dtr-modern' | 'dtr-minimal' | 'dtr-restaurant' | 'dtr-retail-invoice' | 'dtr-compact'
+    | 'dtr-boxed-grid' | 'dtr-bold-restaurant' | 'dtr-tax-invoice' | 'dtr-luxury' | 'dtr-ticket';
+  // ===== Text spacing (src/lib/textSpacing.ts) — unset = as designed =====
+  receiptLineSpacing?: number;    // line height multiplier, 1.0–2.2
+  receiptWordSpacing?: number;    // extra px between words
+  receiptLetterSpacing?: number;  // extra px between letters
+  kotLineSpacing?: number;
+  kotWordSpacing?: number;
+  kotLetterSpacing?: number;
   // ===== Standard Receipt section toggles (default ON) =====
   receiptShowLogo?: boolean;
   receiptShowAddress?: boolean;
@@ -711,13 +777,51 @@ export interface RestaurantSettings {
   receiptShowFooter?: boolean;
   receiptShowPoweredBy?: boolean;
   receiptCompactMode?: boolean;
+  /**
+   * FAST BILLING MODE — one switch for the whole shop.
+   *
+   * ON  : every slip (bill, KOT, token, shift report) is built as raw ESC/POS
+   *       text and goes straight to the printer. No logo, no designed
+   *       template, no render step — the fastest path to paper.
+   * OFF : every slip prints its designed template (logo, QR, premium layouts)
+   *       and still goes out as one silent RAW job with no dialog.
+   *
+   * Shops genuinely split on this: some want their branding on the bill,
+   * others want the counter to move as fast as possible. The mode is global
+   * precisely because a shop that chooses speed wants it on EVERYTHING —
+   * having the bill print raw and the token print rendered is the worst of
+   * both. A per-printer override still exists for mixed hardware.
+   */
+  fastRawPrintMode?: boolean;
+  /**
+   * Text size for the raw ESC/POS slip: 'large' (default) or 'normal'.
+   *
+   * 'large' prints item rows and the total at double HEIGHT. The width is
+   * unchanged, so the same number of characters still fits the line — it only
+   * makes the plain slip read closer to the rendered template's weight, which
+   * is what shops mean when they say the raw bill "looks smaller than before".
+   */
+  receiptRawTextSize?: 'normal' | 'large';
+  /** Same, for the KOT. Falls back to receiptRawTextSize when unset. */
+  kotRawTextSize?: 'normal' | 'large';
+  /**
+   * Print the raw slip's body in bold.
+   *
+   * Thermal heads fade as they age and as the paper ages, and a compact slip
+   * fades first because its strokes are thinner. Bold is on by default: it
+   * costs nothing and keeps an old printer legible.
+   */
+  receiptRawBold?: boolean;
+  /** Turn OFF direct ESC/POS printing (falls back to the older layout print).
+   *  Default: direct printing is ON in the Windows desktop app. */
+  directPrintDisabled?: boolean;
   receiptCompactFontSize?: number;   // px, default 11 (used when Compact Mode ON)
   receiptCompactLineHeight?: number; // unitless, default 1.15
   receiptCompactPreserveLogo?: boolean; // default true — logo prints at its set size, ignore compact image cap
   supportPhone?: string;
   // Kitchen print
   autoKitchenPrint?: boolean; // auto print kitchen receipt on order
-  kotDesign?: 'classic' | 'bold' | 'minimal' | 'elegant' | 'vip-chef' | 'station' | 'taimoor1' | 'taimoor2'; // KOT template
+  kotDesign?: 'classic' | 'bold' | 'minimal' | 'elegant' | 'vip-chef' | 'station' | 'taimoor1' | 'taimoor2' | 'dtr-kitchen'; // KOT template
   kotShowLogo?: boolean;
   kotShowAddress?: boolean;
   kotShowPhone?: boolean;
@@ -753,6 +857,43 @@ export interface RestaurantSettings {
   // Print a CANCELLATION KOT to the kitchen when an order is cancelled/voided so cooking stops.
   printKotOnCancel?: boolean;           // default true
   manualSendToKitchen?: boolean;        // require cashier "Send to Kitchen" for online/QR (default false)
+  /** ON = customer receipt will NOT auto-print on pay (reprint buttons still work). */
+  noReceiptOnPay?: boolean;
+  /**
+   * Dining bills only: print the paid receipt automatically when the bill is
+   * paid. Default ON (the behaviour before v1.12). OFF = paying a dining bill
+   * prints nothing and opens no print dialog; the receipt can be reprinted
+   * later from Retrieve / Bill Reprint.
+   */
+  diningReceiptOnPay?: boolean;
+  /** Print the customer's bill, marked "ON HOLD (UNPAID)", when a bill is put on Hold. Default ON. */
+  printBillOnHold?: boolean;
+  /** OFF = Pay button skips the "Payment Received" screen and completes as cash instantly. Default ON. */
+  paymentDialogEnabled?: boolean;
+  /** Tandoor Token module: ON = pay par token-category items ka alag token slip tandoor printer pe. */
+  tokenPrintEnabled?: boolean;
+  /** Which category's items go on the token (e.g. Roti/Naan). */
+  /** @deprecated single-category rule. Still read for shops configured
+   *  before multi-category support; tokenCategoryIds supersedes it. */
+  tokenCategoryId?: string;
+  /** Menu categories whose items all get a token. As many as needed. */
+  tokenCategoryIds?: string[];
+  /** Individual menu items that get a token regardless of their category. */
+  tokenMenuItemIds?: string[];
+  /**
+   * Token Payment Mode. OFF (default) keeps the existing behaviour exactly:
+   * a token is a kitchen instruction and carries no payment state. ON makes
+   * every token a tracked paid/unpaid record with its own amount.
+   */
+  tokenPaymentMode?: boolean;
+  /**
+   * Department / detachable token mode. OFF (default) prints the token
+   * unchanged. ON splits it into one tear-off stub per department so each
+   * counter keeps its own portion for later reconciliation.
+   */
+  tokenDepartmentMode?: boolean;
+  /** Categories that get their own detachable stub. Empty = every department. */
+  tokenDepartmentIds?: string[];
   kotSilentMode?: boolean;              // HOLD all auto KOT prints until user manually releases (default false)
   /** KOT update printing mode when an existing order is modified.
    *  'only_changes' (default) — print only newly-added / cancelled items
@@ -789,7 +930,6 @@ export interface RestaurantSettings {
   /** Optional prefix on the token number, e.g. "T". */
   tokenPrefix?: string;
   /** Token slip design. 4 layouts — see TokenSlip.tsx. Default 'classic'. */
-  tokenTemplate?: 'classic' | 'stars' | 'boxed' | 'compact';
   /** Heading printed on the token slip. Default "TANDOOR TOKEN". */
   tokenSlipTitle?: string;
   /** Footer line under the token number. */
@@ -817,11 +957,20 @@ export interface RestaurantSettings {
   /** v1.11.0 — shift open/close + cash drawer tracking. Default OFF. */
   shiftsEnabled?: boolean;
   /**
+   * How detachable stubs are split:
+   *   'piece'      one stub per unit sold — six Sajji print six stubs, which
+   *                is what a physical count needs (default)
+   *   'item'       one stub per menu line
+   *   'department' one summary stub per department
    * v1.12.0 — quick-discount preset buttons (feedback #1 item 11).
    * Percent values, e.g. [5, 10, 15, 20]. Empty/undefined = no buttons,
    * which is exactly how the POS behaved before, so nothing changes for
    * a restaurant that never configures them.
    */
+  tokenStubMode?: 'department' | 'item' | 'piece';
+  /** false = token items will NOT be counted in sale reports (token only). Default true. */
+  tokenCountsInSales?: boolean;
+  /** Business preset key (restaurant/hotel/fastfood/pizza/cafe/nashta/shawarma/khokha). */
   discountPresets?: number[];
   /** v1.12.0 — one-tap Rs presets, e.g. [50, 100, 200]. */
   discountPresetsAmount?: number[];
@@ -829,6 +978,21 @@ export interface RestaurantSettings {
   appLanguage?: string;
   /** v1.10.0 — business type chosen at setup; drives default module presets. */
   businessType?: string;
+  /** Token slip design: classic | bold | boxed | minimal */
+  tokenTemplate?: string;
+  /** Show the 'Total pieces' line on the token slip? Default TRUE.
+   *  Turning OFF shows only item + qty (staff won't double-count). */
+  tokenShowTotal?: boolean;
+  /** Cash drawer opening float — appears in Shift Report's 'Starting cash'. */
+  startingCash?: number;
+  /** Round the total to the nearest value: 'none' | '0.05' | '0.10' | '1' (cents cash rounding). */
+  roundingMode?: 'none' | '0.05' | '0.10' | '1';
+  /** Minimart / retail mode: barcode scanning + weight scale panel. */
+  /** Bill pay hone par inventory se stock khud minus ho (default ON). */
+  inventoryAutoDeduct?: boolean;
+  minimartMode?: boolean;
+  /** Client-defined payment types (e.g. NETS, PayNow, GrabPay). In addition to built-in ones.
+   *  These become buttons on the payment screen and appear by name in receipts + reports. */
   /** v1.10.0 — true once the Business Type screen has been completed (or skipped). */
   businessTypeSetupDone?: boolean;
 
@@ -854,6 +1018,13 @@ export interface RestaurantSettings {
   /** v1.6.1: restaurant-defined payment type names, e.g. ["NETS", "PayNow",
    *  "GrabPay"]. Only used when customPaymentTypesEnabled is ON. */
   customPaymentTypes?: string[];
+  /** Weight-embedded barcode mode: 'weight' | 'price' | 'off'. */
+  embeddedBarcodeMode?: 'weight' | 'price' | 'off';
+  /** Receipt pe PAID/UNPAID label:
+   *   smart (default) = based on order status
+   *   always-paid = always "PAID" (for when you reprint after payment from the customer)
+   *   always-unpaid = always "UNPAID" (for a dining bill left on the table)
+   *   none = no label (let the customer decide pay/unpaid)
 
   // ===== v1.6.0 Item Sales Report module =====
   /** Sidebar page + report engine. Default OFF (multi-tenant safety). */
@@ -862,6 +1033,28 @@ export interface RestaurantSettings {
    * Default OFF. Offline billing, printing and the deferred queue are
    * unchanged; only the write target moves.
    */
+  receiptStatusMode?: 'smart' | 'always-paid' | 'always-unpaid' | 'none';
+  /** Har order type ke liye alag receipt label rule (client feedback #5).
+   *  Khali/undefined = global receiptStatusMode chalega. */
+  receiptModeByType?: {
+    dining?: 'smart' | 'always-paid' | 'always-unpaid' | 'none';
+    takeaway?: 'smart' | 'always-paid' | 'always-unpaid' | 'none';
+    delivery?: 'smart' | 'always-paid' | 'always-unpaid' | 'none';
+    foodpanda?: 'smart' | 'always-paid' | 'always-unpaid' | 'none';
+  };
+  /** KOT ke items ka font scale (%) — 100 = normal, 160 = kaafi bara. */
+  kotFontScale?: number;
+  /** POS pe quick discount buttons, e.g. [5,10,15,20] (percent). */
+  /** Amount-based quick discount buttons, e.g. [50,100,200]. Empty = no button. */
+  discountAmountPresets?: number[];
+  /** Payment screen ke quick cash amount buttons, e.g. [10,20,50,100]. */
+  paymentQuickAmounts?: number[];
+  /** Payment screen ke quick cash buttons, e.g. [5,10,20,50,100]. Khali = default. */
+  quickCashAmounts?: number[];
+  /** GST/VAT percent (e.g. 9). 0 = off (old flat taxAmount will apply). */
+  /** 'exclusive' = applied on top of the total · 'inclusive' = already included in the price. */
+  /** Service charge GST se pehle lage (client formula) — default true. */
+  serviceChargeBeforeTax?: boolean;              // HOLD all auto KOT prints until user manually releases (default false)
   supabaseBackendEnabled?: boolean;
   itemSalesReportEnabled?: boolean;
   autoPrintRiderSlip?: boolean;         // auto print rider slip when rider assigned (default true)
@@ -886,7 +1079,7 @@ export interface RestaurantSettings {
   // POS menu grid columns per row (3-6)
   menuGridColumns?: number;
   // POS category display: 'top' (horizontal ribbon) or 'side' (left vertical sidebar)
-  categoryLayout?: 'top' | 'side';
+  categoryLayout?: 'top' | 'side' | 'right';
 
   // ============ DISCOUNT MANAGEMENT ============
   pkrDiscountEnabled?: boolean;         // manual PKR discount allowed (default true)
@@ -936,6 +1129,8 @@ export interface RestaurantSettings {
 
   // ============ SELF-PICKUP ============
   selfPickupEnabled?: boolean;            // show Self-Pickup option in customer cart
+  /** POS "Select Order Type" gate dialog. Default true (shown). Set false to skip. */
+  orderTypeGatePromptEnabled?: boolean;
   pickupTimeSlots?: number[];             // minutes: [15, 30, 45, 60]
   pickupReadyMessage?: string;            // WhatsApp template when order ready
 
@@ -970,6 +1165,18 @@ export interface RestaurantSettings {
   // ============ FOODPANDA INTEGRATION ============
   /** Master toggle. When true, POS shows a 4th order type "Foodpanda". Default OFF (only Dine-In/Takeaway/Delivery shown). */
   foodpandaEnabled?: boolean;
+
+  // ============ INTERNATIONAL (Country / Currency / Tax) ============
+  /** ISO 3166-1 alpha-2 country code (e.g. "PK", "AE", "GB"). */
+  countryCode?: string;
+  /** Country display name — cached for receipts. */
+  /** ISO 4217 currency code (e.g. "PKR", "AED", "USD"). */
+  /** Display symbol used on receipts and UI (e.g. "Rs.", "AED", "$"). */
+  currencySymbol?: string;
+  /** Default VAT/GST/Sales-Tax rate — used to auto-fill the tax field on new bills. */
+  countryTaxRate?: number;
+  /** Tax label ("VAT", "GST", "Sales Tax") — shown on receipts. */
+  countryTaxLabel?: string;
 }
 
 // ============ CREDIT / UDHAAR PAYMENTS ============
@@ -1235,6 +1442,8 @@ export interface AppData {
   parties: Party[];
   ledger: LedgerEntry[];
   dailyCashCloses: DailyCashClose[];
+  /** Token records — one per token actually issued. See lib/tokenRecords.ts. */
+  tokenRecords: TokenRecord[];
   // Operations
   receivingEntries: ReceivingEntry[];
   marketingContacts: MarketingContact[];
@@ -1313,3 +1522,66 @@ export interface Branch {
 }
 
 
+
+// ============================================================
+// TOKEN RECORDS
+//
+// A token that was actually issued. These are business records — they carry
+// payment state and feed the token counts — so they live in the application
+// database alongside orders, not in browser storage.
+//
+// A reprint NEVER creates one of these. It bumps `reprintCount` on the
+// original, so reprinting from Retrieve can never invent a second token sale.
+// ============================================================
+export interface TokenRecordItem {
+  menuItemId?: string;
+  name: string;
+  qty: number;
+  /** Category this line belongs to — drives department reconciliation. */
+  departmentId?: string;
+  departmentName?: string;
+  /** Line value, when the token carries an amount. */
+  amount?: number;
+}
+
+export type TokenPaymentStatus = 'paid' | 'unpaid' | 'not_applicable';
+
+export interface TokenRecord {
+  id: string;
+  /** Sequential token number shown to the customer. */
+  tokenNumber: number;
+  /** The order this token belongs to. */
+  orderId?: string;
+  orderNumber?: number | string;
+  branchId?: string;
+  /** YYYY-MM-DD, for day filtering and day-close. */
+  dateKey: string;
+  createdAt: string;
+  orderType?: OrderType;
+  tableName?: string;
+  customerName?: string;
+  customerPhone?: string;
+  items: TokenRecordItem[];
+  totalPieces: number;
+  /** Value of the token items. 0 when the token carries no amount. */
+  amount: number;
+  /**
+   * 'not_applicable' when Token Payment Mode is off — the token is a kitchen
+   * instruction, not something that is paid for on its own.
+   */
+  paymentStatus: TokenPaymentStatus;
+  paidAt?: string;
+  paymentMethod?: PaymentMethod;
+  cashierId?: string;
+  cashierName?: string;
+  /** How the token came about. */
+  source: 'auto' | 'manual';
+  printedAt?: string;
+  /** Times this token has been printed AGAIN after the first print. */
+  reprintCount: number;
+  lastReprintAt?: string;
+  /** Departments this token was split across, when detachable mode is on. */
+  departmentIds?: string[];
+  voided?: boolean;
+  voidReason?: string;
+}

@@ -61,7 +61,8 @@ describe('no module is left device-only', () => {
 
 describe('pictures go to cloud storage, not into the record', () => {
   it('payment QR and promo images upload instead of inlining base64', () => {
-    const s = read('src/pages/SettingsPage.tsx');
+    // v1.76.0: the receipt settings live in their own tab component (the offline POS's layout).
+    const s = read('src/pages/SettingsPage.tsx') + read('src/components/settings/ReceiptSettingsTab.tsx');
     expect(s).toContain("uploadTenantImage(file, 'payment-qr')");
     expect(s).toContain("uploadTenantImage(file, 'promo')");
     expect(s).not.toContain('customQrImage: reader.result');

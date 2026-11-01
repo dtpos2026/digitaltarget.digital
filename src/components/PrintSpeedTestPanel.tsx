@@ -53,11 +53,11 @@ export default function PrintSpeedTestPanel() {
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     )[0];
     if (!lastOrder) {
-      toast.error('No order found. Create an order first.');
+      toast.error('No order found. Please create an order first.');
       return;
     }
     const job = enqueueKot(lastOrder, { force: true });
-    if (job) toast.success('Speed test KOT queued — timings neeche dikhengi');
+    if (job) toast.success('Speed test KOT queued — timings will appear below');
     else toast.error('KOT enqueue fail');
   }
 
@@ -87,7 +87,7 @@ export default function PrintSpeedTestPanel() {
 
       {jobs.length === 0 ? (
         <p className="text-sm text-muted-foreground py-6 text-center">
-          No print jobs yet. Press "Run Test", or send a KOT from the POS.
+          No print job has run yet. Press "Run Test" or send a KOT from the POS.
         </p>
       ) : (
         <div className="overflow-x-auto">
@@ -139,7 +139,7 @@ export default function PrintSpeedTestPanel() {
       )}
 
       <p className="text-[11px] text-muted-foreground mt-3">
-        🎯 Target: KOT enqueue → command <b>&lt;1000ms</b>. If it is higher, the printer may be offline or the driver slow.
+        🎯 Target: KOT enqueue → command <b>&lt;1000ms</b>. If it is higher, the printer may be offline or the driver may be slow.
       </p>
     </Card>
   );

@@ -182,15 +182,15 @@ describe('the software shows the same tracking and follows it live', () => {
     expect(q('[data-map]')!.getAttribute('data-rider')).toBe('31.515,74.318');
   });
 
-  it('asks the cloud for a refresh every 15 s while the order is moving, and stops when it is finished', async () => {
+  it('asks the cloud for a refresh every 20 s while the order is moving and the window is visible, and stops when it is finished', async () => {
     vi.useFakeTimers();
     store.orders = [base({ deliveryStatus: 'onway', riderName: 'Hamza' })];
     m = mount(<OrderTrackingDialog orderId="o1" onClose={() => {}} />);
-    await act(async () => { await vi.advanceTimersByTimeAsync(15_100); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(20_100); });
     expect(store.refreshed).toBe(1);
     store.orders = [base({ deliveryStatus: 'delivered', riderName: 'Hamza' })];
     await act(async () => { store.listeners.forEach(cb => cb('orders')); });
-    await act(async () => { await vi.advanceTimersByTimeAsync(31_000); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(41_000); });
     expect(store.refreshed).toBe(1);
   });
 

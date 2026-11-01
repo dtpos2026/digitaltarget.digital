@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import type { SystemPrinterInfo } from '@/lib/electron';
 import { Download, Upload, RotateCcw, Printer, Database, Smartphone, ChevronRight, Trash2, ShieldAlert } from 'lucide-react';
 import { useNavigate } from '@/lib/hash-router';
 import { exportData, importData, resetData, resetSelectedData, getCurrentUser, RESETTABLE_COLLECTIONS, type ResettableCollection } from '@/lib/store';
@@ -60,7 +61,7 @@ const GROUPS: { title: string; items: { key: ResettableCollection; label: string
 
 export default function BackupRestorePage() {
   const fileRef = useRef<HTMLInputElement>(null);
-  const [printers, setPrinters] = useState<{ name: string; isDefault: boolean }[]>([]);
+  const [printers, setPrinters] = useState<SystemPrinterInfo[]>([]);
   const [selectedPrinter, setSelectedPrinter] = useState('');
   const [dataPath, setDataPath] = useState('localStorage (browser mode)');
   const electron = isElectron();

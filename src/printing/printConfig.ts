@@ -9,12 +9,12 @@ export type PaperSize = '58mm' | '80mm' | '110mm';
 
 export const PRINT_CONFIG = {
   // Render & timing — separate delays for Electron (silent) vs Browser (dialog)
-  // Electron silent print: DOM already settled, 200ms kafi hai (Phase-1 target: <300ms start)
-  // Browser print: dialog opens, fonts/layout ke liye thora zyada chahiye
-  electronRenderDelayMs: 200,
-  browserRenderDelayMs: 600,
+  // Electron silent print: DOM already settled, 200ms is enough (Phase-1 target: <300ms start)
+  // Browser print: dialog opens, needs a bit more time for fonts/layout
+  electronRenderDelayMs: 30,
+  browserRenderDelayMs: 250,
   // Back-compat alias (legacy callers)
-  renderDelayMs: 200,
+  renderDelayMs: 30,
   marginsMm: 0,              // Rule 2,3,4: zero margins everywhere
 
   // Electron webContents.print options (Rule 8)

@@ -14,24 +14,12 @@
 //   - KOT: guarded by order.kotPrinted (a KOT for an order is enqueued once).
 //   - Receipt: guarded by order.receiptPrinted unless force=true (reprint).
 // ============================================================
-import { getOrders, saveOrder, getSettings } from './store';
-import { featureActive } from './optionalModules';
-import type { Order } from './types';
-import { buildKotRevision, nextKotNo, makeEditLog } from './orderHistory';
+import { getOrders, saveOrder, getSettings, getMenuItems } from './store';
+import { orderNeedsToken } from './tokenRules';
 import { appendPrintLog } from './printLog';
-
-/** Record a skipped/queued KOT decision so Printer Diagnostics shows WHY nothing printed. */
-function logKotSkip(order: Order, reason: string) {
-  try {
-    appendPrintLog({
-      printType: 'kitchen',
-      stage: 'enqueue',
-      status: 'skipped',
-      billNumber: String(order.orderNumber ?? order.id ?? ''),
-      error: reason,
-    });
-  } catch {}
-}
+import type { Order } from './types';
+import { receiptOnPay, type ReceiptOnPay } from './billStatus';
+import { buildKotRevision, nextKotNo, makeEditLog } from './orderHistory';
 
 export type PrintType = 'kot' | 'receipt' | 'token' | 'rider';
 export type PrintJobStatus = 'pending' | 'printing' | 'printed' | 'failed';
@@ -67,13 +55,12 @@ export interface PrintJob {
   cancelNames?: Record<string, string>;
   /** Sequential KOT number this print represents (1, 2, 3 …). */
   kotNo?: number;
-  /** v1.2.4: printedQty/kotRevisions were stamped on the order at ENQUEUE
-   *  time (not print time). markPrinted must not stamp again. */
+  /** User's explicit action (Send Kitchen / Reprint) — bypasses the kotSilentMode hold. */
+  /** v1.2.4 (cloud app): printedQty/kotRevisions were stamped on the order at ENQUEUE time, not print time.
+   *  markPrinted must not stamp again. */
   stamped?: boolean;
-  /** Operator pressed Reprint/Send — must never be held by Silent KOT Mode. */
   manual?: boolean;
 }
-
 
 const QUEUE_KEY = 'pos-print-queue';
 const QUEUE_EVENT = 'dt-pos-print-queue';
@@ -124,6 +111,27 @@ export function getFailedJobs(): PrintJob[] {
   return getPrintQueue().filter(j => j.status === 'failed' && j.retryCount >= MAX_RETRY);
 }
 
+/**
+ * True when a kitchen ticket for this order is already on its way to the
+ * printer, or came out a moment ago.
+ *
+ * The POS "Kitchen" button saves the order — which queues the KOT through the
+ * print host — and then opens the Kitchen Slip window, whose preview used to
+ * print again by itself: two tickets for one press. The window now asks this
+ * first and only shows the slip (its Print button is still there for a
+ * deliberate extra copy). A ticket that failed for good does not count: that
+ * one really did not come out.
+ */
+export function kotRecentlyQueued(orderId: string, withinMs = 60_000, now = Date.now()): boolean {
+  if (!orderId) return false;
+  return getPrintQueue().some(j =>
+    j.orderId === orderId
+    && j.printType === 'kot'
+    && now - new Date(j.createdAt || 0).getTime() < withinMs
+    && (j.status !== 'failed' || j.retryCount < MAX_RETRY),
+  );
+}
+
 /** Resolve which printer a job should target based on settings + station. */
 function resolvePrinter(printType: PrintType, station?: string, excludePrinter?: string): string | undefined {
   const s = getSettings();
@@ -141,6 +149,9 @@ function resolvePrinter(printType: PrintType, station?: string, excludePrinter?:
   return pick(s.defaultPrinter, s.backupPrinter);
 }
 
+/** Prevent a same job that was printed this recently from being re-enqueued (double-print guard). */
+const RECENT_PRINT_WINDOW_MS = 15000;
+
 interface EnqueueOpts {
   station?: string;
   copies?: number;
@@ -151,6 +162,7 @@ interface EnqueueOpts {
   cancelDeltas?: Record<string, number>;
   cancelNames?: Record<string, string>;
   kotNo?: number;
+  manual?: boolean;
 }
 
 /**
@@ -161,17 +173,52 @@ export function enqueuePrint(order: Order, printType: PrintType, opts: EnqueueOp
   const s = getSettings();
 
   if (printType === 'kot') {
-    // A forced (manual) reprint must still print even when auto-KOT is off:
-    // the operator explicitly asked for this ticket.
-    if (s.kotEnabled === false && !opts.force) { logKotSkip(order, 'KOT printing is disabled in settings (kotEnabled = off)'); return null; }
-
+    if (s.kotEnabled === false) return null;
     // Approval gate — never send pending/rejected orders to the kitchen.
-    if (order.status === 'pending_approval' || order.status === 'rejected') { logKotSkip(order, `Order status is ${order.status} — KOT not sent to kitchen`); return null; }
+    if (order.status === 'pending_approval' || order.status === 'rejected') return null;
     // updateMode and force both bypass the duplicate guard.
-    if (!opts.force && !opts.updateMode && order.kotPrinted) { logKotSkip(order, 'KOT already printed for this order (duplicate guard)'); return null; }
+    if (!opts.force && !opts.updateMode && order.kotPrinted) return null;
     // ===== Queue-level dedup =====
     // Prevent double-click / race conditions from enqueueing two identical KOTs
     // for the same order before the first one is marked printed.
+    // ===== FIX (KOT double print): previously `force` bypassed dedup entirely,
+    // and every manual button (Send Kitchen / Reprint) uses force — so a
+    // double-click or two simultaneous paths resulted in TWO KOTs. Now force also:
+    //   • does not create a new job if the same one is already pending/printing in the queue
+    //   • rejects the same request again within 3 seconds (double-click)
+    // (the real purpose of force is to bypass `order.kotPrinted`, not to print two slips.)
+    {
+      // ===== STALE JOBS MUST NOT BLOCK FOREVER =====
+      // This guard exists to stop a double-click producing two KOTs. But it
+      // matched ANY pending/printing job regardless of age, and a job can be
+      // left in 'printing' indefinitely — the app closed mid-print, the
+      // spooler never answered, the printer was unplugged. From then on EVERY
+      // KOT for that order was dropped silently, which is why "Reprint KOT"
+      // from Retrieve did nothing at all.
+      //
+      // A job older than this is treated as dead and no longer blocks.
+      const STALE_JOB_MS = 60_000;
+      const dupPending = getPrintQueue().some(j =>
+        j.orderId === order.id
+        && j.printType === 'kot'
+        && !!j.updateMode === !!opts.updateMode
+        && (j.status === 'pending' || j.status === 'printing')
+        && Date.now() - new Date(j.createdAt || 0).getTime() < STALE_JOB_MS
+      );
+      if (dupPending) {
+        try { console.log('%c[DT-Print]', 'color:#f59e0b;font-weight:700', 'dedup-skip KOT (already queued)', { no: order.orderNumber }); } catch {}
+        return null;
+      }
+      const rapid = getPrintQueue().some(j =>
+        j.orderId === order.id && j.printType === 'kot'
+        && !!j.updateMode === !!opts.updateMode
+        && Date.now() - new Date(j.createdAt || 0).getTime() < 3000
+      );
+      if (rapid) {
+        try { console.log('%c[DT-Print]', 'color:#f59e0b;font-weight:700', 'dedup-skip KOT (double-click 3s)', { no: order.orderNumber }); } catch {}
+        return null;
+      }
+    }
     if (!opts.force && !opts.updateMode) {
       const pending = getPrintQueue().some(j =>
         j.orderId === order.id
@@ -181,21 +228,45 @@ export function enqueuePrint(order: Order, printType: PrintType, opts: EnqueueOp
       );
       if (pending) {
         try { console.log('%c[DT-Print]', 'color:#f59e0b;font-weight:700', 'dedup-skip KOT', { orderId: order.id, no: order.orderNumber }); } catch {}
-        logKotSkip(order, 'Another KOT for this order is already in the print queue');
+        return null;
+      }
+      // If the KOT for this order was just printed (within 15s), don't print again
+      const justPrinted = getPrintQueue().some(j =>
+        j.orderId === order.id && j.printType === 'kot' && !j.updateMode
+        && j.status === 'printed' && Date.now() - new Date(j.printedAt || j.createdAt || 0).getTime() < RECENT_PRINT_WINDOW_MS
+      );
+      if (justPrinted) {
+        try { console.log('%c[DT-Print]', 'color:#f59e0b;font-weight:700', 'dedup-skip KOT (just printed)', { no: order.orderNumber }); } catch {}
         return null;
       }
     }
   }
   if (printType === 'receipt') {
     if (!opts.force && order.receiptPrinted) return null;
-    // Queue-level dedup for receipts too
-    if (!opts.force) {
-      const pending = getPrintQueue().some(j =>
-        j.orderId === order.id
-        && j.printType === 'receipt'
-        && (j.status === 'pending' || j.status === 'printing')
-      );
-      if (pending) return null;
+    // ===== Queue-level dedup =====
+    // A receipt already queued or on the printer is never queued twice, and
+    // that now holds for `force` too. Every pay path (POS, retrieve, pending
+    // payments, receive payment) calls enqueueReceiptOnPay with force set, so
+    // two of them firing for the same bill used to produce two slips. `force`
+    // exists to bypass order.receiptPrinted for a deliberate reprint, not to
+    // authorise a duplicate — and a real reprint is always more than a few
+    // seconds after the automatic one.
+    const dupPending = getPrintQueue().some(j =>
+      j.orderId === order.id
+      && j.printType === 'receipt'
+      && (j.status === 'pending' || j.status === 'printing')
+    );
+    if (dupPending) {
+      try { console.log('%c[DT-Print]', 'color:#f59e0b;font-weight:700', 'dedup-skip receipt (already queued)', { no: order.orderNumber }); } catch { /* console gone */ }
+      return null;
+    }
+    const rapid = getPrintQueue().some(j =>
+      j.orderId === order.id && j.printType === 'receipt'
+      && Date.now() - new Date(j.createdAt || 0).getTime() < 3000
+    );
+    if (rapid) {
+      try { console.log('%c[DT-Print]', 'color:#f59e0b;font-weight:700', 'dedup-skip receipt (double-submit 3s)', { no: order.orderNumber }); } catch { /* console gone */ }
+      return null;
     }
   }
 
@@ -217,32 +288,22 @@ export function enqueuePrint(order: Order, printType: PrintType, opts: EnqueueOp
     cancelDeltas: opts.cancelDeltas,
     cancelNames: opts.cancelNames,
     kotNo: opts.kotNo,
-    manual: opts.force === true,
+    manual: opts.manual || opts.force || undefined,
   };
-
 
   const queue = getPrintQueue();
   queue.push(job);
   saveQueue(queue);
 
-  // ===== v1.2.4: stamp printedQty / kotRevisions at ENQUEUE time =====
-  // The queue entry is the authoritative record of what the kitchen was told.
-  // Doing this here (instead of only after a successful print callback) means
-  // cloud prints, manual pending-print retries, and every other path keep the
-  // diff baseline correct — the fix for duplicate KOTs on order edit/cancel.
+  // ===== v1.2.4 (cloud app): stamp printedQty / kotRevisions at ENQUEUE time =====
+  // The queue entry is the authoritative record of what the kitchen was told. v1.21.0 stamped only after a successful
+  // print callback (markPrinted); any path that printed without that callback — a held job released later, a retry,
+  // another device printing it — left printedQty at 0, so the next "update" diff contained EVERY item again and the
+  // kitchen cooked duplicates. Stamping here keeps the diff baseline correct on every path; markPrinted no longer
+  // stamps a job that was stamped here.
   if (printType === 'kot') {
-    try {
-      appendPrintLog({
-        printType: 'kitchen',
-        stage: 'enqueue',
-        status: 'success',
-        billNumber: String(order.orderNumber ?? order.id ?? ''),
-        printerName: job.printerId || '(not configured)',
-        error: job.printerId ? undefined : 'No KOT printer resolved — check Printer Settings',
-      });
-    } catch {}
     job.stamped = true;
-    try { updateJob(job.id, { stamped: true }); } catch {}
+    try { updateJob(job.id, { stamped: true }); } catch { /* ignore */ }
     stampKotDispatchOnOrder(job, order);
   }
   try {
@@ -280,15 +341,25 @@ export function markPrinted(id: string) {
     errorReason: undefined,
   });
   try { console.log('%c[DT-Print]', 'color:#16a34a;font-weight:700', 'printed ✓', { jobId: id, durationMs: duration }); } catch {}
-  if (!job) return;
+  // Issue-11 logging: log every print event to the device print-log
   try {
-    // v1.2.4: printedQty / kotRevisions are normally stamped at ENQUEUE time
-    // (stampKotDispatchOnOrder). Only stamp here for legacy/cloud jobs that
-    // were queued without stamping — never twice.
-    if (job.printType === 'kot' && !job.stamped) {
-      stampKotDispatchOnOrder(job);
+    if (job) {
+      appendPrintLog({
+        billNumber: job.orderNumber != null ? String(job.orderNumber) : job.orderId,
+        printerName: job.printerId,
+        printType: job.printType === 'kot' ? 'kitchen' : job.printType === 'receipt' ? 'receipt' : 'other',
+        status: 'success',
+        ms: duration,
+      });
     }
-    // Re-read AFTER stamping so we never clobber freshly-stamped items.
+  } catch {}
+  if (!job) return;
+  // Stamp the order with print flags
+  try {
+    // printedQty / kotRevisions were stamped at ENQUEUE (stampKotDispatchOnOrder). Only a job that was queued without
+    // stamping (an older queue entry) is stamped here — never twice.
+    if (job.printType === 'kot' && !job.stamped) stampKotDispatchOnOrder(job);
+    // Re-read AFTER stamping so freshly-stamped items are never clobbered.
     const order = getOrders().find(o => o.id === job.orderId);
     if (order) {
       const patch: Partial<Order> = {
@@ -460,16 +531,76 @@ export function markFailed(id: string, error?: string) {
     errorReason: reason,
   });
   try { console.warn('%c[DT-Print]', 'color:#dc2626;font-weight:700', 'FAILED ✗', { jobId: id, error }); } catch {}
+  // Issue-11: log failure too in print-log + show the user a CLEAR error once retries are exhausted
+  try {
+    appendPrintLog({
+      billNumber: job.orderNumber != null ? String(job.orderNumber) : job.orderId,
+      printerName: job.printerId,
+      printType: job.printType === 'kot' ? 'kitchen' : job.printType === 'receipt' ? 'receipt' : 'other',
+      status: 'failed',
+      error: error || 'unknown',
+    });
+  } catch {}
+  if (nextRetry >= MAX_RETRY) {
+    // The bill itself was saved long before printing was attempted. Say so —
+    // a cashier who reads "print failed" needs to know the sale is safe, and
+    // needs a way to get the slip out once the printer is back.
+    const what = job.printType === 'kot' ? 'Kitchen slip' : job.printType === 'token' ? 'Token' : 'Receipt';
+    const why =
+      reason === 'no-printer' ? 'no printer is selected'
+      : reason === 'offline' ? 'the printer is not responding'
+      : reason === 'render-failed' ? 'the slip could not be prepared'
+      : 'the printer did not accept the job';
+    try {
+      import('sonner').then(({ toast }) =>
+        toast.error(
+          `Bill #${job.orderNumber ?? ''} saved successfully, but ${why}. ${what} not printed.`,
+          {
+            duration: 15000,
+            description: `Printer: ${job.printerId || 'Windows default'} — the bill is safe and can be reprinted.`,
+            action: { label: 'Retry print', onClick: () => retryJob(id) },
+          },
+        ));
+    } catch { /* toast unavailable */ }
+    try {
+      window.dispatchEvent(new CustomEvent('dtpos-print-failed', {
+        detail: { jobId: id, orderNumber: job.orderNumber, printType: job.printType, reason, error },
+      }));
+    } catch { /* no window */ }
+    // Keep a reliable print state ON THE BILL, not just in the queue, so a
+    // reprint later can tell "never came out" from "already printed".
+    try {
+      const order = getOrders().find(o => o.id === job.orderId);
+      if (order && order.printStatus !== 'printed') {
+        saveOrder({ ...order, printStatus: 'failed', lastPrintFailedAt: now, lastPrintError: error || 'print failed' } as any);
+      }
+    } catch (e) { console.warn('[DT-Print] could not stamp failed state on order', e); }
+  }
 }
 
-/** Manually retry a failed job (resets to pending). */
+/** Kitchen KOTs held back by Silent-KOT mode. These never reach the printer on
+ *  their own, so Print Retry must show them and let the user release them —
+ *  otherwise a kitchen slip simply disappears (client-reported bug). */
+export function getHeldKotJobs(): PrintJob[] {
+  if (!getSettings().kotSilentMode) return [];
+  return getPrintQueue().filter(j => j.printType === 'kot' && !j.manual && (j.status === 'pending' || j.status === 'printing'));
+}
+
+/** Release a held kitchen KOT so the print host picks it up right now. */
+export function releaseKotJob(id: string) {
+  updateJob(id, { status: 'pending', manual: true, error: undefined, retryCount: 0 });
+}
+
+/** Manually retry a failed job (resets to pending). Kitchen jobs are marked
+ *  manual so Silent-KOT mode cannot swallow the retry. */
 export function retryJob(id: string) {
-  updateJob(id, { status: 'pending', error: undefined });
+  const job = getPrintQueue().find(j => j.id === id);
+  updateJob(id, { status: 'pending', error: undefined, ...(job?.printType === 'kot' ? { manual: true } : {}) });
 }
 
 export function retryAllFailed() {
   const queue = getPrintQueue().map(j =>
-    j.status === 'failed' ? { ...j, status: 'pending' as const, retryCount: 0, error: undefined } : j,
+    j.status === 'failed' ? { ...j, status: 'pending' as const, retryCount: 0, error: undefined, manual: j.printType === 'kot' ? true : j.manual } : j,
   );
   saveQueue(queue);
 }
@@ -478,27 +609,126 @@ export function clearPrintedJobs() {
   saveQueue(getPrintQueue().filter(j => j.status !== 'printed'));
 }
 
+/** User ka "Clear All Pending": tamam pending/failed/stuck jobs HAMESHA ke
+ *  liye cancel — na ab printengi, na restart pe. (Restart-flush surprise ka
+ *  ilaaj: purani jobs ura do, sirf naye commands print hon.) */
+export function clearAllPendingJobs(): number {
+  const queue = getPrintQueue();
+  const n = queue.filter(j => j.status !== 'printed').length;
+  saveQueue(queue.filter(j => j.status === 'printed'));
+  try { console.log('%c[DT-Print]', 'color:#f59e0b;font-weight:700', 'ALL PENDING CLEARED by user', { removed: n }); } catch {}
+  return n;
+}
+
 /** Convenience: KOT for an order, respecting per-item kitchen stations. */
 export function enqueueKot(order: Order, opts: EnqueueOpts = {}) {
   return enqueuePrint(order, 'kot', opts);
 }
 export function enqueueReceipt(order: Order, opts: EnqueueOpts = {}) {
-  // ===== v1.2.5: "Paid-only receipts" option =====
-  // Admin ON kare to sirf PAID bill ki slip printer par jayegi —
-  // running/hold/unpaid slip bilkul nahi niklegi. Default OFF hai, is liye
-  // baqi restaurants ka behaviour bilkul waisa hi rehta hai.
+  return enqueuePrint(order, 'receipt', opts);
+}
+
+/** Manual Token Print (via button) — if a token category is set, print slip + register count. */
+export function enqueueToken(order: Order): boolean {
+  const st: any = getSettings();
+  // Categories AND individually-selected items both qualify an order.
+  if (!orderNeedsToken(order, st, getMenuItems())) return false;
+  return !!enqueuePrint(order, 'token', { force: true, manual: true });
+}
+
+/** Payment ke waqt receipt — 'No receipt on pay' setting ka ek hi gate.
+ *  When ON, the receipt will NOT print on pay (simple pay, retrieve-pay, pending-pay
+ *  all). Reprint/Bill-Print buttons bypass this — they are explicit. */
+/** The payment screen's "Print receipt" box for one bill: true / false overrides Settings, absent follows them. */
+export interface ReceiptChoice { receipt?: boolean }
+
+function decideReceipt(order: Order, choice: ReceiptChoice): ReceiptOnPay {
+  if (choice.receipt === true) return 'print';
+  if (choice.receipt === false) return 'skip-all';
+  return receiptOnPay(order, getSettings());
+}
+
+export function enqueueReceiptOnPay(order: Order, opts: EnqueueOpts = {}, choice: ReceiptChoice = {}) {
+  // NOTE (v1.0.40): stock deduction used to be kicked off from here as well,
+  // on top of the two paths inside saveOrder — three deductions for one sale.
+  // saveOrder is the single funnel now (see stockEngine.consumeStockForOrder),
+  // and it runs before this function is ever reached.
+  // Tandoor Token: BEFORE the receipt and INDEPENDENT of noReceiptOnPay — the token
+  // is for the tandoor, not for the customer.
   try {
-    const st = getSettings();
-    if (featureActive(st, 'paidOnlyReceipts')) {
-      const s = order.status;
-      const isPaidBill = s === 'paid' || s === 'credit_received' || s === 'complimentary';
-      if (!isPaidBill) {
-        console.log('[DT-Print] paid-only receipts ON — skipped unpaid slip', order.orderNumber, s);
-        return null;
-      }
+    const st: any = getSettings();
+    if (orderNeedsToken(order, st, getMenuItems())) {
+      enqueuePrint(order, 'token', { force: true });
     }
   } catch {}
-  return enqueuePrint(order, 'receipt', opts);
+  try {
+    const decision = decideReceipt(order, choice);
+    if (decision !== 'print') {
+      console.log('%c[DT-Print]', 'color:#f59e0b', `receipt on pay SKIPPED (${decision})`, { order: order.orderNumber });
+      return undefined;
+    }
+  } catch {}
+  return enqueuePrint(order, 'receipt', { force: true, ...opts });
+}
+
+/**
+ * Whether a bill's kitchen ticket goes out automatically — the same rules the
+ * POS applies to a new running order (master switch, per-order-type switch,
+ * manual "Send to Kitchen" mode).
+ */
+export function autoKotFor(order: Pick<Order, 'orderType'>, s: any = getSettings()): boolean {
+  if (s.kotEnabled === false || s.manualSendToKitchen) return false;
+  const master = s.autoPrintKot ?? s.autoKitchenPrint ?? true;
+  const perType = order.orderType === 'dining' ? (s.autoKotDining ?? master)
+    : order.orderType === 'takeaway' ? (s.autoKotTakeaway ?? master)
+    : order.orderType === 'delivery' ? (s.autoKotDelivery ?? master)
+    : master;
+  return !!perType;
+}
+
+/**
+ * What putting a bill on HOLD prints. Called once, when the bill ENTERS hold
+ * (not on resume, not on every save while held).
+ *
+ *  - the kitchen ticket, if this bill's items never reached the kitchen and
+ *    the shop sends KOTs automatically (a new order saved straight to Hold
+ *    used to skip the kitchen entirely);
+ *  - the customer's bill marked "ON HOLD (UNPAID)", when "Print Bill on
+ *    Hold" is on (default) — the guest has eaten, the bill is presented, the
+ *    payment comes later.
+ *
+ * The queue's own de-duplication still applies, so a double click or two
+ * screens holding the same bill never produce two slips. Never throws.
+ */
+export function printOnHold(order: Order, opts: { kot?: boolean } = {}): { bill: boolean; kot: boolean } {
+  const out = { bill: false, kot: false };
+  try {
+    const s: any = getSettings();
+    if (s.printBillOnHold !== false) out.bill = !!enqueueReceipt(order, { force: true });
+    if (opts.kot !== false && !order.kotPrinted && (order.items || []).length && autoKotFor(order, s)) {
+      out.kot = !!enqueueKot(order);
+    }
+  } catch { /* printing must never undo the hold */ }
+  return out;
+}
+
+/** The cashier's message after a hold, saying only what really happened. */
+export function holdMessage(orderNumber: number | string, printed: { bill: boolean; kot: boolean }): string {
+  const parts = [printed.bill && 'bill', printed.kot && 'kitchen ticket'].filter(Boolean);
+  return `Bill #${orderNumber} is on HOLD — UNPAID${parts.length ? ` · ${parts.join(' and ')} sent to the printer` : ''}`;
+}
+
+/**
+ * The one call every pay path makes AFTER the paid bill is saved. It never
+ * throws and never touches the order's payment — a printer problem is
+ * reported by the queue on its own, and the bill stays paid.
+ */
+export function printReceiptAfterPayment(order: Order, choice: ReceiptChoice = {}): { decision: ReceiptOnPay; queued: boolean } {
+  let decision: ReceiptOnPay = 'print';
+  try { decision = decideReceipt(order, choice); } catch { /* default: print */ }
+  let queued = false;
+  try { queued = !!enqueueReceiptOnPay(order, {}, choice); } catch { queued = false; }
+  return { decision, queued };
 }
 
 /**
@@ -570,9 +800,9 @@ export function enqueueKotUpdate(order: Order, opts: Omit<EnqueueOpts, 'updateMo
 }
 
 /**
- * Cancel KOT — kitchen ko batata hai ke pora order CANCELLED hai aur cooking ruk jaye.
- * Sab items (printed ya cart me mojood) ko CANCELLED dikhata hai. Sirf tab bhejen jab
- * pichla KOT print ho chuka ho (warna kitchen ne dekha hi nahi).
+ * Cancel KOT — tells the kitchen that the entire order is CANCELLED and cooking should stop.
+ * Shows all items (printed or present in cart) as CANCELLED. Only send this if the
+ * previous KOT was already printed (otherwise the kitchen never saw it).
  */
 export function enqueueKotCancel(order: Order, opts: Omit<EnqueueOpts, 'updateMode' | 'diffItemIds' | 'diffDeltas' | 'cancelDeltas' | 'cancelNames'> = {}) {
   const cancelDeltas: Record<string, number> = {};
@@ -597,33 +827,10 @@ export function enqueueKotCancel(order: Order, opts: Omit<EnqueueOpts, 'updateMo
   });
 }
 
-/**
- * Smart KOT enqueue that respects restaurant policy `kotUpdateMode`.
- *  - 'only_changes' (default): print only diff (new items) + separate cancel ticket if needed.
- *  - 'full': reprint entire order.
- *  - 'ask': caller must show a dialog; if this helper is called it defaults to 'only_changes'.
- * Falls back to full KOT when there is no prior KOT revision yet.
- */
-export function enqueueKotByPolicy(
-  order: Order,
-  mode: 'only_changes' | 'full' | 'ask' | undefined,
-  opts: EnqueueOpts = {},
-) {
-  const hasPrior = (order.kotRevisions || []).length > 0;
-  const effective = mode || 'only_changes';
-  if (!hasPrior || effective === 'full') {
-    return enqueuePrint(order, 'kot', { ...opts, force: true });
-  }
-  const upd = enqueueKotUpdate(order, opts as any);
-  if (upd) return upd;
-  // no diff detected — fall back to full so user gets some ticket
-  return enqueuePrint(order, 'kot', { ...opts, force: true });
-}
-
 
 
 // ============================================================
-// Cloud Print Mirror — push the same job to Firebase printJobs
+// Cloud Print Mirror — retained no-op in the offline build (there is no
 // so the Windows EXE "Print Server" can print silently when this
 // device is just a browser tab (web POS, online order, rider portal).
 // Caller passes pre-rendered HTML (already styled for thermal).
@@ -657,3 +864,29 @@ export async function enqueueCloudPrint(args: {
     return null;
   }
 }
+
+/**
+ * Smart KOT enqueue that respects restaurant policy `kotUpdateMode`.
+ *  - 'only_changes' (default): print only diff (new items) + separate cancel ticket if needed.
+ *  - 'full': reprint entire order.
+ *  - 'ask': caller must show a dialog; if this helper is called it defaults to 'only_changes'.
+ * Falls back to full KOT when there is no prior KOT revision yet.
+ */
+export function enqueueKotByPolicy(
+  order: Order,
+  mode: 'only_changes' | 'full' | 'ask' | undefined,
+  opts: EnqueueOpts = {},
+) {
+  const hasPrior = (order.kotRevisions || []).length > 0;
+  const effective = mode || 'only_changes';
+  if (!hasPrior || effective === 'full') {
+    return enqueuePrint(order, 'kot', { ...opts, force: true });
+  }
+  const upd = enqueueKotUpdate(order, opts as any);
+  if (upd) return upd;
+  // no diff detected — fall back to full so user gets some ticket
+  return enqueuePrint(order, 'kot', { ...opts, force: true });
+}
+
+
+

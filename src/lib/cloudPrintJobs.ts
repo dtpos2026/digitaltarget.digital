@@ -33,7 +33,8 @@ export type CloudPrintRole =
   | 'counter'   // customer receipt
   | 'kitchen'   // KOT
   | 'delivery'  // rider slip
-  | 'display';  // customer display
+  | 'display'   // customer display
+  | 'token';    // tandoor token slip
 
 export interface CloudPrintJob {
   id: string;

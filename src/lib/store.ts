@@ -4304,3 +4304,24 @@ export async function clearCollectionsForDayClose(cols: string[]): Promise<Recor
   }
   return counts;
 }
+
+// ============================================================
+// TOKEN RECORDS — one per token actually issued (Token Payment Mode; lib/tokenRecords.ts). The slip-printing code
+// of the offline DT POS Enterprise v1.21.0 keeps these in the application data beside the orders.
+//
+// Kept on THIS device only: the cloud has no table for them, and a collection the backend does not know would turn
+// every issued token into a "change could not be uploaded" warning. Token Payment Mode is off by default; when a
+// shop switches it on, the day's tokens are the till's own record (the same way the offline software kept them).
+// ============================================================
+import type { TokenRecord } from './types';
+
+export function getTokenRecords(): TokenRecord[] {
+  return (((loadData() as any).tokenRecords) || []) as TokenRecord[];
+}
+
+export function saveTokenRecord(record: TokenRecord): void {
+  const d = loadData() as any;
+  if (!Array.isArray(d.tokenRecords)) d.tokenRecords = [];
+  upsert(d.tokenRecords as TokenRecord[], { ...(record as any), _updatedAt: Date.now() } as TokenRecord);
+  saveLocal(d);
+}
