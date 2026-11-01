@@ -24,7 +24,9 @@ import { authTenantId, authBranchId } from './authProvider';
 import { isPublicTenantRoute, parsePublicTenantId } from './publicTenant';
 import {
   ENABLE_ORDERS_DELTA_PULL, ORDERS_DELTA_OVERLAP_MS, ORDERS_FULL_RECONCILE_MS,
+  ENABLE_REALTIME_DELTA_RELOAD, REALTIME_FULL_RECONCILE_MS,
 } from './featureFlags';
+import { deltaWindow } from './syncMerge';
 
 import { allocateServerOrderNumber, isOrderNumberCollision, emitOrderRenumbered } from './orderNumbers';
 
@@ -927,6 +929,101 @@ export async function sbLoadOrdersDelta(
   }
 
   return { rows: raw.map((r: any) => rowFromDb(r, table)), full };
+}
+
+// ---------------------------------------------------------------------------
+// v1.77.0 — the REALTIME reload reads what changed
+//
+// A realtime event used to trigger sbLoadCollection(col, {includeDeleted: true}): the whole collection, tombstones
+// and all, on every device. This is the same query with one extra condition, `updated_at >= cursor - overlap`.
+//
+// The cursor is kept PER COLLECTION, not per table: `customers` and `marketingContacts` read the same table, and a
+// shared cursor would let the first one advance it past rows the second has not yet merged. It is also separate from
+// the orders cursor above, which belongs to refreshOrdersFromCloud() — that function merges its rows on its own
+// schedule, so sharing a cursor would let either path step over rows the other still needs.
+//
+// Every table on this path has `updated_at` set by a BEFORE UPDATE trigger on every write, soft-deletes included, so a
+// tombstone is a row with a new `updated_at` like any other change. (Verified against the live schema on 2026-11-01.)
+// ---------------------------------------------------------------------------
+const RT_CURSOR_PREFIX = 'pos-rt-delta-cursor::';
+const RT_FULL_AT_PREFIX = 'pos-rt-delta-full-at::';
+const rtCursorKey = (tenantId: string, col: string) => `${RT_CURSOR_PREFIX}${tenantId}::${col}`;
+const rtFullAtKey = (tenantId: string, col: string) => `${RT_FULL_AT_PREFIX}${tenantId}::${col}`;
+
+function readNum(key: string): number {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return 0;
+    const ms = /^\d+$/.test(raw) ? Number(raw) : Date.parse(raw);
+    return Number.isFinite(ms) ? ms : 0;
+  } catch { return 0; }
+}
+
+/** Forget the realtime cursors, so the next realtime read of each collection is a full one. */
+export function resetRealtimeDeltaCursors(tenantId?: string | null): void {
+  const t = tenantId ?? readTenantId();
+  if (!t) return;
+  try {
+    const dead: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && (k.startsWith(`${RT_CURSOR_PREFIX}${t}::`) || k.startsWith(`${RT_FULL_AT_PREFIX}${t}::`))) dead.push(k);
+    }
+    for (const k of dead) localStorage.removeItem(k);
+  } catch { /* ignore */ }
+}
+
+export interface CollectionDeltaRead {
+  /** Rows through rowFromDb, tombstones included (flagged `deleted`), exactly as sbLoadCollection({includeDeleted}). */
+  rows: any[];
+  /** TRUE when this is the whole collection; FALSE when it is only what changed. */
+  full: boolean;
+}
+
+/**
+ * The realtime counterpart of sbLoadCollection(col, {includeDeleted: true}).
+ * Falls back to exactly that (a full read) when the flag is off, the collection is not a plain table, or there is no
+ * usable cursor. Throws on error, never returns [] for a failure — same rule as the other readers.
+ */
+export async function sbLoadCollectionDelta(col: string, opts: { force?: boolean } = {}): Promise<CollectionDeltaRead> {
+  const table = isDocStoreCollection(col) ? null : tableFor(col);
+  const tenantId = readTenantId();
+  if (!ENABLE_REALTIME_DELTA_RELOAD || !table || !tenantId) {
+    return { rows: await sbLoadCollection(col, { includeDeleted: true }), full: true };
+  }
+
+  const win = deltaWindow({
+    cursorMs: readNum(rtCursorKey(tenantId, col)),
+    lastFullMs: readNum(rtFullAtKey(tenantId, col)),
+    nowMs: Date.now(),
+    force: opts.force,
+    overlapMs: ORDERS_DELTA_OVERLAP_MS,
+    reconcileMs: REALTIME_FULL_RECONCILE_MS,
+  });
+
+  let request = sb().from(table).select('*').eq('tenant_id', tenantId);
+  if (table === 'orders') request = request.is('archived_at', null);
+  if (!win.full && win.sinceIso) request = request.gte('updated_at', win.sinceIso);
+  const { data, error } = await request;
+  if (error) {
+    console.error(`[supabase] realtime delta ${col} (${table}) failed`, error.message);
+    throw error;
+  }
+
+  const raw = (data ?? []) as any[];
+  // Advance from the rows themselves, never from the local clock: the device clock and the database clock differ.
+  let newestMs = 0;
+  for (const r of raw) {
+    const ms = Date.parse(r?.updated_at || '');
+    if (Number.isFinite(ms) && ms > newestMs) newestMs = ms;
+  }
+  try {
+    const prev = readNum(rtCursorKey(tenantId, col));
+    if (newestMs > prev) localStorage.setItem(rtCursorKey(tenantId, col), String(newestMs));
+    if (win.full) localStorage.setItem(rtFullAtKey(tenantId, col), String(Date.now()));
+  } catch { /* private mode / quota — the next read is simply a full one */ }
+
+  return { rows: raw.map((r: any) => rowFromDb(r, table)), full: win.full };
 }
 
 /**

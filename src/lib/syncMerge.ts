@@ -116,3 +116,50 @@ export function mergeCollection(
   }
   return { rows: Array.from(byId.values()), requeue };
 }
+
+/**
+ * Merge a PARTIAL read — only the rows that changed since a cursor — into the local cache.
+ *
+ * mergeCollection() must never be handed a partial list: it reads absence as "the cloud has never seen this row",
+ * keeps the local copy and RE-QUEUES it for upload, so a two-row delta would have re-uploaded the entire collection.
+ * This merges only the local rows the delta is about (matched by local id or by the id the cloud keys them under),
+ * runs the normal merge on that subset, and leaves every other local row exactly as it is.
+ *
+ * `changed` is false when the delta held nothing, so the caller can skip a write and a UI refresh.
+ */
+export function mergeDelta(
+  name: string,
+  deltaRows: readonly any[],
+  localRows: readonly any[],
+  pendingIds: Set<string> | null,
+  cloudIdOf?: (localId: string) => string,
+): MergeResult & { changed: boolean } {
+  if (!deltaRows.length) return { rows: localRows as any[], requeue: [], changed: false };
+  const remoteIds = new Set<string>();
+  for (const r of deltaRows) if (r?.id) remoteIds.add(r.id);
+  const aboutDelta = (l: any) => !!l?.id && (remoteIds.has(l.id) || (!!cloudIdOf && remoteIds.has(cloudIdOf(l.id))));
+  const subset = localRows.filter(aboutDelta);
+  const untouched = localRows.filter(l => !aboutDelta(l));
+  const { rows, requeue } = mergeCollection(name, deltaRows, subset, pendingIds, cloudIdOf);
+  return { rows: [...untouched, ...rows], requeue, changed: true };
+}
+
+export interface DeltaWindow {
+  /** True when this read must return the whole collection. */
+  full: boolean;
+  /** ISO lower bound for `updated_at` when it is a delta; null for a full read. */
+  sinceIso: string | null;
+}
+
+/**
+ * Decide whether the next read is a full one or a delta, and from when.
+ * Full when forced, when there is no cursor, or when the reconcile interval has passed (0 = never reconcile).
+ */
+export function deltaWindow(o: {
+  cursorMs: number; lastFullMs: number; nowMs: number; force?: boolean; overlapMs: number; reconcileMs: number;
+}): DeltaWindow {
+  const reconcileDue = o.reconcileMs > 0 && o.nowMs - o.lastFullMs >= o.reconcileMs;
+  const full = !!o.force || !(o.cursorMs > 0) || reconcileDue;
+  if (full) return { full: true, sinceIso: null };
+  return { full: false, sinceIso: new Date(Math.max(0, o.cursorMs - o.overlapMs)).toISOString() };
+}

@@ -8,6 +8,7 @@ Not in this list: the Windows shell (`dtpos-desktop`) and the Android apps (`dtp
 
 ## Releases
 
+- **v1.77.0** · 2026-11-01 · egress: a realtime event re-reads only the rows that changed (not the whole collection), and a rider's GPS is written every 15 s / 20 m instead of every fix  `(this release)`
 - **v1.76.0** · 2026-11-01 · the Printing Center, fast printing, margins and printer detection of the offline POS (v1.21.0) brought across; Hold prints once; the Kitchen button no longer prints two KOTs  `be2f9b6`
 - **v1.75.0** · 2026-11-01 · the All Categories grid in the POS, one tracking view for the customer's page and the software, a Delivery Board that follows the store, rider Go Live reminder  `bc93e8d`
 - **v1.74.0** · 2026-10-31 · the animated welcome splash on web and Windows, a boot screen in the restaurant's colour before it, and a window that no longer flashes slate  `a81faf7`

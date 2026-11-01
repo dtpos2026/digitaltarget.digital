@@ -19,7 +19,7 @@ import { localDb } from './localDb';
 import type { Shift } from './shifts';
 import { buildRefund, type Refund, type RefundRequest } from './refunds';
 import { normalizeForDisplay, dedupeById } from './dataIntegrity';
-import { mergeCollection } from './syncMerge';
+import { mergeCollection, mergeDelta } from './syncMerge';
 import { isPermanentSyncError, explainSyncError } from './syncErrors';
 import { onDeadLetter } from './deferredSync';
 import { shouldDeferCloudWrite, enqueueDeferredOp, registerDeferredFlusher, registerDeferredBatchFlusher, installDeferredSyncTriggers, stopDeferredSyncTriggers, deferredPendingCount, onDeferredSyncChange } from './deferredSync';
@@ -1198,23 +1198,34 @@ async function pendingOpKeys(): Promise<Set<string> | null> {
   } catch { return null; }
 }
 
-async function sbReloadCollections(names: string[]) {
-  const { sbLoadCollection } = await import('./supabaseStore');
+export async function sbReloadCollections(names: string[]) {
+  const { sbLoadCollectionDelta } = await import('./supabaseStore');
   const d = loadData();
   const pendingIds = await pendingOpKeys();
   const cloudIdFor = await loadCloudIdFn();
   let touched = false;
   for (const name of names) {
     try {
-      // includeDeleted — the merge needs the tombstones, not just the survivors.
-      const rows = await sbLoadCollection(name, { includeDeleted: true });
+      // v1.77.0 — a DELTA unless this is the first read, a reconcile, or the flag is off. includeDeleted still holds:
+      // the merge needs the tombstones, not just the survivors, and a tombstone is a changed row like any other.
       const localRows: any[] = ((d as any)[name] || []) as any[];
-      // A read that succeeds but comes back completely empty for a collection
-      // that has local rows is still treated as suspect (a mis-scoped tenant
-      // returns zero rows without raising an error). Genuine deletions arrive
-      // as tombstones inside `rows`, so this guard no longer blocks them.
-      if (!rows.length && localRows.length) continue;
-      const { rows: merged, requeue } = mergeCollection(name, rows, localRows, pendingIds, cloudIdFor);
+      // A delta can only ADD to rows that are already cached, so a device holding none (fresh install, cleared
+      // browser) takes a full read — the same rule refreshOrdersFromCloud() applies.
+      const { rows, full } = await sbLoadCollectionDelta(name, { force: localRows.length === 0 });
+      let merged: any[]; let requeue: string[];
+      if (full) {
+        // A read that succeeds but comes back completely empty for a collection
+        // that has local rows is still treated as suspect (a mis-scoped tenant
+        // returns zero rows without raising an error). Genuine deletions arrive
+        // as tombstones inside `rows`, so this guard no longer blocks them.
+        if (!rows.length && localRows.length) continue;
+        ({ rows: merged, requeue } = mergeCollection(name, rows, localRows, pendingIds, cloudIdFor));
+      } else {
+        // Empty is the NORMAL answer to "what changed?" — nothing to merge, nothing to save, nothing to repaint.
+        const r = mergeDelta(name, rows, localRows, pendingIds, cloudIdFor);
+        if (!r.changed) continue;
+        merged = r.rows; requeue = r.requeue;
+      }
       (d as any)[name] = merged;
       for (const id of requeue) enqueueDeferredOp(name, id, 'set');
       if (requeue.length) {

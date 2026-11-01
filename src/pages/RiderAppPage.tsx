@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Bike, MapPin, Phone, Navigation, CheckCircle, Truck, PackageCheck, ChefHat, XCircle, Radio, RefreshCw, User as UserIcon, History as HistoryIcon, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { normalizePhone, openWhatsApp } from '@/lib/whatsapp';
+import { shouldSendPing, appendRoutePoint, type PingPoint } from '@/lib/riderPing';
 import { buildTrackingMessage, buildTrackingWhatsAppText, setDeliveryStage, DELIVERY_STAGE_LABEL, computeDistance, estimateEta, notifyCustomerStage } from '@/lib/delivery';
 import DeliveryRouteMap from '@/components/DeliveryRouteMap';
 import ReadyNotificationBus from '@/components/ReadyNotificationBus';
@@ -61,6 +62,8 @@ export default function RiderAppPage() {
   const [tracking, setTracking] = useState<boolean>(() => localStorage.getItem('rider-tracking') === '1');
   const [myPos, setMyPos] = useState<{ lat: number; lng: number } | null>(null);
   const watchIdRef = useRef<number | null>(null);
+  // Last position written to the database, per order (see riderPing.ts).
+  const lastPingRef = useRef<Map<string, PingPoint>>(new Map());
 
   // Public-portal login state
   const publicMode = isPublicRiderRoute();
@@ -233,26 +236,34 @@ export default function RiderAppPage() {
     watchIdRef.current = navigator.geolocation.watchPosition(
       (pos) => {
         const { latitude: lat, longitude: lng } = pos.coords;
+        // The rider's own screen follows every fix...
         setMyPos({ lat, lng });
-        // Push to all of my active orders
+        // ...but the database is written on a ration (see src/lib/riderPing.ts): a phone in a vehicle reports about once
+        // a second, and each write re-sends the whole order and rebuilds its item rows.
+        const point = { lat, lng, at: Date.now() };
         const active = getOrders().filter(o =>
           o.orderType === 'delivery' &&
           o.riderId === rider.id &&
           o.deliveryStatus &&
           !['delivered', 'cancelled'].includes(o.deliveryStatus)
         );
+        let wrote = false;
         for (const o of active) {
+          // Per order, so an order claimed a moment ago gets its first position at once.
+          if (!shouldSendPing(lastPingRef.current.get(o.id) || null, point)) continue;
+          lastPingRef.current.set(o.id, point);
           const delivery = { ...(o.delivery || {}) };
           delivery.riderLat = lat;
           delivery.riderLng = lng;
-          delivery.route = [...(delivery.route || []), { lat, lng, t: new Date().toISOString() }].slice(-200);
+          delivery.route = appendRoutePoint(delivery.route, point);
           if (delivery.customerLat && delivery.customerLng) {
             delivery.distanceKm = computeDistance({ lat, lng }, { lat: delivery.customerLat, lng: delivery.customerLng });
             delivery.etaMinutes = estimateEta(delivery.distanceKm);
           }
-          saveOrder({ ...o, delivery, riderPingedAt: new Date().toISOString() } as any);
+          saveOrder({ ...o, delivery, riderPingedAt: new Date(point.at).toISOString() } as any);
+          wrote = true;
         }
-        setOrders(getOrders());
+        if (wrote) setOrders(getOrders());
       },
       (err) => { console.warn(err); toast.error('GPS error: ' + err.message); },
       { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }

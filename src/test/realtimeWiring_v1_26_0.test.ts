@@ -52,6 +52,10 @@ vi.mock('@/lib/supabaseStore', async () => ({
                waiters: 'user_profiles', riders: 'user_profiles' },
   sbLoadSettings: (...a: any[]) => loadSettings(...(a as [])),
   sbLoadCollection: (...a: any[]) => loadCollection(...(a as [])),
+  // v1.77.0 — the reload goes through the delta reader. This stub is its FULL path (first read / reconcile / flag off),
+  // which is the same includeDeleted read this file has always pinned. The delta path itself is tested in
+  // realtimeDelta_v1_77_0.test.ts against a model of the server.
+  sbLoadCollectionDelta: async (name: string) => ({ rows: await loadCollection(name, { includeDeleted: true } as any), full: true }),
 }));
 
 const hydrateCloudDocs = vi.fn(async () => {});
