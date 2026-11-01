@@ -1222,6 +1222,8 @@ export interface Wastage {
   reason: WastageReason;
   note?: string;
   recordedBy?: string;
+  /** Branch this row belongs to (the database stamps it; empty = not recorded). */
+  branchId?: string;
 }
 
 export interface UnitConversion {
@@ -1244,6 +1246,8 @@ export interface InventoryItem {
   lowStockThreshold: number;
   image?: string;
   isActive: boolean;
+  /** Branch this row belongs to (the database stamps it; empty = not recorded). */
+  branchId?: string;
 }
 
 export interface StockLog {
@@ -1355,6 +1359,8 @@ export interface Transaction {
   partyId?: string; // supplier or customer
   partyName?: string;
   createdBy?: string;
+  /** Branch this row belongs to (the database stamps it; empty = not recorded). */
+  branchId?: string;
 }
 
 export interface Party {

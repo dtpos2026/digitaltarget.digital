@@ -40,7 +40,7 @@ const BUSINESS_FEATURES = [
   'profitability', 'costing', 'reports-center', 'financials',
   // v1.64.0 — the owner's branch-by-branch view. It sits with `branches`
   // because it only earns its place once a restaurant has more than one.
-  'riders', 'rider-app', 'branches', 'owner-management',
+  'riders', 'rider-app', 'branches', 'owner-management', 'branch-performance',
 ];
 
 const PREMIUM_FEATURES = [

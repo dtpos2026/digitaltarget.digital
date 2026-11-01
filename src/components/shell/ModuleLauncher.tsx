@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from '@/lib/hash-router';
 import { SearchX, Search, Settings2, Star } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
-import { getSettings, getUsers } from '@/lib/store';
+import { getBranches, getSettings, getUsers } from '@/lib/store';
 import { GROUP_ORDER, visiblePagesForUser, type PageDef, type PageGroup } from '@/lib/permissions';
 import { resolveNav, toggleFavorite, useNavPrefs, writeNavPrefs } from '@/lib/navPrefs';
 import { cn } from '@/lib/utils';
@@ -29,7 +29,7 @@ export default function ModuleLauncher({ open, onOpenChange }: Props) {
   const { groups, canManage, total } = useMemo(() => {
     const settings = getSettings();
     const user = getUsers().find(u => u.id === (localStorage.getItem('pos-user-id') || ''));
-    const pages = visiblePagesForUser(user, !!settings.costTrackingEnabled, settings);
+    const pages = visiblePagesForUser(user, !!settings.costTrackingEnabled, settings, { branchCount: getBranches().length });
     const nav = resolveNav(pages, prefs);
     // Everything the user may open and has not hidden, favourites first within a group.
     const shown: PageDef[] = [...nav.favorites, ...nav.main, ...nav.more, ...nav.locked];

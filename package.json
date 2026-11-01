@@ -1,6 +1,6 @@
 {
   "name": "dt-pos",
-  "version": "1.81.0",
+  "version": "1.82.0",
   "private": true,
   "sideEffects": false,
   "type": "module",

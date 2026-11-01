@@ -10,7 +10,7 @@ import { useNavigate } from '@/lib/hash-router';
 import { ArrowDown, ArrowUp, ExternalLink, Lock, RotateCcw, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { getSettings, getUsers } from '@/lib/store';
+import { getBranches, getSettings, getUsers } from '@/lib/store';
 import { GROUP_ORDER, visiblePagesForUser, type PageDef } from '@/lib/permissions';
 import {
   LOCKED_KEYS, moveModule, placementOf, resetNavPrefs, resolveNav, setPlacement, toggleFavorite,
@@ -37,7 +37,7 @@ export default function ModuleManagementCard() {
   const { pages, nav } = useMemo(() => {
     const settings = getSettings();
     const user = getUsers().find(u => u.id === (localStorage.getItem('pos-user-id') || ''));
-    const all = visiblePagesForUser(user, !!settings.costTrackingEnabled, settings);
+    const all = visiblePagesForUser(user, !!settings.costTrackingEnabled, settings, { branchCount: getBranches().length });
     return { pages: all, nav: resolveNav(all, prefs) };
   }, [prefs]);
 

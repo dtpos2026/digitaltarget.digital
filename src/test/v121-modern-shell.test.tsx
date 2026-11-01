@@ -129,7 +129,7 @@ describe('More — the module launcher', () => {
     // The offline POS hid its cloud-only modules from this list; the cloud app lists everything the signed-in user may
     // open (role + plan + modules the restaurant has switched on), so the expected count is exactly that.
     const admin = { id: 'admin-default', name: 'Administrator', username: 'admin', password: 'x', role: 'admin', isActive: true } as any;
-    const total = visiblePagesForUser(admin, true, { name: 'Chai Corner', costTrackingEnabled: true } as any).length;
+    const total = visiblePagesForUser(admin, true, { name: 'Chai Corner', costTrackingEnabled: true } as any, { branchCount: 0 }).length;
     expect(within(dlg).getAllByRole('button').filter(b => b.hasAttribute('data-module')).length).toBe(total);
 
     fireEvent.change(within(dlg).getByLabelText('Search modules'), { target: { value: 'stock' } });

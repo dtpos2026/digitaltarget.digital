@@ -82,6 +82,8 @@ export const PAGES: PageDef[] = [
   { key: 'profitability', path: '/profitability', title: 'Profitability', group: 'Reports', defaultRoles: ['admin', 'manager'] },
   { key: 'costing',    path: '/costing',    title: 'Cost Reports', group: 'Reports', defaultRoles: ['admin', 'manager'] },
   { key: 'financials', path: '/financials', title: 'Financial Statements', group: 'Reports', defaultRoles: ['admin'] },
+  // v1.82.0 — every branch side by side. Hidden until the restaurant has two or more branches (see visiblePagesForUser).
+  { key: 'branch-performance', path: '/branch-performance', title: 'Branch Performance', group: 'Reports', defaultRoles: ['admin'] },
   { key: 'reports',    path: '/reports',    title: 'Reports',    group: 'Reports',    defaultRoles: ['admin', 'manager'] },
   { key: 'reports-center', path: '/reports-center', title: 'Reports Center', group: 'Reports', defaultRoles: ['admin', 'manager'] },
   { key: 'advanced-reports', path: '/advanced-reports', title: 'Advanced Item/Variant Reports', group: 'Reports', defaultRoles: ['admin', 'manager'] },
@@ -195,10 +197,15 @@ export function userHasAccess(user: User | undefined | null, pageKey: string): b
 export const COST_TRACKING_PAGES = ['recipes', 'profitability', 'wastage', 'costing'];
 
 /** Convenience for the layout: filter pages a user can see (role + cost toggle + plan). */
+/** Pages that only make sense when the restaurant has two or more branches. */
+export const MULTI_BRANCH_ONLY_PAGES = ['branch-performance'];
+
 export function visiblePagesForUser(
   user: User | undefined | null,
   costTrackingEnabled = true,
   settings?: import('./types').RestaurantSettings | null,
+  /** v1.82.0 — pass how many branches the restaurant has so pages that only make sense with two or more can hide. */
+  ctx?: { branchCount?: number },
 ): PageDef[] {
   if (!user) return [];
   const all = user.role === 'admin'
@@ -214,9 +221,14 @@ export function visiblePagesForUser(
   // this restaurant has NOT enabled. One update ships to every tenant, so a
   // module another restaurant asked for must stay completely invisible here.
   const hiddenModulePages = disabledModulePageKeys(settings ?? null);
-  const afterModules = hiddenModulePages.length
+  const afterModulesRaw = hiddenModulePages.length
     ? afterCost.filter(p => !hiddenModulePages.includes(p.key))
     : afterCost;
+  // A single-branch restaurant never sees the branch comparison (a caller that does not say how many branches there are
+  // keeps the old behaviour and shows it).
+  const afterModules = ctx?.branchCount !== undefined && ctx.branchCount < 2
+    ? afterModulesRaw.filter(p => !MULTI_BRANCH_ONLY_PAGES.includes(p.key))
+    : afterModulesRaw;
   // Plan + per-tenant overrides — Settings always remains visible so owner can upgrade.
   const plan = getCurrentTenantPlan();
   const overrides = getCurrentTenantOverrides();

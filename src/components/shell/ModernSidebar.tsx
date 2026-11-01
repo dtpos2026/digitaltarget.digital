@@ -7,7 +7,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from '@/lib/hash-router';
 import { LayoutGrid, LogOut, Star, X } from 'lucide-react';
-import { getSettings, getUsers } from '@/lib/store';
+import { getBranches, getSettings, getUsers } from '@/lib/store';
 import { visiblePagesForUser, type PageDef } from '@/lib/permissions';
 import { resolveNav, useNavPrefs } from '@/lib/navPrefs';
 import { isVinceBrandActive, isPremiumThemeActive, PREMIUM_BRAND_NAME } from '@/lib/premiumTheme';
@@ -73,7 +73,7 @@ export default function ModernSidebar({ userRole, onLogout, mobileOpen, setMobil
     return () => window.removeEventListener('pos-plan-changed', h);
   }, []);
 
-  const pages = visiblePagesForUser(user, !!settings.costTrackingEnabled, settings);
+  const pages = visiblePagesForUser(user, !!settings.costTrackingEnabled, settings, { branchCount: getBranches().length });
   const nav = resolveNav(pages, prefs);
   const go = (path: string) => { navigate(path); setMobileOpen(false); };
   // The restaurant's name leads on every theme except the one that is itself a brand (v1.68.0).

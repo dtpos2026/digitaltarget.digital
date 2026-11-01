@@ -1,6 +1,6 @@
 # Multi-Branch & Food Chain Management — requirement, audit, design
 
-**Recorded:** 2026-11-01 (owner requirement #4) · **Status:** requirement noted, audit done, design below; nothing in this document is built yet unless it says "exists".
+**Recorded:** 2026-11-01 (owner requirement #4) · **Status:** requirement noted, audit done; **Phase 1 built in v1.82.0** (see §6); the rest is design.
 
 ## 1. The requirement (owner's words, condensed)
 1. A proper enterprise multi-branch system for restaurant chains and businesses with several branches.
@@ -86,3 +86,19 @@
 2. Should a branch be allowed to set its **own price**, or only hide/show items? (Pricing control is the most sensitive override.)
 3. Who approves a branch override — the branch manager directly, or the owner?
 4. Should customers be shared across all branches (today: yes) or have branch-only loyalty balances?
+
+## 6. Progress
+
+### v1.82.0 — Phase 1 built: Branch Performance (`/branch-performance`)
+- `lib/branchCompare.ts` (26 tests) + `BranchPerformancePage` (10 page tests): per branch and for the group, for today / 7 days / 30 days / this month against the period before — sales, orders, average bill, expenses, profit (sales − expenses, the Dashboard's figure), wastage, discount %, void %, cash %, distinct guests, open bills and part-paid balance, stock value and low-stock count, staff; ranking chart by a chosen measure, share of the business, top three items per branch, CSV export, print.
+- Hidden from the menu for a single-branch restaurant (`visiblePagesForUser(..., { branchCount })`); every other page is unchanged (a test pins the list).
+- Rows saved without a branch get their own row and are in the group total; a user limited to some branches never gets that row.
+
+### Findings while building (they change the plan)
+1. The client model did not declare `branchId` on `Transaction`, `InventoryItem` or `Wastage`, although the database stamps it and `rowFromDb` returns it. Declared now (type only, no behaviour change).
+2. **Employees, payroll (payslips, advances, leaves), parties and recipes are not branch-stamped on write** (`BRANCH_SCOPED` in `supabaseStore.ts` omits them although their tables have `branch_id`). So branch-wise **staff cost and supplier balances cannot be reported yet**; staff are counted from sign-in users, who are stamped. Stamping them would also make a branch manager's new employee invisible to other branches' managers under the existing RLS — an isolation change the owner should decide on (question 5 below) before it is made.
+3. The database already has **`user_branch_access`** (multi-branch managers) next to `auth_branch_ids()`; gap G7 ("regional manager") is therefore a role template and UI on top of existing tables, not a new mechanism.
+4. An all-branch owner login writes rows with no branch, so some history lands in "No branch recorded"; the page shows it instead of hiding it.
+
+### Open question added
+5. Should employees, payroll, suppliers and recipes become branch-owned (isolated per branch, with the owner seeing all), or stay business-wide?

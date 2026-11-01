@@ -101,7 +101,7 @@ function Sidebar({
     if (collection === 'settings' || collection === '*') setPlanTick(t => t + 1);
   }), []);
 
-  const visiblePages = visiblePagesForUser(user, !!settings.costTrackingEnabled, settings);
+  const visiblePages = visiblePagesForUser(user, !!settings.costTrackingEnabled, settings, { branchCount: getBranches().length });
 
   // Group pages by their group
   const grouped: Record<PageGroup, typeof visiblePages> = {

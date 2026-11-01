@@ -114,7 +114,7 @@ describe('the shell in the cloud app', () => {
 
   it('the Modern sidebar, launcher and Module Management all see what the Classic sidebar sees (role, plan, enabled modules)', () => {
     for (const f of ['src/components/shell/ModernSidebar.tsx', 'src/components/shell/ModuleLauncher.tsx', 'src/components/settings/ModuleManagementCard.tsx']) {
-      expect(read(f), f).toContain('visiblePagesForUser(user, !!settings.costTrackingEnabled, settings)');
+      expect(read(f), f).toContain('visiblePagesForUser(user, !!settings.costTrackingEnabled, settings, { branchCount: getBranches().length })');
     }
   });
 

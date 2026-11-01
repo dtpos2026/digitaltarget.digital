@@ -8,6 +8,7 @@ Not in this list: the Windows shell (`dtpos-desktop`) and the Android apps (`dtp
 
 ## Releases
 
+- **v1.82.0** · 2026-11-01 · Branch Performance: every branch side by side and the group (sales, expenses, profit, discounts, voids, guests, stock, staff, top items) against the period before; hidden for a single-branch restaurant; multi-branch architecture note  `PENDING`
 - **v1.81.0** · 2026-11-01 · the cloud order screen takes the offline POS's DT Retail / Espresso Orange structure (layout engine + 36 style marks); floor-plan tiles and the Overview follow the design package  `3db12a6`
 - **v1.80.0** · 2026-11-01 · Advanced Floor View on the Tables page (floors, state colours, status bar, Live/Edit modes, Customize) and the Owner Overview dashboard (KPI trends, service area, order rate, order types, recent orders); Grid, Floor Map and the standard dashboard unchanged  `50624ab`
 - **v1.79.0** · 2026-11-01 · Procurement (purchase orders, receive-against-PO, reorder suggestions) and Financial Statements (profit and loss, cash movement, payables/receivables ageing); evidence-based Technosys benchmark  `7141be4`
