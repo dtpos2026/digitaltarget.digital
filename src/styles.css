@@ -1,5 +1,9 @@
 @import "tailwindcss" source(none);
 @import "./index.css";
+@import "./styles/ui-tokens.css";
+@import "./styles/ui-modern.css";
+@import "./styles/ui-pos.css";
+@import "./styles/ui-retail.css";
 
 @source "../src";
 @config "../tailwind.config.ts";

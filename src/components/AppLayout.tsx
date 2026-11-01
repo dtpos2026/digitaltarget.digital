@@ -29,6 +29,10 @@ import OrdersWaitingElsewhere from '@/components/OrdersWaitingElsewhere';
 import SyncPendingChip from '@/components/SyncPendingChip';
 import BillingStatusBar from '@/components/BillingStatusBar';
 import UpdateAvailableBanner from '@/components/UpdateAvailableBanner';
+import ModernSidebar from '@/components/shell/ModernSidebar';
+import ModernHeader from '@/components/shell/ModernHeader';
+import ModuleLauncher from '@/components/shell/ModuleLauncher';
+import { useUiLook, useUiStyle } from '@/lib/uiStyle';
 import { toast } from 'sonner';
 
 
@@ -337,6 +341,14 @@ function HeaderClock() {
 
 export default function AppLayout({ children, userRole, onLogout }: Props) {
   const location = useLocation();
+  // v1.78.0 — Interface style. Classic is the DT Enterprise look every restaurant already has; Modern (Settings →
+  // Appearance) swaps the sidebar, header and the "More" launcher for the offline POS's, with every status chip kept.
+  const modern = useUiStyle() === 'modern';
+  const retail = useUiLook() === 'retail';
+  const [launcherOpen, setLauncherOpen] = useState(false);
+  const signedInName = (() => {
+    try { return getUsers().find(u => u.id === (localStorage.getItem('pos-user-id') || ''))?.name || ''; } catch { return ''; }
+  })();
   const [, setSettingsTick] = useState(0);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('pos-sidebar-collapsed') === '1');
@@ -497,7 +509,9 @@ export default function AppLayout({ children, userRole, onLogout }: Props) {
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      <Sidebar userRole={userRole} onLogout={onLogout} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} collapsed={collapsed} />
+      {modern
+        ? <ModernSidebar userRole={userRole} onLogout={onLogout} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} collapsed={collapsed} onOpenLauncher={() => setLauncherOpen(true)} />
+        : <Sidebar userRole={userRole} onLogout={onLogout} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} collapsed={collapsed} />}
 
       {mobileOpen && (
         <div className="fixed inset-0 bg-foreground/40 backdrop-blur-sm z-40 lg:hidden" onClick={() => setMobileOpen(false)} />
@@ -509,6 +523,23 @@ export default function AppLayout({ children, userRole, onLogout }: Props) {
             to this till by design. Say so, rather than let the customer wait. */}
         <OrdersWaitingElsewhere />
         {/* Top header */}
+        {modern ? (
+          <ModernHeader
+            title={currentTitle}
+            collapsed={collapsed}
+            onToggleCollapse={() => setCollapsed(c => !c)}
+            onOpenMobileMenu={() => setMobileOpen(true)}
+            onOpenLauncher={() => setLauncherOpen(true)}
+            zoom={zoom}
+            onZoom={d => setZoom(z => Math.max(70, Math.min(130, z + d)))}
+            onResetZoom={() => setZoom(100)}
+            userChip={retail ? { name: signedInName, role: userRole, onLogout } : undefined}
+            chips={<><SyncPendingChip /><RestaurantIdentityChip /></>}
+            tail={<div className="hidden lg:flex items-center gap-1.5 text-[10px] text-muted-foreground border-l border-border pl-3"><SyncStatusBadge /></div>}
+          >
+            <BranchSelector />
+          </ModernHeader>
+        ) : (
         <header className="dt-app-header h-12 flex items-center gap-3 px-4 shrink-0">
           <button className="lg:hidden text-foreground" onClick={() => setMobileOpen(true)}>
             <Menu className="h-5 w-5" />
@@ -566,6 +597,7 @@ export default function AppLayout({ children, userRole, onLogout }: Props) {
             </div>
           </div>
         </header>
+        )}
 
         <main className="flex-1 min-h-0 overflow-auto bg-background relative">
           {children}
@@ -581,6 +613,8 @@ export default function AppLayout({ children, userRole, onLogout }: Props) {
           {(location.pathname === '/dashboard' || location.pathname === '/settings') && <SupportChatWidget />}
         </main>
       </div>
+
+      {modern && <ModuleLauncher open={launcherOpen} onOpenChange={setLauncherOpen} />}
 
       {/* Location permission modal — friendly explain before native prompt */}
       {showLocationPrompt && (

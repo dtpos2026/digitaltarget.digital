@@ -6,6 +6,7 @@
 import { getSettings } from './store';
 import { setActiveTheme, getActiveTheme, type ThemeId } from './themes';
 import { REFERENCE_THEME_SPECS } from './referenceThemes';
+import { getUiStyle, setUiStyle } from './uiStyle';
 
 export const PREMIUM_THEME_ID: ThemeId = 'vince-premium';
 export const PREMIUM_BRAND_NAME = 'VINCE BY TAIMOOR';
@@ -77,6 +78,11 @@ export function enforcePremiumThemeGate() {
     if (isPremiumTheme(getActiveTheme()) && !isPremiumThemeAllowed()) {
       setActiveTheme('dt-pos-purple');
       try { window.location.reload(); } catch {}
+    }
+    // v1.78.0 — the Modern interface style (its 13 themes, the 8 DT Retail looks and Custom themes) is part of the same
+    // premium set. A restaurant whose allotment was revoked goes back to the Classic (DT Enterprise) look.
+    if (getUiStyle() === 'modern' && !isPremiumThemeAllowed()) {
+      setUiStyle('classic');
     }
   } catch {}
 }

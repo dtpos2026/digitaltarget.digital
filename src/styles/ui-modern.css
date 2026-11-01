@@ -1,0 +1,290 @@
+/* ============================================================
+ * DT POS — "MODERN" INTERFACE STYLE  (primitives + global finish)
+ *
+ * Every rule here starts with html[data-ui="modern"], so with the Classic
+ * style selected (or in the print window, which never has the attribute)
+ * none of it matches and the app is exactly what it was.
+ *
+ * Colours, radii and sizes come from ui-tokens.css. This file only adds what
+ * a token cannot say: shadows, weights, focus, table and dialog finish, and a
+ * flat replacement for the old gradients. It never sets a background, height,
+ * padding or radius on a shared primitive, because a screen that passes its
+ * own className (a green Pay button, a compact row) must keep winning; those
+ * values reach the primitives through the tokens instead (see
+ * src/components/ui/*).
+ * ============================================================ */
+
+/* ---------- base ---------- */
+html[data-ui="modern"] body {
+  font-family: var(--ui-font);
+  font-size: var(--ui-text-body);
+  font-feature-settings: 'cv11', 'ss01';
+  letter-spacing: -0.003em;
+}
+html[data-ui="modern"] h1,
+html[data-ui="modern"] h2,
+html[data-ui="modern"] h3,
+html[data-ui="modern"] h4,
+html[data-ui="modern"] h5 {
+  font-family: var(--ui-font-display);
+  letter-spacing: -0.02em;
+}
+html[data-ui="modern"] ::selection { background: hsl(var(--primary) / 0.18); }
+html[data-ui="modern"] svg.lucide { stroke-width: 1.75; }
+html[data-ui="modern"] :focus-visible {
+  outline: 2px solid hsl(var(--ring) / 0.55);
+  outline-offset: 2px;
+}
+html[data-ui="modern"] input:focus-visible,
+html[data-ui="modern"] textarea:focus-visible,
+html[data-ui="modern"] select:focus-visible { outline: none; }
+
+/* Premium Polish (a Classic-style toggle) must not tint the Modern background */
+html[data-ui="modern"][data-premium-polish="on"] body { background-image: none; }
+html[data-ui="modern"][data-premium-polish="on"] .bg-card,
+html[data-ui="modern"][data-premium-polish="on"] [class*="bg-card"] { box-shadow: var(--ui-shadow-sm); }
+
+/* ---------- scrollbars: thin and quiet ---------- */
+html[data-ui="modern"] ::-webkit-scrollbar { width: 10px; height: 10px; }
+html[data-ui="modern"] ::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.26);
+  border: 3px solid transparent;
+  background-clip: padding-box;
+  border-radius: 999px;
+}
+html[data-ui="modern"] ::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.45); background-clip: padding-box; }
+html[data-ui="modern"] .pos-scrollbar::-webkit-scrollbar { width: 6px; }
+html[data-ui="modern"] .pos-scrollbar::-webkit-scrollbar-thumb { background: hsl(var(--muted-foreground) / 0.28); background-clip: border-box; border: 0; }
+
+/* ---------- the old gradients and glow, flattened ---------- */
+html[data-ui="modern"] .animate-pulse-gold,
+html[data-ui="modern"] .animate-shimmer { animation: none; }
+html[data-ui="modern"] .glass-panel,
+html[data-ui="modern"] .glass-card {
+  background: hsl(var(--card));
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid hsl(var(--border));
+  box-shadow: var(--ui-shadow-card);
+}
+html[data-ui="modern"] .liquid-tab { background: hsl(var(--card)); backdrop-filter: none; -webkit-backdrop-filter: none; }
+html[data-ui="modern"] .liquid-tab:hover { transform: none; }
+/* "gold" is the accent here; on a solid accent surface it flips to its light twin */
+html[data-ui="modern"] :is(.bg-gradient-hero, .bg-gradient-primary, .bg-gradient-gold, .bg-primary, [data-on-accent]) :is(.text-gold) {
+  color: hsl(var(--gold-on-dark));
+}
+html[data-ui="modern"] :is(.bg-gradient-hero, .bg-gradient-primary, .bg-gradient-gold, .bg-primary, [data-on-accent]) :is(.border-gold) {
+  border-color: hsl(var(--gold-on-dark) / 0.6);
+}
+
+/* ---------- the accent used as text ----------
+ * Prices, links and active labels use text-primary. --primary-text is the accent
+ * itself for every theme except a light one (Sunny Yellow), where it is a deep
+ * amber so the text stays readable on white. Placed before the rules that put
+ * primary-foreground on accent surfaces, so those still win. */
+html[data-ui="modern"] .text-primary,
+html[data-ui="modern"] .hover\:text-primary:hover,
+html[data-ui="modern"] .group:hover .group-hover\:text-primary { color: hsl(var(--primary-text)); }
+
+/* ---------- buttons ---------- */
+html[data-ui="modern"] [data-slot="button"] {
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, transform 0.06s ease;
+}
+html[data-ui="modern"] [data-slot="button"]:active:not(:disabled) { transform: translateY(0.5px); }
+html[data-ui="modern"] [data-slot="button"][data-variant="default"] { box-shadow: 0 1px 2px hsl(var(--primary) / 0.28); }
+html[data-ui="modern"] [data-slot="button"][data-variant="destructive"] { box-shadow: 0 1px 2px hsl(var(--destructive) / 0.28); }
+html[data-ui="modern"] [data-slot="button"][data-variant="outline"] { box-shadow: var(--ui-shadow-xs); }
+html[data-ui="modern"] [data-slot="button"]:disabled { box-shadow: none; }
+
+/* ---------- badges: soft tint — only when the screen has not chosen its own colours ---------- */
+html[data-ui="modern"] [data-slot="badge"] { font-weight: 600; }
+html[data-ui="modern"] [data-slot="badge"][data-variant="default"][class*="bg-primary"] {
+  background: hsl(var(--primary-soft));
+  color: hsl(var(--primary-text));
+}
+html[data-ui="modern"] [data-slot="badge"][data-variant="destructive"][class*="bg-destructive"] {
+  background: hsl(0 80% 95%);
+  color: hsl(0 65% 40%);
+}
+
+/* ---------- solid accent surfaces keep readable text ---------- */
+html[data-ui="modern"] :is(.bg-gradient-gold, .bg-gradient-primary, .bg-gradient-hero) { color: hsl(var(--primary-foreground)); }
+/* …and an icon placed straight inside such a tile (the old design drew it in the dark brand colour) */
+html[data-ui="modern"] :is(.bg-gradient-gold, .bg-gradient-primary, .bg-gradient-hero, .bg-primary) > .text-primary { color: hsl(var(--primary-foreground)); }
+
+/* ---------- panels: one hairline, not a 2px frame (buttons and radios keep theirs) ---------- */
+html[data-ui="modern"] :is(div, section, label, article).border-2 { border-width: 1px; }
+
+/* ---------- fields ---------- */
+html[data-ui="modern"] :is([data-slot="input"], [data-slot="textarea"], [data-slot="select-trigger"]) {
+  box-shadow: var(--ui-shadow-xs);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+html[data-ui="modern"] :is([data-slot="input"], [data-slot="textarea"], [data-slot="select-trigger"]):focus,
+html[data-ui="modern"] :is([data-slot="input"], [data-slot="textarea"], [data-slot="select-trigger"]):focus-visible {
+  outline: none;
+  border-color: hsl(var(--ring) / 0.7);
+  box-shadow: var(--ui-shadow-focus);
+}
+html[data-ui="modern"] [data-slot="checkbox"] { border-radius: 5px; border-color: hsl(var(--input)); }
+html[data-ui="modern"] [data-slot="checkbox"][data-state="checked"] { border-color: hsl(var(--primary)); }
+
+/* ---------- cards ---------- */
+html[data-ui="modern"] [data-slot="card"] { box-shadow: var(--ui-shadow-card); }
+html[data-ui="modern"] .bg-card.border { box-shadow: var(--ui-shadow-sm); }
+
+/* ---------- tables: quiet header, roomy rows ---------- */
+html[data-ui="modern"] [data-slot="table"] { font-size: var(--ui-text-body); }
+html[data-ui="modern"] [data-slot="table-header"] tr { border-bottom-color: hsl(var(--border)); }
+html[data-ui="modern"] [data-slot="table-head"] {
+  font-size: var(--ui-text-caption);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--muted) / 0.55);
+  white-space: nowrap;
+}
+html[data-ui="modern"] [data-slot="table-head"]:first-child { border-top-left-radius: 10px; border-bottom-left-radius: 10px; }
+html[data-ui="modern"] [data-slot="table-head"]:last-child { border-top-right-radius: 10px; border-bottom-right-radius: 10px; }
+html[data-ui="modern"] [data-slot="table-row"] { border-bottom-color: hsl(var(--border) / 0.8); }
+html[data-ui="modern"] [data-slot="table-row"]:hover { background: hsl(var(--muted) / 0.5); }
+
+/* ---------- tabs: a soft segmented control ---------- */
+html[data-ui="modern"] [data-slot="tabs-list"] { border-radius: 12px; }
+html[data-ui="modern"] [data-slot="tabs-trigger"] { border-radius: 9px; font-weight: 600; }
+html[data-ui="modern"] [data-slot="tabs-trigger"][data-state="active"] { box-shadow: var(--ui-shadow-sm); }
+
+/* ---------- overlays: dialogs, menus, tooltips ---------- */
+html[data-ui="modern"] [data-slot="dialog-overlay"] {
+  background: hsl(24 25% 8% / 0.46);
+  backdrop-filter: blur(2px);
+}
+html[data-ui="modern"] [data-slot="dialog-content"],
+html[data-ui="modern"] [data-slot="sheet-content"] {
+  border-color: hsl(var(--border));
+  box-shadow: var(--ui-shadow-pop);
+}
+html[data-ui="modern"] [data-slot="dialog-header"] { gap: 0.25rem; }
+html[data-ui="modern"] [data-slot="dialog-footer"] { gap: 0.5rem; }
+html[data-ui="modern"] [data-slot="dialog-footer"] > * + * { margin-left: 0; }
+html[data-ui="modern"] :is([data-slot="popover-content"], [data-slot="select-content"], [data-slot="dropdown-content"]) {
+  border-color: hsl(var(--border));
+  border-radius: 12px;
+  box-shadow: var(--ui-shadow-pop);
+}
+html[data-ui="modern"] [data-slot="tooltip-content"] {
+  background: hsl(24 15% 12%);
+  color: hsl(40 20% 96%);
+  border-color: transparent;
+  border-radius: 8px;
+  font-size: var(--ui-text-caption);
+  font-weight: 600;
+}
+
+/* ---------- skeleton ---------- */
+html[data-ui="modern"] [data-slot="skeleton"] { background: hsl(var(--muted)); }
+
+/* ---------- toasts ---------- */
+html[data-ui="modern"] .toaster [data-sonner-toast] {
+  border-radius: 14px;
+  border-color: hsl(var(--border));
+  box-shadow: var(--ui-shadow-pop);
+  font-family: var(--ui-font);
+}
+
+/* ---------- legacy settings cards: no coloured frames or top rules ---------- */
+html[data-ui="modern"] .pos-settings-pro [data-radix-tabs-content] > div.bg-card,
+html[data-ui="modern"] .pos-settings-pro [data-radix-tabs-content] > .bg-card,
+html[data-ui="modern"] .pos-settings-pro .settings-card {
+  border-width: 1px !important;
+  border-color: hsl(var(--border)) !important;
+  border-radius: var(--ui-radius-card) !important;
+  box-shadow: var(--ui-shadow-card) !important;
+}
+html[data-ui="modern"] .pos-settings-pro [data-radix-tabs-content] > div.bg-card::before,
+html[data-ui="modern"] .pos-settings-pro .settings-card::before { display: none; }
+html[data-ui="modern"] .pos-settings-pro [data-radix-tabs-list] {
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+html[data-ui="modern"] .pos-settings-pro [data-radix-tabs-trigger][data-state="active"] {
+  background: hsl(var(--primary-soft));
+  color: hsl(var(--primary-text));
+  box-shadow: none;
+}
+
+/* ---------- category pills (POS) ---------- */
+html[data-ui="modern"] .cat-pill {
+  background: hsl(var(--card));
+  border-color: hsl(var(--border));
+  font-weight: 600;
+  box-shadow: var(--ui-shadow-xs);
+}
+html[data-ui="modern"] .cat-pill[data-active="true"] {
+  background: hsl(var(--primary));
+  border-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  box-shadow: 0 4px 12px -6px hsl(var(--primary) / 0.7);
+}
+
+/* ---------- status tints sit on white, not on the warm page grey (a 5% green over grey reads as mud) ---------- */
+html[data-ui="modern"] .bg-status-free\/5 { background-color: hsl(var(--card)); background-image: linear-gradient(hsl(var(--status-free) / 0.05), hsl(var(--status-free) / 0.05)); }
+html[data-ui="modern"] .bg-status-free\/10 { background-color: hsl(var(--card)); background-image: linear-gradient(hsl(var(--status-free) / 0.1), hsl(var(--status-free) / 0.1)); }
+html[data-ui="modern"] .bg-status-running\/5 { background-color: hsl(var(--card)); background-image: linear-gradient(hsl(var(--status-running) / 0.05), hsl(var(--status-running) / 0.05)); }
+html[data-ui="modern"] .bg-status-running\/10 { background-color: hsl(var(--card)); background-image: linear-gradient(hsl(var(--status-running) / 0.1), hsl(var(--status-running) / 0.1)); }
+html[data-ui="modern"] .bg-status-pending-payment\/5 { background-color: hsl(var(--card)); background-image: linear-gradient(hsl(var(--status-pending-payment) / 0.05), hsl(var(--status-pending-payment) / 0.05)); }
+html[data-ui="modern"] .bg-status-pending-payment\/10 { background-color: hsl(var(--card)); background-image: linear-gradient(hsl(var(--status-pending-payment) / 0.1), hsl(var(--status-pending-payment) / 0.1)); }
+html[data-ui="modern"] .bg-status-closed\/5 { background-color: hsl(var(--card)); background-image: linear-gradient(hsl(var(--status-closed) / 0.05), hsl(var(--status-closed) / 0.05)); }
+html[data-ui="modern"] .bg-status-closed\/10 { background-color: hsl(var(--card)); background-image: linear-gradient(hsl(var(--status-closed) / 0.1), hsl(var(--status-closed) / 0.1)); }
+html[data-ui="modern"] .bg-status-success\/5 { background-color: hsl(var(--card)); background-image: linear-gradient(hsl(var(--status-success) / 0.05), hsl(var(--status-success) / 0.05)); }
+html[data-ui="modern"] .bg-status-success\/10 { background-color: hsl(var(--card)); background-image: linear-gradient(hsl(var(--status-success) / 0.1), hsl(var(--status-success) / 0.1)); }
+html[data-ui="modern"] .bg-status-warning\/5 { background-color: hsl(var(--card)); background-image: linear-gradient(hsl(var(--status-warning) / 0.05), hsl(var(--status-warning) / 0.05)); }
+html[data-ui="modern"] .bg-status-warning\/10 { background-color: hsl(var(--card)); background-image: linear-gradient(hsl(var(--status-warning) / 0.1), hsl(var(--status-warning) / 0.1)); }
+html[data-ui="modern"] .bg-status-danger\/5 { background-color: hsl(var(--card)); background-image: linear-gradient(hsl(var(--status-danger) / 0.05), hsl(var(--status-danger) / 0.05)); }
+html[data-ui="modern"] .bg-status-danger\/10 { background-color: hsl(var(--card)); background-image: linear-gradient(hsl(var(--status-danger) / 0.1), hsl(var(--status-danger) / 0.1)); }
+html[data-ui="modern"] .bg-status-info\/5 { background-color: hsl(var(--card)); background-image: linear-gradient(hsl(var(--status-info) / 0.05), hsl(var(--status-info) / 0.05)); }
+html[data-ui="modern"] .bg-status-info\/10 { background-color: hsl(var(--card)); background-image: linear-gradient(hsl(var(--status-info) / 0.1), hsl(var(--status-info) / 0.1)); }
+html[data-ui="modern"] .bg-status-pending\/5 { background-color: hsl(var(--card)); background-image: linear-gradient(hsl(var(--status-pending) / 0.05), hsl(var(--status-pending) / 0.05)); }
+html[data-ui="modern"] .bg-status-pending\/10 { background-color: hsl(var(--card)); background-image: linear-gradient(hsl(var(--status-pending) / 0.1), hsl(var(--status-pending) / 0.1)); }
+html[data-ui="modern"] .bg-status-cooking\/5 { background-color: hsl(var(--card)); background-image: linear-gradient(hsl(var(--status-cooking) / 0.05), hsl(var(--status-cooking) / 0.05)); }
+html[data-ui="modern"] .bg-status-cooking\/10 { background-color: hsl(var(--card)); background-image: linear-gradient(hsl(var(--status-cooking) / 0.1), hsl(var(--status-cooking) / 0.1)); }
+html[data-ui="modern"] .bg-status-delivered\/5 { background-color: hsl(var(--card)); background-image: linear-gradient(hsl(var(--status-delivered) / 0.05), hsl(var(--status-delivered) / 0.05)); }
+html[data-ui="modern"] .bg-status-delivered\/10 { background-color: hsl(var(--card)); background-image: linear-gradient(hsl(var(--status-delivered) / 0.1), hsl(var(--status-delivered) / 0.1)); }
+html[data-ui="modern"] .bg-status-cancelled\/5 { background-color: hsl(var(--card)); background-image: linear-gradient(hsl(var(--status-cancelled) / 0.05), hsl(var(--status-cancelled) / 0.05)); }
+html[data-ui="modern"] .bg-status-cancelled\/10 { background-color: hsl(var(--card)); background-image: linear-gradient(hsl(var(--status-cancelled) / 0.1), hsl(var(--status-cancelled) / 0.1)); }
+html[data-ui="modern"] .bg-status-onway\/5 { background-color: hsl(var(--card)); background-image: linear-gradient(hsl(var(--status-onway) / 0.05), hsl(var(--status-onway) / 0.05)); }
+html[data-ui="modern"] .bg-status-onway\/10 { background-color: hsl(var(--card)); background-image: linear-gradient(hsl(var(--status-onway) / 0.1), hsl(var(--status-onway) / 0.1)); }
+
+/* ---------- reduced motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  html[data-ui="modern"] * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}
+
+/* ---------- Delivery board: quiet column headers with a coloured top edge ---------- */
+html[data-ui="modern"] [data-delivery-col] {
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  border: 1px solid hsl(var(--border));
+  border-bottom-color: transparent;
+  border-top: 3px solid hsl(var(--col-c, var(--border)));
+}
+html[data-ui="modern"] [data-delivery-col="pending"]   { --col-c: var(--status-pending); }
+html[data-ui="modern"] [data-delivery-col="cooking"]   { --col-c: var(--status-cooking); }
+html[data-ui="modern"] [data-delivery-col="ready"]     { --col-c: var(--status-warning); }
+html[data-ui="modern"] [data-delivery-col="onway"]     { --col-c: var(--status-onway); }
+html[data-ui="modern"] [data-delivery-col="delivered"] { --col-c: var(--status-delivered); }
+html[data-ui="modern"] [data-delivery-col="cancelled"] { --col-c: var(--status-cancelled); }
+
+/* ---------- a toolbar "delete everything" action: outlined red, not a solid block ---------- */
+html[data-ui="modern"] [data-slot="button"][data-variant="destructive"][data-soft-destructive] {
+  background: hsl(var(--card));
+  color: hsl(var(--destructive));
+  border: 1px solid hsl(0 70% 86%);
+  box-shadow: var(--ui-shadow-xs);
+}
+html[data-ui="modern"] [data-slot="button"][data-variant="destructive"][data-soft-destructive]:hover:not(:disabled) {
+  background: hsl(0 80% 96%);
+}

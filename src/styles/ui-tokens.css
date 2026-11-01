@@ -1,0 +1,778 @@
+/* ============================================================
+ * DT POS — DESIGN TOKENS  ("Modern" interface style)
+ *
+ * ONE set of tokens for the whole product: the POS reads them through the
+ * shadcn colour names Tailwind already uses (bg-card, text-muted-foreground,
+ * bg-primary …), and the Super Admin panel reads the resolved --ui-* aliases
+ * from its inline styles. Nothing here is scoped to a page.
+ *
+ * Presentation only. The block applies when <html data-ui="modern"> is set
+ * (Settings → Theme → Interface style). With "classic" the attribute is
+ * absent, none of this matches, and the app looks exactly as it did before.
+ *
+ * The accent colour is the only thing a restaurant is meant to change. It is
+ * set from JS (src/lib/uiStyle.ts) as --ui-accent-h / -s / -l, already
+ * darkened where needed so white text on it stays readable.
+ *
+ * Nothing in this file reaches the print window: the receipt / KOT / token
+ * worker builds its own document without the data-ui attribute.
+ * ============================================================ */
+
+:root[data-ui="modern"] {
+  /* ---------- accent (JS overrides these three) ---------- */
+  --ui-accent-h: 16;
+  --ui-accent-s: 88%;
+  --ui-accent-l: 44%;
+  /* The accent used as TEXT on a light surface (prices, links, active labels).
+     Equal to the accent, except for a light accent such as yellow. */
+  --ui-text-h: var(--ui-accent-h);
+  --ui-text-s: var(--ui-accent-s);
+  --ui-text-l: var(--ui-accent-l);
+  /* Text and icons that sit ON the accent: white, or near-black for yellow. */
+  --ui-on-accent: 0 0% 100%;
+  /* How tinted the soft accent wash is (low for a grey accent). */
+  --ui-soft-s: 80%;
+  --ui-gold-on-dark: var(--ui-accent-h) 90% 82%;
+
+  /* ---------- palette: HSL triplets, the names Tailwind reads ---------- */
+  --background: 40 18% 96%;
+  --foreground: 24 15% 11%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 24 15% 11%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 24 15% 11%;
+
+  --primary: var(--ui-accent-h) var(--ui-accent-s) var(--ui-accent-l);
+  --primary-foreground: var(--ui-on-accent);
+  --primary-text: var(--ui-text-h) var(--ui-text-s) var(--ui-text-l);
+  --primary-glow: var(--ui-accent-h) var(--ui-accent-s) calc(var(--ui-accent-l) + 8%);
+  --primary-soft: var(--ui-accent-h) var(--ui-soft-s) 95%;
+  --primary-soft-strong: var(--ui-accent-h) var(--ui-soft-s) 90%;
+
+  --secondary: 36 14% 93%;
+  --secondary-foreground: 24 15% 16%;
+  --muted: 36 14% 94%;
+  --muted-foreground: 25 8% 40%;
+  /* "accent" is the neutral hover / selected surface; the brand colour is --primary */
+  --accent: 36 16% 92%;
+  --accent-foreground: 24 15% 11%;
+
+  --destructive: 0 70% 47%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 35 14% 89%;
+  --input: 35 12% 84%;
+  --ring: var(--primary-text);
+
+  /* The old brand highlight ("gold"): the accent, so text-gold reads on light surfaces */
+  --gold: var(--primary-text);
+  --gold-foreground: var(--ui-on-accent);
+  --gold-soft: var(--primary-soft);
+  /* …and its light twin, used on dark surfaces (see ui-modern.css) */
+  --gold-on-dark: var(--ui-gold-on-dark);
+
+  --radius: 0.75rem;
+
+  /* ---------- status colours ---------- */
+  --status-success: 152 58% 31%;
+  --status-success-foreground: 0 0% 100%;
+  --status-warning: 36 94% 45%;
+  --status-warning-foreground: 26 40% 9%;
+  --status-danger: 0 70% 47%;
+  --status-danger-foreground: 0 0% 100%;
+  --status-info: 212 80% 45%;
+  --status-info-foreground: 0 0% 100%;
+  --status-pending: 33 92% 42%;
+  --status-pending-foreground: 0 0% 100%;
+  --status-cooking: 22 90% 48%;
+  --status-cooking-foreground: 0 0% 100%;
+  --status-onway: 212 80% 45%;
+  --status-onway-foreground: 0 0% 100%;
+  --status-delivered: 152 58% 31%;
+  --status-delivered-foreground: 0 0% 100%;
+  --status-cancelled: 25 6% 44%;
+  --status-cancelled-foreground: 0 0% 100%;
+  --status-teal: 175 68% 28%;
+  --status-teal-foreground: 0 0% 100%;
+  --status-purple: 262 52% 46%;
+  --status-purple-foreground: 0 0% 100%;
+  --status-free: 152 58% 31%;
+  --status-free-foreground: 0 0% 100%;
+  --status-running: 36 94% 45%;
+  --status-running-foreground: 26 40% 9%;
+  --status-pending-payment: 0 70% 47%;
+  --status-pending-payment-foreground: 0 0% 100%;
+  --status-closed: 25 8% 30%;
+  --status-closed-foreground: 0 0% 100%;
+
+  /* ---------- POS surfaces ---------- */
+  --pos-sidebar: 0 0% 100%;
+  --pos-sidebar-foreground: 24 15% 20%;
+  --pos-cart: 0 0% 100%;
+  --pos-grid-bg: 40 18% 96%;
+
+  /* ---------- sidebar: light, quiet ---------- */
+  --sidebar-background: 0 0% 100%;
+  --sidebar-foreground: 24 10% 32%;
+  --sidebar-primary: var(--ui-accent-h) var(--ui-accent-s) var(--ui-accent-l);
+  --sidebar-primary-foreground: var(--ui-on-accent);
+  --sidebar-accent: var(--primary-soft);
+  --sidebar-accent-foreground: var(--primary-text);
+  --sidebar-border: 35 14% 90%;
+  --sidebar-ring: var(--primary-text);
+
+  /* ---------- flat surfaces (no decorative gradients) ---------- */
+  --gradient-primary: linear-gradient(hsl(var(--primary)), hsl(var(--primary)));
+  --gradient-gold: linear-gradient(hsl(var(--primary)), hsl(var(--primary)));
+  --gradient-sidebar: linear-gradient(hsl(0 0% 100%), hsl(0 0% 100%));
+  --gradient-hero: linear-gradient(hsl(var(--primary)), hsl(var(--primary)));
+
+  /* ---------- component surfaces (read by src/components/ui/*) ---------- */
+  --ui-field-bg: var(--card);            /* inputs, selects, textareas: white on cards */
+  --ui-tab-active-bg: var(--card);       /* the selected tab is a white chip */
+  --ui-dialog-bg: var(--card);           /* dialogs and alert dialogs */
+
+  /* ---------- shadows: barely there ---------- */
+  --ui-shadow-xs: 0 1px 1px hsl(24 20% 12% / 0.04);
+  --ui-shadow-sm: 0 1px 2px hsl(24 20% 12% / 0.05), 0 1px 1px hsl(24 20% 12% / 0.03);
+  --ui-shadow-card: 0 1px 2px hsl(24 20% 12% / 0.04), 0 8px 24px -12px hsl(24 20% 12% / 0.10);
+  --ui-shadow-pop: 0 12px 32px -10px hsl(24 20% 12% / 0.22), 0 2px 6px hsl(24 20% 12% / 0.06);
+  --ui-shadow-focus: 0 0 0 3px hsl(var(--primary) / 0.18);
+  --shadow-soft: var(--ui-shadow-sm);
+  --shadow-card: var(--ui-shadow-card);
+  --shadow-elegant: var(--ui-shadow-pop);
+  --shadow-gold: 0 6px 16px -8px hsl(var(--primary) / 0.45);
+  --transition-smooth: all 0.16s ease;
+
+  /* ---------- shape ---------- */
+  --ui-radius-control: 0.625rem;   /* buttons, inputs, selects */
+  --ui-radius-card: 1rem;          /* cards, panels */
+  --ui-radius-dialog: 1.25rem;     /* dialogs, sheets */
+  --ui-radius-pill: 999px;         /* chips, badges, category pills */
+
+  /* ---------- size: one control height, three steps ---------- */
+  --ui-control-h: 2.5rem;
+  --ui-control-h-sm: 2.125rem;
+  --ui-control-h-lg: 3rem;
+  --ui-row-h: 3rem;                /* table rows */
+  --ui-card-pad: 1.25rem;
+  --ui-sidebar-w: 15rem;
+  --ui-sidebar-w-collapsed: 4.5rem;
+  --ui-header-h: 3.75rem;
+  --ui-page-max: 90rem;
+  --ui-gap: 1rem;
+
+  /* ---------- spacing scale (rem) ---------- */
+  --ui-space-1: 0.25rem;
+  --ui-space-2: 0.5rem;
+  --ui-space-3: 0.75rem;
+  --ui-space-4: 1rem;
+  --ui-space-5: 1.25rem;
+  --ui-space-6: 1.5rem;
+  --ui-space-8: 2rem;
+
+  /* ---------- type ---------- */
+  --ui-font: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, 'Helvetica Neue', Arial, sans-serif;
+  --ui-font-display: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --ui-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --ui-text-caption: 0.75rem;      /* 12 */
+  --ui-text-secondary: 0.8125rem;  /* 13 */
+  --ui-text-body: 0.875rem;        /* 14 */
+  --ui-text-card-title: 0.9375rem; /* 15 */
+  --ui-text-section: 1.0625rem;    /* 17 */
+  --ui-text-page: 1.5rem;          /* 24 */
+
+  /* ---------- resolved aliases for inline styles (Super Admin) ---------- */
+  --ui-bg: hsl(var(--background));
+  --ui-surface: hsl(var(--card));
+  --ui-surface-2: hsl(var(--muted));
+  --ui-border: hsl(var(--border));
+  --ui-border-strong: hsl(var(--input));
+  --ui-text: hsl(var(--foreground));
+  --ui-text-muted: hsl(var(--muted-foreground));
+  --ui-accent: hsl(var(--primary));
+  --ui-accent-text: hsl(var(--primary-text));   /* the accent where it is text on a light surface */
+  --ui-accent-fg: hsl(var(--primary-foreground));
+  --ui-accent-soft: hsl(var(--primary-soft));
+  --ui-accent-soft-strong: hsl(var(--primary-soft-strong));
+  --ui-success: hsl(var(--status-success));
+  --ui-success-soft: hsl(152 45% 93%);
+  --ui-warning: hsl(var(--status-warning));
+  --ui-warning-soft: hsl(38 90% 93%);
+  --ui-danger: hsl(var(--status-danger));
+  --ui-danger-soft: hsl(0 80% 95%);
+  --ui-info: hsl(var(--status-info));
+  --ui-info-soft: hsl(212 85% 94%);
+  /* readable text + hairline for each status, and the modal scrim */
+  --ui-success-text: hsl(152 58% 26%);
+  --ui-success-border: hsl(152 40% 80%);
+  --ui-warning-text: hsl(28 90% 30%);
+  --ui-warning-border: hsl(38 80% 78%);
+  --ui-danger-text: hsl(0 65% 40%);
+  --ui-danger-border: hsl(0 70% 86%);
+  --ui-info-text: hsl(212 80% 34%);
+  --ui-info-border: hsl(212 70% 84%);
+  --ui-overlay: hsl(24 20% 8% / 0.5);
+}
+
+/* ============================================================
+ * THEMES — the surface tint of each Modern theme (src/lib/uiThemes.ts).
+ * The accent itself is set from JS (--ui-accent-*); these blocks only choose
+ * the page, text, muted, border and input colours. The five values that the
+ * theme list repeats (background, foreground, muted-foreground, muted, border)
+ * are checked against uiThemes.ts by src/test/ui-themes.test.ts.
+ * ============================================================ */
+
+:root[data-ui="modern"][data-ui-theme="ember"] {
+  --background: 40 18% 96%;
+  --foreground: 24 15% 11%;
+  --card-foreground: 24 15% 11%;
+  --popover-foreground: 24 15% 11%;
+  --secondary: 36 14% 94%;
+  --secondary-foreground: 24 15% 11%;
+  --muted: 36 14% 94%;
+  --muted-foreground: 25 8% 40%;
+  --accent: 36 16% 92%;
+  --accent-foreground: 24 15% 11%;
+  --border: 35 14% 89%;
+  --input: 35 11% 84%;
+  --pos-grid-bg: 40 18% 96%;
+  --pos-sidebar-foreground: 24 15% 11%;
+  --sidebar-foreground: 25 8% 40%;
+  --sidebar-border: 35 14% 89%;
+}
+:root[data-ui="modern"][data-ui-theme="tomato"] {
+  --background: 24 12% 96%;
+  --foreground: 12 14% 10%;
+  --card-foreground: 12 14% 10%;
+  --popover-foreground: 12 14% 10%;
+  --secondary: 20 9% 93%;
+  --secondary-foreground: 12 14% 10%;
+  --muted: 20 9% 93%;
+  --muted-foreground: 14 7% 40%;
+  --accent: 20 11% 91%;
+  --accent-foreground: 12 14% 10%;
+  --border: 20 9% 88%;
+  --input: 20 6% 83%;
+  --pos-grid-bg: 24 12% 96%;
+  --pos-sidebar-foreground: 12 14% 10%;
+  --sidebar-foreground: 14 7% 40%;
+  --sidebar-border: 20 9% 88%;
+}
+/* Red & Yellow — the fast-food brand look of the reference apps: red actions,
+   a yellow active menu item and yellow chips, cream image plates. Its extra
+   rules (tabs, tiles, Pay) are at the end of ui-pos.css. */
+:root[data-ui="modern"][data-ui-theme="pizza"] {
+  --background: 220 16% 96%;
+  --foreground: 0 0% 9%;
+  --card-foreground: 0 0% 9%;
+  --popover-foreground: 0 0% 9%;
+  --secondary: 220 12% 94%;
+  --secondary-foreground: 0 0% 9%;
+  --muted: 220 12% 94%;
+  --muted-foreground: 220 6% 40%;
+  --accent: 220 14% 92%;
+  --accent-foreground: 0 0% 9%;
+  --border: 220 12% 90%;
+  --input: 220 9% 85%;
+  --pos-grid-bg: 220 16% 96%;
+  --pos-sidebar-foreground: 0 0% 9%;
+  --sidebar-foreground: 220 6% 40%;
+  --sidebar-border: 220 12% 90%;
+  --sidebar-accent: 48 96% 58%;
+  --sidebar-accent-foreground: 28 45% 9%;
+  --ui-highlight: 48 96% 58%;
+  --ui-highlight-fg: 28 45% 9%;
+  --ui-plate: 48 100% 94%;
+}
+
+:root[data-ui="modern"][data-ui-theme="fresh"] {
+  --background: 148 24% 96%;
+  --foreground: 160 22% 9%;
+  --card-foreground: 160 22% 9%;
+  --popover-foreground: 160 22% 9%;
+  --secondary: 148 15% 93%;
+  --secondary-foreground: 160 22% 9%;
+  --muted: 148 15% 93%;
+  --muted-foreground: 158 8% 38%;
+  --accent: 148 17% 91%;
+  --accent-foreground: 160 22% 9%;
+  --border: 148 13% 86%;
+  --input: 148 10% 81%;
+  --pos-grid-bg: 148 24% 96%;
+  --pos-sidebar-foreground: 160 22% 9%;
+  --sidebar-foreground: 158 8% 38%;
+  --sidebar-border: 148 13% 86%;
+}
+:root[data-ui="modern"][data-ui-theme="sunny"] {
+  --background: 48 46% 95%;
+  --foreground: 30 40% 9%;
+  --card-foreground: 30 40% 9%;
+  --popover-foreground: 30 40% 9%;
+  --secondary: 46 32% 91%;
+  --secondary-foreground: 30 40% 9%;
+  --muted: 46 32% 91%;
+  --muted-foreground: 32 12% 36%;
+  --accent: 46 34% 89%;
+  --accent-foreground: 30 40% 9%;
+  --border: 44 26% 83%;
+  --input: 44 23% 78%;
+  --pos-grid-bg: 48 46% 95%;
+  --pos-sidebar-foreground: 30 40% 9%;
+  --sidebar-foreground: 32 12% 36%;
+  --sidebar-border: 44 26% 83%;
+}
+:root[data-ui="modern"][data-ui-theme="white"] {
+  --background: 220 20% 98%;
+  --foreground: 222 24% 9%;
+  --card-foreground: 222 24% 9%;
+  --popover-foreground: 222 24% 9%;
+  --secondary: 220 14% 95%;
+  --secondary-foreground: 222 24% 9%;
+  --muted: 220 14% 95%;
+  --muted-foreground: 220 9% 40%;
+  --accent: 220 16% 93%;
+  --accent-foreground: 222 24% 9%;
+  --border: 220 13% 90%;
+  --input: 220 10% 85%;
+  --pos-grid-bg: 220 20% 98%;
+  --pos-sidebar-foreground: 222 24% 9%;
+  --sidebar-foreground: 220 9% 40%;
+  --sidebar-border: 220 13% 90%;
+}
+:root[data-ui="modern"][data-ui-theme="ocean"] {
+  --background: 214 34% 96%;
+  --foreground: 218 34% 10%;
+  --card-foreground: 218 34% 10%;
+  --popover-foreground: 218 34% 10%;
+  --secondary: 214 22% 93%;
+  --secondary-foreground: 218 34% 10%;
+  --muted: 214 22% 93%;
+  --muted-foreground: 216 11% 38%;
+  --accent: 214 24% 91%;
+  --accent-foreground: 218 34% 10%;
+  --border: 214 20% 87%;
+  --input: 214 17% 82%;
+  --pos-grid-bg: 214 34% 96%;
+  --pos-sidebar-foreground: 218 34% 10%;
+  --sidebar-foreground: 216 11% 38%;
+  --sidebar-border: 214 20% 87%;
+}
+:root[data-ui="modern"][data-ui-theme="coffee"] {
+  --background: 32 30% 95%;
+  --foreground: 24 32% 10%;
+  --card-foreground: 24 32% 10%;
+  --popover-foreground: 24 32% 10%;
+  --secondary: 30 22% 91%;
+  --secondary-foreground: 24 32% 10%;
+  --muted: 30 22% 91%;
+  --muted-foreground: 26 11% 36%;
+  --accent: 30 24% 89%;
+  --accent-foreground: 24 32% 10%;
+  --border: 30 18% 83%;
+  --input: 30 15% 78%;
+  --pos-grid-bg: 32 30% 95%;
+  --pos-sidebar-foreground: 24 32% 10%;
+  --sidebar-foreground: 26 11% 36%;
+  --sidebar-border: 30 18% 83%;
+}
+:root[data-ui="modern"][data-ui-theme="rose"] {
+  --background: 340 32% 97%;
+  --foreground: 336 22% 10%;
+  --card-foreground: 336 22% 10%;
+  --popover-foreground: 336 22% 10%;
+  --secondary: 340 18% 94%;
+  --secondary-foreground: 336 22% 10%;
+  --muted: 340 18% 94%;
+  --muted-foreground: 336 8% 40%;
+  --accent: 340 20% 92%;
+  --accent-foreground: 336 22% 10%;
+  --border: 340 15% 89%;
+  --input: 340 12% 84%;
+  --pos-grid-bg: 340 32% 97%;
+  --pos-sidebar-foreground: 336 22% 10%;
+  --sidebar-foreground: 336 8% 40%;
+  --sidebar-border: 340 15% 89%;
+}
+:root[data-ui="modern"][data-ui-theme="violet"] {
+  --background: 266 32% 97%;
+  --foreground: 268 28% 10%;
+  --card-foreground: 268 28% 10%;
+  --popover-foreground: 268 28% 10%;
+  --secondary: 266 18% 94%;
+  --secondary-foreground: 268 28% 10%;
+  --muted: 266 18% 94%;
+  --muted-foreground: 266 9% 40%;
+  --accent: 266 20% 92%;
+  --accent-foreground: 268 28% 10%;
+  --border: 266 15% 89%;
+  --input: 266 12% 84%;
+  --pos-grid-bg: 266 32% 97%;
+  --pos-sidebar-foreground: 268 28% 10%;
+  --sidebar-foreground: 266 9% 40%;
+  --sidebar-border: 266 15% 89%;
+}
+:root[data-ui="modern"][data-ui-theme="teal"] {
+  --background: 176 28% 96%;
+  --foreground: 180 28% 9%;
+  --card-foreground: 180 28% 9%;
+  --popover-foreground: 180 28% 9%;
+  --secondary: 176 15% 93%;
+  --secondary-foreground: 180 28% 9%;
+  --muted: 176 15% 93%;
+  --muted-foreground: 180 8% 38%;
+  --accent: 176 17% 91%;
+  --accent-foreground: 180 28% 9%;
+  --border: 176 13% 86%;
+  --input: 176 10% 81%;
+  --pos-grid-bg: 176 28% 96%;
+  --pos-sidebar-foreground: 180 28% 9%;
+  --sidebar-foreground: 180 8% 38%;
+  --sidebar-border: 176 13% 86%;
+}
+:root[data-ui="modern"][data-ui-theme="charcoal"] {
+  --background: 40 18% 96%;
+  --foreground: 24 15% 11%;
+  --card-foreground: 24 15% 11%;
+  --popover-foreground: 24 15% 11%;
+  --secondary: 36 14% 94%;
+  --secondary-foreground: 24 15% 11%;
+  --muted: 36 14% 94%;
+  --muted-foreground: 25 8% 40%;
+  --accent: 36 16% 92%;
+  --accent-foreground: 24 15% 11%;
+  --border: 35 14% 89%;
+  --input: 35 11% 84%;
+  --pos-grid-bg: 40 18% 96%;
+  --pos-sidebar-foreground: 24 15% 11%;
+  --sidebar-foreground: 25 8% 40%;
+  --sidebar-border: 35 14% 89%;
+}
+:root[data-ui="modern"][data-ui-theme="navy"] {
+  --background: 214 34% 96%;
+  --foreground: 218 34% 10%;
+  --card-foreground: 218 34% 10%;
+  --popover-foreground: 218 34% 10%;
+  --secondary: 214 22% 93%;
+  --secondary-foreground: 218 34% 10%;
+  --muted: 214 22% 93%;
+  --muted-foreground: 216 11% 38%;
+  --accent: 214 24% 91%;
+  --accent-foreground: 218 34% 10%;
+  --border: 214 20% 87%;
+  --input: 214 17% 82%;
+  --pos-grid-bg: 214 34% 96%;
+  --pos-sidebar-foreground: 218 34% 10%;
+  --sidebar-foreground: 216 11% 38%;
+  --sidebar-border: 214 20% 87%;
+}
+
+/* ---------- dark sidebar (Charcoal, Navy) ----------
+ * The sidebar re-maps the palette tokens inside itself, so every existing
+ * text-foreground / text-muted-foreground / hover:bg-accent class in it turns
+ * light-on-dark without touching the component. */
+:root[data-ui="modern"][data-sidebar="dark"] {
+  --sidebar-background: var(--ui-sb-bg);
+  --sidebar-foreground: var(--ui-sb-fg);
+  --sidebar-border: var(--ui-sb-border);
+  --sidebar-accent: var(--primary);
+  --sidebar-accent-foreground: var(--ui-on-accent);
+}
+:root[data-ui="modern"][data-ui-theme="charcoal"] {
+  --ui-sb-bg: 24 15% 11%;
+  --ui-sb-fg: 30 12% 80%;
+  --ui-sb-border: 24 10% 20%;
+  --ui-sb-hover: 24 12% 19%;
+  --ui-sb-muted-fg: 30 8% 66%;
+}
+:root[data-ui="modern"][data-ui-theme="navy"] {
+  --ui-sb-bg: 222 40% 12%;
+  --ui-sb-fg: 216 22% 82%;
+  --ui-sb-border: 222 26% 21%;
+  --ui-sb-hover: 222 30% 20%;
+  --ui-sb-muted-fg: 218 14% 66%;
+}
+:root[data-ui="modern"][data-sidebar="dark"] [data-ui-shell="sidebar"] {
+  --foreground: 0 0% 98%;
+  --card-foreground: 0 0% 98%;
+  --muted-foreground: var(--ui-sb-muted-fg);
+  --muted: var(--ui-sb-hover);
+  --accent: var(--ui-sb-hover);
+  --accent-foreground: 0 0% 100%;
+  --border: var(--ui-sb-border);
+  --primary-text: var(--ui-accent-h) 92% 74%;
+}
+
+/* ============================================================
+ * DT RETAIL THEMES (src/lib/uiThemes.ts → RETAIL_THEMES)
+ *
+ * The seven looks of the DT Retail design guide, plus Espresso Orange (v1.8 screens). Same contract as the themes
+ * above: only the surface colours live here; the accent is set from JS. They
+ * also carry the colours ui-retail.css paints with (sidebar gradient, hero
+ * banner). Two are dark pages (Black & Gold, Night). src/test/dt-retail-look.test.ts
+ * keeps these blocks and uiThemes.ts in step.
+ * ============================================================ */
+
+:root[data-ui="modern"][data-ui-theme="dtr-royal"] {
+  --background: 257 37% 96%;
+  --foreground: 222 47% 11%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+  --secondary: 257 25% 94%;
+  --secondary-foreground: 222 47% 11%;
+  --muted: 257 25% 94%;
+  --muted-foreground: 215 16% 40%;
+  --accent: 257 25% 94%;
+  --accent-foreground: 222 47% 11%;
+  --border: 215 27% 91%;
+  --input: 215 22% 84%;
+  --pos-grid-bg: 257 37% 96%;
+  --pos-sidebar: 0 0% 100%;
+  --pos-cart: 0 0% 100%;
+  --pos-sidebar-foreground: 222 47% 11%;
+  --sidebar-foreground: 262 30% 84%;
+  --sidebar-border: 265 45% 24%;
+  --ui-sb-bg: 265 83% 14%;
+  --ui-sb-fg: 262 30% 84%;
+  --ui-sb-border: 265 45% 24%;
+  --ui-sb-hover: 265 50% 22%;
+  --ui-sb-muted-fg: 262 20% 68%;
+  --dtr-sb-top: 265 79% 18%;
+  --dtr-sb-bot: 265 88% 10%;
+  --dtr-hero-a: 270 85% 21%;
+  --dtr-hero-b: 259 82% 66%;
+  --dtr-highlight: 44 98% 50%;
+}
+:root[data-ui="modern"][data-ui-theme="dtr-crimson"] {
+  --background: 12 33% 97%;
+  --foreground: 222 47% 11%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+  --secondary: 12 22% 94%;
+  --secondary-foreground: 222 47% 11%;
+  --muted: 12 22% 94%;
+  --muted-foreground: 215 16% 40%;
+  --accent: 12 22% 94%;
+  --accent-foreground: 222 47% 11%;
+  --border: 12 18% 89%;
+  --input: 12 14% 82%;
+  --pos-grid-bg: 12 33% 97%;
+  --pos-sidebar: 0 0% 100%;
+  --pos-cart: 0 0% 100%;
+  --pos-sidebar-foreground: 222 47% 11%;
+  --sidebar-foreground: 0 20% 84%;
+  --sidebar-border: 356 35% 20%;
+  --ui-sb-bg: 358 60% 8%;
+  --ui-sb-fg: 0 20% 84%;
+  --ui-sb-border: 356 35% 20%;
+  --ui-sb-hover: 356 40% 18%;
+  --ui-sb-muted-fg: 0 12% 68%;
+  --dtr-sb-top: 356 58% 10%;
+  --dtr-sb-bot: 357 64% 5%;
+  --dtr-hero-a: 0 64% 31%;
+  --dtr-hero-b: 0 81% 62%;
+  --dtr-highlight: 44 98% 50%;
+}
+:root[data-ui="modern"][data-ui-theme="dtr-gold"] {
+  --background: 30 9% 4%;
+  --foreground: 44 59% 91%;
+  --card: 45 21% 7%;
+  --card-foreground: 44 59% 91%;
+  --popover: 45 21% 7%;
+  --popover-foreground: 44 59% 91%;
+  --secondary: 43 21% 13%;
+  --secondary-foreground: 44 59% 91%;
+  --muted: 43 21% 13%;
+  --muted-foreground: 43 14% 62%;
+  --accent: 43 21% 13%;
+  --accent-foreground: 44 59% 91%;
+  --border: 43 22% 16%;
+  --input: 43 22% 20%;
+  --pos-grid-bg: 30 9% 4%;
+  --pos-sidebar: 45 21% 7%;
+  --pos-cart: 45 21% 7%;
+  --pos-sidebar-foreground: 44 59% 91%;
+  --sidebar-foreground: 43 25% 80%;
+  --sidebar-border: 43 18% 14%;
+  --ui-sb-bg: 40 20% 3%;
+  --ui-sb-fg: 43 25% 80%;
+  --ui-sb-border: 43 18% 14%;
+  --ui-sb-hover: 43 20% 13%;
+  --ui-sb-muted-fg: 43 12% 62%;
+  --dtr-sb-top: 0 0% 2%;
+  --dtr-sb-bot: 40 27% 4%;
+  --dtr-hero-a: 43 98% 19%;
+  --dtr-hero-b: 46 77% 55%;
+  --dtr-highlight: 44 98% 50%;
+  color-scheme: dark;
+}
+:root[data-ui="modern"][data-ui-theme="dtr-emerald"] {
+  --background: 150 30% 96%;
+  --foreground: 222 47% 11%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+  --secondary: 150 20% 93%;
+  --secondary-foreground: 222 47% 11%;
+  --muted: 150 20% 93%;
+  --muted-foreground: 215 16% 40%;
+  --accent: 150 20% 93%;
+  --accent-foreground: 222 47% 11%;
+  --border: 150 18% 88%;
+  --input: 150 14% 80%;
+  --pos-grid-bg: 150 30% 96%;
+  --pos-sidebar: 0 0% 100%;
+  --pos-cart: 0 0% 100%;
+  --pos-sidebar-foreground: 222 47% 11%;
+  --sidebar-foreground: 158 25% 82%;
+  --sidebar-border: 162 45% 18%;
+  --ui-sb-bg: 161 83% 9%;
+  --ui-sb-fg: 158 25% 82%;
+  --ui-sb-border: 162 45% 18%;
+  --ui-sb-hover: 162 50% 16%;
+  --ui-sb-muted-fg: 158 15% 66%;
+  --dtr-sb-top: 162 81% 12%;
+  --dtr-sb-bot: 160 80% 6%;
+  --dtr-hero-a: 164 86% 17%;
+  --dtr-hero-b: 160 69% 43%;
+  --dtr-highlight: 44 98% 50%;
+}
+:root[data-ui="modern"][data-ui-theme="dtr-sunset"] {
+  --background: 30 44% 96%;
+  --foreground: 222 47% 11%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+  --secondary: 28 30% 93%;
+  --secondary-foreground: 222 47% 11%;
+  --muted: 28 30% 93%;
+  --muted-foreground: 215 16% 40%;
+  --accent: 28 30% 93%;
+  --accent-foreground: 222 47% 11%;
+  --border: 28 26% 88%;
+  --input: 28 18% 80%;
+  --pos-grid-bg: 30 44% 96%;
+  --pos-sidebar: 0 0% 100%;
+  --pos-cart: 0 0% 100%;
+  --pos-sidebar-foreground: 222 47% 11%;
+  --sidebar-foreground: 24 30% 84%;
+  --sidebar-border: 18 40% 20%;
+  --ui-sb-bg: 17 70% 9%;
+  --ui-sb-fg: 24 30% 84%;
+  --ui-sb-border: 18 40% 20%;
+  --ui-sb-hover: 18 45% 18%;
+  --ui-sb-muted-fg: 24 16% 66%;
+  --dtr-sb-top: 18 67% 12%;
+  --dtr-sb-bot: 18 74% 6%;
+  --dtr-hero-a: 16 76% 29%;
+  --dtr-hero-b: 26 94% 63%;
+  --dtr-highlight: 48 96% 53%;
+}
+:root[data-ui="modern"][data-ui-theme="dtr-espresso"] {
+  --background: 30 44% 96%;
+  --foreground: 222 47% 11%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+  --secondary: 28 30% 93%;
+  --secondary-foreground: 222 47% 11%;
+  --muted: 28 30% 93%;
+  --muted-foreground: 215 16% 40%;
+  --accent: 28 30% 93%;
+  --accent-foreground: 222 47% 11%;
+  --border: 28 26% 88%;
+  --input: 28 18% 80%;
+  --pos-grid-bg: 30 44% 96%;
+  --pos-sidebar: 0 0% 100%;
+  --pos-cart: 0 0% 100%;
+  --pos-sidebar-foreground: 222 47% 11%;
+  --sidebar-foreground: 24 30% 84%;
+  --sidebar-border: 18 40% 20%;
+  --ui-sb-bg: 17 70% 9%;
+  --ui-sb-fg: 24 30% 84%;
+  --ui-sb-border: 18 40% 20%;
+  --ui-sb-hover: 18 45% 18%;
+  --ui-sb-muted-fg: 24 16% 66%;
+  --dtr-sb-top: 17 68% 12%;
+  --dtr-sb-bot: 16 73% 6%;
+  --dtr-hero-a: 17 79% 32%;
+  --dtr-hero-b: 25 91% 57%;
+  --dtr-highlight: 48 96% 53%;
+  /* the sign-in panel: espresso with two orange glows */
+  --dtr-espresso: 15 31% 9%;
+  --dtr-glow-a: 27 78% 56%;
+  --dtr-glow-b: 26 88% 47%;
+}
+:root[data-ui="modern"][data-ui-theme="dtr-ocean"] {
+  --background: 207 47% 96%;
+  --foreground: 222 47% 11%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+  --secondary: 207 30% 93%;
+  --secondary-foreground: 222 47% 11%;
+  --muted: 207 30% 93%;
+  --muted-foreground: 215 16% 40%;
+  --accent: 207 30% 93%;
+  --accent-foreground: 222 47% 11%;
+  --border: 207 25% 88%;
+  --input: 207 18% 80%;
+  --pos-grid-bg: 207 47% 96%;
+  --pos-sidebar: 0 0% 100%;
+  --pos-cart: 0 0% 100%;
+  --pos-sidebar-foreground: 222 47% 11%;
+  --sidebar-foreground: 200 30% 84%;
+  --sidebar-border: 203 50% 22%;
+  --ui-sb-bg: 203 84% 12%;
+  --ui-sb-fg: 200 30% 84%;
+  --ui-sb-border: 203 50% 22%;
+  --ui-sb-hover: 203 55% 20%;
+  --ui-sb-muted-fg: 200 18% 66%;
+  --dtr-sb-top: 204 82% 16%;
+  --dtr-sb-bot: 203 87% 9%;
+  --dtr-hero-a: 202 81% 25%;
+  --dtr-hero-b: 199 89% 61%;
+  --dtr-highlight: 44 98% 50%;
+}
+:root[data-ui="modern"][data-ui-theme="dtr-night"] {
+  --background: 223 49% 8%;
+  --foreground: 220 43% 93%;
+  --card: 221 41% 12%;
+  --card-foreground: 220 43% 93%;
+  --popover: 221 41% 12%;
+  --popover-foreground: 220 43% 93%;
+  --secondary: 219 37% 19%;
+  --secondary-foreground: 220 43% 93%;
+  --muted: 219 37% 19%;
+  --muted-foreground: 215 20% 65%;
+  --accent: 219 37% 19%;
+  --accent-foreground: 220 43% 93%;
+  --border: 220 34% 23%;
+  --input: 220 30% 28%;
+  --pos-grid-bg: 223 49% 8%;
+  --pos-sidebar: 221 41% 12%;
+  --pos-cart: 221 41% 12%;
+  --pos-sidebar-foreground: 220 43% 93%;
+  --sidebar-foreground: 218 30% 82%;
+  --sidebar-border: 220 30% 16%;
+  --ui-sb-bg: 220 51% 8%;
+  --ui-sb-fg: 218 30% 82%;
+  --ui-sb-border: 220 30% 16%;
+  --ui-sb-hover: 220 32% 17%;
+  --ui-sb-muted-fg: 218 18% 62%;
+  --dtr-sb-top: 221 53% 6%;
+  --dtr-sb-bot: 222 48% 11%;
+  --dtr-hero-a: 273 84% 22%;
+  --dtr-hero-b: 259 87% 67%;
+  --dtr-highlight: 44 98% 50%;
+  color-scheme: dark;
+}

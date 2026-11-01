@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, Fragment } from 'react';
+import { useSearchParams } from '@/lib/hash-router';
 import type { SystemPrinterInfo } from '@/lib/electron';
 import { currencySymbol, currencyOptions, getCurrencyDef, formatMoney } from '@/lib/currency';
 import { getSettings, saveSettings, saveSettingsNow, getTables, saveTable, deleteTable, getFloors, saveFloor, deleteFloor, getKitchens, saveKitchen, deleteKitchen, getWaiters, saveWaiter, deleteWaiter, getRiders, saveRider, deleteRider, genId, getOrders, deleteOrder, deleteOrdersBulk, archiveOrdersBulk, resetOrderCounter, exportData, getCategories, getCurrentUser, clearCollectionsForDayClose } from '@/lib/store';
@@ -22,7 +23,8 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Trash2, AlertTriangle, Download, Printer, Palette, MapPin, Navigation, ShoppingBag, Globe2, Settings as SettingsIcon, MessageCircle } from 'lucide-react';
+import { Plus, Trash2, AlertTriangle, Download, Printer, Palette, MapPin, Navigation, ShoppingBag, Globe2, Settings as SettingsIcon, MessageCircle, ShieldCheck, ChevronDown, Store, LayoutGrid, Armchair, UserRound, Bike, ReceiptText, Type, ChefHat, Truck, Monitor, Building2, Smartphone, Moon, Puzzle, type LucideIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { PAKISTAN_AREAS } from '@/lib/pakistan-areas';
 import { toast } from 'sonner';
@@ -34,6 +36,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { isElectron, getPrinters, getAutoStart, setAutoStart } from '@/lib/electron';
 import { Slider } from '@/components/ui/slider';
 import { PREMIUM_THEME_IDS } from '@/lib/premiumTheme';
+import InterfaceStyleCard from '@/components/settings/InterfaceStyleCard';
+import ModuleManagementCard from '@/components/settings/ModuleManagementCard';
+import { PageHeader } from '@/components/ui-kit';
+import { useUiStyle } from '@/lib/uiStyle';
+import { isPremiumPolishOn, setPremiumPolish } from '@/lib/premiumPolish';
+import { REFERENCE_THEME_SPECS } from '@/lib/referenceThemes';
 import { themes, getActiveTheme, setActiveTheme, ThemeId } from '@/lib/themes';
 import { getWhatsAppTemplates } from '@/lib/whatsapp';
 import { getTenantId, getTenantName } from '@/lib/tenant';
@@ -42,7 +50,48 @@ import { releasedTable } from '@/lib/tableRelease';
 import { saveBackupToCloud, logDayCloseEvent } from '@/lib/dayCloseBackup';
 import { uploadTenantImage } from '@/lib/storage';
 
+/** One icon per Settings section, for the Modern left-hand list. */
+const SETTINGS_ICONS: Record<string, LucideIcon> = {
+  general: Store, theme: Palette, modules: LayoutGrid, location: MapPin,
+  tables: Armchair, waiters: UserRound, riders: Bike, pickup: ShoppingBag,
+  printer: Printer, receipt: ReceiptText, receiptstyle: Type, kot: ChefHat,
+  whatsapp: MessageCircle, online: Globe2, cities: MapPin, serviceareas: Truck, display: Monitor,
+  features: Puzzle, branches: Building2, devices: Smartphone, dayclose: Moon,
+};
+
+/** The data-security panel, folded to one line in the Modern layout. */
+function SecurityStrip() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mb-5 rounded-[var(--ui-radius-card,1rem)] border bg-card shadow-sm">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-3 px-4 py-3 text-left"
+      >
+        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] bg-[hsl(var(--status-success)/0.12)] text-[hsl(var(--status-success))]"><ShieldCheck className="h-4 w-4" /></span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[13.5px] font-bold">Data security &amp; isolation</span>
+          <span className="block text-[12px] text-muted-foreground">Active — each restaurant&rsquo;s data is kept separate on the server and encrypted on this device.</span>
+        </span>
+        <ChevronDown className={cn('h-4 w-4 text-muted-foreground transition-transform', open && 'rotate-180')} />
+      </button>
+      {open && <div className="px-4 pb-4"><DataSecurityCard /></div>}
+    </div>
+  );
+}
+
 export default function SettingsPage() {
+  const modern = useUiStyle() === 'modern';
+  // ?tab= opens a section directly (the Printing Center and other screens link here).
+  const [searchParams] = useSearchParams();
+  const [tab, setTab] = useState<string>(() => searchParams.get('tab') || 'general');
+  useEffect(() => {
+    const t = searchParams.get('tab');
+    if (t) setTab(t);
+  }, [searchParams]);
+  const [premiumPolish, setPremiumPolishState] = useState(() => isPremiumPolishOn());
   const [settings, setSettings] = useState<RestaurantSettings>(() => getSettings());
   const [newPayType, setNewPayType] = useState('');
   const [currentLang, setCurrentLang] = useState<LanguageCode>(getLanguage());
@@ -474,6 +523,9 @@ export default function SettingsPage() {
 
   return (
     <div className="p-4 lg:p-6 max-w-6xl pos-settings-pro">
+      {modern ? (
+        <PageHeader description="Restaurant details, look and feel, printing, and the modules you use." />
+      ) : (
       <div className="flex items-center gap-3 mb-4">
         <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-md text-primary-foreground">
           <SettingsIcon className="h-5 w-5" />
@@ -483,18 +535,21 @@ export default function SettingsPage() {
           <p className="text-[11px] text-muted-foreground">Restaurant configuration — each module in its own card</p>
         </div>
       </div>
+      )}
 
-      <DataSecurityCard />
+      {modern ? <SecurityStrip /> : <DataSecurityCard />}
 
 
 
-      <Tabs defaultValue="general">
+      <Tabs value={tab} onValueChange={setTab} className={modern ? 'grid gap-6 lg:grid-cols-[15rem_minmax(0,1fr)] lg:items-start' : undefined}>
         {/* ===== FOLDER-STYLE GROUPED GRID (replaces cramped tabs row) ===== */}
         {(() => {
           const groups: { title: string; emoji: string; items: { v: string; label: string; emoji: string; desc: string }[] }[] = [
             { title: 'General', emoji: '⚙️', items: [
               { v: 'general',  label: 'General',          emoji: '🏪', desc: 'Restaurant info, currency' },
-              { v: 'theme',    label: 'Theme',            emoji: '🎨', desc: 'Color scheme & look' },
+              { v: 'theme',    label: modern ? 'Appearance' : 'Theme', emoji: '🎨', desc: modern ? 'Theme manager, look, accent colour' : 'Theme manager & colour scheme' },
+              // The Classic menu always lists every module; choosing what the menu shows is a Modern-menu feature.
+              ...(modern ? [{ v: 'modules', label: 'Modules', emoji: '🧩', desc: 'What the menu shows, and where' }] : []),
               { v: 'location', label: 'Location & Privacy', emoji: '🔒', desc: 'GPS tracking controls' },
             ]},
             { title: 'Operations', emoji: '🛠️', items: [
@@ -523,6 +578,30 @@ export default function SettingsPage() {
               { v: 'dayclose', label: 'Day Close', emoji: '🔚', desc: 'End-of-day reset' },
             ]},
           ];
+          if (modern) {
+            return (
+              <nav aria-label="Settings sections" className="lg:sticky lg:top-3 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto pos-scrollbar rounded-[var(--ui-radius-card,1rem)] border bg-card p-2 shadow-sm">
+                <TabsList className="!h-auto !w-full !flex-col !items-stretch !justify-start !gap-0.5 !bg-transparent !p-0 [&>*]:w-full">
+                  {groups.map(g => (
+                    <div key={g.title} className="mb-1 last:mb-0">
+                      <div className="px-3 pb-1 pt-2 text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">{g.title}</div>
+                      {g.items.map(it => {
+                        const Icon = SETTINGS_ICONS[it.v] || SettingsIcon;
+                        return (
+                          <TabsTrigger
+                            key={it.v} value={it.v} title={it.desc}
+                            className="group !h-10 !w-full !justify-start gap-3 !rounded-[10px] !px-3 text-[13.5px] font-semibold text-foreground/80 transition-colors hover:bg-accent data-[state=active]:!bg-primary/10 data-[state=active]:!text-primary data-[state=active]:!shadow-none"
+                          >
+                            <Icon className="h-[18px] w-[18px] shrink-0" /><span className="truncate">{it.label}</span>
+                          </TabsTrigger>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </TabsList>
+              </nav>
+            );
+          }
           return (
             <div className="space-y-5 mb-5">
               {groups.map(g => (
@@ -1708,18 +1787,49 @@ export default function SettingsPage() {
           </Button>
         </TabsContent>
 
-        {/* Theme Switcher */}
+        {/* Module Management — what the menu shows, where, and in what order */}
+        <TabsContent value="modules" className="space-y-4">
+          <ModuleManagementCard />
+        </TabsContent>
+
+        {/* Theme Manager */}
         <TabsContent value="theme" className="space-y-4">
+          <InterfaceStyleCard />
+          {/* The colour themes and Premium Polish belong to the Classic (DT Enterprise) style; Modern has its own
+              theme manager above. */}
+          {!modern && (<>
+          <div className="border-2 rounded-lg p-4 bg-gradient-to-r from-fuchsia-50 to-purple-50 border-fuchsia-200">
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <div className="flex-1 min-w-[220px]">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">✨</span>
+                  <h3 className="text-sm font-bold">Premium Polish</h3>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Soft card shadows, a subtle background wash, a refined focus ring and a button press-lift.
+                  Works on top of every theme — the layout and colours stay the same.
+                </p>
+              </div>
+              <Switch
+                checked={premiumPolish}
+                onCheckedChange={(v) => {
+                  setPremiumPolish(v);
+                  setPremiumPolishState(v);
+                  toast.success(v ? 'Premium Polish ON ✨' : 'Premium Polish OFF');
+                }}
+              />
+            </div>
+          </div>
           <div className="border rounded-lg p-4 space-y-4">
             <div className="flex items-center gap-2">
               <Palette className="h-5 w-5" />
-              <h3 className="text-sm font-bold">🎨 UI Theme / تھیم تبدیل کریں</h3>
+              <h3 className="text-sm font-bold">🎨 DT Enterprise colour themes / تھیم تبدیل کریں</h3>
             </div>
             <p className="text-xs text-muted-foreground">اپنی پسند کا تھیم منتخب کریں — تمام سکرینز آٹو اپڈیٹ ہو جائیں گی</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {themes.map((theme, themeIdx) => {
+              {themes.filter(t => !REFERENCE_THEME_SPECS.some(r => r.id === t.id)).map((theme, themeIdx, shown) => {
                 // v1.68.0 — a heading wherever the group changes (the reference collections).
-                const groupHeading = theme.group && theme.group !== themes[themeIdx - 1]?.group ? theme.group : null;
+                const groupHeading = theme.group && theme.group !== shown[themeIdx - 1]?.group ? theme.group : null;
                 // v1.61.0 — every premium theme is gated, not just the first.
                 const isPremium = PREMIUM_THEME_IDS.includes(theme.id);
                 const premiumAllowed = !!(settings as any).premiumThemeAllowed;
@@ -1789,6 +1899,7 @@ export default function SettingsPage() {
               })}
             </div>
           </div>
+          </>)}
         </TabsContent>
 
         <TabsContent value="whatsapp" className="space-y-4">

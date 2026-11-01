@@ -211,7 +211,9 @@ describe('the shared CSS is scoped and colour-free', () => {
       .split('}').map(chunk => chunk.split('{')[0])
       .flatMap(head => head.split(',')).map(x => x.trim()).filter(Boolean);
     expect(sels.length).toBeGreaterThan(5);
-    for (const s of sels) expect(s, s).toMatch(/^\[data-(look|accent|ui-mode|sidebar)=/);
+    // v1.78.0 — the block is scoped to the Classic style (the Modern style has its own sheets), so each selector starts
+    // with that scope and then hangs off the attribute.
+    for (const s of sels) expect(s, s).toMatch(/^html:not\(\[data-ui="modern"\]\)\s*\[data-(look|accent|ui-mode|sidebar)=/);
   });
   it('hard-codes no hex or rgb colour — it follows the theme variables', () => {
     expect(block).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);

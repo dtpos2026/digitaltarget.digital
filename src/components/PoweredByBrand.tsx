@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { APP_VERSION, getInstalledVersion } from '@/lib/version';
 import { MessageCircle, Mail, Facebook, Instagram } from 'lucide-react';
 import logo from '@/assets/digital-target-logo.png';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 const BRAND_BG = '#3c096c';
 
@@ -21,10 +22,72 @@ function openExternal(href: string) {
   window.open(href, '_blank', 'noopener,noreferrer');
 }
 
-export default function PoweredByBrand({ collapsed = false }: { collapsed?: boolean }) {
+/**
+ * The small credit used by the Modern sidebar (ported from the offline POS): the restaurant's own name and logo lead,
+ * and this is one quiet line at the bottom. The contact links are the same ones as the full panel, one click away.
+ */
+function PoweredByCredit({ collapsed, retail = false, version }: { collapsed: boolean; retail?: boolean; version: string }) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        {retail ? (
+          // DT Retail look: the lockup card — mark, wordmark, "Powered by" and the version.
+          <button type="button" data-dtr="powered" title="Software by Digital Target" aria-label="Powered by Digital Target" className={collapsed ? 'justify-center' : ''}>
+            <img src={logo} alt="" className="h-7 w-7 shrink-0 object-contain" />
+            {!collapsed && (
+              <>
+                <span className="text-[9px] font-black uppercase leading-[1.05] tracking-[0.12em]">Digital<br />Target</span>
+                <span className="ml-auto min-w-0 text-right">
+                  <small>Powered by</small>
+                  <span className="block truncate text-[12px] font-bold leading-tight">Digital Target</span>
+                  <small style={{ letterSpacing: 0 }}>v{version}</small>
+                </span>
+              </>
+            )}
+          </button>
+        ) : (
+          <button
+            type="button"
+            title="Software by Digital Target"
+            aria-label="Powered by Digital Target"
+            className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground ${collapsed ? 'justify-center' : ''}`}
+          >
+            <img src={logo} alt="" className="h-5 w-5 shrink-0 rounded object-contain" />
+            {!collapsed && (
+              <span className="truncate text-[11px] font-medium">
+                Powered by <span className="font-bold text-foreground">Digital Target</span>
+              </span>
+            )}
+          </button>
+        )}
+      </PopoverTrigger>
+      <PopoverContent side="right" align="end" className="w-64 p-2">
+        <div className="px-2 pb-1.5 pt-1 text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">Digital Target — support</div>
+        {LINKS.map((l, i) => {
+          const Icon = l.icon;
+          return (
+            <button
+              key={i}
+              type="button"
+              onClick={() => openExternal(l.href)}
+              className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-[12.5px] font-medium hover:bg-accent"
+            >
+              <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <span className="truncate">{l.label}</span>
+            </button>
+          );
+        })}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+export default function PoweredByBrand({ collapsed = false, variant = 'panel' }: { collapsed?: boolean; variant?: 'panel' | 'credit' | 'retail' }) {
   // Inside Electron the installed EXE version wins; on web it's the build value.
   const [appVer, setAppVer] = useState(APP_VERSION);
   useEffect(() => { getInstalledVersion().then(setAppVer).catch(() => {}); }, []);
+  if (variant === 'credit') return <PoweredByCredit collapsed={collapsed} version={appVer} />;
+  if (variant === 'retail') return <PoweredByCredit collapsed={collapsed} retail version={appVer} />;
   return (
     <div
       className="dt-powered rounded-lg p-2 text-white shadow-md"

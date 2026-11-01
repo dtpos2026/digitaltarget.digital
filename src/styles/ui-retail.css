@@ -1,0 +1,476 @@
+/* ============================================================
+ * DT RETAIL LOOK  (Settings → Theme → DT Retail)
+ *
+ * The look of the DT Retail design guide, layered on top of the Modern style:
+ * a gradient sidebar with a glowing active item, a greeting banner and a lead
+ * KPI card on the dashboard, colour-gradient product tiles, a card-and-pill
+ * top bar, and a small motion system (pageIn, riseIn, popIn, glow, floatY,
+ * shimmer).
+ *
+ * Presentation only, and only while BOTH attributes are set:
+ *   <html data-ui="modern" data-look="retail">
+ * Picking any other theme — or Classic — removes the attribute and every rule
+ * below stops matching, so the previous look comes straight back. Colours come
+ * from the per-theme variables in ui-tokens.css (--dtr-sb-*, --dtr-hero-*), so
+ * the seven DT Retail themes share these rules.
+ *
+ * Nothing here reaches the print window: slips are built from their own
+ * document and never carry data-ui.
+ *
+ * Animation: every rule that moves is inside html:not([data-anim="off"]);
+ * Settings → Theme → "Smooth animations" sets data-anim="off" for slow PCs.
+ * ============================================================ */
+
+html[data-ui="modern"][data-look="retail"] {
+  --ui-font: 'Inter', 'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, Arial, sans-serif;
+  --ui-font-display: 'Inter', 'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  /* the guide's shape: cards 14px, table cards 16px, modals 18px, controls 40px / 11px */
+  --ui-radius-card: 14px;
+  --ui-radius-control: 11px;
+  --ui-radius-dialog: 18px;
+  --ui-control-h: 2.5rem;
+  --ui-sidebar-w: 14.75rem;
+  --ui-shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06);
+  --ui-shadow-card: 0 1px 3px rgba(15, 23, 42, 0.06), 0 4px 14px rgba(15, 23, 42, 0.05);
+  --ui-shadow-pop: 0 20px 50px rgba(15, 23, 42, 0.18);
+  --dtr-nav-a: var(--ui-accent-h) var(--ui-accent-s) calc(var(--ui-accent-l) + 13%);
+  --dtr-ease: cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+html[data-ui="modern"][data-look="retail"][data-ui-mode="dark"] {
+  --ui-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5);
+  --ui-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.45), 0 6px 18px rgba(0, 0, 0, 0.35);
+  --ui-shadow-pop: 0 20px 50px rgba(0, 0, 0, 0.6);
+  --ui-overlay: hsl(222 50% 3% / 0.6);
+}
+html[data-ui="modern"][data-look="retail"] body {
+  font-family: var(--ui-font);
+  font-feature-settings: 'cv11', 'ss03';
+}
+html[data-ui="modern"][data-look="retail"] :is(h1, h2, h3, h4, h5) { font-family: var(--ui-font-display); letter-spacing: -0.015em; }
+
+/* ---------------------------------------------------------------- sidebar */
+html[data-ui="modern"][data-look="retail"] [data-ui-shell="sidebar"] {
+  background: linear-gradient(180deg, hsl(var(--dtr-sb-top)), hsl(var(--dtr-sb-bot)));
+  border-right: 0;
+  box-shadow: 2px 0 18px -10px rgba(0, 0, 0, 0.5);
+}
+html[data-ui="modern"][data-look="retail"] [data-ui-shell="sidebar"] > div:first-child {
+  height: auto;
+  min-height: var(--ui-header-h);
+  padding-top: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 0;
+}
+/* the brand mark: a rounded tile in the theme's own gradient */
+html[data-ui="modern"][data-look="retail"] [data-dtr="brand-mark"] {
+  background: linear-gradient(135deg, hsl(var(--dtr-nav-a)), hsl(var(--primary)));
+  border-radius: 12px;
+  box-shadow: 0 6px 14px -6px hsl(var(--primary) / 0.7), inset 0 1px 0 rgb(255 255 255 / 0.25);
+}
+html[data-ui="modern"][data-look="retail"] [data-ui-shell="sidebar"] [data-nav-key] {
+  height: 2.5rem;
+  border-radius: 12px;
+  font-weight: 600;
+  color: hsl(var(--ui-sb-fg));
+}
+html[data-ui="modern"][data-look="retail"] [data-ui-shell="sidebar"] [data-nav-key] svg { color: hsl(var(--ui-sb-muted-fg)); }
+html[data-ui="modern"][data-look="retail"] [data-ui-shell="sidebar"] [data-nav-key]:hover {
+  background: rgb(255 255 255 / 0.07);
+  color: #fff;
+}
+html[data-ui="modern"][data-look="retail"] [data-ui-shell="sidebar"] [data-nav-key]:hover svg { color: #fff; }
+html[data-ui="modern"][data-look="retail"] [data-ui-shell="sidebar"] [data-nav-key][aria-current="page"] {
+  background: linear-gradient(90deg, hsl(var(--dtr-nav-a)), hsl(var(--primary)));
+  color: hsl(var(--ui-on-accent));
+  box-shadow: 0 8px 18px -8px hsl(var(--primary) / 0.7);
+}
+html[data-ui="modern"][data-look="retail"] [data-ui-shell="sidebar"] [data-nav-key][aria-current="page"] svg { color: hsl(var(--ui-on-accent)); }
+html[data-ui="modern"][data-look="retail"] [data-ui-shell="sidebar"] nav > div > div:first-child { color: hsl(var(--ui-sb-muted-fg)); }
+/* the signed-in user sits in the top bar in this look */
+html[data-ui="modern"][data-look="retail"] [data-dtr="user-row"] { display: none; }
+/* "Powered by Digital Target · vX" card */
+html[data-ui="modern"][data-look="retail"] [data-dtr="powered"] {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.6rem 0.7rem;
+  border-radius: 14px;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  background: rgb(255 255 255 / 0.05);
+  color: #fff;
+  text-align: left;
+  transition: background-color 0.15s ease;
+}
+html[data-ui="modern"][data-look="retail"] [data-dtr="powered"]:hover { background: rgb(255 255 255 / 0.1); }
+html[data-ui="modern"][data-look="retail"] [data-dtr="powered"] small { display: block; font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: hsl(var(--ui-sb-muted-fg)); }
+
+/* --------------------------------------------------------------- top bar */
+html[data-ui="modern"][data-look="retail"] [data-ui-shell="header"] {
+  background: hsl(var(--card));
+  border-bottom: 1px solid hsl(var(--border));
+  box-shadow: none;
+}
+html[data-ui="modern"][data-look="retail"] [data-ui-shell="header"] h1 { font-size: 15px; font-weight: 700; }
+html[data-ui="modern"][data-look="retail"] [data-ui-shell="header"] [data-dtr="user-chip"] {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  height: 2.75rem;
+  padding: 0 0.5rem 0 0.35rem;
+  border-radius: 999px;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+}
+html[data-ui="modern"][data-look="retail"] [data-dtr="avatar"] {
+  display: grid;
+  place-items: center;
+  height: 2rem;
+  width: 2rem;
+  border-radius: 999px;
+  font-weight: 800;
+  color: hsl(var(--ui-on-accent));
+  background: linear-gradient(135deg, hsl(var(--dtr-nav-a)), hsl(var(--primary)));
+}
+
+/* ---------------------------------------------------------------- page + cards */
+html[data-ui="modern"][data-look="retail"] [data-slot="card"],
+html[data-ui="modern"][data-look="retail"] [data-stat-card] {
+  border-radius: var(--ui-radius-card);
+  box-shadow: var(--ui-shadow-card);
+}
+html[data-ui="modern"][data-look="retail"] [data-slot="dialog-content"],
+html[data-ui="modern"][data-look="retail"] [data-slot="sheet-content"] { border-radius: var(--ui-radius-dialog); }
+html[data-ui="modern"][data-look="retail"] [data-slot="button"] { border-radius: var(--ui-radius-control); font-weight: 600; }
+html[data-ui="modern"][data-look="retail"] [data-slot="button"][data-variant="default"] { box-shadow: 0 6px 14px -6px hsl(var(--primary) / 0.65); }
+
+/* greeting banner (dashboard) */
+html[data-ui="modern"][data-look="retail"] [data-dtr="hero"] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.35rem 1.6rem;
+  border-radius: 18px;
+  color: #fff;
+  background: linear-gradient(100deg, hsl(var(--dtr-hero-a)), hsl(var(--dtr-hero-b)));
+  box-shadow: 0 14px 30px -14px hsl(var(--dtr-hero-b) / 0.75);
+}
+html[data-ui="modern"][data-look="retail"] [data-dtr="hero"] h2 { color: #fff; font-size: 1.65rem; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; }
+html[data-ui="modern"][data-look="retail"] [data-dtr="hero"] p { color: rgb(255 255 255 / 0.85); font-size: 0.9rem; margin-top: 0.2rem; }
+html[data-ui="modern"][data-look="retail"] [data-dtr="hero"] button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 2.5rem;
+  padding: 0 1rem;
+  border-radius: 11px;
+  font-weight: 700;
+  font-size: 0.875rem;
+  transition: background-color 0.12s ease, transform 0.12s ease;
+}
+html[data-ui="modern"][data-look="retail"] [data-dtr="hero"] button[data-tone="glass"] { background: rgb(255 255 255 / 0.18); border: 1px solid rgb(255 255 255 / 0.35); color: #fff; }
+html[data-ui="modern"][data-look="retail"] [data-dtr="hero"] button[data-tone="glass"]:hover { background: rgb(255 255 255 / 0.28); }
+html[data-ui="modern"][data-look="retail"] [data-dtr="hero"] button[data-tone="solid"] { background: #fff; color: hsl(var(--dtr-hero-a)); }
+html[data-ui="modern"][data-look="retail"][data-ui-theme="dtr-gold"] [data-dtr="hero"] button[data-tone="solid"] { color: hsl(43 98% 24%); }
+
+/* the lead KPI card */
+html[data-ui="modern"][data-look="retail"] [data-dtr-kpis="lead"] > [data-stat-card]:first-child {
+  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(135deg, hsl(var(--dtr-hero-b)), hsl(var(--dtr-hero-a)));
+  box-shadow: 0 12px 26px -14px hsl(var(--dtr-hero-a) / 0.85);
+}
+html[data-ui="modern"][data-look="retail"] [data-dtr-kpis="lead"] > [data-stat-card]:first-child * { color: #fff !important; }
+html[data-ui="modern"][data-look="retail"] [data-dtr-kpis="lead"] > [data-stat-card]:first-child span.grid { background: rgb(255 255 255 / 0.2) !important; }
+html[data-ui="modern"][data-look="retail"][data-ui-theme="dtr-gold"] [data-dtr-kpis="lead"] > [data-stat-card]:first-child * { color: hsl(43 98% 10%) !important; }
+
+/* ---------------------------------------------------------------- POS screen */
+/* Product tiles without a photo: a coloured gradient square with the initials. */
+html[data-ui="modern"][data-look="retail"] [data-pos-card-image][data-initials] {
+  position: relative;
+  background: linear-gradient(135deg, hsl(var(--tile-hue, 25) 88% 52%), hsl(calc(var(--tile-hue, 25) + 16) 90% 58%));
+  border-radius: 10px;
+}
+html[data-ui="modern"][data-look="retail"] [data-pos-card-image][data-initials] > span { display: none; }
+html[data-ui="modern"][data-look="retail"] [data-pos-card-image][data-initials]::after {
+  content: attr(data-initials);
+  color: #fff;
+  font-weight: 800;
+  font-size: 1.6rem;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.18);
+}
+html[data-ui="modern"][data-look="retail"] [data-pos-card] { border-radius: var(--ui-radius-card); }
+html[data-ui="modern"][data-look="retail"] [data-pos-card]:hover { transform: translateY(-2px); }
+html[data-ui="modern"][data-look="retail"] [data-pos-card-foot] > span:first-child { color: hsl(var(--primary-text)); font-weight: 800; }
+/* category chips: white pills, the selected one dark like the guide's "All" */
+html[data-ui="modern"][data-look="retail"] .cat-pill {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 999px;
+  font-weight: 600;
+  box-shadow: none;
+}
+html[data-ui="modern"][data-look="retail"] .cat-pill[data-active="true"] {
+  background: hsl(var(--foreground));
+  color: hsl(var(--background));
+  border-color: hsl(var(--foreground));
+}
+html[data-ui="modern"][data-look="retail"] .cat-pill.cat-pill-side { border-radius: 12px; }
+
+/* ---------------------------------------------------------------- motion */
+@keyframes dtrPageIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes dtrRiseIn { from { opacity: 0; transform: translateY(18px) scale(0.985); } to { opacity: 1; transform: none; } }
+@keyframes dtrPopIn { 0% { opacity: 0; transform: scale(0.2) rotate(-25deg); } 70% { opacity: 1; transform: scale(1.12) rotate(3deg); } 100% { opacity: 1; transform: none; } }
+@keyframes dtrGlow { 0%, 100% { box-shadow: 0 0 0 0 hsl(var(--primary) / 0.45); } 50% { box-shadow: 0 0 0 10px hsl(var(--primary) / 0); } }
+@keyframes dtrFloatY { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-16px); } }
+@keyframes dtrShimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+@keyframes dtrStreak { 0% { transform: translateX(-120%); } 100% { transform: translateX(320%); } }
+@keyframes dtrFadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes dtrDialogIn { from { opacity: 0; scale: 0.97; } to { opacity: 1; scale: 1; } }
+
+/* every page change: 0.22 s. `backwards` keeps the element transform-free once it has arrived. */
+html:not([data-anim="off"])[data-ui="modern"][data-look="retail"] main > .dtr-page,
+html:not([data-anim="off"])[data-ui="modern"][data-look="retail"] main > div:first-child {
+  animation: dtrPageIn 0.22s var(--dtr-ease) backwards;
+}
+/* Dialogs are centred with transform: translate(-50%, -50%). The entry motion must never touch
+   `transform` (an animation that ends on transform:none, held by fill-mode, pushed every dialog
+   half its size to the bottom-right). It uses opacity and the separate `scale` property only,
+   and holds nothing after it ends. */
+html:not([data-anim="off"])[data-ui="modern"][data-look="retail"] [data-slot="dialog-content"] { animation: dtrDialogIn 0.18s var(--dtr-ease) backwards; }
+html:not([data-anim="off"])[data-ui="modern"][data-look="retail"] [data-dtr="hero"] { animation: dtrRiseIn 0.45s var(--dtr-ease) backwards; }
+html:not([data-anim="off"])[data-ui="modern"][data-look="retail"] [data-dtr-kpis] > [data-stat-card] { animation: dtrRiseIn 0.4s var(--dtr-ease) backwards; }
+html:not([data-anim="off"])[data-ui="modern"][data-look="retail"] [data-dtr-kpis] > [data-stat-card]:nth-child(2) { animation-delay: 0.05s; }
+html:not([data-anim="off"])[data-ui="modern"][data-look="retail"] [data-dtr-kpis] > [data-stat-card]:nth-child(3) { animation-delay: 0.1s; }
+html:not([data-anim="off"])[data-ui="modern"][data-look="retail"] [data-dtr-kpis] > [data-stat-card]:nth-child(4) { animation-delay: 0.15s; }
+html:not([data-anim="off"])[data-ui="modern"][data-look="retail"] [data-slot="button"],
+html:not([data-anim="off"])[data-ui="modern"][data-look="retail"] [data-slot="input"] { transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease, box-shadow 0.12s ease, transform 0.12s ease; }
+html:not([data-anim="off"])[data-ui="modern"][data-look="retail"] [data-slot="button"]:active:not(:disabled) { transform: translateY(1px); }
+html:not([data-anim="off"])[data-ui="modern"][data-look="retail"] [data-pos-card] { transition: border-color 0.1s ease, box-shadow 0.1s ease, transform 0.05s ease; }
+html:not([data-anim="off"])[data-ui="modern"][data-look="retail"] [data-pos-card]:active { transform: scale(0.98); }
+/* loading skeletons */
+html:not([data-anim="off"])[data-ui="modern"][data-look="retail"] [data-slot="skeleton"] {
+  background: linear-gradient(90deg, hsl(var(--muted)), hsl(var(--muted) / 0.4), hsl(var(--muted)));
+  background-size: 200% 100%;
+  animation: dtrShimmer 1.4s linear infinite;
+}
+/* occupied tables glow */
+html:not([data-anim="off"])[data-ui="modern"][data-look="retail"] [data-table-status="occupied"] { animation: dtrGlow 2.5s ease-in-out infinite; }
+
+/* Animations off: nothing moves, nothing fades. */
+html[data-anim="off"][data-ui="modern"][data-look="retail"] *,
+html[data-anim="off"][data-ui="modern"][data-look="retail"] *::before,
+html[data-anim="off"][data-ui="modern"][data-look="retail"] *::after {
+  animation: none !important;
+  transition: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-ui="modern"][data-look="retail"] *,
+  html[data-ui="modern"][data-look="retail"] *::before,
+  html[data-ui="modern"][data-look="retail"] *::after { animation-duration: 0.01ms !important; animation-delay: 0s !important; }
+}
+
+/* ============================================================
+ * DARK PAGES (Black & Gold, Night)
+ *
+ * Most of the product is built from the palette tokens, which the dark themes
+ * already re-map. A few screens, though, were drawn with fixed light Tailwind
+ * colours (bg-white, bg-green-50, text-gray-700 …) that would sit as bright
+ * boxes on a dark page. Only while data-ui-mode="dark" is set, those fixed
+ * colours are swapped for dark equivalents — in the same hue, so a green
+ * "Ready" pill is still green and a red warning still red.
+ * ============================================================ */
+html[data-ui="modern"][data-ui-mode="dark"] {
+  --primary-soft: var(--ui-accent-h) 38% 15%;
+  --primary-soft-strong: var(--ui-accent-h) 38% 21%;
+  --ui-success-soft: hsl(152 35% 13%);
+  --ui-warning-soft: hsl(38 40% 13%);
+  --ui-danger-soft: hsl(0 40% 15%);
+  --ui-info-soft: hsl(212 40% 15%);
+  --ui-success-text: hsl(152 55% 64%);
+  --ui-warning-text: hsl(38 90% 66%);
+  --ui-danger-text: hsl(0 85% 72%);
+  --ui-info-text: hsl(212 90% 74%);
+}
+html[data-ui="modern"][data-ui-mode="dark"] :is(.bg-white, .bg-gray-50, .bg-slate-50, .bg-neutral-50, .bg-zinc-50, .bg-stone-50) {
+  background-color: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+}
+html[data-ui="modern"][data-ui-mode="dark"] :is(.bg-gray-100, .bg-slate-100, .bg-neutral-100, .bg-zinc-100, .bg-stone-100, .bg-gray-200, .bg-slate-200) {
+  background-color: hsl(var(--muted));
+}
+html[data-ui="modern"][data-ui-mode="dark"] :is(.text-black, .text-gray-900, .text-gray-800, .text-gray-700, .text-slate-900, .text-slate-800, .text-slate-700, .text-zinc-900, .text-zinc-800, .text-neutral-900, .text-neutral-800) {
+  color: hsl(var(--foreground));
+}
+html[data-ui="modern"][data-ui-mode="dark"] :is(.text-gray-600, .text-gray-500, .text-gray-400, .text-slate-600, .text-slate-500, .text-slate-400, .text-zinc-600, .text-zinc-500, .text-neutral-600, .text-neutral-500) {
+  color: hsl(var(--muted-foreground));
+}
+html[data-ui="modern"][data-ui-mode="dark"] :is(.border-gray-100, .border-gray-200, .border-gray-300, .border-slate-100, .border-slate-200, .border-slate-300, .border-zinc-200, .border-neutral-200) {
+  border-color: hsl(var(--border));
+}
+html[data-ui="modern"][data-ui-mode="dark"] :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]) {
+  color-scheme: dark;
+}
+
+html[data-ui="modern"][data-ui-mode="dark"] :is(.bg-green-50, .bg-emerald-50, .bg-teal-50, .bg-lime-50) { background-color: hsl(152 38% 14%); }
+html[data-ui="modern"][data-ui-mode="dark"] :is(.bg-green-100, .bg-emerald-100, .bg-teal-100, .bg-lime-100) { background-color: hsl(152 36% 19%); }
+html[data-ui="modern"][data-ui-mode="dark"] :is(.border-green-100, .border-green-200, .border-green-300, .border-emerald-100, .border-emerald-200, .border-emerald-300, .border-teal-100, .border-teal-200, .border-teal-300, .border-lime-100, .border-lime-200, .border-lime-300) { border-color: hsl(152 30% 28%); }
+html[data-ui="modern"][data-ui-mode="dark"] :is(.text-green-600, .text-green-700, .text-green-800, .text-green-900, .text-emerald-600, .text-emerald-700, .text-emerald-800, .text-emerald-900, .text-teal-600, .text-teal-700, .text-teal-800, .text-teal-900, .text-lime-600, .text-lime-700, .text-lime-800, .text-lime-900) { color: hsl(152 80% 70%); }
+
+html[data-ui="modern"][data-ui-mode="dark"] :is(.bg-amber-50, .bg-yellow-50, .bg-orange-50) { background-color: hsl(38 38% 14%); }
+html[data-ui="modern"][data-ui-mode="dark"] :is(.bg-amber-100, .bg-yellow-100, .bg-orange-100) { background-color: hsl(38 36% 19%); }
+html[data-ui="modern"][data-ui-mode="dark"] :is(.border-amber-100, .border-amber-200, .border-amber-300, .border-yellow-100, .border-yellow-200, .border-yellow-300, .border-orange-100, .border-orange-200, .border-orange-300) { border-color: hsl(38 30% 28%); }
+html[data-ui="modern"][data-ui-mode="dark"] :is(.text-amber-600, .text-amber-700, .text-amber-800, .text-amber-900, .text-yellow-600, .text-yellow-700, .text-yellow-800, .text-yellow-900, .text-orange-600, .text-orange-700, .text-orange-800, .text-orange-900) { color: hsl(38 80% 70%); }
+
+html[data-ui="modern"][data-ui-mode="dark"] :is(.bg-blue-50, .bg-sky-50, .bg-cyan-50, .bg-indigo-50) { background-color: hsl(212 38% 14%); }
+html[data-ui="modern"][data-ui-mode="dark"] :is(.bg-blue-100, .bg-sky-100, .bg-cyan-100, .bg-indigo-100) { background-color: hsl(212 36% 19%); }
+html[data-ui="modern"][data-ui-mode="dark"] :is(.border-blue-100, .border-blue-200, .border-blue-300, .border-sky-100, .border-sky-200, .border-sky-300, .border-cyan-100, .border-cyan-200, .border-cyan-300, .border-indigo-100, .border-indigo-200, .border-indigo-300) { border-color: hsl(212 30% 28%); }
+html[data-ui="modern"][data-ui-mode="dark"] :is(.text-blue-600, .text-blue-700, .text-blue-800, .text-blue-900, .text-sky-600, .text-sky-700, .text-sky-800, .text-sky-900, .text-cyan-600, .text-cyan-700, .text-cyan-800, .text-cyan-900, .text-indigo-600, .text-indigo-700, .text-indigo-800, .text-indigo-900) { color: hsl(212 80% 70%); }
+
+html[data-ui="modern"][data-ui-mode="dark"] :is(.bg-purple-50, .bg-violet-50, .bg-fuchsia-50) { background-color: hsl(265 38% 14%); }
+html[data-ui="modern"][data-ui-mode="dark"] :is(.bg-purple-100, .bg-violet-100, .bg-fuchsia-100) { background-color: hsl(265 36% 19%); }
+html[data-ui="modern"][data-ui-mode="dark"] :is(.border-purple-100, .border-purple-200, .border-purple-300, .border-violet-100, .border-violet-200, .border-violet-300, .border-fuchsia-100, .border-fuchsia-200, .border-fuchsia-300) { border-color: hsl(265 30% 28%); }
+html[data-ui="modern"][data-ui-mode="dark"] :is(.text-purple-600, .text-purple-700, .text-purple-800, .text-purple-900, .text-violet-600, .text-violet-700, .text-violet-800, .text-violet-900, .text-fuchsia-600, .text-fuchsia-700, .text-fuchsia-800, .text-fuchsia-900) { color: hsl(265 80% 70%); }
+
+html[data-ui="modern"][data-ui-mode="dark"] :is(.bg-red-50, .bg-rose-50, .bg-pink-50) { background-color: hsl(0 38% 14%); }
+html[data-ui="modern"][data-ui-mode="dark"] :is(.bg-red-100, .bg-rose-100, .bg-pink-100) { background-color: hsl(0 36% 19%); }
+html[data-ui="modern"][data-ui-mode="dark"] :is(.border-red-100, .border-red-200, .border-red-300, .border-rose-100, .border-rose-200, .border-rose-300, .border-pink-100, .border-pink-200, .border-pink-300) { border-color: hsl(0 30% 28%); }
+html[data-ui="modern"][data-ui-mode="dark"] :is(.text-red-600, .text-red-700, .text-red-800, .text-red-900, .text-rose-600, .text-rose-700, .text-rose-800, .text-rose-900, .text-pink-600, .text-pink-700, .text-pink-800, .text-pink-900) { color: hsl(0 80% 70%); }
+
+
+/* ---------------------------------------------------------------- POS (retail) */
+html[data-ui="modern"][data-look="retail"] [data-pos-card-add] { display: none; }
+html[data-ui="modern"][data-look="retail"] [data-pos-pay] {
+  background: linear-gradient(135deg, hsl(var(--dtr-nav-a)), hsl(var(--primary)));
+  color: hsl(var(--primary-foreground));
+  border-radius: 12px;
+  box-shadow: 0 8px 18px -8px hsl(var(--primary) / 0.7);
+}
+html[data-ui="modern"][data-look="retail"] [data-pos-pay]:hover:not(:disabled) { filter: brightness(1.05); }
+html[data-ui="modern"][data-look="retail"] [data-pos-card][data-in-cart="true"] {
+  border-color: hsl(var(--primary) / 0.6);
+  box-shadow: 0 0 0 1px hsl(var(--primary) / 0.4), var(--ui-shadow-sm);
+}
+html[data-ui="modern"][data-look="retail"] [data-pos-card-image] { border-radius: 10px; }
+/* the top bar: the title never truncates; the module search collapses to its icon */
+html[data-ui="modern"][data-look="retail"] [data-ui-shell="header"] h1 { flex: none; }
+html[data-ui="modern"][data-look="retail"] [data-ui-shell="header"] [data-dtr="search-wide"] { display: none !important; }
+html[data-ui="modern"][data-look="retail"] [data-ui-shell="header"] [data-dtr="search-icon"] { display: grid !important; }
+
+/* ---------------------------------------------------------------- mark + splash + login */
+html[data-ui="modern"][data-look="retail"] .dtr-mark-tri { transform-box: fill-box; }
+html:not([data-anim="off"])[data-ui="modern"][data-look="retail"] .dtr-mark-tri { animation: dtrPopIn 0.55s cubic-bezier(0.2, 1.3, 0.4, 1) backwards; }
+
+html[data-ui="modern"][data-look="retail"] .dtr-splash {
+  background: linear-gradient(135deg, hsl(var(--dtr-sb-top)) 0%, hsl(var(--dtr-hero-a)) 62%, hsl(var(--dtr-hero-b)) 160%);
+  color: #fff;
+}
+html[data-ui="modern"][data-look="retail"] .dtr-orb {
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(70px);
+  opacity: 0.55;
+}
+html[data-ui="modern"][data-look="retail"] .dtr-orb-a { width: 420px; height: 420px; top: -120px; left: -100px; background: hsl(var(--dtr-hero-b)); }
+html[data-ui="modern"][data-look="retail"] .dtr-orb-b { width: 360px; height: 360px; bottom: -120px; right: -80px; background: hsl(var(--primary)); }
+html:not([data-anim="off"])[data-ui="modern"][data-look="retail"] .dtr-orb-a { animation: dtrFloatY 13s ease-in-out infinite; }
+html:not([data-anim="off"])[data-ui="modern"][data-look="retail"] .dtr-orb-b { animation: dtrFloatY 11s ease-in-out infinite reverse; }
+html[data-ui="modern"][data-look="retail"] .dtr-splash-card { gap: 0.25rem; }
+html[data-ui="modern"][data-look="retail"] .dtr-wordmark {
+  margin-top: 1rem;
+  font-size: 1.85rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  color: rgb(255 255 255 / 0.92);
+}
+html[data-ui="modern"][data-look="retail"] .dtr-tagline { font-size: 0.8rem; letter-spacing: 0.3em; text-transform: uppercase; color: rgb(255 255 255 / 0.65); }
+html[data-ui="modern"][data-look="retail"] .dtr-progress {
+  margin-top: 1.4rem;
+  width: 14rem;
+  height: 3px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.16);
+  overflow: hidden;
+}
+html[data-ui="modern"][data-look="retail"] .dtr-progress > span { display: block; height: 100%; width: 35%; border-radius: 999px; background: linear-gradient(90deg, transparent, #fff, transparent); }
+html[data-ui="modern"][data-look="retail"] .dtr-splash-foot { position: absolute; bottom: 1.6rem; font-size: 10.5px; letter-spacing: 0.26em; text-transform: uppercase; color: rgb(255 255 255 / 0.55); }
+html:not([data-anim="off"])[data-ui="modern"][data-look="retail"] .dtr-wordmark { animation: dtrFadeUp 0.6s var(--dtr-ease) 0.85s backwards; }
+html:not([data-anim="off"])[data-ui="modern"][data-look="retail"] .dtr-tagline { animation: dtrFadeUp 0.6s var(--dtr-ease) 1s backwards; }
+html:not([data-anim="off"])[data-ui="modern"][data-look="retail"] .dtr-progress { animation: dtrFadeUp 0.4s ease 1.05s backwards; }
+html:not([data-anim="off"])[data-ui="modern"][data-look="retail"] .dtr-progress > span { animation: dtrStreak 1.3s ease-in-out 1.1s infinite; }
+html:not([data-anim="off"])[data-ui="modern"][data-look="retail"] .dtr-splash-card { animation: dtrRiseIn 0.5s var(--dtr-ease) backwards; }
+
+/* login: the brand panel takes the theme's gradient */
+html[data-ui="modern"][data-look="retail"] .dtr-login-brand {
+  background: linear-gradient(150deg, hsl(var(--dtr-sb-top)) 0%, hsl(var(--dtr-hero-a)) 58%, hsl(var(--dtr-hero-b)) 150%);
+}
+html[data-ui="modern"][data-look="retail"] .dtr-shape {
+  /* Right triangles (the Digital Target mark's shape), faint like the guide. */
+  position: absolute;
+  clip-path: polygon(0 0, 100% 0, 100% 100%);
+  background: linear-gradient(135deg, rgb(255 255 255 / 0.1), rgb(255 255 255 / 0.03));
+  transform: rotate(12deg);
+  pointer-events: none;
+}
+html:not([data-anim="off"])[data-ui="modern"][data-look="retail"] .dtr-shape { animation: dtrFloatY 12s ease-in-out infinite; }
+html:not([data-anim="off"])[data-ui="modern"][data-look="retail"] .dtr-rise { animation: dtrRiseIn 0.7s var(--dtr-ease) backwards; }
+html:not([data-anim="off"])[data-ui="modern"][data-look="retail"] .dtr-logo-tile { animation: dtrPopIn 0.6s cubic-bezier(0.2, 1.3, 0.4, 1) backwards, dtrGlow 2.6s ease-in-out 0.8s infinite; }
+html:not([data-anim="off"])[data-ui="modern"][data-look="retail"] .dtr-login-form { animation: dtrRiseIn 0.55s var(--dtr-ease) backwards; }
+html:not([data-anim="off"])[data-ui="modern"][data-look="retail"] .dtr-login-logo { animation: dtrPopIn 0.6s cubic-bezier(0.2, 1.3, 0.4, 1) 0.15s backwards, dtrGlow 2.6s ease-in-out 0.9s infinite; }
+html[data-ui="modern"][data-look="retail"] .dtr-login-form { border-radius: 18px; box-shadow: var(--ui-shadow-card); }
+
+/* ============================================================
+ * ESPRESSO ORANGE — the DT Retail POS v1.8 screens.
+ * Same retail rules as above, plus: the espresso sign-in panel with two orange
+ * glows and faint Digital Target marks, the plain PIN page on the cream side,
+ * a coloured dot per category (the selected one filled in its colour), and
+ * the "Powered by" card and stacked clock of those screens.
+ * ============================================================ */
+html[data-ui="modern"][data-look="retail"][data-ui-theme="dtr-espresso"] .dtr-login-brand.dtr-login-espresso {
+  background:
+    radial-gradient(ellipse 100% 56% at 0% 0%, hsl(var(--dtr-glow-a)) 0%, hsl(var(--dtr-glow-a) / 0.78) 30%, hsl(24 62% 30% / 0.5) 62%, transparent 92%),
+    radial-gradient(ellipse 72% 54% at 100% 100%, hsl(var(--dtr-glow-b)) 0%, hsl(var(--dtr-glow-b) / 0.8) 24%, hsl(22 85% 26% / 0.45) 62%, transparent 100%),
+    radial-gradient(ellipse 48% 26% at 50% 53%, hsl(15 31% 13% / 0.9), transparent 75%),
+    hsl(var(--dtr-sb-bot));
+}
+html[data-ui="modern"][data-look="retail"][data-ui-theme="dtr-espresso"] .dtr-esp-mark {
+  position: absolute;
+  color: rgb(255 255 255 / 0.08);
+  pointer-events: none;
+}
+html[data-ui="modern"][data-look="retail"][data-ui-theme="dtr-espresso"] .dtr-esp-logo {
+  background: linear-gradient(135deg, hsl(27 92% 60%), hsl(21 90% 48%));
+  box-shadow: 0 12px 30px -8px hsl(24 95% 50% / 0.75), inset 0 1px 0 rgb(255 255 255 / 0.3);
+}
+/* the PIN page sits straight on the cream side — no card */
+html:not([data-anim="off"])[data-ui="modern"][data-look="retail"][data-ui-theme="dtr-espresso"] .dtr-login-form-plain { animation: dtrRiseIn 0.55s var(--dtr-ease) backwards; }
+
+/* ---------------------------------------------------------------- POS categories */
+html[data-ui="modern"][data-look="retail"][data-ui-theme="dtr-espresso"] .cat-pill [data-cat-dot] {
+  display: inline-block;
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: hsl(var(--cat-c, var(--primary)));
+}
+html[data-ui="modern"][data-look="retail"][data-ui-theme="dtr-espresso"] .cat-pill [data-cat-icon] { display: none; }
+/* the side panel: dot and name on one line (long names wrap between words), no counts.
+   A very narrow panel (small screens) keeps the name on its own line under the dot,
+   so a word is never split letter by letter. */
+html[data-ui="modern"][data-look="retail"][data-ui-theme="dtr-espresso"] .cat-pill.cat-pill-side:is([data-cat-all], :has(> [data-cat-dot])) > [data-cat-count] { display: none; }
+@container (min-width: 131px) and (max-width: 170px) {
+  html[data-ui="modern"][data-look="retail"][data-ui-theme="dtr-espresso"] .cat-pill.cat-pill-side:has(> [data-cat-dot]) { flex-wrap: nowrap; }
+  html[data-ui="modern"][data-look="retail"][data-ui-theme="dtr-espresso"] .cat-pill.cat-pill-side:has(> [data-cat-dot]) > [data-cat-name] { order: 0; flex-basis: auto; }
+}
+html[data-ui="modern"][data-look="retail"][data-ui-theme="dtr-espresso"] .cat-pill.cat-pill-side { border-radius: 10px; font-weight: 600; gap: 0.6rem; padding-left: 0.75rem; }
+html[data-ui="modern"][data-look="retail"][data-ui-theme="dtr-espresso"] .cat-pill[data-active="true"]:has(> [data-cat-dot]) {
+  background: hsl(var(--cat-c));
+  border-color: hsl(var(--cat-c));
+  color: #fff;
+  box-shadow: 0 8px 18px -8px hsl(var(--cat-c) / 0.75);
+}
+html[data-ui="modern"][data-look="retail"][data-ui-theme="dtr-espresso"] .cat-pill[data-active="true"] > [data-cat-dot] { background: #fff; }
+html[data-ui="modern"][data-look="retail"][data-ui-theme="dtr-espresso"] .cat-pill[data-active="true"]:has(> [data-cat-dot]) [data-cat-count] { background: rgb(255 255 255 / 0.22); color: #fff; }

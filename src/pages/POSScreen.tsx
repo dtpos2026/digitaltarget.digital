@@ -34,6 +34,9 @@ import LocationCapture from '@/components/LocationCapture';
 const PaymentDialog = lazy(() => import('@/components/PaymentDialog'));
 import WeightPanel from '@/components/WeightPanel';
 import type { WeightLine } from '@/lib/weightPricing';
+import { categoryDotColor } from '@/lib/categoryColors';
+import { tileHue, tileInitials } from '@/lib/tileLook';
+import { useUiStyle } from '@/lib/uiStyle';
 import { enqueueKot, enqueueReceipt, enqueueKotUpdate, enqueueKotCancel, computeKotDiff, enqueueKotByPolicy, printOnHold, holdMessage, kotRecentlyQueued } from '@/lib/printQueue';
 import BillingStatusBar from '@/components/BillingStatusBar';
 import { useRestrictedAction } from '@/components/RestrictedActionGate';
@@ -288,6 +291,7 @@ export default function POSScreen() {
   }, []);
 
   // Active items per category (and in total) — shown on the All Categories picker.
+  const modern = useUiStyle() === 'modern';
   const catCounts = useMemo(() => {
     const byCat = new Map<string, number>();
     let all = 0;
@@ -1338,11 +1342,13 @@ export default function POSScreen() {
             <button
               onClick={() => setSelectedCat('all')}
               data-active={selectedCat === 'all'}
+              data-cat-all
               className="cat-pill"
             >
               📋 All
+              {modern && <span data-cat-count>{catCounts.all}</span>}
             </button>
-            {categories.map(cat => {
+            {categories.map((cat, catIndex) => {
               const catFont = settings.categoryStyle;
               const catFontStyle: React.CSSProperties = catFont && catFont.font !== 'default' ? {
                 fontFamily: `'${catFont.font}', serif`,
@@ -1356,14 +1362,18 @@ export default function POSScreen() {
                   onClick={() => setSelectedCat(cat.id)}
                   data-active={selectedCat === cat.id}
                   className="cat-pill flex items-center gap-1.5 shrink-0"
-                  style={catFontStyle}
+                  style={{ ...catFontStyle, ['--cat-c' as string]: categoryDotColor(catIndex) }}
                 >
                   {cat.image ? (
                     <img src={cat.image} alt={cat.name} className="h-5 w-5 rounded-full object-cover" />
                   ) : (
-                    <span className="text-sm">{cat.icon}</span>
+                    <>
+                      <span data-cat-dot aria-hidden className="hidden" />
+                      <span data-cat-icon className="text-sm">{cat.icon}</span>
+                    </>
                   )}
                   <span>{cat.name}</span>
+                  {modern && <span data-cat-count>{catCounts.byCat.get(cat.id) || 0}</span>}
                 </button>
               );
             })}
@@ -1397,12 +1407,14 @@ export default function POSScreen() {
                 <button
                   onClick={() => setSelectedCat('all')}
                   data-active={selectedCat === 'all'}
+                  data-cat-all
                   className="cat-pill min-w-0 flex-1 justify-start"
                 >
                   📋 All
+                  {modern && <span data-cat-count>{catCounts.all}</span>}
                 </button>
               </div>
-              {categories.map(cat => {
+              {categories.map((cat, catIndex) => {
                 const catFont = settings.categoryStyle;
                 const catFontStyle: React.CSSProperties = catFont && catFont.font !== 'default' ? {
                   fontFamily: `'${catFont.font}', serif`,
@@ -1416,15 +1428,19 @@ export default function POSScreen() {
                     onClick={() => setSelectedCat(cat.id)}
                     data-active={selectedCat === cat.id}
                     className="cat-pill cat-pill-side w-[calc(100%-12px)] mx-1.5 mb-1.5 flex items-center gap-1.5 justify-start"
-                    style={catFontStyle}
+                    style={{ ...catFontStyle, ['--cat-c' as string]: categoryDotColor(catIndex) }}
                     title={cat.name}
                   >
                     {cat.image ? (
                       <img src={cat.image} alt={cat.name} className="h-5 w-5 rounded-full object-cover shrink-0" />
                     ) : (
-                      <span className="text-sm shrink-0">{cat.icon}</span>
+                      <>
+                        <span data-cat-dot aria-hidden className="hidden" />
+                        <span data-cat-icon className="text-sm shrink-0">{cat.icon}</span>
+                      </>
                     )}
                     <span data-cat-name className="min-w-0 text-left leading-snug break-words">{cat.name}</span>
+                    {modern && <span data-cat-count>{catCounts.byCat.get(cat.id) || 0}</span>}
                   </button>
                 );
               })}
@@ -1528,7 +1544,12 @@ export default function POSScreen() {
                   <CachedImage src={item.image} alt={item.name} fallbackLabel={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" />
                 </div>
               ) : (
-                <div className="w-full h-16 bg-gradient-to-br from-primary/8 to-accent/30 flex items-center justify-center">
+                <div
+                  data-pos-card-image
+                  data-initials={tileInitials(item.name)}
+                  className="w-full h-16 bg-gradient-to-br from-primary/8 to-accent/30 flex items-center justify-center"
+                  style={{ ['--tile-hue' as any]: tileHue(item.categoryId) }}
+                >
                   <span className="text-2xl opacity-40 group-hover:scale-110 transition-transform duration-200">
                     {categoryById.get(item.categoryId)?.icon || '🍽️'}
                   </span>

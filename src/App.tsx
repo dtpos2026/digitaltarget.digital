@@ -1,7 +1,9 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { toast } from "sonner";
+import '@/lib/uiBoot';
 import { applyTheme, getActiveTheme } from '@/lib/themes';
+import { applyUiStyle, UI_STYLE_EVENT } from '@/lib/uiStyle';
 import { enforcePremiumThemeGate } from '@/lib/premiumTheme';
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -268,7 +270,16 @@ const App = () => {
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
 
+  // Switching the interface style (Settings → Appearance) re-applies the Classic colour theme: Modern owns the palette
+  // while it is on, and Classic must put its own back.
   useEffect(() => {
+    const again = () => applyTheme(getActiveTheme());
+    window.addEventListener(UI_STYLE_EVENT, again);
+    return () => window.removeEventListener(UI_STYLE_EVENT, again);
+  }, []);
+
+  useEffect(() => {
+    applyUiStyle();
     applyTheme(getActiveTheme());
     // Auto-revert premium theme if Super Admin revoked allotment
     setTimeout(() => enforcePremiumThemeGate(), 3000);
