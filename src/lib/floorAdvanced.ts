@@ -102,7 +102,11 @@ export function readableText(hex: string): '#ffffff' | '#0f172a' {
 // ------------------------------------------------------------------ settings
 export const FLOOR_SETTINGS_KEY = 'dtpos-floor-advanced-v1';
 
+export type TileStyle = 'outlined' | 'filled';
+
 export interface FloorSettings {
+  /** 'outlined' = the DT design package's floor plan (SW-10): a card with a coloured border; 'filled' = solid colour. */
+  tileStyle: TileStyle;
   /** Tile size in px at 100 % zoom. */
   tileSize: number;
   zoom: number;
@@ -121,6 +125,7 @@ export interface FloorSettings {
 }
 
 export const DEFAULT_FLOOR_SETTINGS: FloorSettings = {
+  tileStyle: 'outlined',
   tileSize: 96,
   zoom: 1,
   showTimer: true,
@@ -151,6 +156,7 @@ export function normalizeFloorSettings(raw: unknown): FloorSettings {
     }
   }
   return {
+    tileStyle: r.tileStyle === 'filled' ? 'filled' : 'outlined',
     tileSize: Math.round(clamp(num(r.tileSize, d.tileSize), 72, 140)),
     zoom: Math.round(clamp(num(r.zoom, d.zoom), 0.5, 1.5) * 100) / 100,
     showTimer: bool(r.showTimer, d.showTimer),

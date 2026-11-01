@@ -43,7 +43,9 @@ const ATTENTION: FloorState[] = ['overtime', 'ready', 'unsent', 'pending-payment
 function FloorTileImpl({ data, settings, x = 0, y = 0, selected, dimmed, editing, inline, onPointerDown, onClick, onDoubleClick, onKeyDown }: Props) {
   const { w, h } = tileSizeOf(data.shape, settings.tileSize);
   const colour = stateColour(data.state, settings);
-  const ink = readableText(colour);
+  const outlined = settings.tileStyle !== 'filled';
+  const ink = outlined ? 'hsl(var(--foreground))' : readableText(colour);
+  const tint = `color-mix(in srgb, ${colour} 11%, hsl(var(--card)))`;
   const scale = settings.tileSize / 96;
   const chairs = settings.showChairs ? chairLayout(data.shape, data.seats, w, h) : [];
   const inset = settings.showChairs ? Math.round(Math.min(w, h) * 0.17 * 0.45) + 7 : 4;
@@ -105,7 +107,11 @@ function FloorTileImpl({ data, settings, x = 0, y = 0, selected, dimmed, editing
         ))}
         <div
           className="absolute flex flex-col items-center justify-center text-center shadow-[0_6px_16px_-8px_rgba(15,23,42,0.55)] ring-1 ring-black/10"
-          style={{ inset, background: colour, color: ink, borderRadius: round ? 9999 : Math.round(14 * scale) }}
+          style={{
+            inset, color: ink, borderRadius: round ? 9999 : Math.round(14 * scale),
+            background: outlined ? tint : colour,
+            ...(outlined ? { border: `${Math.max(2, Math.round(3 * scale))}px solid ${colour}`, boxShadow: 'none' } : {}),
+          }}
         >
           <span className="max-w-full truncate px-1 font-extrabold leading-none tracking-tight" style={{ fontSize: Math.round(15 * scale) }}>{data.name}</span>
           {showGuests ? (
@@ -118,8 +124,12 @@ function FloorTileImpl({ data, settings, x = 0, y = 0, selected, dimmed, editing
         </div>
         {showTimer && (
           <span
-            className="absolute left-1/2 -translate-x-1/2 rounded-full px-1.5 py-[1px] font-mono font-bold leading-4 text-white shadow"
-            style={{ top: -7, fontSize: Math.round(10 * scale), background: data.state === 'overtime' ? '#b91c1c' : '#0f172a' }}
+            className="absolute left-1/2 -translate-x-1/2 rounded-full px-1.5 py-[1px] font-mono font-bold leading-4 shadow"
+            style={{
+              top: -7, fontSize: Math.round(10 * scale),
+              background: outlined ? `color-mix(in srgb, ${colour} 20%, hsl(var(--card)))` : (data.state === 'overtime' ? '#b91c1c' : '#0f172a'),
+              color: outlined ? 'hsl(var(--foreground))' : '#fff', border: outlined ? `1px solid ${colour}` : undefined,
+            }}
           >
             {fmtMinutes(data.minutes)}
           </span>

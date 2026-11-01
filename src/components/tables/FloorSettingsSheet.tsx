@@ -63,6 +63,25 @@ export default function FloorSettingsSheet({ open, onOpenChange, settings, onCha
         </div>
 
         <section className="mt-5">
+          <h3 className="text-[13px] font-extrabold uppercase tracking-wide text-muted-foreground">Table style</h3>
+          <div className="mt-2 grid grid-cols-2 gap-2" role="radiogroup" aria-label="Table style">
+            {([['outlined', 'Outlined', 'The DT design: a card with a coloured edge'], ['filled', 'Filled', 'Solid colour, easy to read from far away']] as const).map(([v, label, hint]) => (
+              <button
+                key={v}
+                type="button"
+                role="radio"
+                aria-checked={settings.tileStyle === v}
+                onClick={() => set('tileStyle', v)}
+                className={`rounded-lg border px-3 py-2 text-left transition-colors ${settings.tileStyle === v ? 'border-primary bg-primary/10' : 'hover:bg-muted/50'}`}
+              >
+                <span className="block text-[13px] font-semibold">{label}</span>
+                <span className="block text-[11.5px] text-muted-foreground">{hint}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-5">
           <h3 className="text-[13px] font-extrabold uppercase tracking-wide text-muted-foreground">Size</h3>
           <div className="mt-3">
             <div className="mb-2 flex justify-between text-[13px] font-semibold"><span>Table size</span><span className="tabular-nums text-muted-foreground">{settings.tileSize}px</span></div>

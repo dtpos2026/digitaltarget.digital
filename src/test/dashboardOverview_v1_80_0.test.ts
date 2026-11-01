@@ -228,3 +228,14 @@ describe('layout preference', () => {
     expect(resolveDashboardLayout(false)).toBe('overview');
   });
 });
+
+describe('the Overview follows the design package (v1.81.0)', () => {
+  it('has the "Needs attention" list of SW-02, fed only by things the system can see', async () => {
+    const { readFileSync } = await import('node:fs');
+    const src = readFileSync('src/components/dashboard/OverviewDashboard.tsx', 'utf8');
+    expect(src).toContain('Needs attention');
+    expect(src).toMatch(/status === 'pending_approval'/);
+    expect(src).toContain('d.lowStock');
+    expect(src).toContain('attention-clear');
+  });
+});

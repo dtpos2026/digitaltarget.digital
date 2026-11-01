@@ -12,7 +12,7 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { Area, AreaChart, Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from 'recharts';
 import {
-  Activity, ArrowDownRight, ArrowUpRight, Banknote, Bike, Cloud, CloudOff, CreditCard, LayoutDashboard, MapPin, Package, Palette,
+  Activity, AlertTriangle, ArrowDownRight, ArrowUpRight, Banknote, Bike, CheckCircle2, Cloud, CloudOff, CreditCard, LayoutDashboard, MapPin, Package, Palette,
   Printer, Receipt, RefreshCw, Search, ShoppingBag, TrendingUp, Utensils,
 } from 'lucide-react';
 import { useNavigate } from '@/lib/hash-router';
@@ -364,6 +364,37 @@ function LooksCard() {
   );
 }
 
+/** The design package's "Needs attention" list (SW-02): only things the system can actually see. */
+function NeedsAttention({ d }: { d: DashboardData }) {
+  const navigate = useNavigate();
+  const awaiting = d.orders.filter(o => o.status === 'pending_approval').length;
+  const items: { key: string; text: string; tone: 'warning' | 'danger' | 'info'; to: string }[] = [];
+  if (awaiting > 0) items.push({ key: 'approval', text: `${awaiting} online order${awaiting === 1 ? '' : 's'} await${awaiting === 1 ? 's' : ''} approval`, tone: 'warning', to: '/online-approval' });
+  for (const l of d.lowStock.slice(0, 3)) items.push({ key: `low-${l.name}`, text: `${l.name} is at ${l.qty} (minimum ${l.min})`, tone: 'danger', to: '/inventory' });
+  if (d.lowStock.length > 3) items.push({ key: 'low-more', text: `${d.lowStock.length - 3} more item${d.lowStock.length - 3 === 1 ? '' : 's'} below the minimum`, tone: 'danger', to: '/inventory' });
+  if (d.outstandingCredit > 0) items.push({ key: 'credit', text: `${rs(d.outstandingCredit)} is owed on credit`, tone: 'info', to: '/credits' });
+  const tone = { warning: 'border-amber-500/30 bg-amber-500/10 text-amber-800', danger: 'border-[hsl(var(--status-danger)/0.3)] bg-[hsl(var(--status-danger)/0.08)] text-[hsl(var(--status-danger))]', info: 'border-[hsl(var(--status-info)/0.3)] bg-[hsl(var(--status-info)/0.08)] text-[hsl(var(--status-info))]' };
+  return (
+    <SectionCard title="Needs attention" description="Only what needs someone now">
+      {items.length === 0 ? (
+        <div className="flex items-center gap-2 rounded-xl border border-[hsl(var(--status-success)/0.3)] bg-[hsl(var(--status-success)/0.08)] px-3 py-3 text-[13px] font-semibold text-[hsl(var(--status-success))]" data-testid="attention-clear">
+          <CheckCircle2 className="h-4 w-4" /> Nothing needs attention right now.
+        </div>
+      ) : (
+        <ul className="space-y-2" data-testid="attention-list">
+          {items.map(i => (
+            <li key={i.key}>
+              <button type="button" onClick={() => navigate(i.to)} className={cn('flex w-full items-start gap-2 rounded-xl border px-3 py-2.5 text-left text-[13px] font-semibold', tone[i.tone])}>
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> <span>{i.text}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </SectionCard>
+  );
+}
+
 function LiveStrip({ d }: { d: DashboardData }) {
   const navigate = useNavigate();
   const open = d.orders.filter(o => o.status === 'running' || o.status === 'hold').length;
@@ -455,6 +486,7 @@ export default function OverviewDashboard({ d, onSwitch }: { d: DashboardData; o
 
         <div className="xl:col-span-8"><RecentOrders orders={orders} /></div>
         <div className="space-y-4 xl:col-span-4">
+          <NeedsAttention d={d} />
           <SystemCard />
           <LooksCard />
         </div>

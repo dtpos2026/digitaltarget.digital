@@ -214,6 +214,15 @@ describe('viewer settings', () => {
   });
 });
 
+describe('table style (v1.81.0)', () => {
+  it('defaults to the DT design package\'s outlined tile and accepts only the two styles', () => {
+    expect(DEFAULT_FLOOR_SETTINGS.tileStyle).toBe('outlined');
+    expect(normalizeFloorSettings({ tileStyle: 'filled' }).tileStyle).toBe('filled');
+    expect(normalizeFloorSettings({ tileStyle: 'neon' }).tileStyle).toBe('outlined');
+    expect(normalizeFloorSettings(undefined).tileStyle).toBe('outlined');
+  });
+});
+
 describe('layout', () => {
   it('rectangle tables are wider; the others are square', () => {
     expect(tileSizeOf('rectangle', 100)).toEqual({ w: 140, h: 100 });
