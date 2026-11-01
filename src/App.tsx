@@ -76,6 +76,7 @@ const RidersListPage = lazy(() => import("@/pages/RidersListPage"));
 const ResetPasswordPage = lazy(() => import('@/pages/ResetPasswordPage'));
 const OnlineOrderPage = lazy(() => import("@/pages/OnlineOrderPage"));
 const TrackOrderPage = lazy(() => import("@/pages/TrackOrderPage"));
+const VerifyInvoicePage = lazy(() => import("@/pages/VerifyInvoicePage"));
 const OnlinePortalPage = lazy(() => import("@/pages/OnlinePortalPage"));
 const OrderTakerPortalPage = lazy(() => import("@/pages/OrderTakerPortalPage"));
 const PrintingCenterPage = lazy(() => import("@/pages/PrintingCenterPage"));
@@ -641,6 +642,8 @@ const App = () => {
                 <Route path="/reset-password" element={<ResetPasswordPage />} />
                 <Route path="/order" element={<OnlineOrderPage />} />
                 <Route path="/order/:tenantId" element={<OnlineOrderPage />} />
+                {/* v1.83.0 — public invoice verification (QR / link printed on every Digital Target invoice) */}
+                <Route path="/verify/:invoiceId" element={<VerifyInvoicePage />} />
                 <Route path="/track" element={<TrackOrderPage />} />
                 <Route path="/track/:tenantId" element={<TrackOrderPage />} />
                 <Route path="/rider-portal" element={<RiderAppPage />} />

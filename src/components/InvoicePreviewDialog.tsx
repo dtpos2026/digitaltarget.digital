@@ -2,12 +2,14 @@
 import { useRef, useState, forwardRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Printer, Download, Receipt as ReceiptIcon, FileImage, FileText } from 'lucide-react';
+import { Printer, Download, Receipt as ReceiptIcon, FileImage, FileText, Link as LinkIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { Invoice, tsToDate, formatRs } from '@/lib/billing';
 import { getPlan } from '@/lib/plans';
 import dtLogo from '@/assets/digital-target-logo.png';
 import A4Invoice from '@/components/A4Invoice';
+import InvoiceVerifyBadge from '@/components/InvoiceVerifyBadge';
+import { verifyUrl } from '@/lib/invoiceVerify';
 
 interface Props {
   invoice: Invoice;
@@ -114,6 +116,19 @@ export default function InvoicePreviewDialog({ invoice, restaurantName, email, t
             >POS 80mm</button>
           </div>
           <div className="ml-auto flex gap-2 flex-wrap">
+            <Button
+              size="sm"
+              variant="outline"
+              data-testid="copy-verify-link"
+              title="The address the QR code on the invoice opens"
+              onClick={async () => {
+                const url = verifyUrl(invoice.id);
+                try { await navigator.clipboard.writeText(url); toast.success('Verification link copied'); }
+                catch { window.prompt('Copy the verification link', url); }
+              }}
+            >
+              <LinkIcon className="h-4 w-4 mr-1" /> Verify link
+            </Button>
             <Button size="sm" variant="outline" onClick={printNode}>
               <Printer className="h-4 w-4 mr-1" /> Print
             </Button>
@@ -232,6 +247,12 @@ const POSInvoice = (() => {
         </div>
 
         <Divider />
+
+        {invoice.id && (
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
+            <InvoiceVerifyBadge invoiceId={invoice.id} size={110} compact />
+          </div>
+        )}
 
         <div style={{ textAlign: 'center', fontSize: 10, marginTop: 8 }}>
           <div style={{ fontWeight: 700, color: '#3c096c', fontSize: 11 }}>Thank you for your business!</div>

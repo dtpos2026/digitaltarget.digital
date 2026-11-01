@@ -3,6 +3,7 @@
 // Balance due), terms and signature, and a footer band. Every figure comes from the invoice; sections that have nothing
 // to say (no discount, no setup fee, no bank details) are left out rather than printed empty.
 // Inline styles on purpose: html2canvas (PNG/JPG/PDF) and the print window both paint exactly what is here.
+import InvoiceVerifyBadge from '@/components/InvoiceVerifyBadge';
 import { forwardRef, type CSSProperties } from 'react';
 import BrandLockup from '@/components/BrandLockup';
 import { BRAND, PALETTE } from '@/lib/brand';
@@ -195,7 +196,7 @@ const A4Invoice = forwardRef<HTMLDivElement, Props>(function A4Invoice(
 
         {/* Terms + signature */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 30, marginTop: 44 }}>
-          <div style={{ flex: 1 }}>
+          <div style={{ flex: 1, minWidth: 190 }}>
             {terms.length > 0 && (
               <>
                 <div style={label}>Terms &amp; conditions</div>
@@ -203,6 +204,11 @@ const A4Invoice = forwardRef<HTMLDivElement, Props>(function A4Invoice(
               </>
             )}
           </div>
+          {invoice.id && (
+            <div style={{ flex: '0 0 auto' }}>
+              <InvoiceVerifyBadge invoiceId={invoice.id} size={78} color={PURPLE_DEEP} />
+            </div>
+          )}
           <div style={{ width: 270, textAlign: 'center' }}>
             {sig && <img src={sig} alt="signature" style={{ height: 62, maxWidth: 220, objectFit: 'contain', display: 'block', margin: '0 auto 4px' }} />}
             <div style={{ borderTop: `3px solid ${PURPLE_DEEP}`, paddingTop: 8 }}>
