@@ -8,6 +8,7 @@ Not in this list: the Windows shell (`dtpos-desktop`) and the Android apps (`dtp
 
 ## Releases
 
+- **v1.80.0** · 2026-11-01 · Advanced Floor View on the Tables page (floors, state colours, status bar, Live/Edit modes, Customize) and the Owner Overview dashboard (KPI trends, service area, order rate, order types, recent orders); Grid, Floor Map and the standard dashboard unchanged  `PENDING`
 - **v1.79.0** · 2026-11-01 · Procurement (purchase orders, receive-against-PO, reorder suggestions) and Financial Statements (profit and loss, cash movement, payables/receivables ageing); evidence-based Technosys benchmark  `7141be4`
 - **v1.78.0** · 2026-11-01 · the offline POS's Theme Manager (Modern 13 + DT Retail 8 + Custom + accent colour), Modern sidebar, "More" launcher and Module Management in the cloud app; the Windows app closes properly and a second launch always surfaces the window  `9fcf6d6`
 - **v1.77.0** · 2026-11-01 · egress: a realtime event re-reads only the rows that changed (not the whole collection), and a rider's GPS is written every 15 s / 20 m instead of every fix  `6ebaeb5`

@@ -6,7 +6,7 @@ import { sortTablesForGrid } from '@/lib/tableOrder';
 import {
   getTables, getOrders, saveTable, saveOrder, getFloors, refreshOrdersFromCloud, onDataChange, genId, getNextOrderNumber, getNextOrderNumberAsync } from '@/lib/store';
 import { DiningTable, Order, TableStatus, CartItem, TableSession, PaymentEntry } from '@/lib/types';
-import { Users, Utensils, Clock, ArrowRightLeft, Combine, Split, Grid3x3, Map as MapIcon, History, QrCode, Plus, Minus } from 'lucide-react';
+import { Users, Utensils, Clock, ArrowRightLeft, Combine, Split, Grid3x3, Map as MapIcon, History, QrCode, Plus, Minus, LayoutDashboard } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -18,6 +18,7 @@ import { useNavigate } from '@/lib/hash-router';
 import TableShapePreview from '@/components/TableShapePreview';
 import TableQR, { PublicOrderQR } from '@/components/TableQR';
 import { ENABLE_REDUNDANT_ORDER_POLL } from '@/lib/featureFlags';
+import AdvancedFloorView from '@/components/tables/AdvancedFloorView';
 
 const statusConfig: Record<TableStatus, { label: string; emoji: string; border: string; bg: string; icon: string; badge: string; badgeText: string }> = {
   free: {
@@ -55,7 +56,12 @@ const statusConfig: Record<TableStatus, { label: string; emoji: string; border: 
 };
 
 type BillAction = 'transfer' | 'merge' | 'split' | null;
-type ViewMode = 'grid' | 'layout';
+type ViewMode = 'grid' | 'layout' | 'advanced';
+// v1.80.0 — the last view the user picked is remembered on this device. The default is still the Grid.
+const VIEW_KEY = 'dtpos-tables-view';
+const readView = (): ViewMode => {
+  try { const v = localStorage.getItem(VIEW_KEY); return v === 'layout' || v === 'advanced' ? v : 'grid'; } catch { return 'grid'; }
+};
 
 function fmtDuration(mins: number) {
   if (mins < 1) return 'Just now';
@@ -66,7 +72,7 @@ function fmtDuration(mins: number) {
 export default function TablesPage() {
   const [tables, setTables] = useState(() => getTables());
   const [orders, setOrders] = useState(() => getOrders());
-  const floors = useMemo(() => getFloors(), []);
+  const [floors, setFloors] = useState(() => getFloors());
   const [activeFloor, setActiveFloor] = useState<string>('all');
   const [selectedTable, setSelectedTable] = useState<DiningTable | null>(null);
   const [payTable, setPayTable] = useState<DiningTable | null>(null);
@@ -74,7 +80,8 @@ export default function TablesPage() {
   const { guard: guardAction, dialog: managerGateDialog } = useRestrictedAction();
   const [billAction, setBillAction] = useState<BillAction>(null);
   const [splitPicks, setSplitPicks] = useState<Record<string, boolean>>({});
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [viewMode, setViewModeState] = useState<ViewMode>(readView);
+  const setViewMode = (v: ViewMode) => { setViewModeState(v); try { localStorage.setItem(VIEW_KEY, v); } catch { /* private mode */ } };
   const [historyTable, setHistoryTable] = useState<DiningTable | null>(null);
   const [qrTable, setQrTable] = useState<DiningTable | null>(null);
   const [bulkQrOpen, setBulkQrOpen] = useState(false);
@@ -105,6 +112,7 @@ export default function TablesPage() {
       if (cancel) return;
       if (col === 'orders') setOrders(getOrders());
       if (col === 'tables') setTables(getTables());
+      if (col === 'floors') setFloors(getFloors());
     });
     return () => { cancel = true; if (t) clearInterval(t); unsub(); };
   }, []);
@@ -584,6 +592,9 @@ export default function TablesPage() {
               <button onClick={() => setViewMode('layout')} className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1 ${viewMode === 'layout' ? 'bg-background shadow' : 'text-muted-foreground'}`}>
                 <MapIcon className="h-3.5 w-3.5" /> Floor Map
               </button>
+              <button onClick={() => setViewMode('advanced')} className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1 ${viewMode === 'advanced' ? 'bg-background shadow' : 'text-muted-foreground'}`} data-testid="tables-view-advanced">
+                <LayoutDashboard className="h-3.5 w-3.5" /> Advanced
+              </button>
             </div>
             <Button size="sm" variant="outline" onClick={() => setBulkQrOpen(true)} className="gap-1">
               <QrCode className="h-3.5 w-3.5" /> All Table QRs
@@ -600,7 +611,7 @@ export default function TablesPage() {
           </div>
         </div>
 
-        {floors.length > 0 && (
+        {viewMode !== 'advanced' && floors.length > 0 && (
           <div className="flex items-center gap-1.5 flex-wrap pb-3 border-b mb-3 overflow-x-auto">
             <button
               onClick={() => setActiveFloor('all')}
@@ -622,12 +633,25 @@ export default function TablesPage() {
           </div>
         )}
 
-        <div className="flex items-center gap-4 flex-wrap">{legend}
+        {viewMode !== 'advanced' && <div className="flex items-center gap-4 flex-wrap">{legend}
           {viewMode === 'layout' && <span className="text-[10px] text-muted-foreground italic">💡 Drag tables to arrange your floor map — positions save automatically.</span>}
-        </div>
+        </div>}
       </div>
 
-      {viewMode === 'grid' ? (
+      {viewMode === 'advanced' ? (
+        <AdvancedFloorView
+          tables={tables}
+          orders={orders}
+          floors={floors}
+          onOpenTable={handleTableClick}
+          onBillAction={(t, a) => { setSelectedTable(t); if (a === 'split') setSplitPicks({}); setBillAction(a); }}
+          onShowQr={setQrTable}
+          onShowHistory={setHistoryTable}
+          onAllQrs={() => setBulkQrOpen(true)}
+          onNewOrder={(type) => navigate(`/?type=${type}`)}
+          onChanged={() => { setTables(getTables()); setFloors(getFloors()); }}
+        />
+      ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
           {filteredTables.map(t => {
             const order = getTableOrder(t);

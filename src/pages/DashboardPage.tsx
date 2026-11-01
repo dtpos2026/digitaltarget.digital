@@ -16,6 +16,8 @@ import PlanStatusWidget from '@/components/PlanStatusWidget';
 import WorkspaceCodeCard from '@/components/WorkspaceCodeCard';
 import { useUiStyle } from '@/lib/uiStyle';
 import ModernDashboard from '@/components/dashboard/ModernDashboard';
+import OverviewDashboard from '@/components/dashboard/OverviewDashboard';
+import { resolveDashboardLayout, setDashboardLayout, type DashboardLayout } from '@/lib/dashboardOverview';
 import { getCurrentScope, orderBelongsTo, listCashierUsers, getShiftStart, resetShift, filterCurrentShift } from '@/lib/cashierScope';
 import { getCurrentBusinessDay, getBusinessDayOffset, isInBusinessDay } from '@/lib/businessDay';
 import { toast } from 'sonner';
@@ -610,7 +612,25 @@ function StatTile({ label, value, tone }: { label: string; value: any; tone: 'go
 export default function DashboardPage() {
   const d = useDashboardData();
   const modern = useUiStyle() === 'modern';
-  return modern ? <ModernDashboard d={d} /> : <ClassicDashboard d={d} />;
+  // v1.80.0 — management opens on the Overview; a cashier keeps the standard page. Either can switch, and the choice is remembered.
+  const [layout, setLayout] = useState<DashboardLayout>(() => resolveDashboardLayout(d.scope.restrict));
+  const choose = (l: DashboardLayout) => { setLayout(l); setDashboardLayout(l); };
+  if (layout === 'overview') return <OverviewDashboard d={d} onSwitch={() => choose('standard')} />;
+  return (
+    <>
+      <div className="flex justify-end px-3 pt-3 lg:px-6">
+        <button
+          type="button"
+          onClick={() => choose('overview')}
+          className="inline-flex h-8 items-center gap-1.5 rounded-lg border bg-card px-3 text-[12.5px] font-semibold text-primary hover:border-primary/40"
+          data-testid="switch-overview"
+        >
+          Overview layout
+        </button>
+      </div>
+      {modern ? <ModernDashboard d={d} /> : <ClassicDashboard d={d} />}
+    </>
+  );
 }
 
 // ===== v1.0.4 — Business Day Strip =====

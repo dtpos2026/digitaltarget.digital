@@ -196,6 +196,15 @@ export default function POSScreen() {
     // bhejta hai, lekin POS is param ko parhta hi NAHI tha. Nateeja: cashier
     // table select kar ke items daalta, aur Kitchen dabate hi table + waiter
     // dobara maanga jata tha. Ab table pehle hi se select ho jata hai.
+    // v1.80.0 — the Advanced floor view's "Take away" / "Delivery" buttons open the order screen on that type.
+    const typeParam = searchParams.get('type');
+    if (typeParam === 'takeaway' || typeParam === 'delivery') {
+      setOrderType(typeParam);
+      if (typeParam === 'delivery') setShowDeliveryDialog(true);
+      setSearchParams({}, { replace: true });
+      return;
+    }
+
     const tableParam = searchParams.get('table');
     if (tableParam) {
       const t = getTables().find(x => x.id === tableParam);
