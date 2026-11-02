@@ -325,6 +325,7 @@ export default function POSScreen() {
   const { layout } = usePosLayout(posRootRef, {
     categoryLayoutSetting: ((settings.categoryLayout as string) === 'side' ? 'side' : (settings.categoryLayout as string) === 'right' ? 'right' : 'top'),
     preferredColumns: settings.menuGridColumns || 6,
+    photoCards: refined,
   });
   const catPlacement: 'top' | 'side' | 'right' = modern ? layout.categoryPlacement : ((settings.categoryLayout || 'top') === 'side' ? 'side' : 'top');
   const legacyGridClass = ({
@@ -1488,7 +1489,7 @@ export default function POSScreen() {
               data-cat-all
               className="cat-pill"
             >
-              {refined ? '' : '📋 '}All
+              {refined ? <span data-cat-icon aria-hidden><TileIconView icon="default" className="h-5 w-5" /></span> : '📋 '}<span data-cat-name>All</span>
               {modern && <span data-cat-count>{catCounts.all}</span>}
             </button>
             {categories.map((cat, catIndex) => {
@@ -1512,10 +1513,12 @@ export default function POSScreen() {
                   ) : (
                     <>
                       <span data-cat-dot aria-hidden className="hidden" />
-                      <span data-cat-icon className="text-sm">{cat.icon}</span>
+                      {refined
+                        ? <span data-cat-icon aria-hidden><TileIconView icon={iconFor(cat.name)} className="h-5 w-5" /></span>
+                        : <span data-cat-icon className="text-sm">{cat.icon}</span>}
                     </>
                   )}
-                  <span>{cat.name}</span>
+                  <span data-cat-name>{cat.name}</span>
                   {modern && <span data-cat-count>{catCounts.byCat.get(cat.id) || 0}</span>}
                 </button>
               );
@@ -1687,7 +1690,7 @@ export default function POSScreen() {
                   data-pos-card-image
                   data-initials={tileInitials(item.name)}
                   className="w-full h-16 bg-gradient-to-br from-primary/8 to-accent/30 flex items-center justify-center"
-                  style={{ ['--tile-hue' as any]: tileHue(item.categoryId), ...(modern ? { height: Math.round(layout.cardImageHeight * 0.66) } : {}) }}
+                  style={{ ['--tile-hue' as any]: tileHue(item.categoryId), ...(modern ? { height: refined ? layout.cardImageHeight : Math.round(layout.cardImageHeight * 0.66) } : {}) }}
                 >
                   {refined ? (
                     <TileIconView icon={iconFor(categoryById.get(item.categoryId)?.name || item.name)} className="h-9 w-9" />
@@ -1700,6 +1703,7 @@ export default function POSScreen() {
               )}
               <div data-pos-card-body className="p-2.5">
                 <p data-pos-card-name className="text-xs font-bold text-foreground truncate leading-tight" style={itemFontStyle}>{item.name}</p>
+                {refined && <p data-pos-card-sub className="truncate">{categoryById.get(item.categoryId)?.name || ''}</p>}
                 {item.categoryId === DEALS_CATEGORY_ID && (() => {
                   const deal = dealsById.get(item.id);
                   if (!deal || !deal.items?.length) return null;
@@ -1735,7 +1739,7 @@ export default function POSScreen() {
                     <span className="text-xs font-bold text-status-warning">Manual</span>
                   )}
                   {modern && (
-                    <div data-pos-card-add className="rounded-full bg-primary/10 p-1 text-primary"><Plus className="h-3.5 w-3.5" /></div>
+                    <div data-pos-card-add className="rounded-full bg-primary/10 p-1 text-primary"><Plus className="h-3.5 w-3.5" />{refined && <span>Add</span>}</div>
                   )}
                 </div>
               </div>
@@ -1881,6 +1885,10 @@ export default function POSScreen() {
             >
               <div data-pos-line-row className="flex items-center">
                 <span data-pos-line-idx className="w-5 text-center text-[11px] text-muted-foreground/70 font-bold">{idx + 1}</span>
+                {refined && (() => {
+                  const photo = menuItemById.get(item.menuItemId)?.image;
+                  return <span data-pos-line-thumb aria-hidden className="shrink-0">{photo ? <CachedImage src={photo} alt="" fallbackLabel="" className="h-full w-full object-cover" /> : <TileIconView icon={iconFor(item.name)} className="h-4 w-4" />}</span>;
+                })()}
                 <div data-pos-line-name className="flex-1 pl-1.5 min-w-0">
                   <p className="text-xs font-extrabold text-foreground truncate leading-tight">{item.name}</p>
                   {modern && <p data-pos-line-unit>{refined ? `${money(item.price)} each` : `${item.quantity} × ${item.price.toLocaleString()}`}</p>}

@@ -129,7 +129,7 @@ describe('the wiring and the stylesheet', () => {
   });
 
   it('the stylesheet is scoped to DT Refined and hides only what the bar replaces', () => {
-    const selectors = css.replace(/\/\*[\s\S]*?\*\//g, '').match(/[^{}]+(?=\{)/g)!.flatMap(s => s.split(/,(?![^(]*\))/)).map(s => s.trim()).filter(Boolean);
+    const selectors = css.replace(/\/\*[\s\S]*?\*\//g, '').match(/[^{}]+(?=\{)/g)!.flatMap(s => s.split(/,(?![^(]*\))/)).map(s => s.trim()).filter(s => s && !s.startsWith('@media')); // a media wrapper only carries scoped rules
     expect(selectors.length).toBeGreaterThan(30);
     for (const s of selectors) expect(s.startsWith(':root[data-ui="modern"][data-ui-theme="dt-refined"]'), s).toBe(true);
     const hidden = css.match(/\[data-pos-hold\][\s\S]*?\{ display: none; \}/)![0];

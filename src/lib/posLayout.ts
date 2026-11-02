@@ -66,6 +66,8 @@ export interface LayoutInput {
   categoryLayoutSetting: 'top' | 'side' | 'right';
   /** The restaurant-wide "Menu items per row" (3–6): the most columns auto mode uses. */
   preferredColumns?: number;
+  /** v1.101.0 — photo-first cards (DT Refined): bigger cards, a 4:3 photo. Columns are fewer, never more. */
+  photoCards?: boolean;
   config: ScreenLayoutConfig;
 }
 
@@ -102,6 +104,8 @@ export const SHORT_HEIGHT = 680;
 export const RESIZE_HANDLE = 6;
 const SCROLLBAR = 8;
 const CARD_MIN: Record<CardSize, number> = { small: 116, medium: 138, large: 162 };
+/** Photo-first cards need room for a real photo, name, line and price: never narrower than this. */
+const PHOTO_CARD_MIN = 176;
 /** Below this a card cannot show a name and a price legibly. */
 const CARD_FLOOR = 88;
 const TARGET_COLUMNS: Record<LayoutMode, number> = { wide: 6, standard: 5, narrow: 4, square: 4, portrait: 4 };
@@ -144,7 +148,7 @@ export function computePosLayout(input: LayoutInput): PosLayout {
   const cardSize: CardSize = cfg.cardSize !== 'auto'
     ? cfg.cardSize
     : (input.touch ? 'large' : mode === 'wide' ? 'medium' : 'small');
-  const cardMin = CARD_MIN[cardSize];
+  const cardMin = input.photoCards ? Math.max(CARD_MIN[cardSize], PHOTO_CARD_MIN) : CARD_MIN[cardSize];
 
   // --- cart ---
   let cartPlacement: PosLayout['cartPlacement'] = mode === 'portrait' ? 'bottom' : 'side';
@@ -168,7 +172,7 @@ export function computePosLayout(input: LayoutInput): PosLayout {
 
   // Give side panels back to the products before giving up columns.
   const preferred = clamp(Math.round(input.preferredColumns || 6), 2, 8);
-  const target = typeof cfg.productColumns === 'number' ? cfg.productColumns : Math.min(TARGET_COLUMNS[mode], preferred);
+  const target = typeof cfg.productColumns === 'number' ? cfg.productColumns : Math.min(TARGET_COLUMNS[mode], preferred, input.photoCards ? 4 : 8);
   if (columnsFor(area(), cardMin, gap) < target) {
     if (cartPlacement === 'side' && cfg.cartWidth === 'auto') cartWidth = cartSpec.floor;
     if (categoryPlacement !== 'top' && cfg.categoryWidth === 'auto') categoryWidth = CATEGORY_FLOOR;
@@ -187,7 +191,9 @@ export function computePosLayout(input: LayoutInput): PosLayout {
   }
 
   const cardWidth = Math.floor((productAreaWidth - gap * (productColumns - 1)) / productColumns);
-  const cardImageHeight = clamp(Math.round(cardWidth * (density === 'compact' ? 0.5 : 0.6)), 52, 124);
+  const cardImageHeight = input.photoCards
+    ? clamp(Math.round((cardWidth - 20) * (density === 'compact' ? 0.58 : 0.68)), 84, 176)
+    : clamp(Math.round(cardWidth * (density === 'compact' ? 0.5 : 0.6)), 52, 124);
 
   return {
     mode, cartPlacement, cartWidth, cartHeight, categoryPlacement, categoryWidth,

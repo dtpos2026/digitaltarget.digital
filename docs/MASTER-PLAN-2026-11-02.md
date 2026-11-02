@@ -18,6 +18,11 @@ GoFood pink, Sweetco orange, TastyIgniter, Tst Food). It replaces nothing; it or
 6. **Security is a feature**: every public door is throttled, checked on the server, and reviewed
    (`docs/SECURITY-REVIEW-2026-11-02.md`). Database changes are additive, reviewed, and backed up first.
 
+7. **The owner's reference pictures are the look** (GoFood, Sweetco, TastyIgniter, Tst Food — analysed in
+   `docs/design-references/2026-11-02-dribbble-food-pos-analysis.md`): photo-first cards, one accent colour, big
+   rounded shapes, category icon tiles, an order panel that reads top to bottom with one wide Pay button, a hero
+   dashboard, order cards with a timer ring. Where the earlier purple design package differs, the pictures win.
+
 ## 2. Where we are (honest, 2 Nov 2026, v1.100.0)
 
 | Area | State |
@@ -36,6 +41,8 @@ GoFood pink, Sweetco orange, TastyIgniter, Tst Food). It replaces nothing; it or
 | WP | What | Needs from the owner |
 |---|---|---|
 | **WP-1 ✔ v1.100.0** | Component language: `data-slot` markers + size tokens on every shared component; Refined styles them; two new reference colour schemes (Berry, Sunrise) | — |
+| **WP-1b ✔ v1.101.0** | POS screen in the reference look: photo-first cards, category icon tiles, cart lines with photos | — |
+| **WP-1c** | Order panel payment tiles + Pay (SW-04); Dashboard hero + KPI sparklines + rings; Orders / Kitchen / Delivery as order cards with timer ring; flat navigation | — |
 | **WP-2** | **Page frame**: one `PageHeader` (title, subtitle, actions), one gutter, one filter bar, one empty / loading / error state; applied to all pages by a codemod where safe | — |
 | **WP-3** | **Auto screen layout for every page** (see §4) | — |
 | **WP-4** | The 38 remaining desktop screens in the design's layouts, in this order: Tables/Retrieve/Delivery/Pickup/Kitchen (SW-06…12) → management (13…28) → settings/printing/permissions (29…40) → payment dialog and weight panel (04/05). Amount format `Rs 1,450` everywhere. | the issue list the owner will send |
