@@ -1,6 +1,9 @@
 /* ============================================================
  * DT RIDER — the design package's rider screens (design-project/05-rider-app), v1.88.0
  *
+ * The [data-rd-*] pieces below (cards, chips, toggles, tab bar, sheets) are the phone-app kit: since v1.89.0 the
+ * DT Order Taker (.dt-otk, src/styles/ui-otk.css) uses them too, in its own colours.
+ *
  * The rider app has its own look (rider orange on the DT neutrals, 01-design-system/tokens.css), whatever theme the
  * restaurant's tills use, and a dark version for night shifts (RID-22). Everything is scoped to .dt-rider, so no
  * other screen changes.
@@ -67,72 +70,72 @@
 /* In the components layer: Tailwind's utilities come after it, so a screen's own classes (a tinted card, no shadow)
  * win over these defaults. Unlayered, these would beat every utility whatever its specificity. */
 @layer components {
-  .dt-rider :is(button, a, input, select, textarea, [tabindex]):focus-visible {
+  :is(.dt-rider, .dt-otk) :is(button, a, input, select, textarea, [tabindex]):focus-visible {
     outline: none;
     box-shadow: 0 0 0 3px hsl(var(--primary) / .3);
   }
-  .dt-rider [data-rd-card] {
+  :is(.dt-rider, .dt-otk) [data-rd-card] {
     background: hsl(var(--card));
     border: 1px solid hsl(var(--border));
     border-radius: 16px;
     box-shadow: var(--rd-shadow);
   }
-  .dt-rider [data-rd-card][data-active="true"] { border-color: hsl(var(--primary)); background: hsl(var(--rd-tint)); }
-  .dt-rider [data-rd-hero] {
+  :is(.dt-rider, .dt-otk) [data-rd-card][data-active="true"] { border-color: hsl(var(--primary)); background: hsl(var(--rd-tint)); }
+  :is(.dt-rider, .dt-otk) [data-rd-hero] {
     position: relative; overflow: hidden; border-radius: 20px; color: #fff;
-    background: linear-gradient(120deg, hsl(var(--rd-deep)), hsl(17 88% 40%));
+    background: linear-gradient(120deg, hsl(var(--rd-deep)), hsl(var(--rd-hero, 17 88% 40%)));
   }
-  .dt-rider [data-rd-hero]::after {
+  :is(.dt-rider, .dt-otk) [data-rd-hero]::after {
     content: ''; position: absolute; right: -30px; top: -30px; width: 180px; height: 180px; border-radius: 50%;
     background: rgba(255, 255, 255, .12); pointer-events: none;
   }
-  .dt-rider [data-rd-chip] {
+  :is(.dt-rider, .dt-otk) [data-rd-chip] {
     height: 2.25rem; padding: 0 1rem; border-radius: 999px; white-space: nowrap;
     border: 1px solid hsl(var(--border)); background: hsl(var(--card));
     font-size: 14px; font-weight: 600; color: hsl(var(--foreground));
   }
-  .dt-rider [data-rd-chip][aria-selected="true"] {
+  :is(.dt-rider, .dt-otk) [data-rd-chip][aria-selected="true"] {
     background: hsl(var(--primary)); border-color: hsl(var(--primary)); color: hsl(var(--primary-foreground));
   }
-  .dt-rider [data-rd-seg] { display: inline-flex; background: hsl(var(--muted)); border-radius: 12px; padding: 3px; }
-  .dt-rider [data-rd-seg] > button {
+  :is(.dt-rider, .dt-otk) [data-rd-seg] { display: inline-flex; background: hsl(var(--muted)); border-radius: 12px; padding: 3px; }
+  :is(.dt-rider, .dt-otk) [data-rd-seg] > button {
     padding: 7px 14px; border-radius: 9px; font-weight: 700; font-size: 14px; color: hsl(var(--muted-foreground));
   }
-  .dt-rider [data-rd-seg] > button[aria-selected="true"] {
+  :is(.dt-rider, .dt-otk) [data-rd-seg] > button[aria-selected="true"] {
     background: hsl(var(--card)); color: hsl(var(--foreground)); box-shadow: var(--rd-shadow);
   }
-  .dt-rider [data-rd-label] {
+  :is(.dt-rider, .dt-otk) [data-rd-label] {
     font-size: 11.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: hsl(var(--muted-foreground));
   }
-  .dt-rider [data-rd-tabbar] {
+  :is(.dt-rider, .dt-otk) [data-rd-tabbar] {
     background: hsl(var(--card)); border-top: 1px solid hsl(var(--border));
     padding: 6px 4px calc(10px + env(safe-area-inset-bottom, 0px));
   }
-  .dt-rider [data-rd-tabbar] > button { color: hsl(var(--rd-faint)); }
-  .dt-rider [data-rd-tabbar] > button[aria-current="page"] { color: hsl(var(--primary)); }
-  .dt-rider [data-rd-sheet] {
+  :is(.dt-rider, .dt-otk) [data-rd-tabbar] > button { color: hsl(var(--rd-faint)); }
+  :is(.dt-rider, .dt-otk) [data-rd-tabbar] > button[aria-current="page"] { color: hsl(var(--primary)); }
+  :is(.dt-rider, .dt-otk) [data-rd-sheet] {
     background: hsl(var(--card)); border-radius: 24px 24px 0 0; box-shadow: 0 -10px 40px rgba(0, 0, 0, .2);
     padding: 14px 16px calc(20px + env(safe-area-inset-bottom, 0px));
   }
-  .dt-rider [data-rd-sheet]::before {
+  :is(.dt-rider, .dt-otk) [data-rd-sheet]::before {
     content: ''; display: block; width: 40px; height: 4px; border-radius: 2px; background: hsl(var(--border)); margin: 0 auto 12px;
   }
-  .dt-rider [data-rd-check] {
+  :is(.dt-rider, .dt-otk) [data-rd-check] {
     width: 24px; height: 24px; border-radius: 7px; border: 2px solid hsl(var(--border)); flex: none;
     display: inline-flex; align-items: center; justify-content: center; color: #fff;
   }
-  .dt-rider [data-rd-check][data-on="true"] { background: hsl(var(--primary)); border-color: hsl(var(--primary)); }
-  .dt-rider [data-rd-toggle] {
+  :is(.dt-rider, .dt-otk) [data-rd-check][data-on="true"] { background: hsl(var(--primary)); border-color: hsl(var(--primary)); }
+  :is(.dt-rider, .dt-otk) [data-rd-toggle] {
     position: relative; width: 44px; height: 26px; border-radius: 999px; background: hsl(var(--border)); flex: none;
     transition: background-color .15s;
   }
-  .dt-rider [data-rd-toggle]::after {
+  :is(.dt-rider, .dt-otk) [data-rd-toggle]::after {
     content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff;
     box-shadow: 0 1px 3px rgba(0, 0, 0, .3); transition: left .15s;
   }
-  .dt-rider [data-rd-toggle][aria-checked="true"] { background: hsl(var(--primary)); }
-  .dt-rider [data-rd-toggle][aria-checked="true"]::after { left: 21px; }
-  .dt-rider [data-rd-skel] {
+  :is(.dt-rider, .dt-otk) [data-rd-toggle][aria-checked="true"] { background: hsl(var(--primary)); }
+  :is(.dt-rider, .dt-otk) [data-rd-toggle][aria-checked="true"]::after { left: 21px; }
+  :is(.dt-rider, .dt-otk) [data-rd-skel] {
     border-radius: 10px;
     background: linear-gradient(90deg, hsl(var(--muted)), hsl(var(--border)), hsl(var(--muted)));
     background-size: 200% 100%;
@@ -140,6 +143,6 @@
   }
 }
 @keyframes rd-skel { from { background-position: 200% 0; } to { background-position: -200% 0; } }
-@media (prefers-reduced-motion: reduce) { .dt-rider [data-rd-skel] { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .dt-rider [data-rd-skel], .dt-otk [data-rd-skel] { animation: none; } }
 .dt-rider .rd-tone-ok { color: hsl(var(--rd-ok)); }
 .dt-rider .rd-tone-bad { color: hsl(var(--rd-bad)); }

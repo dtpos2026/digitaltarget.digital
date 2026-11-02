@@ -7,6 +7,7 @@
 @import "./styles/ui-refined.css";
 @import "./styles/ui-owner.css";
 @import "./styles/ui-rider.css";
+@import "./styles/ui-otk.css";
 
 @source "../src";
 @config "../tailwind.config.ts";

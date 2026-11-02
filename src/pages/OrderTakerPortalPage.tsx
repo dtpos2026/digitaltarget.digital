@@ -16,15 +16,30 @@ import AutoReadyTimer from '@/components/AutoReadyTimer';
 import ReadyNotificationBus from '@/components/ReadyNotificationBus';
 import ReadyOrderPoller from '@/components/ReadyOrderPoller';
 import ServiceCallNotifier from '@/components/ServiceCallNotifier';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { LogOut, ShoppingCart, LayoutGrid, FileText, ClipboardList, MapPin, MapPinOff, UserRound } from 'lucide-react';
+import { AlertTriangle, ClipboardList, CloudUpload, FileText, LayoutGrid, LogOut, MapPin, MapPinOff, Moon, ShoppingCart, Store, UserRound, WifiOff } from 'lucide-react';
 import PoweredByBrand from '@/components/PoweredByBrand';
 import { logStaffAction } from '@/lib/staffAudit';
 import { hasLocationConsent, setLocationConsent, startLocationTracking, stopLocationTracking } from '@/lib/staffLocation';
 import PortalRestaurantBadge from '@/components/PortalRestaurantBadge';
 import StaffProfileCard from '@/components/StaffProfileCard';
+import { onSyncStatus } from '@/lib/store';
+import { deferredDeadLetterCount, getDeadLetterOps, onDeferredSyncChange, requeueDeadLetter } from '@/lib/deferredSync';
+import { useRestaurantIdentity } from '@/hooks/useRestaurantIdentity';
+import { APP_VERSION } from '@/lib/version';
+import { cn } from '@/lib/utils';
+// v1.89.0 — the phone-app kit shared with DT Rider (cards, toggles, banners, buttons).
+import { Banner, RButton, RCard, Toggle } from '@/components/rider/riderUi';
+
+// ===== v1.89.0 — the order-taker screens of the design package (design-project/05b-order-taker-app) =====
+//
+// The app's own teal look, light or dark (OTK-14), with the tabs at the thumb (POS · Tables · Bills · Me), the
+// connection and upload state said at the top (OTK-13), a Me tab with the restaurant, the profile, location sharing,
+// the theme and a log out that asks first (OTK-12), and the sign-in in the same look (OTK-02). The POS, Tables and
+// Bills screens are the cashier's own screens, unchanged: they take the teal through the colour tokens. Sign-in,
+// the portal bootstrap, location consent and logout (which ends the server session) work exactly as before.
+
+const OTK_THEME_KEY = 'otk-theme';
 
 const SESSION_KEY = 'pos-order-taker-session';
 
@@ -40,6 +55,12 @@ export default function OrderTakerPortalPage() {
     try { return localStorage.getItem('pos-workspace-code') || ''; } catch { return ''; }
   });
   const [needCode, setNeedCode] = useState(false);
+  const [loginError, setLoginError] = useState('');
+  const [dark, setDark] = useState(() => { try { return localStorage.getItem(OTK_THEME_KEY) === 'dark'; } catch { return false; } });
+  const setTheme = (next: boolean) => {
+    setDark(next);
+    try { localStorage.setItem(OTK_THEME_KEY, next ? 'dark' : 'light'); } catch { /* lasts this session */ }
+  };
   const settings = ready ? getSettings() : null;
   const logo = settings?.orderTakerLogo || settings?.logo;
 
@@ -116,7 +137,8 @@ export default function OrderTakerPortalPage() {
   };
 
   const handleLogin = async () => {
-    if (!phone || !pin) { toast.error('Username / phone and PIN are required'); return; }
+    if (!phone || !pin) { setLoginError('Username / phone and PIN are required'); return; }
+    setLoginError('');
     setLoading(true);
     try {
       // 1) Cloud first — ONE app for ALL restaurants. The server resolves
@@ -172,7 +194,8 @@ export default function OrderTakerPortalPage() {
       }
 
       if (!u) {
-        toast.error(serverMessage || 'Wrong username/phone or PIN — or the account is not active');
+        // On the screen, not only in a toast that disappears; lockout messages come from the server unchanged.
+        setLoginError(serverMessage || 'Wrong username/phone or PIN — or the account is not active');
         setLoading(false);
         return;
       }
@@ -217,98 +240,79 @@ export default function OrderTakerPortalPage() {
 
 
   if (!ready) {
+    // OTK-01 — the app colour while the session is read, so there is no white flash.
     return (
-      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-violet-900 via-purple-800 to-fuchsia-900">
-        <div className="animate-spin h-8 w-8 border-4 border-white border-t-transparent rounded-full" />
+      <div className="dt-otk flex h-[100dvh] flex-col items-center justify-center gap-4 bg-[linear-gradient(160deg,#134e4a,#0f766e)] text-white">
+        <div className="grid h-20 w-20 place-items-center rounded-[22px] bg-white/15"><ClipboardList className="h-10 w-10" /></div>
+        <div className="text-[20px] font-extrabold">DT Order Taker</div>
+        <div className="h-7 w-7 animate-spin rounded-full border-4 border-white border-t-transparent" aria-label="Loading" />
       </div>
     );
   }
 
-  // ============ LOGIN SCREEN — mobile app style ============
+  // ============ SIGN IN (OTK-02) ============
   if (!user) {
+    const field = 'h-12 w-full rounded-xl border bg-card px-3 text-[16px] outline-none focus:border-primary';
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-violet-900 via-purple-800 to-fuchsia-900 p-4">
-        <div className="w-full max-w-[400px] bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl p-6 space-y-5">
-          <div className="text-center space-y-2">
-            <div className="mx-auto h-20 w-20 rounded-3xl bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center shadow-2xl ring-4 ring-white/20 overflow-hidden">
-              {logo
-                ? <img src={logo} alt="" className="h-full w-full object-cover" />
-                : <ClipboardList className="h-10 w-10 text-white" />}
+      <div className="dt-otk min-h-[100dvh]" data-theme={dark ? 'dark' : 'light'} data-otk-app>
+        <div className="mx-auto flex min-h-[100dvh] w-full max-w-[420px] flex-col gap-5 px-4 pb-6 pt-10" data-otk-screen="login">
+          <div className="flex flex-col items-center gap-3 text-center">
+            <div className="grid h-20 w-20 place-items-center overflow-hidden rounded-full bg-[hsl(var(--rd-tint))] text-primary">
+              {logo ? <img src={logo} alt="" className="h-full w-full object-cover" /> : <ClipboardList className="h-9 w-9" />}
             </div>
-            <h1 className="text-2xl font-extrabold text-white tracking-tight">DT Order Taker</h1>
-            <p className="text-xs text-white/70">{getTenantName() || 'Sign in to your restaurant'}</p>
+            <div>
+              <h1 className="text-[26px] font-extrabold tracking-tight">DT Order Taker</h1>
+              <p className="text-[14px] text-muted-foreground">{getTenantName() || 'Sign in with the account your restaurant admin created.'}</p>
+            </div>
           </div>
-          <div className="space-y-3">
-            <div>
-              <label className="text-[11px] font-bold text-white/80 uppercase tracking-wider">Username / Phone</label>
-              <Input
-                value={phone}
-                onChange={e => setPhone(e.target.value)}
-                placeholder="username or 03xx-xxxxxxx"
-                autoFocus
-                className="h-12 mt-1 bg-white/10 border-white/20 text-white placeholder:text-white/40 rounded-xl text-base"
-              />
-            </div>
-            <div>
-              <label className="text-[11px] font-bold text-white/80 uppercase tracking-wider">PIN / Password</label>
-              <Input
-                type="password"
-                maxLength={64}
-                value={pin}
-                onChange={e => setPin(e.target.value)}
-                placeholder="••••"
-                onKeyDown={e => { if (e.key === 'Enter') handleLogin(); }}
-                className="h-12 mt-1 bg-white/10 border-white/20 text-white placeholder:text-white/40 rounded-xl text-lg tracking-widest text-center"
-              />
-            </div>
-            <div>
-              <label className="text-[11px] font-bold text-white/80 uppercase tracking-wider">
-                Workspace Code {needCode ? '(required)' : '(optional)'}
-              </label>
-              <Input
-                value={workspaceCode}
-                onChange={e => setWorkspaceCode(e.target.value.toUpperCase())}
-                placeholder="ABC123"
-                maxLength={12}
-                onKeyDown={e => { if (e.key === 'Enter') handleLogin(); }}
-                className={`h-11 mt-1 bg-white/10 border-white/20 text-white placeholder:text-white/40 rounded-xl font-mono tracking-widest text-center ${needCode ? 'ring-2 ring-amber-400' : ''}`}
-              />
-            </div>
-
-            <Button
-              onClick={handleLogin}
-              disabled={loading}
-              className="w-full h-12 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-600 hover:from-violet-600 hover:to-fuchsia-700 text-white font-extrabold text-base shadow-lg"
-            >
-              {loading ? 'Signing in...' : 'Sign In'}
-            </Button>
-            <p className="text-[10px] text-white/60 text-center pt-1">
-              Ask your restaurant admin for your username, password and Workspace Code
-              (Users &amp; Access → Order Taker).
+          {loginError && <Banner tone="bad" icon={AlertTriangle}>{loginError}</Banner>}
+          <form className="space-y-3" onSubmit={e => { e.preventDefault(); void handleLogin(); }}>
+            <label className="block">
+              <span className="mb-1 block text-[13px] font-bold">Username / phone</span>
+              <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="username or 03xx-xxxxxxx" autoFocus autoComplete="username" className={field} />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-[13px] font-bold">PIN / password</span>
+              <input type="password" maxLength={64} value={pin} onChange={e => setPin(e.target.value)} placeholder="••••" autoComplete="current-password"
+                className={cn(field, 'text-center font-mono tracking-widest')} />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-[13px] font-bold">Workspace code {needCode ? '(required)' : '(optional)'}</span>
+              <input value={workspaceCode} onChange={e => setWorkspaceCode(e.target.value.toUpperCase())} placeholder="ABC123" maxLength={12}
+                className={cn(field, 'text-center font-mono tracking-widest', needCode && 'border-[hsl(var(--rd-warn))] ring-2 ring-[hsl(var(--rd-warn)/.35)]')} />
+            </label>
+            <RButton type="submit" variant="primary" size="lg" className="w-full" busy={loading}>
+              {loading ? 'Signing in...' : 'Sign in'}
+            </RButton>
+          </form>
+          <p className="text-center text-[12.5px] text-muted-foreground">
+            Ask your restaurant admin for your username, password and Workspace Code (Users &amp; Access → Order Taker).
+          </p>
+          <div className="mt-auto space-y-2">
+            <PoweredByBrand />
+            <p className="text-center text-[10px] text-muted-foreground">
+              Tenant: <code className="font-mono">{getTenantId()?.slice(0, 8) || 'none'}</code>
             </p>
           </div>
-          <div className="pt-2"><PoweredByBrand /></div>
-          <p className="text-[10px] text-white/50 text-center pt-3 border-t border-white/10">
-            Tenant: <code className="font-mono">{getTenantId()?.slice(0, 8) || 'none'}</code>
-          </p>
         </div>
       </div>
     );
   }
 
-  // ============ APP SHELL — mobile/tablet app style ============
-  // Constrain to ~tablet width even on desktop browsers so it always feels like an app.
+  const logout = () => {
+    // v1.89.0 — asks first, as the rider app has since v1.49.0: one stray tap on the bar used to sign the waiter out.
+    if (!window.confirm('Log out of DT Order Taker? You will need your username and PIN to sign back in.')) return;
+    void handleLogout();
+  };
+
+  // ============ APP SHELL — the phone app (OTK-03, OTK-12, OTK-13, OTK-14) ============
+  // Constrained to tablet width even on a desktop browser, so it always works like the app.
   return (
-    <div className="min-h-screen bg-gradient-to-br from-violet-950 via-purple-900 to-fuchsia-950 flex justify-center">
-      <div className="w-full max-w-[820px] flex flex-col h-screen bg-background shadow-2xl">
-        <OrderTakerNav
-          user={user}
-          logo={logo}
-          onLogout={() => { void handleLogout(); }}
-          shareLocation={shareLocation}
-          onToggleLocation={toggleShareLocation}
-        />
-        <div className="flex-1 overflow-auto">
+    <div className="dt-otk flex h-[100dvh] justify-center" data-theme={dark ? 'dark' : 'light'} data-otk-app>
+      <div className="flex h-[100dvh] w-full max-w-[820px] flex-col bg-background shadow-2xl">
+        <OrderTakerNav user={user} logo={logo} onLogout={logout} shareLocation={shareLocation} onToggleLocation={toggleShareLocation} />
+        <ConnectionBanners />
+        <div className="min-h-0 flex-1 overflow-auto">
           <Suspense fallback={<div className="h-full" />}>
             <Routes>
               <Route path="/" element={<POSScreen />} />
@@ -317,107 +321,188 @@ export default function OrderTakerPortalPage() {
               <Route path="/bills" element={<RunningBillsPage />} />
               {/* v1.46.0 — the order taker's own profile: picture, name, phone,
                   and which restaurant this app belongs to. */}
-              <Route path="/me" element={<OrderTakerMe />} />
+              <Route path="/me" element={<OrderTakerMe shareLocation={shareLocation} onToggleLocation={toggleShareLocation} dark={dark} onDark={setTheme} onLogout={logout} />} />
               <Route path="*" element={<POSScreen />} />
             </Routes>
           </Suspense>
         </div>
+        <OrderTakerTabs />
         <AutoKotPrinter />
         <AutoReadyTimer />
         <ReadyNotificationBus />
         <ReadyOrderPoller types={['dine-in']} />
         <ServiceCallNotifier />
-        {/* Owner + Digital Target branding */}
-        <div className="px-2 pb-2 pt-1 bg-background shrink-0">
-          <PoweredByBrand />
-        </div>
       </div>
     </div>
   );
 }
 
-function OrderTakerNav({ user, logo, onLogout, shareLocation, onToggleLocation }: {
-  user: User; logo?: string; onLogout: () => void;
-  shareLocation: boolean; onToggleLocation: () => void;
-}) {
-  const navigate = useNavigate();
+function useOtkTabs() {
   const location = useLocation();
   const tid = getTenantId() || '';
   const base = `/order-taker/${tid}`;
   const tabs = [
-    { key: 'pos', label: 'POS', icon: ShoppingCart, path: `${base}` },
-    { key: 'tables', label: 'Tables', icon: LayoutGrid, path: `${base}/tables` },
-    { key: 'bills', label: 'Bills', icon: FileText, path: `${base}/bills` },
-    { key: 'me', label: 'Me', icon: UserRound, path: `${base}/me` },
+    { key: 'pos', label: 'POS', title: 'Order Taker', icon: ShoppingCart, path: `${base}` },
+    { key: 'tables', label: 'Tables', title: 'Tables', icon: LayoutGrid, path: `${base}/tables` },
+    { key: 'bills', label: 'Bills', title: 'Running bills', icon: FileText, path: `${base}/bills` },
+    { key: 'me', label: 'Me', title: 'Me', icon: UserRound, path: `${base}/me` },
   ];
   const activeKey = location.pathname.endsWith('/tables') ? 'tables'
     : location.pathname.endsWith('/bills') ? 'bills'
     : location.pathname.endsWith('/me') ? 'me' : 'pos';
+  return { tabs, activeKey };
+}
 
+/** The top bar (OTK-03): whose app, which restaurant, location sharing, log out. */
+function OrderTakerNav({ user, logo, onLogout, shareLocation, onToggleLocation }: {
+  user: User; logo?: string; onLogout: () => void;
+  shareLocation: boolean; onToggleLocation: () => void;
+}) {
+  const { tabs, activeKey } = useOtkTabs();
+  const r = useRestaurantIdentity();
+  const title = tabs.find(t => t.key === activeKey)?.title || 'Order Taker';
+  const where = [user.name, r.name || getTenantName() || 'Restaurant', r.workspaceCode].filter(Boolean).join(' · ');
   return (
-    <>
-      {/* Top bar */}
-      <div className="flex items-center gap-2 px-3 py-2.5 bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 text-white shadow-lg">
-        {logo
-          ? <img src={logo} alt="" className="h-8 w-8 rounded-lg object-cover ring-2 ring-white/30" />
-          : <div className="h-8 w-8 rounded-lg bg-white/20 flex items-center justify-center"><ClipboardList className="h-4 w-4" /></div>}
-        <div className="flex-1 min-w-0">
-          <div className="text-sm font-extrabold leading-tight truncate">Order Taker</div>
-          <PortalRestaurantBadge compact showCode />
-          <div className="text-[10px] opacity-80 truncate">{user.name} · {getTenantName() || 'Restaurant'}</div>
-        </div>
-        <Button
-          size="sm"
-          variant="ghost"
-          className={`h-8 px-2 text-white hover:bg-white/20 ${shareLocation ? 'bg-white/20' : ''}`}
-          onClick={onToggleLocation}
-          title={shareLocation ? 'Location sharing is ON — tap to stop' : 'Share my location with my manager'}
-        >
-          {shareLocation ? <MapPin className="h-4 w-4" /> : <MapPinOff className="h-4 w-4 opacity-70" />}
-          <span className="ml-1 text-[10px] font-bold">{shareLocation ? 'ON' : 'OFF'}</span>
-        </Button>
-        <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-white hover:bg-white/20" onClick={onLogout} title="Exit">
-          <LogOut className="h-4 w-4" />
-        </Button>
+    <header data-rd-hero className="flex shrink-0 items-center gap-2.5 rounded-none px-3 pb-2.5 pt-[calc(10px+env(safe-area-inset-top,0px))]">
+      {logo
+        ? <img src={logo} alt="" className="relative z-10 h-10 w-10 rounded-xl object-cover ring-2 ring-white/30" />
+        : <span className="relative z-10 grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/15"><ClipboardList className="h-5 w-5" /></span>}
+      <div className="relative z-10 min-w-0 flex-1">
+        <div className="truncate text-[16px] font-extrabold leading-tight">{title}</div>
+        <div className="line-clamp-2 text-[12px] leading-snug opacity-85" title={where}>{where}</div>
       </div>
+      <button
+        type="button"
+        aria-pressed={shareLocation}
+        onClick={onToggleLocation}
+        title={shareLocation ? 'Location sharing is ON — tap to stop' : 'Share my location with my manager'}
+        className={cn('relative z-10 inline-flex h-9 items-center gap-1 rounded-full px-3 text-[12.5px] font-extrabold', shareLocation ? 'bg-white/20' : 'bg-white/10 opacity-80')}
+      >
+        {shareLocation ? <MapPin className="h-4 w-4" /> : <MapPinOff className="h-4 w-4" />}
+        {shareLocation ? 'ON' : 'OFF'}
+      </button>
+      <button type="button" aria-label="Log out" title="Log out" onClick={onLogout} className="relative z-10 grid h-10 w-10 shrink-0 place-items-center rounded-xl hover:bg-white/15">
+        <LogOut className="h-5 w-5" />
+      </button>
+    </header>
+  );
+}
 
-      {/* Bottom tab bar (mobile app pattern) */}
-      <div className="grid grid-cols-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white border-b border-white/10">
-        {tabs.map(t => (
-          <button
-            key={t.key}
-            onClick={() => navigate(t.path)}
-            className={`flex flex-col items-center justify-center py-2 gap-0.5 transition-all ${
-              activeKey === t.key
-                ? 'bg-white text-violet-700 font-extrabold'
-                : 'text-white/90 hover:bg-white/10'
-            }`}
-          >
-            <t.icon className="h-4 w-4" />
-            <span className="text-[10px] font-bold">{t.label}</span>
-          </button>
-        ))}
-      </div>
-    </>
+/** The tabs at the thumb (the design's tab bar), not under the header. */
+function OrderTakerTabs() {
+  const navigate = useNavigate();
+  const { tabs, activeKey } = useOtkTabs();
+  return (
+    <nav data-rd-tabbar aria-label="Order Taker" className="flex shrink-0">
+      {tabs.map(t => (
+        <button
+          key={t.key}
+          type="button"
+          aria-current={activeKey === t.key ? 'page' : undefined}
+          onClick={() => navigate(t.path)}
+          className="flex min-h-[52px] flex-1 flex-col items-center justify-center gap-0.5 text-[11.5px] font-bold"
+        >
+          <t.icon className="h-[22px] w-[22px]" />
+          {t.label}
+        </button>
+      ))}
+    </nav>
   );
 }
 
 /**
- * The Order Taker's own screen: their picture, name and phone, and a plain
- * statement of WHICH restaurant this app is signed in to.
+ * OTK-13 — what the connection and the upload queue are doing, said at the top of every tab. Orders taken offline
+ * go into the deferred queue on this phone and upload through the portal when the connection is back; a change the
+ * server kept refusing is "stuck" and can be retried here, as on the till's status bar.
+ */
+function ConnectionBanners() {
+  const [sync, setSync] = useState<{ online: boolean; pending: number }>({ online: true, pending: 0 });
+  const [stuck, setStuck] = useState(() => deferredDeadLetterCount());
+  useEffect(() => onSyncStatus(s => setSync({ online: s.online, pending: s.pending })), []);
+  useEffect(() => {
+    const read = () => setStuck(deferredDeadLetterCount());
+    const off = onDeferredSyncChange(read);
+    const t = setInterval(read, 5000);
+    return () => { off?.(); clearInterval(t); };
+  }, []);
+  const retry = async () => {
+    const ops = await getDeadLetterOps();
+    for (const op of ops) await requeueDeadLetter(op.id);
+    setStuck(deferredDeadLetterCount());
+    toast.info(ops.length ? `Sending ${ops.length} again…` : 'Nothing is waiting');
+  };
+  if (sync.online && sync.pending === 0 && stuck === 0) return null;
+  return (
+    <div className="shrink-0 space-y-1.5 px-3 pt-2" data-otk-banners>
+      {!sync.online && (
+        <Banner tone="bad" icon={WifiOff}>
+          You are offline. Orders you take are kept on this phone and sent when you are back{sync.pending ? ` (${sync.pending} waiting)` : ''}.
+        </Banner>
+      )}
+      {sync.online && sync.pending > 0 && (
+        <Banner tone="info" icon={CloudUpload}>Sending {sync.pending} change{sync.pending === 1 ? '' : 's'}…</Banner>
+      )}
+      {stuck > 0 && (
+        <Banner tone="warn" icon={AlertTriangle} action={<RButton size="sm" onClick={() => void retry()}>Retry</RButton>}>
+          {stuck} change{stuck === 1 ? '' : 's'} could not be sent. {stuck === 1 ? 'It is' : 'They are'} saved on this phone.
+        </Banner>
+      )}
+    </div>
+  );
+}
+
+/** "You are taking orders for" (v1.43.0): so nobody takes orders into the wrong restaurant. */
+function RestaurantCard() {
+  const r = useRestaurantIdentity();
+  const name = r.name || getTenantName() || '';
+  return (
+    <RCard className="border-transparent bg-[hsl(var(--rd-tint))]" data-otk-restaurant>
+      <div className="mb-2 text-[12.5px] text-muted-foreground">You are taking orders for</div>
+      {name ? (
+        <div className="flex items-center gap-3">
+          {r.logoUrl
+            ? <img src={r.logoUrl} alt="" className="h-12 w-12 shrink-0 rounded-xl object-cover" />
+            : <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground"><Store className="h-6 w-6" /></span>}
+          <div className="min-w-0">
+            <div className="text-[19px] font-extrabold leading-tight">{name}</div>
+            <div className="text-[13px] text-muted-foreground">
+              {[r.branchName, r.workspaceCode && `Workspace ${r.workspaceCode}`].filter(Boolean).join(' · ')}
+            </div>
+          </div>
+        </div>
+      ) : <PortalRestaurantBadge showCode />}
+    </RCard>
+  );
+}
+
+/**
+ * The Order Taker's own screen (OTK-12): a plain statement of WHICH restaurant this app is signed in to, their
+ * picture, name and phone, location sharing, the theme, and log out.
  *
  * REPORTED: "order taker ka apna profile" and "pta ho mera restaurant ye ha".
  */
-function OrderTakerMe() {
+function OrderTakerMe({ shareLocation, onToggleLocation, dark, onDark, onLogout }: {
+  shareLocation: boolean; onToggleLocation: () => void; dark: boolean; onDark: (v: boolean) => void; onLogout: () => void;
+}) {
   return (
-    <div className="p-3 space-y-3">
-      <div className="rounded-lg border bg-card p-3">
-        <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
-          You are taking orders for
-        </div>
-        <PortalRestaurantBadge showCode />
-      </div>
+    <div className="mx-auto max-w-[520px] space-y-3 p-4" data-otk-screen="me">
+      <RestaurantCard />
       <StaffProfileCard />
+      <RCard className="divide-y py-1">
+        <div className="flex items-center gap-3 py-3">
+          <MapPin className="h-5 w-5 text-muted-foreground" />
+          <span className="flex-1 text-[15px]">Share my location with my manager</span>
+          <Toggle checked={shareLocation} onChange={() => onToggleLocation()} label="Share my location with my manager" />
+        </div>
+        <div className="flex items-center gap-3 py-3">
+          <Moon className="h-5 w-5 text-muted-foreground" />
+          <span className="flex-1 text-[15px]">Dark theme</span>
+          <Toggle checked={dark} onChange={onDark} label="Dark theme" />
+        </div>
+      </RCard>
+      <RButton className="w-full" icon={LogOut} onClick={onLogout}>Log out</RButton>
+      <p className="text-center text-[12px] text-muted-foreground">DT Order Taker v{APP_VERSION}</p>
+      <PoweredByBrand />
     </div>
   );
 }
