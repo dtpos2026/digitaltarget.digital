@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } fro
 import { money, screenAmount } from '@/lib/currency';
 import { releasedTable } from '@/lib/tableRelease';
 import { sortOrdersNewestFirst, liveOrdersForTable } from '@/lib/orderOrder';
-import { Search, Plus, Minus, Trash2, CreditCard, Pause, Weight, Edit3, ShoppingCart, RotateCcw, Delete, User, Phone, Ban, Gift, XCircle, ChefHat, MessageCircle, ChevronLeft, ChevronRight, AlertTriangle, LayoutGrid, Receipt, Ticket, Calculator, Pencil, StickyNote, Banknote } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, CreditCard, Pause, Weight, Edit3, ShoppingCart, RotateCcw, Delete, User, Phone, Ban, Gift, XCircle, ChefHat, MessageCircle, ChevronLeft, ChevronRight, AlertTriangle, LayoutGrid, Receipt, Ticket, Calculator, Pencil, StickyNote, Banknote, Percent } from 'lucide-react';
 import { normalizePhone, buildPaidMessage, buildDeliveryMessage, openWhatsApp } from '@/lib/whatsapp';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,7 +39,10 @@ import WeightPanel from '@/components/WeightPanel';
 import type { WeightLine } from '@/lib/weightPricing';
 import { categoryDotColor } from '@/lib/categoryColors';
 import { tileHue, tileInitials } from '@/lib/tileLook';
-import { useUiStyle } from '@/lib/uiStyle';
+import { useThemeId, useUiStyle } from '@/lib/uiStyle';
+import { isRefinedTheme } from '@/lib/uiThemes';
+import { iconFor } from '@/lib/websiteHome';
+import { TileIconView } from '@/components/website/siteBits';
 import { usePosLayout } from '@/hooks/usePosLayout';
 import { enqueueKot, enqueueReceipt, enqueueKotUpdate, enqueueKotCancel, computeKotDiff, enqueueKotByPolicy, printOnHold, holdMessage, kotRecentlyQueued } from '@/lib/printQueue';
 import BillingStatusBar from '@/components/BillingStatusBar';
@@ -307,6 +310,14 @@ export default function POSScreen() {
 
   // Active items per category (and in total) — shown on the All Categories picker.
   const modern = useUiStyle() === 'modern';
+  // v1.99.0 — DT Refined: the design package's POS (SW-03): order header, lines with steppers, three actions and one big Pay.
+  const refined = modern && isRefinedTheme(useThemeId());
+  const [showDisc, setShowDisc] = useState(false);
+  const [showKeypad, setShowKeypad] = useState(false);
+  const [showCash, setShowCash] = useState(false);
+  const [showNote, setShowNote] = useState(false);
+  const [showCust, setShowCust] = useState(false);
+  const [showMore, setShowMore] = useState(false);
   // v1.81.0 — the offline POS's layout engine (lib/posLayout.ts). It measures the POS area and decides the product
   // columns, the category panel and the cart width. It only drives the Modern / DT Retail look; the Classic look keeps
   // its own grid classes, so nothing changes for a restaurant that has not chosen a modern theme.
@@ -1337,6 +1348,70 @@ export default function POSScreen() {
     ['.', '0', '⌫'],
   ];
 
+  // v1.99.0 — the Kitchen and Receipt actions, named so the DT Refined action bar and the classic buttons run the same code.
+  const editingOrder = useMemo(() => (editingOrderId ? getOrders().find(o => o.id === editingOrderId) : undefined), [editingOrderId, cart.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  const refinedOrderNo = useMemo(() => (refined ? (editingOrder?.orderNumber ?? peekNextOrderNumber()) : 0), [refined, editingOrder, cart.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  const refinedStatus = editingOrder
+    ? ({ running: 'Running', hold: 'On hold', partial: 'Part paid', pending_approval: 'Waiting' } as Record<string, string>)[editingOrder.status] || editingOrder.status
+    : 'New';
+  const refinedSub = orderType === 'dining'
+    ? (tableObjName() ? `Table ${tableObjName()}` : 'Dining · the table is asked when you send it')
+    : (orderTypes.find(o => o.value === orderType)?.label || '');
+  const handleKitchenClick = async () => {
+                // Auto-create a running order (no payment required) and show kitchen slip
+                if (cart.length === 0 && !lastOrder) { toast.error('There is no order yet'); return; }
+                if (cart.length > 0) {
+                  // Dining/Delivery need their info dialog first — defer kitchen slip until confirm.
+                  if (orderType === 'dining' && !selectedTable && !editingOrderId) {
+                    setPendingKitchenReceipt(true);
+                    setShowDiningDialog(true);
+                    return;
+                  }
+                  if (orderType === 'delivery' && !custName && !editingOrderId) {
+                    setPendingKitchenReceipt(true);
+                    setShowDeliveryDialog(true);
+                    return;
+                  }
+                  await processOrder('running');
+                  openKitchenSlip();
+                } else if (lastOrder) {
+                  openKitchenSlip();
+                }
+              };
+  const handleReceiptClick = () => {
+                // Build a preview order if no real one exists yet — supports unpaid / credit
+                if (cart.length === 0 && !lastOrder) { toast.error('There is no order yet'); return; }
+                if (lastOrder) {
+                  setShowReceipt(true);
+                } else {
+                  const tempOrder: Order = {
+                    id: 'preview',
+                    orderNumber: peekNextOrderNumber(),
+                    orderType,
+                    status: 'running',
+                    items: cart,
+                    subtotal,
+                    discount: totalDiscount,
+                    discountTitle: buildDiscountTitle(),
+                    tax: taxAmount,
+                    serviceCharge,
+                    serviceChargePercent: scPercent,
+                    taxMode: billTotals.taxMode,
+                    taxPercent: billTotals.taxPercent,
+                    taxLabel: billTotals.taxLabel,
+                    netOfTax: billTotals.netOfTax,
+                    grandTotal,
+                    cashReceived: paymentReceivedNum > 0 ? paymentReceivedNum : undefined,
+                    changeReturned: paymentReceivedNum > 0 ? Math.max(0, paymentReceivedNum - grandTotal) : undefined,
+                    createdAt: new Date().toISOString(),
+                    notes: '',
+                    customer: (custName || custPhone) ? { id: 'tmp', name: custName, phone: custPhone, address: custAddress } : undefined,
+                  };
+                  rememberLastOrder(tempOrder);
+                  setShowReceipt(true);
+                }
+              };
+
   return (
     <div
       ref={posRootRef}
@@ -1413,7 +1488,7 @@ export default function POSScreen() {
               data-cat-all
               className="cat-pill"
             >
-              📋 All
+              {refined ? '' : '📋 '}All
               {modern && <span data-cat-count>{catCounts.all}</span>}
             </button>
             {categories.map((cat, catIndex) => {
@@ -1482,7 +1557,7 @@ export default function POSScreen() {
                   data-cat-all
                   className="cat-pill min-w-0 flex-1 justify-start"
                 >
-                  📋 All
+                  {refined ? '' : '📋 '}All
                   {modern && <span data-cat-count>{catCounts.all}</span>}
                 </button>
               </div>
@@ -1614,9 +1689,13 @@ export default function POSScreen() {
                   className="w-full h-16 bg-gradient-to-br from-primary/8 to-accent/30 flex items-center justify-center"
                   style={{ ['--tile-hue' as any]: tileHue(item.categoryId), ...(modern ? { height: Math.round(layout.cardImageHeight * 0.66) } : {}) }}
                 >
+                  {refined ? (
+                    <TileIconView icon={iconFor(categoryById.get(item.categoryId)?.name || item.name)} className="h-9 w-9" />
+                  ) : (
                   <span className="text-2xl opacity-40 group-hover:scale-110 transition-transform duration-200">
                     {categoryById.get(item.categoryId)?.icon || '🍽️'}
                   </span>
+                  )}
                 </div>
               )}
               <div data-pos-card-body className="p-2.5">
@@ -1708,6 +1787,18 @@ export default function POSScreen() {
       >
         {/* Cart Header with order type + customer fields */}
         <div data-pos-cart-head className="px-3 py-2 border-b space-y-1.5 shrink-0">
+          {refined ? (
+            <div data-pos-order-head className="flex items-start gap-2">
+              <div className="min-w-0 flex-1">
+                <h2 data-pos-cart-title className="text-lg font-extrabold leading-tight">Order #{refinedOrderNo}</h2>
+                <p data-pos-order-sub className="truncate text-[12px] text-muted-foreground">{refinedSub}</p>
+              </div>
+              <span data-pos-order-status data-state={editingOrder ? editingOrder.status : 'new'} className="rounded-full px-2.5 py-0.5 text-[11px] font-bold">{refinedStatus}</span>
+              <button onClick={() => setMobileCartOpen(false)} className="md:hidden ml-1 text-muted-foreground hover:text-foreground" aria-label="Close">
+                <XCircle className="h-5 w-5" />
+              </button>
+            </div>
+          ) : (
           <h2 data-pos-cart-title className="text-sm font-extrabold flex items-center gap-2">
             <ShoppingCart className="h-4 w-4 text-primary" />
             {modern ? 'Order' : 'CART'}
@@ -1716,6 +1807,7 @@ export default function POSScreen() {
               <XCircle className="h-5 w-5" />
             </button>
           </h2>
+          )}
           {/* Order type quick switch inside cart — always visible */}
           <div data-pos-ordertypes className="grid grid-cols-3 gap-1">
             {orderTypes.map(ot => (
@@ -1733,6 +1825,13 @@ export default function POSScreen() {
               </button>
             ))}
           </div>
+          {refined && !showCust && !custName && !custPhone && (
+            <button type="button" data-pos-cust-add onClick={() => setShowCust(true)}
+              className="flex h-10 w-full items-center gap-2 rounded-xl border bg-card px-3 text-left text-[13px] text-muted-foreground hover:bg-muted">
+              <User className="h-4 w-4" /> Add customer (phone or name)
+            </button>
+          )}
+          {(!refined || showCust || !!custName || !!custPhone) && (
           <div className="flex gap-1.5">
             <div data-pos-cust className="relative flex-1">
               <User className="absolute left-1.5 top-1.5 h-3 w-3 text-muted-foreground" />
@@ -1753,11 +1852,12 @@ export default function POSScreen() {
               />
             </div>
           </div>
+          )}
         </div>
 
 
         {/* Cart items - fixed height so 3-4 items always stay visible */}
-        <div className="flex-none h-[clamp(150px,20vh,220px)] overflow-y-auto pos-scrollbar bg-card/40 shrink-0">
+        <div data-pos-lines className="flex-none h-[clamp(150px,20vh,220px)] overflow-y-auto pos-scrollbar bg-card/40 shrink-0">
           {/* Table header */}
           <div data-pos-lines-head className="dt-cart-header sticky top-0 z-10 px-3 py-2 flex items-center text-[10px] font-extrabold uppercase tracking-wider">
             <span className="w-5 text-center">#</span>
@@ -1783,8 +1883,8 @@ export default function POSScreen() {
                 <span data-pos-line-idx className="w-5 text-center text-[11px] text-muted-foreground/70 font-bold">{idx + 1}</span>
                 <div data-pos-line-name className="flex-1 pl-1.5 min-w-0">
                   <p className="text-xs font-extrabold text-foreground truncate leading-tight">{item.name}</p>
-                  {modern && <p data-pos-line-unit>{item.quantity} × {item.price.toLocaleString()}</p>}
-                  {item.note && <p className="text-[8px] text-muted-foreground italic mt-0.5">📝 {item.note}</p>}
+                  {modern && <p data-pos-line-unit>{refined ? `${money(item.price)} each` : `${item.quantity} × ${item.price.toLocaleString()}`}</p>}
+                  {item.note && <p className="text-[8px] text-muted-foreground italic mt-0.5"><StickyNote className="mr-0.5 inline h-2.5 w-2.5" />{item.note}</p>}
                 </div>
                 <div data-pos-line-qty className="w-12 flex items-center justify-center gap-0.5">
                   <button onClick={(e) => { e.stopPropagation(); updateQty(item.id, -1); }} className="h-6 w-6 rounded-md bg-muted/80 flex items-center justify-center hover:bg-destructive/20 hover:text-destructive transition-colors">
@@ -1812,7 +1912,7 @@ export default function POSScreen() {
         </div>
 
         {/* Scrollable middle region: totals + numpad + note (action buttons stay pinned below) */}
-        <div className="flex-1 min-h-0 overflow-y-auto pos-scrollbar">
+        <div data-pos-mid className="flex-1 min-h-0 overflow-y-auto pos-scrollbar">
         {/* Billing Summary - Luxury */}
         <div data-pos-totals className="shrink-0 border-t-2 border-primary/20 bg-gradient-to-b from-card to-accent/10 px-3 py-2 space-y-1.5">
           <div className="flex justify-between text-xs">
@@ -1825,7 +1925,10 @@ export default function POSScreen() {
               <span>- {screenAmount(eventDiscountAmt)}</span>
             </div>
           )}
-          {!isOrderTaker && (() => {
+          {refined && !showDisc && totalDiscount > 0 && (
+            <div data-pos-discount-line className="flex justify-between text-xs text-green-700"><span className="font-medium">Discount</span><span>- {screenAmount(totalDiscount)}</span></div>
+          )}
+          {!isOrderTaker && (!refined || showDisc) && (() => {
             const currentRole = (localStorage.getItem('pos-user-role') || '').toLowerCase();
             const isCashierRole = currentRole === 'cashier';
             const discountBlocked = isCashierRole && !!settings.cashierDiscountRequiresApproval;
@@ -1932,7 +2035,7 @@ export default function POSScreen() {
             );
           })()}
           {/* Promo Code */}
-          {!isOrderTaker && (
+          {!isOrderTaker && (!refined || showDisc) && (
           <div className="flex items-center gap-1 text-xs">
             <span className="text-muted-foreground font-medium">Promo</span>
             <div className="ml-auto flex items-center gap-1">
@@ -1979,7 +2082,7 @@ export default function POSScreen() {
           </div>
 
           {/* Payment area */}
-          {cart.length > 0 && !isOrderTaker && (
+          {cart.length > 0 && !isOrderTaker && (!refined || showCash) && (
             <div data-pos-payrow className="flex items-center gap-2 pt-1.5">
               <div className="flex-1">
                 <label className="text-[10px] font-extrabold text-muted-foreground uppercase tracking-wider">Payment</label>
@@ -2004,6 +2107,7 @@ export default function POSScreen() {
         </div>
 
         {/* Inline Calculator / Numpad */}
+        {(!refined || showKeypad || !!numpadItem) && (
         <div data-pos-keypad className="shrink-0 border-t-2 border-primary/20 px-3 py-2 bg-gradient-to-b from-accent/30 to-transparent">
           {/* Numpad display bar */}
           <div className="bg-card rounded-lg px-3 py-1 mb-1.5 flex items-center justify-between border border-border/50 shadow-sm">
@@ -2057,6 +2161,7 @@ export default function POSScreen() {
               </button>
             ) : (
               <button
+                data-pos-hold
                 onClick={() => processOrder('hold')}
                 className="h-9 rounded-lg bg-status-warning/10 border border-status-warning/30 text-status-warning text-sm font-black hover:bg-status-warning/20 transition-all duration-150 active:scale-95"
               >
@@ -2105,66 +2210,14 @@ export default function POSScreen() {
           {/* Kitchen + Customer Receipt buttons */}
           <div data-pos-actions-secondary className={`grid ${isOrderTaker ? 'grid-cols-1' : 'grid-cols-2'} gap-1 mt-1`}>
             <button
-              onClick={async () => {
-                // Auto-create a running order (no payment required) and show kitchen slip
-                if (cart.length === 0 && !lastOrder) { toast.error('There is no order yet'); return; }
-                if (cart.length > 0) {
-                  // Dining/Delivery need their info dialog first — defer kitchen slip until confirm.
-                  if (orderType === 'dining' && !selectedTable && !editingOrderId) {
-                    setPendingKitchenReceipt(true);
-                    setShowDiningDialog(true);
-                    return;
-                  }
-                  if (orderType === 'delivery' && !custName && !editingOrderId) {
-                    setPendingKitchenReceipt(true);
-                    setShowDeliveryDialog(true);
-                    return;
-                  }
-                  await processOrder('running');
-                  openKitchenSlip();
-                } else if (lastOrder) {
-                  openKitchenSlip();
-                }
-              }}
+              onClick={handleKitchenClick}
               className="h-9 rounded-lg bg-accent/50 border border-border/50 text-xs font-black hover:bg-accent transition-all flex items-center justify-center gap-1.5 active:scale-[0.98]"
             >
               <ChefHat className="h-4 w-4" /> Kitchen
             </button>
             {!isOrderTaker && (
             <button
-              onClick={() => {
-                // Build a preview order if no real one exists yet — supports unpaid / credit
-                if (cart.length === 0 && !lastOrder) { toast.error('There is no order yet'); return; }
-                if (lastOrder) {
-                  setShowReceipt(true);
-                } else {
-                  const tempOrder: Order = {
-                    id: 'preview',
-                    orderNumber: peekNextOrderNumber(),
-                    orderType,
-                    status: 'running',
-                    items: cart,
-                    subtotal,
-                    discount: totalDiscount,
-                    discountTitle: buildDiscountTitle(),
-                    tax: taxAmount,
-                    serviceCharge,
-                    serviceChargePercent: scPercent,
-                    taxMode: billTotals.taxMode,
-                    taxPercent: billTotals.taxPercent,
-                    taxLabel: billTotals.taxLabel,
-                    netOfTax: billTotals.netOfTax,
-                    grandTotal,
-                    cashReceived: paymentReceivedNum > 0 ? paymentReceivedNum : undefined,
-                    changeReturned: paymentReceivedNum > 0 ? Math.max(0, paymentReceivedNum - grandTotal) : undefined,
-                    createdAt: new Date().toISOString(),
-                    notes: '',
-                    customer: (custName || custPhone) ? { id: 'tmp', name: custName, phone: custPhone, address: custAddress } : undefined,
-                  };
-                  rememberLastOrder(tempOrder);
-                  setShowReceipt(true);
-                }
-              }}
+              onClick={handleReceiptClick}
               className="h-9 rounded-lg bg-primary/10 border border-primary/30 text-primary text-xs font-black hover:bg-primary/20 transition-all flex items-center justify-center gap-1.5 active:scale-[0.98]"
             >
               <Receipt className="h-4 w-4 shrink-0" /> <span className="truncate">Receipt</span>
@@ -2172,8 +2225,10 @@ export default function POSScreen() {
             )}
           </div>
         </div>
+        )}
 
         {/* Special Kitchen Note — prints on KOT (e.g. "no onion", "extra spicy") */}
+        {(!refined || showNote) && (
         <div className="px-2 pt-2">
           <label className="flex items-center gap-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
             <StickyNote className="h-3.5 w-3.5" /> Special note <span className="text-[9px] font-normal normal-case text-muted-foreground/70">(printed on the kitchen slip)</span>
@@ -2215,12 +2270,35 @@ export default function POSScreen() {
           />
 
         </div>
+        )}
         </div>
         {/* end scrollable middle region */}
 
+        {/* v1.99.0 — DT Refined action bar (design package SW-03): Hold, Discount, Kitchen and one big Pay; everything else is one tap away */}
+        {refined && (
+          <div data-pos-refined-actions className="shrink-0 space-y-2 border-t px-3 pb-1 pt-3">
+            <div className="grid grid-cols-3 gap-2">
+              <button type="button" data-rf-btn="hold" onClick={() => processOrder('hold')}><Pause className="h-4 w-4" /> Hold</button>
+              <button type="button" data-rf-btn="discount" data-on={showDisc ? 'true' : undefined} disabled={isOrderTaker} onClick={() => setShowDisc(v => !v)}><Percent className="h-4 w-4" /> Discount</button>
+              <button type="button" data-rf-btn="kitchen" onClick={handleKitchenClick}><ChefHat className="h-4 w-4" /> Kitchen</button>
+            </div>
+            <button type="button" data-rf-pay data-pos-pay-refined
+              onClick={() => { if (isOrderTaker) { if (cart.length === 0) { toast.error('Cart is empty'); return; } setReviewOpen(true); } else handleDirectPay(); }}>
+              <CreditCard className="h-4 w-4" /> {isOrderTaker ? 'Send to kitchen' : `Pay ${screenAmount(grandTotal)}`}
+            </button>
+            <div data-rf-more className="flex flex-wrap items-center gap-x-1 gap-y-0.5 text-[12px]">
+              {!isOrderTaker && <button type="button" onClick={handleReceiptClick}><Receipt className="h-3.5 w-3.5" /> Receipt</button>}
+              <button type="button" data-on={showKeypad ? 'true' : undefined} onClick={() => setShowKeypad(v => !v)}><Calculator className="h-3.5 w-3.5" /> Calculator</button>
+              {!isOrderTaker && cart.length > 0 && <button type="button" data-on={showCash ? 'true' : undefined} onClick={() => setShowCash(v => !v)}><Banknote className="h-3.5 w-3.5" /> Cash received</button>}
+              <button type="button" data-on={showNote || specialNote ? 'true' : undefined} onClick={() => setShowNote(v => !v)}><StickyNote className="h-3.5 w-3.5" /> Note{specialNote ? ' •' : ''}</button>
+              {tokenModuleOn && <button type="button" disabled={!canPrintToken} onClick={handlePrintToken}><Ticket className="h-3.5 w-3.5" /> Token</button>}
+            </div>
+          </div>
+        )}
+
         {/* Action Buttons - always visible at bottom */}
 
-        <div className="p-2 border-t flex gap-1.5 bg-card shrink-0">
+        <div data-pos-bottom className="p-2 border-t flex gap-1.5 bg-card shrink-0">
           <Button
             variant="outline"
             size="sm"

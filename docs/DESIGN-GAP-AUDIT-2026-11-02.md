@@ -23,7 +23,7 @@ Evidence (code): the package's components are used by `DashboardPage`, `BranchMa
 |---|---|---|---|---|
 | SW-01 | Sign-in | / (signed out) | Exists in the software | Own redesign (v1.71.0), not the package's layout |
 | SW-02 | Dashboard | /dashboard | Exists in the software | **Built to the package (v1.85.0)** |
-| SW-03 | POS — billing | / | Exists in the software | Older layout; colours follow the chosen scheme |
+| SW-03 | POS — billing | / | Exists in the software | **Cart panel and item cards built to the package under DT Refined (v1.99.0)**; amount format and order-type row position still differ |
 | SW-04 | Payment dialog | POS → Pay | Exists in the software | Older layout; colours follow the chosen scheme |
 | SW-05 | Weight panel (by kg) | POS → weighed item | Exists in the software | Older layout; colours follow the chosen scheme |
 | SW-06 | Orders (Retrieve) | /bills | Exists in the software | Older layout; colours follow the chosen scheme |

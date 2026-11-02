@@ -1,0 +1,90 @@
+/* ============================================================
+ * DT REFINED — the POS (design package SW-03), v1.99.0
+ * Scoped to the theme; every rule is presentation on markup the POS already has (data-pos-*), plus the Refined action bar.
+ * Source of truth: design-project/02-restaurant-software/previews/sw-03.png and COMPONENTS.md (cart line, buttons 40/52, cards 16).
+ * ============================================================ */
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-cart] { background: hsl(var(--card)); border-left: 1px solid hsl(var(--border)); }
+
+/* ---------- order header ---------- */
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-cart-head] { padding: 16px 16px 12px; border-bottom: 0; gap: 12px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-order-status] { background: hsl(var(--dt-info-bg)); color: hsl(var(--dt-info)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-order-status][data-state="hold"],
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-order-status][data-state="partial"] { background: hsl(var(--dt-warn-bg)); color: hsl(var(--dt-warn)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-order-status][data-state="new"] { background: hsl(var(--dt-ok-bg)); color: hsl(var(--dt-ok)); }
+/* order type: a segmented control, the same one as Delivery / Pickup */
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-ordertypes] { background: hsl(var(--muted)); border-radius: 12px; padding: 4px; gap: 4px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-ordertype] {
+  height: 32px; border-radius: 9px; font-size: 13px; font-weight: 600; letter-spacing: 0; text-transform: none; box-shadow: none;
+  background: transparent; color: hsl(var(--muted-foreground));
+}
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-ordertype][data-active="true"] { background: hsl(var(--card)); color: hsl(var(--foreground)); box-shadow: var(--ui-shadow-card); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-cust-add] { height: 40px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-cust] input { height: 40px; font-size: 13px; border-radius: 10px; padding-left: 28px; }
+
+/* ---------- lines: name, "Rs 1,450 each", a stepper, the line total — no table header, no zebra ---------- */
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-lines] { flex: 1 1 0; height: auto; min-height: 120px; background: transparent; padding: 0 16px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-lines-head],
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-line-idx],
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-line-price] { display: none; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-line] {
+  background: transparent !important; box-shadow: none; padding: 12px 0; border-bottom: 1px solid hsl(var(--border)); border-radius: 0;
+}
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-line][data-selected="true"] { background: hsl(var(--dt-accent-tint)) !important; border-radius: 10px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-line-name] { padding-left: 0; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-line-name] > p:first-child { font-size: 14px; font-weight: 700; white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.25; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-line-unit] { font-size: 12px; color: hsl(var(--muted-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-line-qty] { width: auto; gap: 4px; margin: 0 8px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-line-qty] button { height: 28px; width: 28px; border-radius: 8px; background: hsl(var(--card)); border: 1px solid hsl(var(--border)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-line-qty] span { font-size: 14px; font-weight: 700; width: 16px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-line-total] { width: auto; min-width: 3.5rem; font-size: 14px; font-weight: 700; color: hsl(var(--foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-line-del] { opacity: .35; width: 22px; margin-left: 2px; display: grid; place-items: center; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-line]:hover [data-pos-line-del],
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-line][data-selected="true"] [data-pos-line-del] { opacity: 1; }
+
+/* ---------- totals ---------- */
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-mid] { flex: 0 1 auto; min-height: 0; max-height: 46vh; overflow-y: auto; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-totals] { background: transparent; border-top: 1px solid hsl(var(--border)); padding: 12px 16px 8px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-totals] .text-xs { font-size: 13px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-grand] { border-top: 0; padding-top: 4px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-grand] > span:first-child { font-size: 20px; font-weight: 800; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-grand] > span:last-child { font-size: 24px; font-weight: 800; color: hsl(var(--foreground)); }
+
+/* ---------- actions: Hold · Discount · Kitchen, one big Pay, the rest one tap away ---------- */
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-rf-btn] {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 44px; border-radius: 12px; font-size: 14px; font-weight: 600;
+  background: hsl(var(--card)); color: hsl(var(--foreground)); border: 1px solid hsl(var(--border)); transition: background .15s;
+}
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-rf-btn]:hover:not(:disabled) { background: hsl(var(--muted)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-rf-btn]:disabled { opacity: .5; cursor: not-allowed; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-rf-btn][data-on="true"] { border-color: hsl(var(--primary)); background: hsl(var(--dt-accent-tint)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-rf-btn="kitchen"] { background: hsl(var(--dt-accent-tint)); color: hsl(var(--primary)); border-color: transparent; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-rf-pay] {
+  display: flex; width: 100%; align-items: center; justify-content: center; gap: 8px; height: 52px; border-radius: 12px;
+  background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); font-size: 16px; font-weight: 700; box-shadow: 0 6px 16px -6px hsl(var(--primary) / .6);
+}
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-rf-pay]:hover { filter: brightness(1.06); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-rf-more] { justify-content: flex-start; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-rf-more] button {
+  display: inline-flex; align-items: center; gap: 4px; height: 32px; padding: 0 6px; border-radius: 8px; color: hsl(var(--muted-foreground)); font-weight: 600; font-size: 12px;
+}
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-rf-more] button:hover:not(:disabled) { background: hsl(var(--muted)); color: hsl(var(--foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-rf-more] button[data-on="true"] { color: hsl(var(--primary)); background: hsl(var(--dt-accent-tint)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-rf-more] button:disabled { opacity: .45; }
+/* the classic buttons the Refined bar replaces (Hold, PAY, Kitchen, Receipt, Print Token live in the bar now) */
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-hold],
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-keypad] [data-pos-pay],
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-actions-secondary],
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-keypad] > button { display: none; }
+/* Running · Credit · Void stay, quieter */
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-bottom] { border-top: 1px solid hsl(var(--border)); padding: 8px 16px 12px; gap: 8px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-bottom] button { height: 36px; border-radius: 10px; font-size: 12px; font-weight: 600; }
+
+/* ---------- item cards: a gradient tile with one outline icon, price in the accent, a round + ---------- */
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-card-image][data-initials] {
+  height: 88px !important; border-radius: 12px; color: #fff; margin: 8px 8px 0; width: auto;
+  background: linear-gradient(135deg, hsl(var(--tile-hue, 263) 82% 52%), hsl(var(--tile-hue, 263) 78% 30%));
+}
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-card-image][data-initials] svg { opacity: .95; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-card-body] { padding: 10px 12px 12px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-card-name] { font-size: 14px; font-weight: 700; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-card-add] { background: hsl(var(--dt-accent-tint)); border-radius: 8px; padding: 6px; }
