@@ -16,6 +16,16 @@ export const submitPublicOrder = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     const { getSupabaseAdmin } = await import('@/integrations/supabase/client.server');
     const supabaseAdmin = await getSupabaseAdmin();
+    // v1.95.0 — the owner's switches (Online ordering, Delivery, Pickup) are enforced here too. The page checks them
+    // first; this is the backstop for a stale page or a hand-made request. A settings read that fails must not stop an
+    // order, so only a clear "closed" answer blocks.
+    let blocked: string | null = null;
+    try {
+      const { readStorefront, orderingBlockedReason } = await import('@/lib/publicStorefront');
+      const sf = await readStorefront(supabaseAdmin as unknown as import('@/lib/publicStorefront').StorefrontDb, data.tenantId);
+      blocked = sf ? orderingBlockedReason(sf, data.order) : null;
+    } catch { /* fail open: see above */ }
+    if (blocked) throw new Error(blocked);
     const { data: result, error } = await supabaseAdmin.rpc('public_place_order', {
       p_tenant: data.tenantId,
       p_branch: data.branchId as string,

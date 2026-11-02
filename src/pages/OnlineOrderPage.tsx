@@ -29,6 +29,11 @@ import {
   type CustomerAppConfig,
 } from '@/lib/customerAppConfig';
 import AppUpdateGate from '@/components/AppUpdateGate';
+import {
+  fulfilmentOptions, resolveFulfilment, orderingBlockedReason, guestCheckoutAllowed, storefrontAsSettings,
+  type PublicStorefront,
+} from '@/lib/publicStorefront';
+import { getCachedStorefront, loadPublicStorefront } from '@/lib/storefrontClient';
 
 const ACCOUNT_KEY = 'dt-online-account-v1';
 const BRANCH_KEY_PREFIX = 'dt-online-branch-v1:';
@@ -114,6 +119,11 @@ export default function OnlineOrderPage() {
   // told apart and only the second one offers a retry.
   const [loadFailed, setLoadFailed] = useState(false);
   const [retrying, setRetrying] = useState(false);
+  // v1.95.0 — what the restaurant lets a customer know (its switches, delivery fee, minimum order …). An anonymous
+  // visitor cannot read the owner's settings, so this is asked of the server; the last answer is kept on the device.
+  const [storefront, setStorefront] = useState<PublicStorefront | null>(
+    () => { try { return getCachedStorefront(getTenantId() || ''); } catch { return null; } },
+  );
 
   const loadStore = useCallback(async () => {
     setRetrying(true);
@@ -126,12 +136,15 @@ export default function OnlineOrderPage() {
       await resolveSlugTenant();
     } catch { /* a uuid link needs none of this */ }
 
+    // Asked in parallel with the menu; a failure leaves the page exactly as it was (local settings).
+    const storefrontAsk = (() => { const id = getTenantId(); return id ? loadPublicStorefront(id) : Promise.resolve(null); })();
     try {
       await initStore();
     } catch (e) {
       console.error('[online-order] the restaurant could not be reached', e);
       failed = true;
     }
+    try { const sf = await storefrontAsk; if (sf) setStorefront(sf); } catch { /* keep the cached answer */ }
 
     // initStore() does NOT reject on this route: with no reachable backend it
     // falls through to the local path and resolves, so an empty menu looks
@@ -182,7 +195,7 @@ export default function OnlineOrderPage() {
     return () => { clearTimeout(t); off(); };
   }, []);
 
-  const settings = useMemo(() => ready ? getSettings() : ({} as any), [ready, dataTick]);
+  const settings = useMemo(() => ready ? ({ ...getSettings(), ...storefrontAsSettings(storefront) }) as any : ({} as any), [ready, dataTick, storefront]);
   const categories = useMemo(() => ready ? getCategories() : [], [ready, dataTick]);
   const menuItems = useMemo(() => ready ? getMenuItems().filter(m => m.isActive !== false) : [], [ready, dataTick]);
 
@@ -494,7 +507,18 @@ export default function OnlineOrderPage() {
     : (freeDeliveryThreshold > 0 && subtotal >= freeDeliveryThreshold) ? 0 : baseDeliveryCharge;
   const minOrder = Number(settings.minOnlineOrder || 0);
   const grandTotal = Math.max(0, subtotal - promoDiscount) + deliveryCharge;
-  const pickupOn = settings.selfPickupEnabled === true;
+  // v1.95.0 — the owner's Delivery and Pickup switches decide which ways the customer is offered.
+  const fulfilOpts = fulfilmentOptions({
+    onlineDeliveryEnabled: settings.onlineDeliveryEnabled !== false,
+    onlinePickupEnabled: settings.onlinePickupEnabled !== false,
+    selfPickupEnabled: settings.selfPickupEnabled === true,
+  });
+  const nothingOffered = !dineIn && !fulfilOpts.delivery && !fulfilOpts.pickup;
+  useEffect(() => {
+    if (dineIn) return;
+    const r = resolveFulfilment(fulfillment, fulfilOpts);
+    if (r && r !== fulfillment) setFulfillment(r);
+  }, [dineIn, fulfillment, fulfilOpts.delivery, fulfilOpts.pickup]); // eslint-disable-line react-hooks/exhaustive-deps
   const slots: number[] = (settings.pickupTimeSlots && settings.pickupTimeSlots.length > 0) ? settings.pickupTimeSlots : [15, 30, 45, 60];
 
   // Compute minimum variant price for "From Rs. X" display
@@ -594,6 +618,19 @@ export default function OnlineOrderPage() {
 
   const placeOrder = async () => {
     if (cart.length === 0) { toast.error('Cart is empty'); return; }
+    // v1.95.0 — the owner's switches (the server checks them again).
+    const closedReason = orderingBlockedReason(
+      { onlineOrderEnabled: settings.onlineOrderEnabled !== false, onlineDeliveryEnabled: settings.onlineDeliveryEnabled !== false, onlinePickupEnabled: settings.onlinePickupEnabled !== false },
+      { orderType: dineIn ? 'dining' : (fulfillment === 'pickup' ? 'takeaway' : 'delivery'), source: dineIn ? 'qr' : 'website' },
+    );
+    if (closedReason) { toast.error(closedReason); return; }
+    if (nothingOffered) { toast.error('Delivery is switched off right now. Please call the restaurant.'); return; }
+    // Guest checkout off: the customer must be signed in with a real account (a saved name on this device is not one).
+    if (!dineIn && !guestCheckoutAllowed({ allowGuestCheckout: settings.allowGuestCheckout !== false }) && !getCustomerToken()) {
+      toast.error('Please sign in to place your order.');
+      setLoginOpen(true);
+      return;
+    }
     if (!dineIn && branches.length > 1 && !branchId) { toast.error('Select a branch first'); setBranchPickerOpen(true); return; }
     if (!dineIn && !name.trim()) { toast.error('Naam likhein'); return; }
     if (!dineIn && (!phone.trim() || phone.replace(/\D/g, '').length < 10)) { toast.error('Valid phone likhein'); return; }
@@ -1296,7 +1333,12 @@ export default function OnlineOrderPage() {
                       </>
                     ) : (
                       <>
-                        {pickupOn && (
+                        {nothingOffered && (
+                          <div className="rounded-lg border border-status-warning/40 bg-status-warning/10 p-3 text-xs font-semibold" role="alert">
+                            Delivery is switched off right now. Please call the restaurant to order.
+                          </div>
+                        )}
+                        {fulfilOpts.delivery && fulfilOpts.pickup && (
                           <>
                             <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">How do you want it?</h3>
                             <div className="grid grid-cols-2 gap-2">
@@ -1454,11 +1496,17 @@ export default function OnlineOrderPage() {
                     )}
                   </div>
 
+                  {!dineIn && !guestCheckoutAllowed({ allowGuestCheckout: settings.allowGuestCheckout !== false }) && !getCustomerToken() && (
+                    <p className="text-[11px] font-semibold text-muted-foreground text-center">
+                      This restaurant takes orders from signed-in customers only. You will be asked to sign in.
+                    </p>
+                  )}
                   <Button
                     className="w-full h-11 text-sm font-bold"
                     onClick={placeOrder}
                     disabled={
                       placing
+                      || nothingOffered
                       || (!dineIn && minOrder > 0 && subtotal < minOrder)
                       || (!dineIn && fulfillment === 'delivery' && (lat == null || lng == null))
                       || (!dineIn && fulfillment === 'delivery' && serviceArea.hasRadius && serviceArea.customerHasGeo && !serviceArea.inRadius)
