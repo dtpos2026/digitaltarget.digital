@@ -41,6 +41,8 @@ const BUSINESS_FEATURES = [
   // v1.64.0 — the owner's branch-by-branch view. It sits with `branches`
   // because it only earns its place once a restaurant has more than one.
   'riders', 'rider-app', 'branches', 'owner-management', 'branch-performance',
+  // v1.86.0 — the owner's phone app sits with Owner Management, its desktop twin.
+  'owner-app',
 ];
 
 const PREMIUM_FEATURES = [

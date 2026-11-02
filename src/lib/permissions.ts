@@ -32,6 +32,8 @@ export const PAGES: PageDef[] = [
   // Manager is deliberately left out — this is every branch's takings in one
   // place, which is the owner's view, not a shift manager's.
   { key: 'owner-management', path: '/owner', title: 'Owner Management', group: 'Reports', defaultRoles: ['admin'] },
+  // v1.86.0 — the phone app for owners (design package 06-owner-app), at #/owner-app; managers see their own branch.
+  { key: 'owner-app', path: '/owner-app', title: 'Owner App', group: 'Reports', defaultRoles: ['admin', 'manager'] },
   { key: 'tokens',     path: '/tokens',     title: 'Token Management', group: 'Operations', defaultRoles: ['admin', 'manager', 'cashier'] },
   { key: 'itemSalesReport', path: '/item-sales-report', title: 'Item Sales Report', group: 'Reports', defaultRoles: ['admin', 'manager'] },
   { key: 'praEims', path: '/pra-eims', title: 'PRA EIMS', group: 'Admin', defaultRoles: ['admin'] },

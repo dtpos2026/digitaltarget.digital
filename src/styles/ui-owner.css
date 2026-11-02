@@ -1,0 +1,57 @@
+/* ============================================================
+ * DT OWNER APP — the design package's owner screens (design-project/06-owner-app), v1.86.0
+ *
+ * The owner app is a Digital Target product with its own look (01-design-system/tokens.css), whatever theme the
+ * restaurant's tills use. Everything is scoped to .dt-owner, so no other screen changes.
+ * ============================================================ */
+.dt-owner {
+  --background: 260 43% 97%;   /* #f7f5fb */
+  --foreground: 261 25% 11%;   /* #1a1523 */
+  --card: 0 0% 100%;
+  --card-foreground: 261 25% 11%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 261 25% 11%;
+  --primary: 263 69% 42%;      /* #5b21b6 */
+  --primary-foreground: 0 0% 100%;
+  --secondary: 258 68% 96%;
+  --secondary-foreground: 261 25% 11%;
+  --muted: 258 68% 96%;        /* #f3effc */
+  --muted-foreground: 261 9% 43%; /* #6b6478 */
+  --accent: 258 68% 96%;
+  --accent-foreground: 261 25% 11%;
+  --border: 260 38% 91%;       /* #e4def0 */
+  --input: 260 30% 85%;
+  --ring: 263 69% 42%;
+  --own-ok: 142 72% 29%;       /* #15803d */
+  --own-warn: 26 90% 37%;      /* #b45309 */
+  --own-bad: 0 72% 51%;        /* #dc2626 */
+  --own-info: 224 76% 48%;     /* #1d4ed8 */
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-feature-settings: "tnum" 1;
+  -webkit-tap-highlight-color: transparent;
+}
+.dt-owner :is(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px hsl(263 69% 42% / .25);
+}
+.dt-owner [data-own-card] {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(26, 21, 35, .06), 0 4px 14px rgba(26, 21, 35, .06);
+}
+.dt-owner [data-own-chip] {
+  height: 2.25rem; padding: 0 1rem; border-radius: 999px; white-space: nowrap;
+  border: 1px solid hsl(var(--border)); background: hsl(var(--card));
+  font-size: 14px; font-weight: 600; color: hsl(var(--foreground));
+}
+.dt-owner [data-own-chip][aria-pressed="true"],
+.dt-owner [data-own-chip][aria-selected="true"] {
+  background: hsl(var(--primary)); border-color: hsl(var(--primary)); color: hsl(var(--primary-foreground));
+}
+.dt-owner [data-own-label] {
+  font-size: 11.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: hsl(var(--muted-foreground));
+}
+.dt-owner .own-scroll-x { overflow-x: auto; scrollbar-width: none; }
+.dt-owner .own-scroll-x::-webkit-scrollbar { display: none; }

@@ -79,6 +79,7 @@ const TrackOrderPage = lazy(() => import("@/pages/TrackOrderPage"));
 const VerifyInvoicePage = lazy(() => import("@/pages/VerifyInvoicePage"));
 const OnlinePortalPage = lazy(() => import("@/pages/OnlinePortalPage"));
 const OrderTakerPortalPage = lazy(() => import("@/pages/OrderTakerPortalPage"));
+const OwnerAppPage = lazy(() => import("@/pages/OwnerAppPage"));
 const PrintingCenterPage = lazy(() => import("@/pages/PrintingCenterPage"));
 const AdminSalesHistoryPage = lazy(() => import("@/pages/AdminSalesHistoryPage"));
 const AuditHistoryPage = lazy(() => import("@/pages/AuditHistoryPage"));
@@ -835,6 +836,29 @@ const App = () => {
           <Toaster />
           <Sonner />
           <BusinessTypeSetupScreen onDone={() => setBusinessSetupDismissed(true)} />
+        </TooltipProvider>
+      </QueryClientProvider>
+    );
+  }
+
+  // v1.86.0 — the Owner app (design package 06-owner-app) at #/owner-app: a phone layout of its own, OUTSIDE the
+  // till's shell, so the owner's phone runs no KOT printer, kitchen timer or order beeps. Who may use it is decided
+  // inside the page by the permission system (owners and managers, plan permitting); anyone else is told so there.
+  // App re-renders on every hash change (hashTick), so leaving the Owner app for a full module just works.
+  if ((typeof window !== 'undefined' ? window.location.hash : '').replace(/^#/, '').startsWith('/owner-app')) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <VersionUpdateBanner />
+          <Toaster />
+          <Sonner />
+          <HashRouter>
+            <Suspense fallback={<PageFallback />}>
+              <Routes>
+                <Route path="/owner-app/*" element={<OwnerAppPage onLogout={handleLogout} />} />
+              </Routes>
+            </Suspense>
+          </HashRouter>
         </TooltipProvider>
       </QueryClientProvider>
     );

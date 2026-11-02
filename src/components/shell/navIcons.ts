@@ -56,6 +56,7 @@ export const MODERN_NAV_ICONS: Record<string, LucideIcon> = {
   costing: FileBarChart,
   financials: Landmark,
   'branch-performance': Building2,
+  'owner-app': Smartphone,
   procurement: Handshake,
   reports: FileText,
   'reports-center': BarChart3,

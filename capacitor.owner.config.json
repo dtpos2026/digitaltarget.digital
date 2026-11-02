@@ -1,0 +1,20 @@
+{
+  "appId": "com.digitaltarget.dtowner",
+  "appName": "DT Owner",
+  "webDir": "dist",
+  "android": {
+    "path": "android/Owner"
+  },
+  "server": {
+    "androidScheme": "https",
+    "url": "https://digitaltarget.digital/#/owner-app",
+    "cleartext": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "backgroundColor": "#5B21B6",
+      "androidSplashResourceName": "splash",
+      "launchShowDuration": 800
+    }
+  }
+}

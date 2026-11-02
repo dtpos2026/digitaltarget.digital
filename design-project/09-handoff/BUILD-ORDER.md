@@ -18,7 +18,7 @@ Rules for every step: ship behind the existing tests, add tests for new pure log
 | # | Step | State | Where |
 |---|---|---|---|
 | 1 | Windows POS inner shell + SW-02 | **Built in v1.85.0** as the **DT Refined** theme (Settings → Appearance, open to every restaurant). Every other theme and route unchanged. | `src/styles/ui-refined.css`, `src/components/shell/RefinedSidebar.tsx`, `src/components/shell/ModernHeader.tsx`, `src/components/dashboard/RefinedDashboard.tsx`, `src/lib/refinedDashboard.ts`; QA: `docs/qa/2026-11-02-QAT-UAT-v1.85.0-design-package-step-1.md` |
-| 2 | Owner portal pages | next | — |
+| 2 | Owner portal pages | **Built in v1.86.0**: the Owner app at `#/owner-app` — OWN-04 Overview, OWN-05 Branch detail, OWN-06 Orders, OWN-07 Order detail, OWN-11 Reports, OWN-13 Menu, OWN-14 Low stock, OWN-15 Expenses, OWN-19 More; Owner Management (desktop) on the same figures; DT Owner Android config (`capacitor.owner.config.json`) and icon. Not yet: OWN-01/02/03 restyle (sign-in works as before), OWN-08/09/10/16/17/20/21/22 open the existing full pages, OWN-12 profit, OWN-18 notifications (needs backend) | `src/pages/OwnerAppPage.tsx`, `src/components/owner/`, `src/lib/ownerApp.ts`; QA: `docs/qa/2026-11-02-QAT-UAT-v1.86.0-owner-app.md` |
 | 3 | Customer order site | waiting for the database backup confirmation and approval of the additive table | — |
 | 4–6 | Phone apps, Android icons, needs-backend items | after 2–3; step 5 needs the Android build run by the owner; step 6 needs decisions 1–4 in HANDOFF.md | — |
 

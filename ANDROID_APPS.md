@@ -8,6 +8,17 @@ Dono apps ki config pehle se maujood hai:
 |---|---|---|---|
 | DT Rider | `capacitor.rider.config.json` | `com.digitaltarget.dtrider` | `/#/rider-portal` |
 | DT Order Taker | `capacitor.ordertaker.config.json` | `com.digitaltarget.dtordertaker` | `/#/order-taker` |
+| DT Owner (v1.86.0) | `capacitor.owner.config.json` | `com.digitaltarget.dtowner` | `/#/owner-app` |
+
+### DT Owner (v1.86.0)
+
+Owner aur managers ke liye phone app: Overview (har branch), Orders, Menu (item on/off, price), Reports, More
+(Low stock, Expenses aur baqi modules). Ye wahi website `#/owner-app` kholti hai — sign-in wahi hai jo software ka hai.
+Icon aur splash: `PLAYWRIGHT_MODULE=… node scripts/brand/build-brand-assets.mjs` se `branding/export/android/Owner/res/`
+banta hai (purple, crown badge). Android project banane ke liye neeche wale steps `capacitor.owner.config.json` ke saath
+chalayen (`--config capacitor.owner.config.json`), bilkul Rider / Order Taker ki tarah.
+
+Owner app restaurant ke plan mein honi chahiye (Business aur upar; Super Admin per-restaurant override bhi de sakta hai).
 
 ## Pehle ek zaroori baat — ye apps kaam kaise karte hain
 
