@@ -26,32 +26,32 @@ html[data-ui="modern"][data-ui-theme="dt-refined"] {
 /* focus ring of the design system */
 html[data-ui="modern"][data-ui-theme="dt-refined"] :is(button, a, input, select, textarea, [tabindex]):focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px hsl(263 69% 42% / .25);
+  box-shadow: 0 0 0 3px hsl(var(--primary) / .25);
 }
 
 /* ---------- sidebar ---------- */
-html[data-ui="modern"][data-ui-theme="dt-refined"] [data-ui-shell="sidebar"] { background: #fff; }
+html[data-ui="modern"][data-ui-theme="dt-refined"] [data-ui-shell="sidebar"] { background: hsl(var(--card)); }
 html[data-ui="modern"][data-ui-theme="dt-refined"] [data-refined-nav-item] {
-  height: 2.5rem; border-radius: 10px; font-size: 14px; font-weight: 600; color: hsl(261 25% 11% / .86);
+  height: 2.5rem; border-radius: 10px; font-size: 14px; font-weight: 600; color: hsl(var(--foreground) / .86);
 }
-html[data-ui="modern"][data-ui-theme="dt-refined"] [data-refined-nav-item]:hover { background: hsl(var(--dt-accent-tint)); color: hsl(261 25% 11%); }
+html[data-ui="modern"][data-ui-theme="dt-refined"] [data-refined-nav-item]:hover { background: hsl(var(--dt-accent-tint)); color: hsl(var(--foreground)); }
 html[data-ui="modern"][data-ui-theme="dt-refined"] [data-refined-nav-item][aria-current="page"] {
-  background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); box-shadow: 0 4px 12px -4px hsl(263 69% 42% / .55);
+  background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); box-shadow: 0 4px 12px -4px hsl(var(--primary) / .55);
 }
 html[data-ui="modern"][data-ui-theme="dt-refined"] [data-refined-nav-item][aria-current="page"] svg { color: currentColor; }
 html[data-ui="modern"][data-ui-theme="dt-refined"] [data-refined-group-head] {
-  font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: hsl(261 9% 43%);
+  font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: hsl(var(--muted-foreground));
 }
 html[data-ui="modern"][data-ui-theme="dt-refined"] [data-refined-count] {
-  min-width: 1.5rem; border-radius: 999px; background: hsl(var(--dt-accent-tint)); color: hsl(261 9% 43%);
+  min-width: 1.5rem; border-radius: 999px; background: hsl(var(--dt-accent-tint)); color: hsl(var(--muted-foreground));
   font-size: 11px; font-weight: 700; text-align: center; padding: 1px 6px;
 }
 
 /* ---------- top bar ---------- */
-html[data-ui="modern"][data-ui-theme="dt-refined"] [data-ui-shell="header"] { background: #fff; }
+html[data-ui="modern"][data-ui-theme="dt-refined"] [data-ui-shell="header"] { background: hsl(var(--card)); }
 
 /* ---------- cards and tiles follow the design system's radius and shadow ---------- */
 html[data-ui="modern"][data-ui-theme="dt-refined"] [data-stat-card],
 html[data-ui="modern"][data-ui-theme="dt-refined"] [data-section-card] {
-  border-radius: 16px; box-shadow: var(--ui-shadow-card); border-color: hsl(260 38% 91%);
+  border-radius: 16px; box-shadow: var(--ui-shadow-card); border-color: hsl(var(--border));
 }

@@ -125,7 +125,7 @@ describe('the DT Refined theme is the design package', () => {
     expect(css).toMatch(/--ui-header-h:\s*4rem/);           // 64 px top bar
     expect(css).toMatch(/--ui-sidebar-w:\s*15\.5rem/);      // 248 px sidebar
     expect(css).toMatch(/--ui-sidebar-w-collapsed:\s*4\.5rem/); // 72 px collapsed
-    expect(css).toContain('0 0 0 3px hsl(263 69% 42% / .25)'); // the design's focus ring
+    expect(css).toContain('0 0 0 3px hsl(var(--primary) / .25)'); // the design's focus ring: 3px accent at 25 % (the accent is DT purple by default; v1.96.0 lets it follow the colour scheme)
   });
 
   it('applying it sets the Modern attributes with the theme id, and Classic removes them', () => {

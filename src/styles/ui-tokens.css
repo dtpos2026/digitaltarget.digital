@@ -433,6 +433,90 @@
   --sidebar-foreground: 261 9% 43%;
   --sidebar-border: 260 38% 91%;
 }
+/* v1.96.0 — DT Refined surface choices (Settings → Appearance → Colour scheme). Lavender is the base block above. */
+:root[data-ui="modern"][data-ui-theme="dt-refined"][data-refined-surface="white"] {
+  --background: 210 17% 96%;
+  --foreground: 222 25% 11%;
+  --card-foreground: 222 25% 11%;
+  --popover-foreground: 222 25% 11%;
+  --secondary: 210 20% 94%;
+  --secondary-foreground: 222 25% 11%;
+  --muted: 210 20% 94%;
+  --muted-foreground: 215 12% 42%;
+  --accent: 210 25% 95%;
+  --accent-foreground: 222 25% 11%;
+  --border: 214 16% 89%;
+  --input: 214 14% 82%;
+  --pos-grid-bg: 210 17% 96%;
+  --pos-sidebar-foreground: 222 25% 11%;
+  --sidebar-foreground: 215 12% 42%;
+  --sidebar-border: 214 16% 89%;
+  --dt-accent-tint: 210 25% 95%;
+}
+:root[data-ui="modern"][data-ui-theme="dt-refined"][data-refined-surface="warm"] {
+  --background: 36 33% 96%;
+  --foreground: 24 20% 11%;
+  --card-foreground: 24 20% 11%;
+  --popover-foreground: 24 20% 11%;
+  --secondary: 34 30% 92%;
+  --secondary-foreground: 24 20% 11%;
+  --muted: 34 30% 92%;
+  --muted-foreground: 25 10% 40%;
+  --accent: 34 40% 94%;
+  --accent-foreground: 24 20% 11%;
+  --border: 34 24% 87%;
+  --input: 34 18% 80%;
+  --pos-grid-bg: 36 33% 96%;
+  --pos-sidebar-foreground: 24 20% 11%;
+  --sidebar-foreground: 25 10% 40%;
+  --sidebar-border: 34 24% 87%;
+  --dt-accent-tint: 34 40% 94%;
+}
+:root[data-ui="modern"][data-ui-theme="dt-refined"][data-refined-surface="cool"] {
+  --background: 200 30% 96%;
+  --foreground: 205 30% 11%;
+  --card-foreground: 205 30% 11%;
+  --popover-foreground: 205 30% 11%;
+  --secondary: 200 28% 92%;
+  --secondary-foreground: 205 30% 11%;
+  --muted: 200 28% 92%;
+  --muted-foreground: 205 10% 40%;
+  --accent: 200 40% 94%;
+  --accent-foreground: 205 30% 11%;
+  --border: 200 22% 87%;
+  --input: 200 16% 80%;
+  --pos-grid-bg: 200 30% 96%;
+  --pos-sidebar-foreground: 205 30% 11%;
+  --sidebar-foreground: 205 10% 40%;
+  --sidebar-border: 200 22% 87%;
+  --dt-accent-tint: 200 40% 94%;
+}
+:root[data-ui="modern"][data-ui-theme="dt-refined"][data-refined-surface="night"] {
+  --background: 258 37% 7%;
+  --foreground: 260 47% 96%;
+  --card: 260 31% 11%;
+  --popover: 260 31% 11%;
+  --card-foreground: 260 47% 96%;
+  --popover-foreground: 260 47% 96%;
+  --secondary: 259 31% 16%;
+  --secondary-foreground: 260 47% 96%;
+  --muted: 259 31% 16%;
+  --muted-foreground: 261 20% 72%;
+  --accent: 259 31% 18%;
+  --accent-foreground: 260 47% 96%;
+  --border: 259 26% 23%;
+  --input: 259 26% 28%;
+  --pos-grid-bg: 258 37% 7%;
+  --pos-sidebar-foreground: 260 47% 96%;
+  --sidebar-foreground: 261 20% 72%;
+  --sidebar-border: 259 26% 23%;
+  --dt-accent-tint: 259 31% 18%;
+  --dt-ok: 142 69% 58%;   --dt-ok-bg: 140 48% 14%;
+  --dt-warn: 38 92% 60%;  --dt-warn-bg: 39 71% 14%;
+  --dt-bad: 0 91% 71%;    --dt-bad-bg: 0 51% 16%;
+  --dt-info: 213 94% 68%; --dt-info-bg: 221 59% 19%;
+  --dt-accent-deep: 263 70% 78%;
+}
 :root[data-ui="modern"][data-ui-theme="teal"] {
   --background: 176 28% 96%;
   --foreground: 180 28% 9%;

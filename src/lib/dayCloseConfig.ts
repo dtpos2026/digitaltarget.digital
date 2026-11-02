@@ -94,3 +94,60 @@ export function addPendingDayCloseRequest(req: Omit<PendingDayCloseRequest, 'id'
 export function clearPendingDayCloseRequests() {
   try { localStorage.removeItem(reqKey()); } catch {}
 }
+
+// ============================================================
+// v1.96.0 — what a Day Close will do to the bills, worked out in one place.
+//
+// The classification used to be written inline in the Settings page's handler, so the screen could not tell the
+// operator what was about to happen. The Day Close page shows these counts before the button is pressed and uses the
+// same function to do the work, so what is shown is what is done. The rules are unchanged (v1.2.4): a credit (udhaar)
+// bill — status credit_*, or paid by credit and not void/cancelled — is classified FIRST and is cleared only by the
+// "Credit orders" box, never by the paid / running boxes.
+// ============================================================
+export type DayCloseGroup = 'paid' | 'runningHold' | 'voidComp' | 'credit' | 'other';
+
+export interface DayCloseOrderLike { id: string; status: string; paymentMethod?: string }
+
+export function dayCloseGroupOf(o: Pick<DayCloseOrderLike, 'status' | 'paymentMethod'>): DayCloseGroup {
+  const s = o.status;
+  const isCredit = s === 'credit_pending' || s === 'credit_received'
+    || (o.paymentMethod === 'credit' && s !== 'void' && s !== 'cancelled');
+  if (isCredit) return 'credit';
+  if (s === 'paid') return 'paid';
+  if (s === 'running' || s === 'hold' || s === 'partial') return 'runningHold';
+  if (s === 'void' || s === 'complimentary' || s === 'cancelled') return 'voidComp';
+  return 'other';
+}
+
+export interface DayClosePlan {
+  /** Ids that leave the live lists (they are archived, never deleted). */
+  toClear: string[];
+  cleared: { paid: number; runningHold: number; voidComp: number; credit: number };
+  /** Bills that stay in the live lists. */
+  kept: number;
+  total: number;
+  /** Cleared bills that are still unpaid — the ones an operator would regret clearing by accident. */
+  unpaidCleared: number;
+  heldCleared: number;
+}
+
+const CLEAR_FLAG: Record<Exclude<DayCloseGroup, 'other'>, keyof DayCloseConfig> = {
+  paid: 'clearPaidOrders', runningHold: 'clearRunningHoldBills', voidComp: 'clearVoidComp', credit: 'clearCreditOrders',
+};
+
+export function planDayClose(
+  orders: Array<DayCloseOrderLike>,
+  cfg: Pick<DayCloseConfig, 'clearPaidOrders' | 'clearRunningHoldBills' | 'clearVoidComp' | 'clearCreditOrders'>,
+): DayClosePlan {
+  const cleared = { paid: 0, runningHold: 0, voidComp: 0, credit: 0 };
+  const toClear: string[] = [];
+  let unpaidCleared = 0, heldCleared = 0;
+  for (const o of orders) {
+    const g = dayCloseGroupOf(o);
+    if (g === 'other' || !cfg[CLEAR_FLAG[g] as 'clearPaidOrders']) continue;
+    cleared[g]++;
+    toClear.push(o.id);
+    if (g === 'runningHold') { unpaidCleared++; if (o.status === 'hold') heldCleared++; }
+  }
+  return { toClear, cleared, kept: orders.length - toClear.length, total: orders.length, unpaidCleared, heldCleared };
+}

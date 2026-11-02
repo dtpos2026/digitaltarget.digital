@@ -2,11 +2,8 @@ import { useState, useEffect, useRef, Fragment } from 'react';
 import { useSearchParams } from '@/lib/hash-router';
 import type { SystemPrinterInfo } from '@/lib/electron';
 import { currencySymbol, currencyOptions, getCurrencyDef, formatMoney } from '@/lib/currency';
-import { getSettings, saveSettings, saveSettingsNow, getTables, saveTable, deleteTable, getFloors, saveFloor, deleteFloor, getKitchens, saveKitchen, deleteKitchen, getWaiters, saveWaiter, deleteWaiter, getRiders, saveRider, deleteRider, genId, getOrders, deleteOrder, deleteOrdersBulk, archiveOrdersBulk, resetOrderCounter, exportData, getCategories, getCurrentUser, clearCollectionsForDayClose } from '@/lib/store';
+import { getSettings, saveSettings, saveSettingsNow, getTables, saveTable, deleteTable, getFloors, saveFloor, deleteFloor, getKitchens, saveKitchen, deleteKitchen, getWaiters, saveWaiter, deleteWaiter, getRiders, saveRider, deleteRider, genId, getCategories, getCurrentUser } from '@/lib/store';
 import { RestaurantSettings, DiningTable, Floor, Kitchen, Waiter, Rider, ReceiptTextStyle } from '@/lib/types';
-import { buildDayClosePreflight, countUnsyncedOrders, type DayClosePreflight } from '@/lib/dayClosePreflight';
-import { getDayCloseConfig, saveDayCloseConfig, DayCloseConfig, DAY_CLOSE_MODULES, getPendingDayCloseRequests, addPendingDayCloseRequest, clearPendingDayCloseRequests, PendingDayCloseRequest } from '@/lib/dayCloseConfig';
-import { userHasAccess } from '@/lib/permissions';
 import { Checkbox } from '@/components/ui/checkbox';
 
 
@@ -23,7 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Trash2, AlertTriangle, Download, Printer, Palette, MapPin, Navigation, ShoppingBag, Globe2, Settings as SettingsIcon, MessageCircle, ShieldCheck, ChevronDown, Store, LayoutGrid, Armchair, UserRound, Bike, ReceiptText, Type, ChefHat, Truck, Monitor, Building2, Smartphone, Moon, Puzzle, type LucideIcon } from 'lucide-react';
+import { Plus, Trash2, Download, Printer, Palette, MapPin, Navigation, ShoppingBag, Globe2, Settings as SettingsIcon, MessageCircle, ShieldCheck, ChevronDown, Store, LayoutGrid, Armchair, UserRound, Bike, ReceiptText, Type, ChefHat, Truck, Monitor, Building2, Smartphone, Moon, Puzzle, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { PAKISTAN_AREAS } from '@/lib/pakistan-areas';
@@ -32,7 +29,6 @@ import { languagesForCountry, isLanguageAllowed, setLanguage, getLanguage, trans
 import { MAX_TOP_MARGIN_MM, clampTopMarginMm } from '@/lib/thermal-print';
 import { computeBillTotals } from '@/lib/taxEngine';
 import OptionalFeaturesPanel from '@/components/OptionalFeaturesPanel';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { isElectron, getPrinters, getAutoStart, setAutoStart } from '@/lib/electron';
 import { Slider } from '@/components/ui/slider';
 import { PREMIUM_THEME_IDS } from '@/lib/premiumTheme';
@@ -45,9 +41,6 @@ import { REFERENCE_THEME_SPECS } from '@/lib/referenceThemes';
 import { themes, getActiveTheme, setActiveTheme, ThemeId } from '@/lib/themes';
 import { getWhatsAppTemplates } from '@/lib/whatsapp';
 import { getTenantId, getTenantName } from '@/lib/tenant';
-import { archiveOrders } from '@/lib/orderArchive';
-import { releasedTable } from '@/lib/tableRelease';
-import { saveBackupToCloud, logDayCloseEvent } from '@/lib/dayCloseBackup';
 import { uploadTenantImage } from '@/lib/storage';
 
 /** One icon per Settings section, for the Modern left-hand list. */
@@ -157,13 +150,8 @@ export default function SettingsPage() {
 
   const [waiters, setWaiters] = useState(() => getWaiters());
   const [riders, setRiders] = useState(() => getRiders());
-  const [showDayClose, setShowDayClose] = useState(false);
   const [printers, setPrinters] = useState<SystemPrinterInfo[]>([]);
   const [currentTheme, setCurrentTheme] = useState<ThemeId>(getActiveTheme());
-  const [dayCloseCfg, setDayCloseCfg] = useState<DayCloseConfig>(() => getDayCloseConfig());
-  // What Day Close is about to do, computed when the dialog opens.
-  const [preflight, setPreflight] = useState<DayClosePreflight | null>(null);
-  const [pendingRequests, setPendingRequests] = useState<PendingDayCloseRequest[]>(() => getPendingDayCloseRequests());
   const [savingSettings, setSavingSettings] = useState(false);
   const settingsAutoSaveReady = useRef(false);
   useEffect(() => {
@@ -177,20 +165,8 @@ export default function SettingsPage() {
     const timer = window.setTimeout(() => saveSettings(settings), 500);
     return () => window.clearTimeout(timer);
   }, [settings]);
-  // Selections stick — saved the moment a box is ticked.
-  useEffect(() => { saveDayCloseConfig(dayCloseCfg); }, [dayCloseCfg]);
-
-  useEffect(() => {
-    if (!showDayClose) { setPreflight(null); return; }
-    let cancelled = false;
-    void countUnsyncedOrders().then(pending => {
-      if (!cancelled) setPreflight(buildDayClosePreflight(getOrders(), pending));
-    });
-    return () => { cancelled = true; };
-  }, [showDayClose]);
   const currentUser = getCurrentUser();
   const isAdmin = currentUser?.role === 'admin';
-  const canDayClose = isAdmin || userHasAccess(currentUser, 'day-close');
   const [testPrintKind, setTestPrintKind] = useState<null | 'kot' | 'receipt'>(null);
   useEffect(() => {
     if (testPrintKind !== 'receipt') return;
@@ -332,193 +308,6 @@ export default function SettingsPage() {
     const r: Rider = { id: genId(), name: 'New Rider', phone: '', isActive: true };
     saveRider(r);
     setRiders(getRiders().slice());
-  };
-
-  const handleDayClose = async () => {
-    if (!isAdmin) {
-      toast.error('Only Admin can finalize Day Close');
-      return;
-    }
-    // A bill taken and paid on this till that has not reached the server exists
-    // NOWHERE else. Clearing it from the till before the queue drains is how a
-    // real sale disappears, so this stops rather than warns.
-    const pendingOrders = await countUnsyncedOrders();
-    if (pendingOrders !== 0) {
-      toast.error(
-        pendingOrders < 0
-          ? 'Cannot close the day: the offline queue could not be read. Try again in a moment.'
-          : `Cannot close the day: ${pendingOrders} bill(s) have not reached the server yet. They would be lost. Wait for sync to finish.`,
-      );
-      return;
-    }
-
-    const cfg = dayCloseCfg;
-    const closeId = `dc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    const dateStr = new Date().toISOString().slice(0, 10);
-    let backupBytes = 0;
-    let cloudOk = false;
-
-    // 1. Backup snapshot — local download (admin safety) + cloud copy (survives device loss)
-    if (cfg.autoBackup) {
-      const backupJson = exportData();
-      backupBytes = new TextEncoder().encode(backupJson).length;
-
-      // Local download
-      const blob = new Blob([backupJson], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `day-close-backup-${dateStr}-${closeId.slice(-6)}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-
-      // Cloud backup (best-effort, non-blocking failure)
-      try {
-        cloudOk = await saveBackupToCloud(backupJson, `${dateStr}__${closeId.slice(-6)}`);
-      } catch { cloudOk = false; }
-    }
-
-    // 2. Always archive the full snapshot so admin can view weekly/monthly history.
-    const orders = getOrders();
-    archiveOrders(orders);
-
-    // 3. Conditionally delete by status group, per admin's checkboxes.
-    // v1.2.4 FIX: udhaar/credit bills are classified FIRST — a credit bill
-    // whose status is running/hold/paid (paymentMethod 'credit' not yet
-    // settled) was previously swept by the "Paid orders" / "Running bills"
-    // checkboxes even with "Credit orders" UNCHECKED. Ab credit-natured
-    // bill sirf clearCreditOrders checkbox se hi delete ho sakta hai.
-    let cPaid = 0, cRun = 0, cVoid = 0, cCredit = 0;
-    const toDelete: string[] = [];
-    orders.forEach(o => {
-      const s = o.status;
-      const isCredit = s === 'credit_pending' || s === 'credit_received'
-        || (o.paymentMethod === 'credit' && s !== 'void' && s !== 'cancelled');
-      const isPaid = !isCredit && s === 'paid';
-      const isRunHold = !isCredit && (s === 'running' || s === 'hold' || s === 'partial');
-      const isVoidComp = s === 'void' || s === 'complimentary' || s === 'cancelled';
-      if (
-        (isPaid && cfg.clearPaidOrders) ||
-        (isRunHold && cfg.clearRunningHoldBills) ||
-        (!isCredit && isVoidComp && cfg.clearVoidComp) ||
-        (isCredit && cfg.clearCreditOrders)
-      ) {
-        if (isCredit) cCredit++;
-        else if (isPaid) cPaid++;
-        else if (isRunHold) cRun++;
-        else if (isVoidComp) cVoid++;
-        toDelete.push(o.id);
-      }
-    });
-
-    // ===== v1.27.1 — Day Close ARCHIVES. It no longer deletes. =====
-    //
-    // This called deleteOrdersBulk(), which tombstones the row in the cloud and
-    // syncs that delete to every device. The only surviving copy of the
-    // restaurant's takings was `dt-pos-order-archive::<tenant>` in ONE
-    // browser's localStorage — capped at 400 days and 20,000 orders, and halved
-    // on a quota error. A new till, a reinstall or a cleared browser had no
-    // sales history, and neither did the database.
-    //
-    // On this restaurant that had already destroyed 30 paid bills worth
-    // PKR 42,498. They have been recovered as archived history.
-    //
-    // Archiving keeps every row in full on the server and only stops it loading
-    // into the till, so operational reports still start from zero for the new
-    // day while the Admin sales and audit reports keep everything. Void and
-    // cancelled bills are archived too — they cost nothing to keep and the
-    // audit trail is worth more than the row.
-    //
-    // v1.5.1's rule still holds and matters more than ever: AWAIT the server,
-    // and clear nothing locally that the server did not confirm, or the
-    // realtime listener brings it straight back and the day never looks closed.
-    const delResult = await archiveOrdersBulk(toDelete);
-    if (delResult.offline) {
-      toast.error('No internet — Day Close stopped. Nothing was changed. Try again once you are online.');
-      return;
-    }
-    if (delResult.failed > 0) {
-      toast.error(`${delResult.failed} orders could not be archived on the server — they may reappear. ${delResult.error || ''}`);
-    }
-
-    // 4. Reset tables (optional)
-    if (cfg.resetTables) {
-      const allTables = getTables();
-      allTables.forEach(t => {
-        // v1.15.1 — release properly: this used to leave `seatedAt` behind,
-        // so tables came out of Day Close badged AVAILABLE while still
-        // showing a dine timer that had been running for days.
-        // Free EVERY table, not only the occupied ones, so nothing is left
-        // reserved/dirty with a stale order link after the day is closed.
-        saveTable(releasedTable(t, undefined, 'free'));
-      });
-    }
-
-    // 5. Reset daily order counter (optional)
-    // v1.5.1: previously this removed localStorage keys that never existed,
-    // so the counter never actually reset and order numbers kept climbing
-    // after every Day Close. Now it resets the real counter (local + cloud).
-    if (cfg.resetOrderNumber) {
-      const counterOk = await resetOrderCounter(0);
-      if (!counterOk) {
-        toast.error('The order-number counter did not reset on the cloud — please try again');
-      }
-    }
-
-    // 5b. Reset every ticked module to 00 (local + cloud).
-    const modCols = Object.entries(cfg.modules || {}).filter(([, v]) => v).map(([k]) => k);
-    let modCleared = 0;
-    if (modCols.length) {
-      try {
-        const counts = await clearCollectionsForDayClose(modCols);
-        modCleared = Object.values(counts).reduce((a, b) => a + b, 0);
-      } catch {
-        toast.error('Some modules could not be reset — please try again');
-      }
-    }
-
-    // 6. Audit log to cloud — who closed, what cleared, backup status.
-    try {
-      await logDayCloseEvent({
-        id: closeId,
-        closedAt: new Date().toISOString(),
-        closedByUid: currentUser?.id || 'unknown',
-        closedByName: currentUser?.name || 'Unknown',
-        orderCount: orders.length,
-        cleared: { paid: cPaid, runningHold: cRun, voidComp: cVoid, credit: cCredit },
-        config: { ...cfg } as any,
-        backupBytes,
-      });
-    } catch {}
-
-    // 7. Clear pending cashier requests — admin has now actioned them.
-    clearPendingDayCloseRequests();
-    setPendingRequests([]);
-
-    setTables(getTables());
-    setShowDayClose(false);
-    const cloudMsg = cfg.autoBackup ? (cloudOk ? ' · Cloud backup saved ☁️' : ' · Cloud backup FAILED (local OK)') : '';
-    // Report what the SERVER actually confirmed, not what we intended.
-    const modMsg = modCleared ? ` · ${modCleared} module records reset to 0` : '';
-    toast.success(`Day closed. ${delResult.archived} bills moved to history (nothing deleted).${modMsg}${cloudMsg}`);
-  };
-
-
-  const handleRequestDayClose = () => {
-    if (!currentUser) { toast.error('Login required'); return; }
-    addPendingDayCloseRequest({ by: currentUser.id, byName: currentUser.name });
-    setPendingRequests(getPendingDayCloseRequests());
-    toast.success('Day Close request sent — an Admin will confirm it');
-  };
-
-  // Config now saves itself on every tick (see useEffect above).
-
-
-  const handleDismissRequest = (id: string) => {
-    const remaining = getPendingDayCloseRequests().filter(r => r.id !== id);
-    clearPendingDayCloseRequests();
-    remaining.forEach(r => addPendingDayCloseRequest({ by: r.by, byName: r.byName, note: r.note, at: r.at }));
-    setPendingRequests(getPendingDayCloseRequests());
   };
 
   return (
@@ -2474,184 +2263,26 @@ export default function SettingsPage() {
 
         {/* Day Close Tab */}
         <TabsContent value="dayclose" className="space-y-4">
-          {/* Header */}
+          {/* v1.96.0 — Day Close has its own page (sidebar → Day Close); this tab only points to it. */}
           <div className="bg-card border rounded-xl p-6 space-y-3">
             <div className="flex items-start gap-3">
-              <AlertTriangle className="h-6 w-6 text-status-warning shrink-0 mt-0.5" />
+              <Moon className="h-6 w-6 text-primary shrink-0 mt-0.5" />
               <div>
-                <h3 className="text-base font-bold">Day Closing / Reset Sales</h3>
+                <h3 className="text-base font-bold">Day Close has its own page</h3>
                 <p className="text-xs text-muted-foreground mt-1">
-                  A cashier can only send a <b>Request</b>. The actual delete happens only after an <b>Admin</b> confirms it, so the admin stays in control of weekly / monthly reports.
+                  Print the shift report, choose what the day close clears and which modules reset to 00, then close the day —
+                  step by step, with the counts shown before anything happens.
                 </p>
               </div>
             </div>
-            <div className="text-[11px] text-muted-foreground bg-accent rounded p-2">
-              Logged in as: <b>{currentUser?.name || '—'}</b> ({currentUser?.role || 'guest'}) — {isAdmin ? 'Full control' : (canDayClose ? 'Can request only' : 'No Day Close access')}
-            </div>
-          </div>
-
-          {/* Admin-only: configure what gets deleted */}
-          {isAdmin && (
-            <div className="bg-card border rounded-xl p-6 space-y-3">
-              <div>
-                <h3 className="text-sm font-bold">✅ What gets reset at Day Close?</h3>
-                <p className="text-[11px] text-muted-foreground">Tick once — your selection is saved automatically and used on every Day Close. The archive (admin history) always stays safe.</p>
-              </div>
-              {([
-                { k: 'clearPaidOrders',       label: 'Paid / Closed bills (today\'s sales)' },
-                { k: 'clearRunningHoldBills', label: 'Running + Hold bills (unpaid)' },
-                { k: 'clearVoidComp',         label: 'Void / Complimentary / Cancelled bills' },
-                { k: 'clearCreditOrders',     label: 'Credit / Udhaar orders' },
-                { k: 'resetTables',           label: 'Reset tables to Free' },
-                { k: 'resetOrderNumber',      label: 'Reset daily order # (start from 0 / 1)' },
-                { k: 'autoBackup',            label: 'Auto JSON backup download (safety)' },
-              ] as { k: keyof DayCloseConfig; label: string }[]).map(row => (
-                <label key={row.k} className="flex items-center gap-2 text-xs cursor-pointer">
-                  <Checkbox
-                    checked={!!dayCloseCfg[row.k]}
-                    onCheckedChange={(v) => setDayCloseCfg(c => ({ ...c, [row.k]: !!v }))}
-                  />
-                  <span>{row.label}</span>
-                </label>
-              ))}
-
-              <div className="pt-2 border-t">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-bold">📦 Modules to reset to 00</h4>
-                  <div className="flex gap-1">
-                    <Button size="sm" variant="ghost" className="h-6 text-[10px]" onClick={() => setDayCloseCfg(c => ({ ...c, modules: Object.fromEntries(DAY_CLOSE_MODULES.map(m => [m.col, true])) }))}>Select all</Button>
-                    <Button size="sm" variant="ghost" className="h-6 text-[10px]" onClick={() => setDayCloseCfg(c => ({ ...c, modules: {} }))}>Clear all</Button>
-                  </div>
-                </div>
-                <p className="text-[10px] text-muted-foreground mb-2">Every ticked module is emptied (device + cloud) when the day is closed.</p>
-                <div className="grid sm:grid-cols-2 gap-1">
-                  {DAY_CLOSE_MODULES.map(m => (
-                    <label key={m.col} className="flex items-center gap-2 text-xs cursor-pointer">
-                      <Checkbox
-                        checked={!!dayCloseCfg.modules?.[m.col]}
-                        onCheckedChange={(v) => setDayCloseCfg(c => ({ ...c, modules: { ...(c.modules || {}), [m.col]: !!v } }))}
-                      />
-                      <span>{m.label}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div className="text-[10px] text-muted-foreground bg-status-success/10 rounded p-2">
-                💾 Saved automatically — no need to tick again next time. User access (which cashier sees the Day Close request option) — tick the <b>"Day Close"</b> permission on the Users &amp; Roles page.
-              </div>
-            </div>
-          )}
-
-
-          {/* Pending requests panel (visible to admin) */}
-          {isAdmin && pendingRequests.length > 0 && (
-            <div className="bg-status-warning/10 border border-status-warning/40 rounded-xl p-4 space-y-2">
-              <h3 className="text-sm font-bold">⏳ Cashier Day Close Requests ({pendingRequests.length})</h3>
-              <div className="space-y-1">
-                {pendingRequests.map(r => (
-                  <div key={r.id} className="flex items-center justify-between text-xs bg-background rounded p-2">
-                    <span><b>{r.byName}</b> — {new Date(r.at).toLocaleString()}</span>
-                    <Button variant="ghost" size="sm" onClick={() => handleDismissRequest(r.id)}>Dismiss</Button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Action buttons */}
-          <div className="bg-card border rounded-xl p-6 space-y-3">
-            {canDayClose ? (
-              isAdmin ? (
-                <Button
-                  size="lg"
-                  className="w-full bg-destructive text-destructive-foreground hover:bg-destructive/90 text-sm font-bold"
-                  onClick={() => setShowDayClose(true)}
-                >
-                  🌙 Confirm &amp; Run Day Close (Admin)
-                </Button>
-              ) : (
-                <>
-                  <Button
-                    size="lg"
-                    className="w-full text-sm font-bold"
-                    onClick={handleRequestDayClose}
-                  >
-                    📨 Request Day Close (Admin will confirm)
-                  </Button>
-                  <p className="text-[11px] text-muted-foreground text-center">
-                    Nothing is deleted yet. Data is cleared only once an admin confirms from their panel.
-                  </p>
-                </>
-              )
-            ) : (
-              <p className="text-xs text-center text-muted-foreground">You do not have Day Close access. Ask an Admin for permission.</p>
-            )}
+            <Button onClick={() => { window.location.hash = '#/day-close'; }}>
+              <Moon className="h-4 w-4 mr-2" /> Open Day Close
+            </Button>
           </div>
         </TabsContent>
       </Tabs>
 
 
-
-      {/* Day Close Confirmation */}
-      <Dialog open={showDayClose} onOpenChange={setShowDayClose}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader><DialogTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-destructive" /> Confirm Day Close
-          </DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <p className="text-xs text-muted-foreground">
-              کیا آپ واقعی دن بند کرنا چاہتے ہیں؟ بل ہسٹری میں چلے جائیں گے (ڈیلیٹ نہیں ہوں گے) اور بیک اپ آٹو ڈاؤنلوڈ ہوگا۔
-            </p>
-
-            {preflight && (
-              <div className="rounded-lg border bg-muted/40 p-3 space-y-2 text-xs">
-                <div className="flex items-baseline justify-between">
-                  <span className="font-semibold">{preflight.total} bill(s) move to history</span>
-                  <span className="font-bold text-primary">{formatMoney(preflight.value)}</span>
-                </div>
-                <div className="text-[11px] text-muted-foreground">
-                  {preflight.byStatus.paid} paid · {preflight.byStatus.running} running/hold ·{' '}
-                  {preflight.byStatus.credit} credit · {preflight.byStatus.voided} void
-                </div>
-                <div className="text-[11px] text-status-success">
-                  Nothing is deleted. Every bill stays in the Admin sales and audit reports.
-                </div>
-
-                {preflight.paidWithoutPaymentRecord > 0 && (
-                  <div className="rounded border border-status-warning/50 bg-status-warning/10 p-2 text-[11px]">
-                    <b>{preflight.paidWithoutPaymentRecord} paid bill(s) have no payment record.</b>{' '}
-                    Their money counts in the sales total but nothing says how it was
-                    received, so cash-vs-card will not reconcile. Worth checking now.
-                  </div>
-                )}
-
-                {!preflight.safe && (
-                  <div className="rounded border border-destructive/50 bg-destructive/10 p-2 text-[11px]">
-                    <b>
-                      {preflight.unsyncedOrders < 0
-                        ? 'The offline queue could not be read.'
-                        : `${preflight.unsyncedOrders} bill(s) have not reached the server.`}
-                    </b>{' '}
-                    Day Close is blocked until they sync — closing now would lose them.
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={() => setShowDayClose(false)}>Cancel</Button>
-              <Button
-                className="flex-1 bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                onClick={handleDayClose}
-                disabled={!!preflight && !preflight.safe}
-              >
-                Confirm Day Close
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* Hidden Test Print render — KitchenReceipt / ReceiptPreview with autoPrint */}
       {testPrintKind && (() => {

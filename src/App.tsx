@@ -38,6 +38,7 @@ const SuperAdminPage = lazy(() => import("@/pages/SuperAdminPage"));
 const HRPage = lazy(() => import("@/pages/HRPage"));
 const AccountsPage = lazy(() => import("@/pages/AccountsPage"));
 const PartyMasterPage = lazy(() => import("@/pages/PartyMasterPage"));
+const DayClosePage = lazy(() => import("@/pages/DayClosePage"));
 const WhatsAppPage = lazy(() => import("@/pages/WhatsAppPage"));
 const DevicesPage = lazy(() => import("@/pages/DevicesPage"));
 const MarketingPage = lazy(() => import("@/pages/MarketingPage"));
@@ -952,6 +953,7 @@ const App = () => {
                 <Route path="/branch-management" element={<BranchManagementPage />} />
                 <Route path="/procurement" element={<ProcurementPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/day-close" element={<DayClosePage />} />
                 <Route path="/printing-center" element={<PrintingCenterPage />} />
                 {/* Legacy printing routes now redirect into the Printing Center */}
                 <Route path="/printer-settings" element={<Navigate to="/printing-center?tab=printers" replace />} />

@@ -22,7 +22,7 @@
 // top of a theme; choosing a theme clears it.
 // ============================================================
 import { useSyncExternalStore } from 'react';
-import { ALL_THEMES, DEFAULT_THEME_ID, INK_ON_ACCENT, RETAIL_THEMES, UI_THEMES, WHITE, findTheme, isRetailTheme, isThemeId, type UiTheme } from './uiThemes';
+import { ALL_THEMES, DEFAULT_THEME_ID, INK_ON_ACCENT, RETAIL_THEMES, UI_THEMES, WHITE, findTheme, isRefinedTheme, isRetailTheme, isThemeId, type UiTheme } from './uiThemes';
 
 export type UiStyle = 'modern' | 'classic';
 
@@ -172,7 +172,7 @@ const MODERN_VARS = [
   '--ui-text-h', '--ui-text-s', '--ui-text-l',
   '--ui-on-accent', '--ui-soft-s', '--ui-gold-on-dark',
 ];
-const MODERN_ATTRS = ['data-ui', 'data-ui-theme', 'data-sidebar', 'data-on-accent', 'data-look', 'data-ui-mode', 'data-anim'];
+const MODERN_ATTRS = ['data-ui', 'data-ui-theme', 'data-sidebar', 'data-on-accent', 'data-look', 'data-ui-mode', 'data-anim', 'data-refined-surface'];
 
 const softSaturation = (c: Hsl) => Math.max(6, Math.min(85, Math.round(c.s * 0.9)));
 
@@ -228,12 +228,16 @@ export function applyUiStyle(style: UiStyle = getUiStyle()): void {
       root.setAttribute('data-ui', 'modern');
       root.setAttribute('data-ui-theme', look.theme.id);
       syncCustomThemeStyle(look.theme.custom ? look.theme.css : undefined);
-      root.setAttribute('data-sidebar', look.theme.sidebar);
+      // v1.96.0 — DT Refined has surface choices (lavender, white, warm, cool, night); Night makes the whole page dark.
+      const refinedSurface = isRefinedTheme(look.theme.id) ? getRefinedSurface() : null;
+      const night = refinedSurface === 'night';
+      if (refinedSurface) root.setAttribute('data-refined-surface', refinedSurface); else root.removeAttribute('data-refined-surface');
+      root.setAttribute('data-sidebar', night ? 'dark' : look.theme.sidebar);
       root.setAttribute('data-on-accent', look.darkOnAccent ? 'dark' : 'light');
       // DT Retail: one more attribute switches on its extra rules (ui-retail.css);
       // a dark page and the animation preference ride along. All removed with the rest.
       if (look.theme.family === 'retail') root.setAttribute('data-look', 'retail'); else root.removeAttribute('data-look');
-      if (look.theme.dark) root.setAttribute('data-ui-mode', 'dark'); else root.removeAttribute('data-ui-mode');
+      if (look.theme.dark || night) root.setAttribute('data-ui-mode', 'dark'); else root.removeAttribute('data-ui-mode');
       if (getAnimations()) root.removeAttribute('data-anim'); else root.setAttribute('data-anim', 'off');
       const set = (k: string, v: string) => root.style.setProperty(k, v);
       set('--ui-accent-h', String(look.accent.h));
@@ -343,6 +347,31 @@ export function setAnimations(on: boolean): void {
   announce();
 }
 
+// ------------------------------------------------------------ DT Refined surfaces (v1.96.0)
+export const REFINED_SURFACE_KEY = 'dtpos-refined-surface';
+export type RefinedSurface = 'lavender' | 'white' | 'warm' | 'cool' | 'night';
+export const REFINED_SURFACES: { id: RefinedSurface; name: string; blurb: string; page: string; card: string; ink: string }[] = [
+  { id: 'lavender', name: 'Lavender', blurb: 'The design package: a soft lavender page, white panels.', page: '#f7f5fb', card: '#ffffff', ink: '#1a1523' },
+  { id: 'white',    name: 'Clean grey', blurb: 'A neutral light grey page, white panels.', page: '#f4f6f8', card: '#ffffff', ink: '#14181f' },
+  { id: 'warm',     name: 'Warm cream', blurb: 'A cream page — warm, food-friendly.', page: '#faf6ef', card: '#ffffff', ink: '#2a1b16' },
+  { id: 'cool',     name: 'Cool mist', blurb: 'A pale blue-grey page.', page: '#f1f6f8', card: '#ffffff', ink: '#0f1d24' },
+  { id: 'night',    name: 'Night', blurb: 'A dark page and panels, easy on the eyes in a dim shop.', page: '#0f0b18', card: '#1a1426', ink: '#f4f1fa' },
+];
+export const DEFAULT_REFINED_SURFACE: RefinedSurface = 'lavender';
+const isRefinedSurface = (v: unknown): v is RefinedSurface => REFINED_SURFACES.some(x => x.id === v);
+
+export function getRefinedSurface(): RefinedSurface {
+  const v = read(REFINED_SURFACE_KEY);
+  return isRefinedSurface(v) ? v : DEFAULT_REFINED_SURFACE;
+}
+
+export function setRefinedSurface(surface: RefinedSurface): void {
+  if (!isRefinedSurface(surface)) return;
+  try { localStorage.setItem(REFINED_SURFACE_KEY, surface); } catch { /* session only */ }
+  applyUiStyle();
+  announce();
+}
+
 /** Which look is on screen: DT Retail, plain Modern, or Classic. */
 export type UiLook = 'retail' | 'modern' | 'classic';
 export function getUiLook(): UiLook {
@@ -366,6 +395,10 @@ export function useUiStyle(): UiStyle {
 
 export function useAccentChoice(): string {
   return useSyncExternalStore(subscribe, getAccentChoice, () => DEFAULT_ACCENT_ID);
+}
+
+export function useRefinedSurface(): RefinedSurface {
+  return useSyncExternalStore(subscribe, getRefinedSurface, () => DEFAULT_REFINED_SURFACE);
 }
 
 export function useThemeId(): string {

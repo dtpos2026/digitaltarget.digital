@@ -106,8 +106,8 @@ export const PAGES: PageDef[] = [
   { key: 'backup',     path: '/backup',     title: 'Backup',     group: 'Admin',      defaultRoles: ['admin'] },
   { key: 'devices',    path: '/devices',    title: 'Devices',    group: 'Admin',      defaultRoles: ['admin'] },
   { key: 'version',    path: '/version',    title: 'Software Version', group: 'Admin', defaultRoles: ['admin'] },
-  // Virtual permission: controls who can *request* / *confirm* Day Close inside Settings.
-  { key: 'day-close',  path: '/settings',   title: 'Day Close',  group: 'Admin',      defaultRoles: ['admin'] },
+  // Controls who can *request* / *confirm* Day Close. v1.96.0 — it has its own page now (it was a tab in Settings).
+  { key: 'day-close',  path: '/day-close',  title: 'Day Close',  group: 'Admin',      defaultRoles: ['admin'] },
 ];
 
 

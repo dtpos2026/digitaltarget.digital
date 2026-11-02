@@ -15,8 +15,8 @@ import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import {
   ACCENT_PRESETS, MIN_ACCENT_CONTRAST, RETAIL_THEMES, UI_THEMES, clearAccent, contrastWithWhite, hexToHsl, hslToHex, resolveAccent,
-  resolveLook, restorePreviousLook, setAccent, setAnimations, setTheme, setUiStyle, useAccentOverride, useAnimations, usePreviousLook,
-  useThemeId, useUiLook, useUiStyle, type UiStyle,
+  REFINED_SURFACES, resolveLook, restorePreviousLook, setAccent, setAnimations, setRefinedSurface, setTheme, setUiStyle, useAccentOverride,
+  useAnimations, usePreviousLook, useRefinedSurface, useThemeId, useUiLook, useUiStyle, type RefinedSurface, type UiStyle,
 } from '@/lib/uiStyle';
 import type { UiTheme } from '@/lib/uiThemes';
 import { DEFAULT_THEME_ID, DESIGN_THEMES, INK_ON_ACCENT, REFINED_THEME_ID, isRefinedTheme } from '@/lib/uiThemes';
@@ -31,6 +31,18 @@ import { onDataChange } from '@/lib/store';
 export { ThemePreview };
 
 type Choice = 'refined' | UiStyle;
+
+/** DT Refined colour schemes (v1.96.0): a page colour and an accent, chosen together. No accent = the design package's own purple. */
+interface RefinedScheme { id: string; name: string; blurb: string; surface: RefinedSurface; accent: string | null }
+export const REFINED_SCHEMES: RefinedScheme[] = [
+  { id: 'dt-purple', name: 'DT Purple', blurb: 'The design package as drawn: lavender page, DT purple.', surface: 'lavender', accent: null },
+  { id: 'ocean', name: 'Ocean', blurb: 'Pale blue-grey page, deep blue actions.', surface: 'cool', accent: '#0369a1' },
+  { id: 'emerald', name: 'Emerald', blurb: 'Clean grey page, fresh green actions.', surface: 'white', accent: '#047857' },
+  { id: 'sunset', name: 'Sunset', blurb: 'Warm cream page, burnt-orange actions.', surface: 'warm', accent: '#c2410c' },
+  { id: 'rose', name: 'Rose', blurb: 'Clean grey page, crimson actions.', surface: 'white', accent: '#be123c' },
+  { id: 'graphite', name: 'Graphite', blurb: 'Neutral and quiet: grey page, slate actions.', surface: 'white', accent: '#334155' },
+  { id: 'night', name: 'Night', blurb: 'Dark page and panels with a violet accent, for a dim shop.', surface: 'night', accent: '#8b5cf6' },
+];
 const STYLES: { id: Choice; name: string; blurb: string }[] = [
   { id: 'refined', name: 'DT Refined', blurb: 'The DT design package: white grouped sidebar, lavender page, DT purple, the new dashboard. Open to every restaurant. Recommended.' },
   { id: 'modern', name: 'Modern', blurb: 'Light, calm and quick to scan. Short menu with a “More” launcher. Thirteen themes, plus the seven DT Retail looks.' },
@@ -124,7 +136,15 @@ export default function InterfaceStyleCard() {
   const customHsl = hexToHsl(custom);
   const customContrast = customHsl ? contrastWithWhite(customHsl) : null;
 
+  const refinedSurface = useRefinedSurface();
   const choice: Choice = style === 'modern' && isRefinedTheme(themeId) ? 'refined' : style;
+  // A ready-made scheme sets the page colour and the accent together.
+  const pickScheme = (sc: RefinedScheme) => {
+    setRefinedSurface(sc.surface);
+    if (sc.accent) setAccent(sc.accent); else clearAccent();
+    setCustom('');
+    toast.success(`${sc.name} colour scheme is on`);
+  };
   const pickStyle = (next: Choice) => {
     if (next === choice) return;
     if (next === 'refined') {
@@ -160,6 +180,57 @@ export default function InterfaceStyleCard() {
     setAccent(custom.startsWith('#') ? custom.toLowerCase() : `#${custom.toLowerCase()}`);
     if (customContrast != null && customContrast < MIN_ACCENT_CONTRAST) toast.info('Made a little darker so white text on it stays readable');
   };
+
+  // The "use my own accent colour" control: the same one for Modern and for DT Refined.
+  const accentChooser = (
+    <details className="group rounded-lg border bg-muted/30 p-3" open={!!override}>
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-[13px] font-bold">
+        <span>Use my own accent colour <span className="font-medium text-muted-foreground">(optional)</span></span>
+        {override && <span className="text-[12px] font-medium text-muted-foreground">In use: <span className="font-mono font-bold">{hslToHex(look.accent)}</span></span>}
+      </summary>
+      <div className="mt-3 space-y-3">
+        <p className="text-[12.5px] text-muted-foreground">Keeps the theme’s surfaces and changes only the buttons and highlights.</p>
+        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Accent colour">
+          {ACCENT_PRESETS.map(p => {
+            const hex = hslToHex(resolveAccent(p.id));
+            const on = override === p.id;
+            return (
+              <button
+                key={p.id}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                title={p.name}
+                onClick={() => { setAccent(p.id); setCustom(''); }}
+                className={cn('flex items-center gap-2 rounded-full border bg-card py-1 pl-1 pr-3 text-[12.5px] font-semibold transition-colors', on ? 'border-primary bg-primary/5' : 'hover:bg-accent')}
+              >
+                <span className="grid h-6 w-6 place-items-center rounded-full text-white" style={{ background: hex }}>{on && <Check className="h-3.5 w-3.5" />}</span>
+                {p.name}
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="text-[12.5px] font-semibold text-muted-foreground" htmlFor="accent-hex">Or a custom colour</label>
+          <input
+            id="accent-hex"
+            value={custom}
+            onChange={e => setCustom(e.target.value)}
+            placeholder="#d9480f"
+            maxLength={7}
+            className="h-9 w-28 rounded-[10px] border border-input bg-background px-3 font-mono text-[13px] outline-none focus:border-primary/60"
+            onKeyDown={e => { if (e.key === 'Enter') applyCustom(); }}
+          />
+          <Button type="button" size="sm" variant="outline" onClick={applyCustom} disabled={!customHsl}>Use this colour</Button>
+          {override && (
+            <Button type="button" size="sm" variant="ghost" onClick={() => { clearAccent(); setCustom(''); toast.success('Back to the theme’s own colour'); }}>
+              <RotateCcw className="h-4 w-4" /> Use the theme’s colour
+            </Button>
+          )}
+        </div>
+      </div>
+    </details>
+  );
 
   return (
     <div className="space-y-4 rounded-xl border bg-card p-5" data-testid="interface-style-card">
@@ -267,53 +338,61 @@ export default function InterfaceStyleCard() {
 
           {family === 'custom' && <CustomThemeManager />}
 
-          <details className="group rounded-lg border bg-muted/30 p-3" open={!!override}>
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-[13px] font-bold">
-              <span>Use my own accent colour <span className="font-medium text-muted-foreground">(optional)</span></span>
-              {override && <span className="text-[12px] font-medium text-muted-foreground">In use: <span className="font-mono font-bold">{hslToHex(look.accent)}</span></span>}
-            </summary>
-            <div className="mt-3 space-y-3">
-              <p className="text-[12.5px] text-muted-foreground">Keeps the theme’s surfaces and changes only the buttons and highlights.</p>
-              <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Accent colour">
-                {ACCENT_PRESETS.map(p => {
-                  const hex = hslToHex(resolveAccent(p.id));
-                  const on = override === p.id;
-                  return (
-                    <button
-                      key={p.id}
-                      type="button"
-                      role="radio"
-                      aria-checked={on}
-                      title={p.name}
-                      onClick={() => { setAccent(p.id); setCustom(''); }}
-                      className={cn('flex items-center gap-2 rounded-full border bg-card py-1 pl-1 pr-3 text-[12.5px] font-semibold transition-colors', on ? 'border-primary bg-primary/5' : 'hover:bg-accent')}
-                    >
-                      <span className="grid h-6 w-6 place-items-center rounded-full text-white" style={{ background: hex }}>{on && <Check className="h-3.5 w-3.5" />}</span>
-                      {p.name}
-                    </button>
-                  );
-                })}
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <label className="text-[12.5px] font-semibold text-muted-foreground" htmlFor="accent-hex">Or a custom colour</label>
-                <input
-                  id="accent-hex"
-                  value={custom}
-                  onChange={e => setCustom(e.target.value)}
-                  placeholder="#d9480f"
-                  maxLength={7}
-                  className="h-9 w-28 rounded-[10px] border border-input bg-background px-3 font-mono text-[13px] outline-none focus:border-primary/60"
-                  onKeyDown={e => { if (e.key === 'Enter') applyCustom(); }}
-                />
-                <Button type="button" size="sm" variant="outline" onClick={applyCustom} disabled={!customHsl}>Use this colour</Button>
-                {override && (
-                  <Button type="button" size="sm" variant="ghost" onClick={() => { clearAccent(); setCustom(''); toast.success('Back to the theme’s own colour'); }}>
-                    <RotateCcw className="h-4 w-4" /> Use the theme’s colour
-                  </Button>
-                )}
-              </div>
+          {accentChooser}
+        </div>
+      )}
+
+      {choice === 'refined' && (
+        <div className="space-y-5 border-t pt-4" data-testid="refined-schemes">
+          <div>
+            <div className="text-[13px] font-bold">Colour scheme</div>
+            <p className="text-[12.5px] text-muted-foreground">
+              DT Refined keeps its layout and changes its colours. Pick a ready-made scheme, or set the page colour and your own accent below.
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" role="radiogroup" aria-label="Colour scheme">
+            {REFINED_SCHEMES.map(sc => {
+              const surf = REFINED_SURFACES.find(x => x.id === sc.surface)!;
+              const on = refinedSurface === sc.surface && (sc.accent ? (override || '').toLowerCase() === sc.accent : !override);
+              return (
+                <button
+                  key={sc.id} type="button" role="radio" aria-checked={on} data-scheme={sc.id}
+                  onClick={() => pickScheme(sc)}
+                  className={cn('space-y-2 rounded-xl border p-3 text-left transition-colors', on ? 'border-primary bg-primary/5 ring-2 ring-primary/25' : 'hover:border-primary/40')}
+                >
+                  <div className="flex h-14 overflow-hidden rounded-lg border" style={{ background: surf.page }} aria-hidden>
+                    <div className="w-1/4" style={{ background: surf.card, borderRight: `1px solid ${surf.ink}22` }} />
+                    <div className="flex flex-1 flex-col justify-center gap-1.5 px-2">
+                      <div className="h-2 w-3/4 rounded" style={{ background: surf.ink, opacity: .75 }} />
+                      <div className="h-3 w-1/2 rounded" style={{ background: sc.accent || '#5b21b6' }} />
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[13px] font-bold">{sc.name}</span>
+                    {on && <span className="inline-flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[11px] font-bold text-primary-foreground"><Check className="h-3 w-3" /> In use</span>}
+                  </div>
+                  <p className="text-[12px] text-muted-foreground">{sc.blurb}</p>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="space-y-2">
+            <div className="text-[13px] font-bold">Page colour</div>
+            <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Page colour">
+              {REFINED_SURFACES.map(x => (
+                <button
+                  key={x.id} type="button" role="radio" aria-checked={refinedSurface === x.id} data-surface={x.id} title={x.blurb}
+                  onClick={() => { setRefinedSurface(x.id); toast.success(`${x.name} page colour is on`); }}
+                  className={cn('flex items-center gap-2 rounded-full border bg-card py-1 pl-1 pr-3 text-[12.5px] font-semibold transition-colors', refinedSurface === x.id ? 'border-primary bg-primary/5' : 'hover:bg-accent')}
+                >
+                  <span className="grid h-6 w-6 place-items-center rounded-full border" style={{ background: x.page }}>{refinedSurface === x.id && <Check className="h-3.5 w-3.5" style={{ color: x.ink }} />}</span>
+                  {x.name}
+                </button>
+              ))}
             </div>
-          </details>
+          </div>
+          {accentChooser}
         </div>
       )}
 
