@@ -72,6 +72,7 @@ const BranchesMapPage = lazy(() => import("@/pages/BranchesMapPage"));
 const LiveMapPage = lazy(() => import("@/pages/LiveMapPage"));
 const LiveRidersMapPage = lazy(() => import("@/pages/LiveRidersMapPage"));
 const RiderAppPage = lazy(() => import("@/pages/RiderAppPage"));
+const CustomerDisplayPage = lazy(() => import("@/pages/CustomerDisplayPage"));
 const PickupOrdersPage = lazy(() => import("@/pages/PickupOrdersPage"));
 const RidersListPage = lazy(() => import("@/pages/RidersListPage"));
 const ResetPasswordPage = lazy(() => import('@/pages/ResetPasswordPage'));
@@ -110,7 +111,7 @@ import { isCloudConfigured } from '@/lib/cloudMode';
 import { isFirebaseConfigured, fbAuth } from '@/lib/firebase';
 import { getTenantId, clearTenant } from '@/lib/tenant';
 import { isPublicTenantRoute, applyPublicTenantFromUrl, packagedTenantId, parsePublicTenantId, looksLikeSlug, cachedSlugTenant, resolveSlugTenant } from '@/lib/publicTenant';
-import { applyAppEntry, isOwnerAppRoute } from '@/lib/appEntry';
+import { applyAppEntry, isOwnerAppRoute, displayWindowHash } from '@/lib/appEntry';
 
 // ===== v1.47.0 — a portal APK must never open somebody else's screen =====
 //
@@ -860,6 +861,25 @@ const App = () => {
             <Suspense fallback={<OwnerSplash />}>
               <Routes>
                 <Route path="/owner-app/*" element={<OwnerAppPage onLogout={handleLogout} />} />
+              </Routes>
+            </Suspense>
+          </HashRouter>
+        </TooltipProvider>
+      </QueryClientProvider>
+    );
+  }
+
+  // v1.93.0 — the customer-facing display (from the offline POS): the bill as it is rung up and the order-ready board.
+  // It is a window for the customer, so it runs OUTSIDE the till's shell: no sidebar or header, and none of the shell's
+  // workers (KOT printer, order beeps, kitchen timer) — a second copy of those on the same till would print twice.
+  if (displayWindowHash(typeof window !== 'undefined' ? window.location.hash : '')) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <HashRouter>
+            <Suspense fallback={<PageFallback />}>
+              <Routes>
+                <Route path="/customer-display" element={<CustomerDisplayPage />} />
               </Routes>
             </Suspense>
           </HashRouter>

@@ -18,6 +18,8 @@ import {
 } from '@/lib/store';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import OrderTakerReview from '@/components/pos/OrderTakerReview';
+import { publishLiveBill, toLiveBill } from '@/lib/liveBill';
+import { serviceChargeLabel } from '@/lib/serviceCharge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import ManagerAuthDialog from '@/components/ManagerAuthDialog';
@@ -693,6 +695,34 @@ export default function POSScreen() {
     if (promoApplied) parts.push(`Promo ${promoApplied.code}`);
     return parts.length ? parts.join(' + ') : undefined;
   };
+
+  // Customer Display (brought across from the offline POS, v1.93.0): the bill as it is rung up — customer-facing fields
+  // only (lib/liveBill.ts builds it from an allow-list). Runs only when Settings → Display → "Enable Display Screen" is
+  // on; an order taker's phone never publishes one.
+  const liveBillOn = !!settings.displayEnabled && !isOrderTaker;
+  useEffect(() => {
+    if (!liveBillOn) return;
+    const t = window.setTimeout(() => {
+      publishLiveBill(toLiveBill({
+        orderType,
+        lines: cart,
+        subtotal,
+        discount: totalDiscount,
+        discountLabel: buildDiscountTitle() || 'Discount',
+        serviceCharge,
+        serviceChargeLabel: serviceChargeLabel({ serviceChargePercent: scPercent }),
+        tax: taxAmount,
+        delivery: 0,   // the delivery charge is added in the delivery dialog, after the order is rung up
+        total: grandTotal,
+        received: paymentReceivedNum,
+      }));
+    }, 150);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveBillOn, cart, orderType, subtotal, totalDiscount, serviceCharge, taxAmount, grandTotal, paymentReceivedNum]);
+  // Leaving the POS (or switching the display off) takes the bill off the customer's screen.
+  useEffect(() => () => publishLiveBill(null), []);
+  useEffect(() => { if (!liveBillOn) publishLiveBill(null); }, [liveBillOn]);
 
   // Re-validate promo whenever cart subtotal changes (in case cart shrinks below min)
   useEffect(() => {

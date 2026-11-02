@@ -120,3 +120,12 @@ export function isOwnerAppRoute(hash?: string): boolean {
   const h = hash ?? (typeof window !== 'undefined' ? window.location.hash : '');
   return /^#?\/owner-app(\/|$|\?)/.test(h);
 }
+
+/**
+ * v1.93.0 — is this the customer-facing display window (#/customer-display)? It opens on a second monitor facing the
+ * customer, so it runs outside the till's shell: no sidebar, no header, and none of the shell's workers.
+ */
+export function displayWindowHash(hash?: string): boolean {
+  const h = hash ?? (typeof window !== 'undefined' ? window.location.hash : '');
+  return /^#?\/customer-display(\/|$|\?)/.test(h);
+}
