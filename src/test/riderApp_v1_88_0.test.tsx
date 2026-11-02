@@ -356,7 +356,7 @@ describe('DT Rider, the screens', () => {
     fireEvent.click(within(screen.getByRole('navigation', { name: 'Rider app' })).getByRole('button', { name: /Orders/ }));
     expect(screen.getByRole('tab', { name: 'Mine (2)' })).toHaveAttribute('aria-selected', 'true');
     fireEvent.click(screen.getByRole('tab', { name: 'History' }));
-    expect(document.querySelector('[data-rider-record="done1"]')).toHaveTextContent('Today 14:00');
+    await waitFor(() => expect(document.querySelector('[data-rider-record="done1"]')).toHaveTextContent('Today 14:00'));
     expect(document.querySelector('[data-rider-record="done2"]')).toHaveTextContent('3 Nov');
 
     fireEvent.click(within(screen.getByRole('navigation', { name: 'Rider app' })).getByRole('button', { name: /Record/ }));

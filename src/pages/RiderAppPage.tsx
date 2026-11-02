@@ -11,7 +11,7 @@ import { shouldSendPing, appendRoutePoint, type PingPoint } from '@/lib/riderPin
 import { buildTrackingWhatsAppText, setDeliveryStage, DELIVERY_STAGE_LABEL, computeDistance, estimateEta, notifyCustomerStage } from '@/lib/delivery';
 import ReadyNotificationBus from '@/components/ReadyNotificationBus';
 import ReadyOrderPoller from '@/components/ReadyOrderPoller';
-import { portalClaimOrder, portalSetDeliveryStage } from '@/lib/portalData';
+import { portalClaimOrder, portalSetDeliveryStage, hasPortalSession as portalSessionOnThisPhone } from '@/lib/portalData';
 import { startVisiblePoll } from '@/lib/visiblePoll';
 import PortalRestaurantBadge from '@/components/PortalRestaurantBadge';
 import StaffProfileCard from '@/components/StaffProfileCard';
@@ -359,7 +359,9 @@ export default function RiderAppPage() {
     orders: Array<Record<string, unknown>>;
     totals: { delivered?: number; today?: number; earnings?: number };
   } | null>(null);
-  const [historyState, setHistoryState] = useState<'loading' | 'ready' | 'failed' | 'local'>('loading');
+  // A phone with no portal session (the staff route) keeps its own record: known at once, no loading rows.
+  const [historyState, setHistoryState] = useState<'loading' | 'ready' | 'failed' | 'local'>(
+    () => (portalSessionOnThisPhone() ? 'loading' : 'local'));
 
   const loadHistory = useCallback(async () => {
     try {
