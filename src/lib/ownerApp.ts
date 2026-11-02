@@ -484,3 +484,20 @@ export function buildExpense(input: ExpenseInput, categories: AccountCategory[],
     },
   };
 }
+
+// ------------------------------------------------------------------ compare branches (v1.87.0)
+export type CompareMeasure = 'revenue' | 'bills' | 'avgBill' | 'owed' | 'voided';
+export const COMPARE_MEASURES: { id: CompareMeasure; label: string; money: boolean; lowerIsBetter?: boolean }[] = [
+  { id: 'revenue', label: 'Money taken', money: true },
+  { id: 'bills', label: 'Bills', money: false },
+  { id: 'avgBill', label: 'Average bill', money: true },
+  { id: 'owed', label: 'Still owed', money: true, lowerIsBetter: true },
+  { id: 'voided', label: 'Void / cancelled', money: false, lowerIsBetter: true },
+];
+
+/** Branches ranked by a measure, best first ("still owed" and voids: lowest first). Bills without a branch are not a branch. */
+export function rankBranches(rows: BranchFigures[], measure: CompareMeasure): BranchFigures[] {
+  const m = COMPARE_MEASURES.find(x => x.id === measure)!;
+  return rows.filter(r => !r.unassigned && r.name !== 'Unknown branch')
+    .sort((a, b) => (m.lowerIsBetter ? a[measure] - b[measure] : b[measure] - a[measure]) || a.name.localeCompare(b.name));
+}

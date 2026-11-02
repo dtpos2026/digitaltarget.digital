@@ -121,7 +121,8 @@ describe('who sees the page', () => {
   });
   it('and leaves every other page exactly as it was', () => {
     localStorage.setItem('pos-tenant-plan', 'enterprise');
-    const base = visiblePagesForUser(admin, true, settings).map(p => p.key).filter(k => k !== 'branch-performance');
+    // v1.87.0 — Branch Management joined Branch Performance as a page only a multi-branch restaurant sees.
+    const base = visiblePagesForUser(admin, true, settings).map(p => p.key).filter(k => !MULTI_BRANCH_ONLY_PAGES.includes(k));
     const single = visiblePagesForUser(admin, true, settings, { branchCount: 1 }).map(p => p.key);
     expect(single).toEqual(base);
   });

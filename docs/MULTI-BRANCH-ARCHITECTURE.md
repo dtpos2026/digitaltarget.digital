@@ -1,6 +1,6 @@
 # Multi-Branch & Food Chain Management — requirement, audit, design
 
-**Recorded:** 2026-11-01 (owner requirement #4) · **Status:** requirement noted, audit done; **Phase 1 built in v1.82.0** (see §6); the rest is design.
+**Recorded:** 2026-11-01 (owner requirement #4) · **Status:** requirement noted, audit done; **Phase 1 built in v1.82.0**, the Owner app's branch view in v1.86.0, **Branch Management and stock transfers (G4) in v1.87.0** (see §6); Phase 2 waits for the decisions in §5.
 
 ## 1. The requirement (owner's words, condensed)
 1. A proper enterprise multi-branch system for restaurant chains and businesses with several branches.
@@ -102,3 +102,13 @@
 
 ### Open question added
 5. Should employees, payroll, suppliers and recipes become branch-owned (isolated per branch, with the owner seeing all), or stay business-wide?
+
+### v1.87.0 — Branch Management (desktop + Owner app) and stock transfers between branches
+Asked again by the owner as "branch management, A to Z, in the web and the app".
+- **Branch Management** (`/branch-management`, multi-branch only, owners and managers, Business plan and up): a card per branch — live or quiet (a till seen in the last 5 minutes or a bill in the last 30), money taken, bills, open bills, **target progress**, stock and low items, **tills online**, stock in transit — and per branch: Overview, Stock, Staff, Tills, Targets, Transfers, Info.
+- **Owner app**: the same per-branch tabs, **Compare branches** (ranked by a measure), **Stock transfers**.
+- **G4 done — stock transfers**: send (out of the sender, in transit) → receive (into the receiver's matching item or a new one in that branch, moving-average cost carried, shortfall recorded) → or cancel (back to the sender). Each stock change is one stock-ledger movement with its own id, so nothing moves twice; access follows the branch (send/cancel: the sender's; receive: the receiver's).
+- **Branch targets**: daily and monthly money-taken targets per branch, with on-track/behind against the month's pace.
+- **No schema change**: transfers and targets are document-store kinds (`stockTransfers`, `branchTargets`), synced like purchase orders; staff and tills are read with the existing users RPC and devices table.
+- **Still waiting for the owner (§5)**: branch prices / availability overrides and who approves them (Q2, Q3), settings per branch (G3), branch-owned employees / payroll / suppliers / recipes (Q5), branch loyalty (Q4), a brand layer (Q1). Regional-manager template (G7) and server-side aggregation (G6) remain Phase 3.
+

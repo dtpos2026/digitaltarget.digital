@@ -80,6 +80,7 @@ const VerifyInvoicePage = lazy(() => import("@/pages/VerifyInvoicePage"));
 const OnlinePortalPage = lazy(() => import("@/pages/OnlinePortalPage"));
 const OrderTakerPortalPage = lazy(() => import("@/pages/OrderTakerPortalPage"));
 const OwnerAppPage = lazy(() => import("@/pages/OwnerAppPage"));
+const BranchManagementPage = lazy(() => import("@/pages/BranchManagementPage"));
 const PrintingCenterPage = lazy(() => import("@/pages/PrintingCenterPage"));
 const AdminSalesHistoryPage = lazy(() => import("@/pages/AdminSalesHistoryPage"));
 const AuditHistoryPage = lazy(() => import("@/pages/AuditHistoryPage"));
@@ -925,6 +926,7 @@ const App = () => {
                 <Route path="/costing" element={<CostingReportsPage />} />
                 <Route path="/financials" element={<FinancialStatementsPage />} />
                 <Route path="/branch-performance" element={<BranchPerformancePage />} />
+                <Route path="/branch-management" element={<BranchManagementPage />} />
                 <Route path="/procurement" element={<ProcurementPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/printing-center" element={<PrintingCenterPage />} />

@@ -448,7 +448,7 @@ const ARRAY_COLLECTIONS = [
   'categories', 'menuItems', 'orders', 'tables', 'floors', 'kitchens', 'waiters', 'riders', 'users',
   'inventory', 'stockLogs', 'employees', 'attendance', 'leaves', 'payslips', 'advances',
   'accountCategories', 'transactions', 'parties', 'ledger', 'dailyCashCloses',
-  'receivingEntries', 'purchaseOrders', 'marketingContacts', 'recipes', 'wastages', 'customers', 'branches',
+  'receivingEntries', 'purchaseOrders', 'stockTransfers', 'branchTargets', 'marketingContacts', 'recipes', 'wastages', 'customers', 'branches',
   'creditPayments', 'promoCodes', 'paymentAccounts', 'deals', 'shifts', 'refunds',
 ] as const;
 
@@ -1363,6 +1363,8 @@ export function startSupabaseRealtime() {
           scheduleReload('waiters');
           scheduleReload('riders');
           scheduleReload('purchaseOrders');
+          scheduleReload('stockTransfers');
+          scheduleReload('branchTargets');
         });
       if (generation !== sbRealtimeGeneration) {
         try { sb().removeChannel(channel); } catch {}
@@ -3788,7 +3790,7 @@ export function savePaymentAccount(a: PaymentAccount) { saveEntity('paymentAccou
 export function deletePaymentAccount(id: string) { deleteEntity('paymentAccounts' as any, id); }
 
 // ============ Receiving (GRN) ============
-import type { ReceivingEntry, MarketingContact, PurchaseOrder } from './types';
+import type { ReceivingEntry, MarketingContact, PurchaseOrder, StockTransfer, BranchTarget } from './types';
 import { toBaseQty, getBaseUnit } from './units';
 
 export function getReceivingEntries(): ReceivingEntry[] { return loadData().receivingEntries || []; }
@@ -3876,6 +3878,15 @@ export function deleteReceivingEntry(id: string) { deleteEntity('receivingEntrie
 export function getPurchaseOrders(): PurchaseOrder[] { return loadData().purchaseOrders || []; }
 export function savePurchaseOrder(po: PurchaseOrder) { saveEntity('purchaseOrders', po); }
 export function deletePurchaseOrder(id: string) { deleteEntity('purchaseOrders', id); }
+
+// ============ Branch management (v1.87.0) ============
+// Stock transfers and branch targets live in the backend document store (module_documents, kinds 'stockTransfers' and
+// 'branchTargets'), like purchase orders: no table of their own, the same tenant RLS. Stock itself only ever moves
+// through adjustStock (lib/stockTransfers.ts), so every change is a ledger movement.
+export function getStockTransfers(): StockTransfer[] { return loadData().stockTransfers || []; }
+export function saveStockTransfer(t: StockTransfer) { saveEntity('stockTransfers', t); }
+export function getBranchTargets(): BranchTarget[] { return loadData().branchTargets || []; }
+export function saveBranchTarget(t: BranchTarget) { saveEntity('branchTargets', t); }
 
 // ============ Marketing ============
 export function getMarketingContacts(): MarketingContact[] { return loadData().marketingContacts || []; }

@@ -94,6 +94,8 @@ export function seedData(): AppData {
     dailyCashCloses: [],
     receivingEntries: [],
     purchaseOrders: [],
+    stockTransfers: [],
+    branchTargets: [],
     marketingContacts: [],
     recipes: [],
     wastages: [],

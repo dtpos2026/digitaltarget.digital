@@ -97,6 +97,8 @@ export const PAGES: PageDef[] = [
   { key: 'settings',   path: '/settings',   title: 'Settings',   group: 'Admin',      defaultRoles: ['admin'] },
   { key: 'printing-center', path: '/printing-center', title: 'Printing Center', group: 'Admin', defaultRoles: ['admin', 'manager'] },
   { key: 'branches',   path: '/branches',   title: 'Branches',   group: 'Admin',      defaultRoles: ['admin'] },
+  // v1.87.0 — every branch A to Z: live status, targets, stock, staff, tills and stock transfers between branches.
+  { key: 'branch-management', path: '/branch-management', title: 'Branch Management', group: 'Admin', defaultRoles: ['admin', 'manager'] },
   { key: 'branches-map', path: '/branches-map', title: 'Branches Map', group: 'Admin',  defaultRoles: ['admin', 'manager'] },
   { key: 'live-map',    path: '/live-map',    title: 'Live Map',    group: 'Admin',     defaultRoles: ['admin', 'manager'] },
   { key: 'live-riders', path: '/live-riders', title: 'Live Riders Map', group: 'Admin',     defaultRoles: ['admin', 'manager'] },
@@ -200,7 +202,7 @@ export const COST_TRACKING_PAGES = ['recipes', 'profitability', 'wastage', 'cost
 
 /** Convenience for the layout: filter pages a user can see (role + cost toggle + plan). */
 /** Pages that only make sense when the restaurant has two or more branches. */
-export const MULTI_BRANCH_ONLY_PAGES = ['branch-performance'];
+export const MULTI_BRANCH_ONLY_PAGES = ['branch-performance', 'branch-management'];
 
 export function visiblePagesForUser(
   user: User | undefined | null,

@@ -20,13 +20,16 @@ import { OwnerOrderDetail, OwnerOrders } from '@/components/owner/OwnerOrders';
 import { OwnerReports } from '@/components/owner/OwnerReports';
 import { OwnerMenu } from '@/components/owner/OwnerMenu';
 import { OwnerExpenses, OwnerMore, OwnerStock } from '@/components/owner/OwnerMore';
+import { OwnerCompare, OwnerTransfers } from '@/components/owner/OwnerBranches';
+import { getBranches } from '@/lib/store';
+import { isBranchAllowed } from '@/lib/branchAccess';
 
 const TABS = [
-  { key: 'overview', label: 'Overview', icon: LayoutGrid, to: OWNER_BASE, match: (p: string) => p === OWNER_BASE || p === `${OWNER_BASE}/` || p.startsWith(`${OWNER_BASE}/branch`) },
+  { key: 'overview', label: 'Overview', icon: LayoutGrid, to: OWNER_BASE, match: (p: string) => p === OWNER_BASE || p === `${OWNER_BASE}/` || p.startsWith(`${OWNER_BASE}/branch`) || p.startsWith(`${OWNER_BASE}/compare`) },
   { key: 'orders', label: 'Orders', icon: ReceiptText, to: `${OWNER_BASE}/orders`, match: (p: string) => p.startsWith(`${OWNER_BASE}/orders`) },
   { key: 'menu', label: 'Menu', icon: UtensilsCrossed, to: `${OWNER_BASE}/menu`, match: (p: string) => p.startsWith(`${OWNER_BASE}/menu`) },
   { key: 'reports', label: 'Reports', icon: BarChart3, to: `${OWNER_BASE}/reports`, match: (p: string) => p.startsWith(`${OWNER_BASE}/reports`) },
-  { key: 'more', label: 'More', icon: MenuIcon, to: `${OWNER_BASE}/more`, match: (p: string) => /^\/owner-app\/(more|stock|expenses)/.test(p) },
+  { key: 'more', label: 'More', icon: MenuIcon, to: `${OWNER_BASE}/more`, match: (p: string) => /^\/owner-app\/(more|stock|expenses|transfers)/.test(p) },
 ] as const;
 
 export default function OwnerAppPage({ onLogout }: { onLogout: () => void }) {
@@ -34,6 +37,8 @@ export default function OwnerAppPage({ onLogout }: { onLogout: () => void }) {
   const navigate = useNavigate();
   const { user, can, allowed } = useMemo(() => ownerAppAccess(), []);
   const canReports = can('reports') || can('owner-management');
+  // v1.87.0 — comparing and moving stock need two branches or more.
+  const multi = getBranches().filter(b => b.isActive !== false).length > 1;
   const tabs = TABS.filter(t => (t.key === 'menu' ? can('menu') : t.key === 'reports' ? canReports : true));
 
   if (!allowed) {
@@ -83,12 +88,14 @@ export default function OwnerAppPage({ onLogout }: { onLogout: () => void }) {
       <main className="mx-auto w-full max-w-[560px] px-4 pb-28 pt-[max(0.5rem,env(safe-area-inset-top))] min-[820px]:max-w-[1100px] min-[820px]:pb-10 min-[820px]:pl-[124px] min-[820px]:pr-8">
         <Routes>
           <Route path="/" element={<OwnerOverview caps={{ approvals: can('online-approval'), stock: can('inventory') }} />} />
-          <Route path="/branch/:id" element={<OwnerBranch />} />
+          <Route path="/branch/:id" element={<OwnerBranch caps={{ targets: can('branches'), stock: can('inventory'), by: user?.name || '' }} />} />
+          {multi && <Route path="/compare" element={<OwnerCompare />} />}
+          {multi && <Route path="/transfers" element={<OwnerTransfers caps={{ can: id => isBranchAllowed(id), stock: can('inventory'), by: user?.name || '' }} />} />}
           <Route path="/orders" element={<OwnerOrders />} />
           <Route path="/orders/:id" element={<OwnerOrderDetail />} />
           {canReports && <Route path="/reports" element={<OwnerReports />} />}
           {can('menu') && <Route path="/menu" element={<OwnerMenu />} />}
-          <Route path="/more" element={<OwnerMore caps={{ can, userName: user?.name || '', role: user?.role || '', onLogout }} />} />
+          <Route path="/more" element={<OwnerMore caps={{ can, userName: user?.name || '', role: user?.role || '', onLogout, multiBranch: multi }} />} />
           {can('inventory') && <Route path="/stock" element={<OwnerStock />} />}
           {can('accounts') && <Route path="/expenses" element={<OwnerExpenses userName={user?.name || ''} />} />}
           <Route path="*" element={<Navigate to={OWNER_BASE} replace />} />

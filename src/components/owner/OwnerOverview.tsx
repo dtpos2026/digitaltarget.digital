@@ -16,6 +16,8 @@ import {
 } from '@/lib/ownerApp';
 import { cn } from '@/lib/utils';
 import { Badge, Bar, Card, Empty, IconButton, Label, PresetChips, ScreenHeader } from './ownerUi';
+import { BranchStaffPanel, BranchStockPanel, BranchTargetsPanel, BranchTillsPanel } from '@/components/branches/BranchPanels';
+import { TransferList } from '@/components/branches/Transfers';
 import { OWNER_BASE, rs, useBranchVisibility, useLiveTick } from './ownerHooks';
 
 const SPLIT_COLOURS = ['hsl(var(--primary))', 'hsl(173 80% 26%)', 'hsl(17 88% 40%)', 'hsl(224 76% 48%)', 'hsl(330 65% 45%)'];
@@ -84,7 +86,9 @@ export function OwnerOverview({ caps }: { caps: OwnerCaps }) {
       )}
 
       <div>
-        <Label right={`${rows.length} ${branches.length === 0 ? 'place' : rows.length === 1 ? 'branch' : 'branches'}`}>By branch</Label>
+        <Label right={branches.length > 1
+          ? <button type="button" onClick={() => navigate(`${OWNER_BASE}/compare`)} className="font-semibold text-primary" data-testid="own-compare-link">Compare {rows.length} branches</button>
+          : `${rows.length} ${branches.length === 0 ? 'place' : 'branch'}`}>By branch</Label>
         {rows.length === 0 ? (
           <Empty>No branches set up yet — add them in Settings → Branches.</Empty>
         ) : (
@@ -120,8 +124,16 @@ export function OwnerOverview({ caps }: { caps: OwnerCaps }) {
   );
 }
 
-export function OwnerBranch() {
+export interface BranchCaps { targets: boolean; stock: boolean; by: string }
+type BranchTab = 'today' | 'stock' | 'staff' | 'tills' | 'targets' | 'transfers';
+const BRANCH_TABS: { id: BranchTab; label: string }[] = [
+  { id: 'today', label: 'Today' }, { id: 'stock', label: 'Stock' }, { id: 'staff', label: 'Staff' },
+  { id: 'tills', label: 'Tills' }, { id: 'targets', label: 'Targets' }, { id: 'transfers', label: 'Transfers' },
+];
+
+export function OwnerBranch({ caps = { targets: false, stock: false, by: '' } }: { caps?: BranchCaps }) {
   const navigate = useNavigate();
+  const [tab, setTab] = useState<BranchTab>('today');
   const { id = '' } = useParams<{ id: string }>();
   const branchId = decodeURIComponent(id);
   const tick = useLiveTick(['orders', 'branches']);
@@ -151,6 +163,18 @@ export function OwnerBranch() {
   return (
     <div className="space-y-4" data-testid="owner-branch">
       <ScreenHeader title={name} back={OWNER_BASE} />
+      {/* v1.87.0 — the branch, A to Z: today's trading, its stock, staff, tills, targets and stock transfers. */}
+      {branchId !== UNASSIGNED && (
+        <div role="tablist" aria-label="Branch" className="own-scroll-x -mx-4 flex gap-2 px-4 pb-1" data-testid="own-branch-tabs">
+          {BRANCH_TABS.map(t => <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} data-own-chip onClick={() => setTab(t.id)}>{t.label}</button>)}
+        </div>
+      )}
+      {tab === 'stock' && <BranchStockPanel branchId={branchId} />}
+      {tab === 'staff' && <BranchStaffPanel branchId={branchId} />}
+      {tab === 'tills' && <BranchTillsPanel branchId={branchId} />}
+      {tab === 'targets' && <BranchTargetsPanel branchId={branchId} canEdit={caps.targets} by={caps.by} />}
+      {tab === 'transfers' && <TransferList caps={{ can: id => vis.allowed(id), stock: caps.stock, by: caps.by }} branchId={branchId} compact />}
+      {tab === 'today' && <>
       <PresetChips value={preset} onChange={setPreset} />
 
       <Card>
@@ -239,6 +263,7 @@ export function OwnerBranch() {
           </div>
         )}
       </div>
+      </>}
     </div>
   );
 }

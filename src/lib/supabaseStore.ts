@@ -132,7 +132,7 @@ export const DOC_TABLES = new Set([
  * still go through the dedicated pos_set_staff_profile path; this only stores
  * the roster record.
  */
-export const DOC_STORE_COLLECTIONS = new Set(['waiters', 'riders', 'purchaseOrders']);
+export const DOC_STORE_COLLECTIONS = new Set(['waiters', 'riders', 'purchaseOrders', 'stockTransfers', 'branchTargets']);
 
 export function isDocStoreCollection(col: string): boolean {
   return DOC_STORE_COLLECTIONS.has(col);

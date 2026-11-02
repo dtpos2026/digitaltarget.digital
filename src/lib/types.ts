@@ -1494,6 +1494,10 @@ export interface AppData {
   // Operations
   receivingEntries: ReceivingEntry[];
   purchaseOrders: PurchaseOrder[];
+  /** v1.87.0 — stock sent between branches (module_documents kind 'stockTransfers'). */
+  stockTransfers: StockTransfer[];
+  /** v1.87.0 — daily / monthly sales targets per branch (module_documents kind 'branchTargets'). */
+  branchTargets: BranchTarget[];
   marketingContacts: MarketingContact[];
   // Recipes & Wastage (Phase 4)
   recipes: Recipe[];
@@ -1548,6 +1552,60 @@ export interface PromoCode {
 }
 
 // ============= MULTI-BRANCH (Phase 6) =============
+// ============= BRANCH MANAGEMENT (v1.87.0) =============
+export type TransferStatus = 'in_transit' | 'received' | 'cancelled';
+
+/** One item sent from one branch's stock to another's. Quantities are in the item's base unit. */
+export interface StockTransferLine {
+  id: string;
+  /** The item at the sending branch. */
+  fromItemId: string;
+  itemName: string;
+  sku?: string;
+  unit: string;
+  /** Quantity sent. */
+  qty: number;
+  /** Cost per base unit at the sending branch when it left (carried into the receiving branch's moving average). */
+  unitCost: number;
+  /** Set on receipt: the receiving branch's item (matched by SKU or name, or created) and what arrived. */
+  toItemId?: string;
+  receivedQty?: number;
+}
+
+/**
+ * Stock moving between branches: out of the sender when sent (in transit), into the receiver when received. Each side's
+ * stock change is a stock-ledger movement with its own id, so a retry never moves stock twice.
+ */
+export interface StockTransfer {
+  id: string;
+  /** "TR-0007" — for people; the id is what the system uses. */
+  number: string;
+  fromBranchId: string;
+  toBranchId: string;
+  status: TransferStatus;
+  lines: StockTransferLine[];
+  note?: string;
+  sentAt: string;
+  sentBy?: string;
+  receivedAt?: string;
+  receivedBy?: string;
+  cancelledAt?: string;
+  cancelledBy?: string;
+  cancelReason?: string;
+  /** The sending branch (the document store's branch stamp). */
+  branchId?: string;
+}
+
+/** A branch's sales targets (money taken). One document per branch; id = branchId. */
+export interface BranchTarget {
+  id: string;
+  branchId: string;
+  daily?: number;
+  monthly?: number;
+  updatedAt?: string;
+  updatedBy?: string;
+}
+
 export interface Branch {
   id: string;
   name: string;              // e.g. "Burewala Main", "Vehari Branch"

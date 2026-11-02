@@ -126,6 +126,8 @@ function opKey(col: string, entityId: string): string { return `${col}::${entity
 const CRITICAL_COLS = new Set([
   'orders', 'orderItems', 'orderPayments', 'refunds',
   'inventory', 'stockLogs', 'shifts', 'dayCloses',
+  // v1.87.0 — stock moving between branches is stock: write through at once.
+  'stockTransfers',
 ]);
 
 /**

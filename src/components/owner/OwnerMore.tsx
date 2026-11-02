@@ -7,8 +7,8 @@
 // ============================================================
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
-  AlertTriangle, Bike, Boxes, ChefHat, ChevronRight, CircleCheck, Globe, IdCard, LayoutDashboard, LogOut, Phone, Plus,
-  Receipt, Settings, Smartphone, Users, X,
+  AlertTriangle, BarChart3, Bike, Boxes, Building2, ChefHat, ChevronRight, CircleCheck, Globe, IdCard, LayoutDashboard, LogOut, Phone, Plus,
+  Receipt, Settings, Smartphone, Truck, Users, X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from '@/lib/hash-router';
@@ -22,7 +22,7 @@ import { cn } from '@/lib/utils';
 import { Badge, Bar, Card, Empty, Label, ScreenHeader } from './ownerUi';
 import { OWNER_BASE, rs, useLiveTick } from './ownerHooks';
 
-export interface MoreCaps { can: (pageKey: string) => boolean; userName: string; role: string; onLogout: () => void }
+export interface MoreCaps { can: (pageKey: string) => boolean; userName: string; role: string; onLogout: () => void; multiBranch?: boolean }
 
 function Row({ icon: Icon, label, to, onClick, badge, testId }: { icon: typeof Bike; label: string; to?: string; onClick?: () => void; badge?: ReactNode; testId?: string }) {
   const navigate = useNavigate();
@@ -49,6 +49,12 @@ export function OwnerMore({ caps }: { caps: MoreCaps }) {
     caps.can('kitchen') && <Row key="k" icon={ChefHat} label="Kitchen" to="/kitchen" />,
     caps.can('online-approval') && <Row key="a" icon={CircleCheck} label="Online approvals" to="/online-approval" badge={approvals > 0 ? <Badge tone="warning">{approvals}</Badge> : undefined} />,
   ].filter(Boolean);
+  // v1.87.0 — branches, A to Z
+  const branchRows = caps.multiBranch ? [
+    <Row key="cmp" icon={BarChart3} label="Compare branches" to={`${OWNER_BASE}/compare`} testId="own-more-compare" />,
+    caps.can('inventory') && <Row key="tr" icon={Truck} label="Stock transfers" to={`${OWNER_BASE}/transfers`} testId="own-more-transfers" />,
+    caps.can('branch-management') && <Row key="bm" icon={Building2} label="Branch management (full)" to="/branch-management" />,
+  ].filter(Boolean) : [];
   const money = [
     (caps.can('customers') || caps.can('credits')) && <Row key="c" icon={Users} label="Customers and credit" to={caps.can('credits') ? '/credits' : '/customers'} />,
     (caps.can('hr') || caps.can('users')) && <Row key="s" icon={IdCard} label="Staff" to={caps.can('hr') ? '/hr' : '/users'} />,
@@ -73,6 +79,7 @@ export function OwnerMore({ caps }: { caps: MoreCaps }) {
         </div>
         <Badge tone="accent" className="capitalize">{caps.role}</Badge>
       </Card>
+      {branchRows.length > 0 && <div><Label>Branches</Label><Card className="py-1">{branchRows}</Card></div>}
       {ops.length > 0 && <div><Label>Operations</Label><Card className="py-1">{ops}</Card></div>}
       {money.length > 0 && <div><Label>People and money</Label><Card className="py-1">{money}</Card></div>}
       <div><Label>Admin</Label><Card className="py-1">{admin}</Card></div>

@@ -43,6 +43,8 @@ const BUSINESS_FEATURES = [
   'riders', 'rider-app', 'branches', 'owner-management', 'branch-performance',
   // v1.86.0 — the owner's phone app sits with Owner Management, its desktop twin.
   'owner-app',
+  // v1.87.0 — branch management (status, targets, stock, staff, tills, transfers) sits with the branches.
+  'branch-management',
 ];
 
 const PREMIUM_FEATURES = [
