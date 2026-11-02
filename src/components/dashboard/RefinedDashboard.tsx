@@ -13,7 +13,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import {
-  Banknote, BellRing, Calculator, CheckCircle2, Clock, Download, LayoutDashboard, PackageX, Receipt, ShoppingBag, Wallet,
+  Banknote, BellRing, Calculator, CheckCircle2, ChefHat, Clock, Download, LayoutDashboard, PackageX, Plus, Receipt, ShoppingBag, UtensilsCrossed, Wallet,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from '@/lib/hash-router';
@@ -54,15 +54,30 @@ function Up({ up, children }: { up: boolean | null; children: React.ReactNode })
   );
 }
 
-function Kpi({ id, label, value, icon: Icon, children }: { id: string; label: string; value: string; icon: typeof Banknote; children: React.ReactNode }) {
+/** A tinted area sparkline across the bottom of a KPI card (the reference's KPI cards). Pure SVG; nothing when there is no shape to draw. */
+function Sparkline({ values }: { values: number[] }) {
+  if (values.length < 2 || values.every(v => v === values[0])) return null;
+  const max = Math.max(...values); const min = Math.min(...values); const span = max - min || 1;
+  const pts = values.map((v, i) => [(i / (values.length - 1)) * 100, 26 - ((v - min) / span) * 22] as const);
+  const line = pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
   return (
-    <div data-stat-card data-testid={`sw02-kpi-${id}`} className="min-w-0 rounded-[var(--ui-radius-card,1rem)] border bg-card p-5 shadow-sm">
+    <svg data-kpi-spark viewBox="0 0 100 30" preserveAspectRatio="none" className="block h-full w-full" aria-hidden>
+      <polygon points={`0,30 ${line} 100,30`} fill="hsl(var(--primary) / .12)" />
+      <polyline points={line} fill="none" stroke="hsl(var(--primary) / .55)" strokeWidth="1.6" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function Kpi({ id, label, value, icon: Icon, children, spark }: { id: string; label: string; value: string; icon: typeof Banknote; children: React.ReactNode; spark?: number[] }) {
+  return (
+    <div data-stat-card data-testid={`sw02-kpi-${id}`} className="min-w-0 overflow-hidden rounded-[var(--ui-radius-card,1rem)] border bg-card p-5 shadow-sm">
       <div className="flex items-start justify-between gap-2">
         <span className="pt-1 text-[13px] font-semibold text-muted-foreground">{label}</span>
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-primary/10 text-primary"><Icon className="h-[18px] w-[18px]" /></span>
       </div>
       <div className="mt-1 truncate text-[28px] font-extrabold leading-tight tracking-tight tabular-nums" data-testid={`sw02-kpi-${id}-value`}>{value}</div>
       <div className="mt-1.5 truncate text-[12.5px] font-bold" data-testid={`sw02-kpi-${id}-note`}>{children}</div>
+      {spark && spark.length > 1 && <div className="-mx-5 -mb-5 mt-3 h-11" data-testid={`sw02-kpi-${id}-spark`}><Sparkline values={spark} /></div>}
     </div>
   );
 }
@@ -196,23 +211,63 @@ export default function RefinedDashboard({ d, onSwitch }: { d: DashboardData; on
         </div>
       </div>
 
+      {/* Hero: the day in one number, the two things a till does next, and the best sellers as plates (the reference's promo banner) */}
+      <div
+        data-testid="refined-hero"
+        className="relative overflow-hidden rounded-[24px] p-6 text-primary-foreground sm:p-7"
+        style={{ background: 'linear-gradient(115deg, hsl(var(--primary)) 0%, hsl(var(--primary) / .82) 52%, hsl(var(--primary) / .58) 100%)' }}
+      >
+        <span aria-hidden className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-white/10" />
+        <span aria-hidden className="pointer-events-none absolute -bottom-24 right-40 h-56 w-56 rounded-full bg-white/10" />
+        <div className="relative grid items-center gap-5 md:grid-cols-[1fr_auto]">
+          <div className="min-w-0">
+            <p className="text-[12px] font-bold uppercase tracking-[.08em] opacity-85">{today ? 'Today so far' : periodLabel}</p>
+            <div className="mt-1 truncate text-[38px] font-extrabold leading-none tracking-tight tabular-nums sm:text-[44px]" data-testid="refined-hero-sales">{rs(cur.sales)}</div>
+            <p className="mt-2 text-[14px] font-medium opacity-90" data-testid="refined-hero-line">
+              {cur.orders} order{cur.orders === 1 ? '' : 's'} · {open.total} open bill{open.total === 1 ? '' : 's'}
+              {salesPct !== null && salesPct !== 0 ? ` · ${salesPct > 0 ? '▲' : '▼'} ${Math.abs(salesPct)}% vs ${cmp.vs}` : ''}
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2.5">
+              <button type="button" onClick={() => navigate('/')} className="inline-flex h-11 items-center gap-2 rounded-xl bg-card px-5 text-[14px] font-bold text-primary shadow-sm hover:brightness-105" data-testid="refined-hero-new">
+                <Plus className="h-4 w-4" /> New order
+              </button>
+              <button type="button" onClick={() => navigate('/kitchen')} className="inline-flex h-11 items-center gap-2 rounded-xl border border-white/35 bg-white/10 px-5 text-[14px] font-bold hover:bg-white/20" data-testid="refined-hero-kitchen">
+                <ChefHat className="h-4 w-4" /> Kitchen
+              </button>
+            </div>
+          </div>
+          <div className="hidden items-center md:flex" aria-hidden data-testid="refined-hero-plates">
+            {(top.length ? top.slice(0, 3) : [null, null, null]).map((t, i) => (
+              <span
+                key={t?.key ?? i}
+                className={cn('relative grid shrink-0 place-items-center overflow-hidden rounded-full border-4 border-white/90 bg-white/20 shadow-xl', i === 1 ? 'z-10 h-36 w-36' : 'h-28 w-28', i > 0 && '-ml-6')}
+              >
+                {t?.image
+                  ? <img src={t.image} alt="" className="h-full w-full object-cover" />
+                  : <UtensilsCrossed className={i === 1 ? 'h-12 w-12 opacity-80' : 'h-9 w-9 opacity-70'} />}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* Four KPI cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Kpi id="sales" label={today ? 'Sales today' : `Sales · ${periodLabel.toLowerCase()}`} value={rs(cur.sales)} icon={Banknote}>
+        <Kpi id="sales" label={today ? 'Sales today' : `Sales · ${periodLabel.toLowerCase()}`} value={rs(cur.sales)} icon={Banknote} spark={trend.map(p => p.sales)}>
           {cur.sales === 0 && prev.sales === 0
             ? <Up up={null}>No sales yet{today ? ' today' : ''}</Up>
             : salesPct === null
               ? <Up up={null}>Nothing sold {cmp.vs} to compare</Up>
               : <Up up={salesPct === 0 ? null : salesPct > 0}>{Math.abs(salesPct)}% vs {cmp.vs}</Up>}
         </Kpi>
-        <Kpi id="orders" label="Orders" value={String(cur.orders)} icon={ShoppingBag}>
+        <Kpi id="orders" label="Orders" value={String(cur.orders)} icon={ShoppingBag} spark={trend.map(p => p.orders)}>
           {cur.orders === 0 && prev.orders === 0
             ? <Up up={null}>No orders yet{today ? ' today' : ''}</Up>
             : orderDiff === 0
             ? <Up up={null}>Same as {cmp.vs}</Up>
             : <Up up={orderDiff > 0}>{Math.abs(orderDiff)} {orderDiff > 0 ? 'more' : 'fewer'} than {cmp.vs}</Up>}
         </Kpi>
-        <Kpi id="avg" label="Average bill" value={rs(cur.avg)} icon={Calculator}>
+        <Kpi id="avg" label="Average bill" value={rs(cur.avg)} icon={Calculator} spark={trend.map(p => (p.orders ? p.sales / p.orders : 0))}>
           {avgPct === null || cur.orders === 0
             ? <Up up={null}>{cur.orders === 0 ? 'No bills yet' : `No bills ${cmp.vs} to compare`}</Up>
             : <Up up={avgPct === 0 ? null : avgPct > 0}>{Math.abs(avgPct)}% vs {cmp.vs}</Up>}

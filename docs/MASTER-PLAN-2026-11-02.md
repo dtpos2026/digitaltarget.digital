@@ -42,7 +42,7 @@ GoFood pink, Sweetco orange, TastyIgniter, Tst Food). It replaces nothing; it or
 |---|---|---|
 | **WP-1 ✔ v1.100.0** | Component language: `data-slot` markers + size tokens on every shared component; Refined styles them; two new reference colour schemes (Berry, Sunrise) | — |
 | **WP-1b ✔ v1.101.0** | POS screen in the reference look: photo-first cards, category icon tiles, cart lines with photos | — |
-| **WP-1c** | Order panel payment tiles + Pay (SW-04); Dashboard hero + KPI sparklines + rings; Orders / Kitchen / Delivery as order cards with timer ring; flat navigation | — |
+| **WP-1c** | ✔ v1.102.0: Dashboard hero + KPI sparklines, Kitchen order cards with timer ring. Still: order-panel payment tiles + Pay (SW-04); Orders / Delivery / Tables cards; flat navigation | — |
 | **WP-2** | **Page frame**: one `PageHeader` (title, subtitle, actions), one gutter, one filter bar, one empty / loading / error state; applied to all pages by a codemod where safe | — |
 | **WP-3** | **Auto screen layout for every page** (see §4) | — |
 | **WP-4** | The 38 remaining desktop screens in the design's layouts, in this order: Tables/Retrieve/Delivery/Pickup/Kitchen (SW-06…12) → management (13…28) → settings/printing/permissions (29…40) → payment dialog and weight panel (04/05). Amount format `Rs 1,450` everywhere. | the issue list the owner will send |

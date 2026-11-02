@@ -9,8 +9,24 @@ import KitchenDisplayCenter from '@/components/KitchenDisplayCenter';
 import CustomerDisplaySettingsCard from '@/components/CustomerDisplaySettingsCard';
 import KitchenDisplaySettingsCard from '@/components/KitchenDisplaySettingsCard';
 import { scopeToBranch } from '@/lib/cashierScope';
+import { useThemeId, useUiStyle } from '@/lib/uiStyle';
+import { isRefinedTheme } from '@/lib/uiThemes';
 
-function getTimerInfo(createdAt: string, settings: RestaurantSettings) {
+/** v1.102.0 — the order card's timer ring (the reference's Active Order card): minutes in the middle, the ring fills to the delayed mark. */
+function TimerRing({ mins, progress, state }: { mins: number; progress: number; state: 'ok' | 'warn' | 'late' }) {
+  const r = 20; const c = 2 * Math.PI * r;
+  return (
+    <span data-kds-ring data-state={state} className="relative grid h-[52px] w-[52px] shrink-0 place-items-center" role="img" aria-label={`${mins} minutes`}>
+      <svg viewBox="0 0 52 52" className="absolute inset-0 -rotate-90" aria-hidden>
+        <circle cx="26" cy="26" r={r} fill="none" strokeWidth="5" className="stroke-muted" />
+        <circle cx="26" cy="26" r={r} fill="none" strokeWidth="5" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - Math.min(1, Math.max(0.04, progress / 100)))} data-kds-ring-arc />
+      </svg>
+      <span className="relative text-[13px] font-extrabold leading-none tabular-nums">{mins}<span className="block text-center text-[8px] font-semibold text-muted-foreground">min</span></span>
+    </span>
+  );
+}
+
+function getTimerInfo(createdAt: string, settings: RestaurantSettings, plain = false) {
   const preparingThreshold = Math.max(1, settings.kitchenPreparingMinutes || 5);
   const warningThreshold = Math.max(preparingThreshold + 1, settings.kitchenWarningMinutes || 10);
   const mins = Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000);
@@ -19,15 +35,15 @@ function getTimerInfo(createdAt: string, settings: RestaurantSettings) {
   let progressColor: string;
 
   if (mins < preparingThreshold) {
-    label = `${mins}m — Preparing`;
+    label = plain ? 'Preparing' : `${mins}m — Preparing`;
     color = 'text-status-success';
     progressColor = 'bg-status-success';
   } else if (mins < warningThreshold) {
-    label = `${mins}m — In Progress`;
+    label = plain ? 'In progress' : `${mins}m — In Progress`;
     color = 'text-status-warning';
     progressColor = 'bg-status-warning';
   } else {
-    label = `${mins}m — DELAYED ⚠️`;
+    label = plain ? 'Delayed' : `${mins}m — DELAYED ⚠️`;
     color = 'text-status-danger';
     progressColor = 'bg-status-danger';
   }
@@ -63,6 +79,7 @@ function playBeep(urgent = false) {
 }
 
 export default function KitchenDisplayPage() {
+  const refined = useUiStyle() === 'modern' && isRefinedTheme(useThemeId());
   const [orders, setOrders] = useState<Order[]>([]);
   const [, setTick] = useState(0);
   const [settings, setSettings] = useState<RestaurantSettings>(() => getSettings());
@@ -285,16 +302,18 @@ export default function KitchenDisplayPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
         {visibleOrders.map(({ order, items }) => {
           const isHold = order.status === 'hold';
-          const timer = getTimerInfo(order.createdAt, settings);
+          const timer = getTimerInfo(order.createdAt, settings, refined);
           const isDelayed = timer.mins >= (settings.kitchenWarningMinutes || 10);
           const ks = order.kitchenStatus || 'pending';
           const customerName = (order as any).customerName || order.customer?.name || (order as any).creditCustomerName;
           return (
             <div
               key={order.id}
+              data-kds-card
+              data-state={isDelayed ? 'late' : isHold ? 'hold' : 'ok'}
               className={`rounded-xl border-2 p-3 transition-all ${
                 isDelayed
-                  ? 'border-status-danger bg-status-danger/10 ring-2 ring-status-danger/40 animate-pulse'
+                  ? `border-status-danger bg-status-danger/10 ring-2 ring-status-danger/40${refined ? '' : ' animate-pulse'}`
                   : isHold
                     ? 'border-status-warning bg-status-warning/5'
                     : 'border-status-success bg-status-success/5'
@@ -307,28 +326,29 @@ export default function KitchenDisplayPage() {
                 </Badge>
               </div>
 
-              <div className="mb-2">
+              <div className="mb-2" data-kds-timer>
                 <div className={`flex items-center gap-1.5 text-[11px] font-bold mb-1 ${timer.color}`}>
                   {isDelayed ? <AlertTriangle className="h-3.5 w-3.5" /> : <Clock className="h-3.5 w-3.5" />}
                   {timer.label}
                 </div>
-                <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                <div data-kds-bar className="h-1.5 rounded-full bg-muted overflow-hidden">
                   <div className={`h-full rounded-full transition-all ${timer.progressColor}`} style={{ width: `${timer.progress}%` }} />
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 text-[10px] text-muted-foreground mb-2 flex-wrap">
+              <div data-kds-meta className="flex items-center gap-2 text-[10px] text-muted-foreground mb-2 flex-wrap">
                 <span className="capitalize">{order.orderType}</span>
                 {order.tableName && <span>• {order.tableName}</span>}
-                {customerName && <span>• 👤 {customerName}</span>}
-                {order.waiterName && <span>• 🧑‍🍳 {order.waiterName}</span>}
+                {customerName && <span>• {refined ? '' : '👤 '}{customerName}</span>}
+                {order.waiterName && <span>• {refined ? '' : '🧑‍🍳 '}{order.waiterName}</span>}
               </div>
+              {refined && <TimerRing mins={timer.mins} progress={timer.progress} state={isDelayed ? 'late' : timer.mins >= Math.max(1, settings.kitchenPreparingMinutes || 5) ? 'warn' : 'ok'} />}
               <div className="space-y-1">
                 {items.map(item => {
                   const kId = itemKitchen.get(item.menuItemId);
                   const k = kId ? kitchens.find(x => x.id === kId) : null;
                   return (
-                    <div key={item.id} className="flex items-center justify-between gap-2 text-xs bg-card rounded-lg px-2 py-1.5 border">
+                    <div key={item.id} data-kds-item className="flex items-center justify-between gap-2 text-xs bg-card rounded-lg px-2 py-1.5 border">
                       <div className="min-w-0 flex-1">
                         <div className="font-bold truncate">{item.name}</div>
                         {k && activeKitchen === 'all' && (
@@ -349,22 +369,22 @@ export default function KitchenDisplayPage() {
               <div className="mt-2 pt-2 border-t flex flex-wrap items-center gap-1">
                 <Badge variant="outline" className="text-[9px] uppercase">{statusLabel(ks)}</Badge>
                 {(ks === 'pending') && (
-                  <Button size="sm" className="h-6 px-2 text-[10px] ml-auto bg-primary/90" onClick={() => { setOrderKitchenStatus(order.id, 'accepted'); setTick(n=>n+1); }}>
+                  <Button size="sm" data-kds-action="accept" className="h-6 px-2 text-[10px] ml-auto bg-primary/90" onClick={() => { setOrderKitchenStatus(order.id, 'accepted'); setTick(n=>n+1); }}>
                     <ThumbsUp className="h-3 w-3 mr-1" /> Accept
                   </Button>
                 )}
                 {(ks === 'accepted') && (
-                  <Button size="sm" className="h-6 px-2 text-[10px] ml-auto" onClick={() => { setOrderKitchenStatus(order.id, 'preparing'); setTick(n=>n+1); }}>
+                  <Button size="sm" data-kds-action="start" className="h-6 px-2 text-[10px] ml-auto" onClick={() => { setOrderKitchenStatus(order.id, 'preparing'); setTick(n=>n+1); }}>
                     <PrepIcon className="h-3 w-3 mr-1" /> Start
                   </Button>
                 )}
                 {ks === 'preparing' && (
-                  <Button size="sm" className="h-6 px-2 text-[10px] ml-auto bg-status-warning text-white hover:bg-status-warning/90" onClick={() => { setOrderKitchenStatus(order.id, 'ready'); setTick(n=>n+1); }}>
+                  <Button size="sm" data-kds-action="ready" className="h-6 px-2 text-[10px] ml-auto bg-status-warning text-white hover:bg-status-warning/90" onClick={() => { setOrderKitchenStatus(order.id, 'ready'); setTick(n=>n+1); }}>
                     <Bell className="h-3 w-3 mr-1" /> Ready
                   </Button>
                 )}
                 {ks === 'ready' && (
-                  <Button size="sm" className="h-6 px-2 text-[10px] ml-auto bg-status-success text-white hover:bg-status-success/90" onClick={() => { setOrderKitchenStatus(order.id, 'delivered'); setTick(n=>n+1); }}>
+                  <Button size="sm" data-kds-action="delivered" className="h-6 px-2 text-[10px] ml-auto bg-status-success text-white hover:bg-status-success/90" onClick={() => { setOrderKitchenStatus(order.id, 'delivered'); setTick(n=>n+1); }}>
                     <Truck className="h-3 w-3 mr-1" /> Delivered
                   </Button>
                 )}

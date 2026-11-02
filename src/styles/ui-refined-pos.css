@@ -138,3 +138,35 @@
     grid-template-columns: 44px minmax(0, 1fr) auto auto; grid-template-areas: "thumb name name total" "thumb unit qty del";
   }
 }
+
+/* ============================================================
+ * Order cards (v1.102.0) — the reference's "Active Order" card: status pill, a timer ring, quiet item lines,
+ * and the next action as one colour-coded button (accept = accent, start = soft accent, ready = yellow, delivered = ink).
+ * ============================================================ */
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-kds-card] {
+  position: relative; border: 1px solid hsl(var(--border)); border-radius: 20px; padding: 16px; background: hsl(var(--card));
+  box-shadow: var(--ui-shadow-card); animation: none;
+}
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-kds-card][data-state="late"] { border-color: hsl(var(--dt-bad) / .45); box-shadow: 0 0 0 3px hsl(var(--dt-bad) / .12), var(--ui-shadow-card); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-kds-card] > div:first-child span:first-child { font-size: 16px; font-weight: 800; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-kds-card] > div:first-child [data-slot="badge"] { font-size: 11px; border-radius: 999px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-kds-timer] { padding-right: 64px; margin-bottom: 4px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-kds-timer] > div:first-child { font-size: 13px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-kds-bar] { display: none; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-kds-meta] { padding-right: 64px; font-size: 12px; margin-bottom: 12px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-kds-ring] { position: absolute; top: 48px; right: 16px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-kds-ring] [data-kds-ring-arc] { stroke: hsl(var(--dt-ok)); transition: stroke-dashoffset .4s; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-kds-ring][data-state="warn"] [data-kds-ring-arc] { stroke: hsl(var(--dt-warn)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-kds-ring][data-state="late"] [data-kds-ring-arc] { stroke: hsl(var(--dt-bad)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-kds-item] { border: 0; border-bottom: 1px solid hsl(var(--border)); border-radius: 0; background: transparent; padding: 10px 0; font-size: 14px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-kds-item] [data-slot="badge"] { border: 0; background: hsl(var(--dt-accent-tint)); color: hsl(var(--primary-text, var(--primary))); font-size: 12px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-kds-card] > div:last-child { border-top: 0; margin-top: 12px; padding-top: 0; gap: 8px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-kds-card] > div:last-child > [data-slot="badge"] { display: none; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-kds-action] {
+  flex: 1 1 100%; height: 44px; padding: 0 16px; margin-left: 0; border-radius: 12px; font-size: 14px; font-weight: 700; box-shadow: none; gap: 6px;
+}
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-kds-action] svg { height: 16px; width: 16px; margin: 0; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-kds-action="accept"] { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-kds-action="start"] { background: hsl(var(--dt-accent-tint)); color: hsl(var(--primary-text, var(--primary))); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-kds-action="ready"] { background: hsl(var(--dt-warn-bg)); color: hsl(var(--dt-warn)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-kds-action="delivered"] { background: hsl(var(--foreground)); color: hsl(var(--background)); }

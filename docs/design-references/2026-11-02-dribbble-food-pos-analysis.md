@@ -47,6 +47,9 @@ Ready-made schemes now in Settings → Appearance (DT Refined): **Berry** (raspb
 ## Built in v1.101.0 (the POS screen, DT Refined only)
 Photo-first cards (padded 4:3 photo, name, category, price in the accent, pill **Add**; fewer, larger columns — never narrower than 176 px; an item without a photo gets a tinted tile with one outline icon at the same size), category **icon tiles** with the selected one filled, and **cart lines that lead with the item's photo**. Every other theme is unchanged.
 
+## Built in v1.102.0 (DT Refined only)
+Kitchen: **Active Order cards** with a timer ring, status word, quiet item lines and one colour-coded action. Dashboard: **hero banner** (period sales, New order, Kitchen, best sellers as plates) and **sparklines** under the KPI cards.
+
 ## Next, in this order (the same language everywhere)
 1. **Order panel**: payment-method tiles (Cash · Card · Wallet · Credit) and the single wide **Pay** (payment dialog = SW-04).
 2. **Dashboard**: promo / today's-goal hero, KPI cards with sparklines, sales chart, target ring, most-favourite photos, recent orders.
