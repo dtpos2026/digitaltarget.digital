@@ -1,10 +1,12 @@
 import { Button } from '@/components/ui/button';
 import type { SystemPrinterInfo } from '@/lib/electron';
-import { Download, Upload, RotateCcw, Printer, Database, Smartphone, ChevronRight, Trash2, ShieldAlert } from 'lucide-react';
+import { Download, Upload, RotateCcw, Printer, Database, Smartphone, ChevronRight, Trash2, ShieldAlert, Images } from 'lucide-react';
 import { useNavigate } from '@/lib/hash-router';
 import { exportData, importData, resetData, resetSelectedData, getCurrentUser, RESETTABLE_COLLECTIONS, type ResettableCollection } from '@/lib/store';
 import { isElectron, nativeExportBackup, nativeImportBackup, getPrinters, getDataPath } from '@/lib/electron';
 import { isFirebaseConfigured } from '@/lib/firebase';
+import { embedImages, restoreImages, embeddedImageCount, remoteImageUrls } from '@/lib/backupImages';
+import { uploadTenantImage } from '@/lib/storage';
 import { toast } from 'sonner';
 import { useRef, useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -74,6 +76,10 @@ export default function BackupRestorePage() {
   const [selected, setSelected] = useState<Set<ResettableCollection>>(new Set());
   const [confirmText, setConfirmText] = useState('');
   const [erasing, setErasing] = useState(false);
+  // v1.94.0 — backup with pictures: packing progress, and a restore that is waiting for the operator's choice.
+  const [packing, setPacking] = useState<{ done: number; total: number } | null>(null);
+  const [pendingRestore, setPendingRestore] = useState<{ raw: string; count: number } | null>(null);
+  const [uploadingPics, setUploadingPics] = useState<{ done: number; total: number } | null>(null);
 
   const toggle = (k: ResettableCollection) => {
     setSelected(prev => {
@@ -127,18 +133,9 @@ export default function BackupRestorePage() {
   }
   }, [electron]);
 
-  const handleExport = async () => {
-    const json = exportData();
-    const defaultName = `desi-pos-backup-${new Date().toISOString().slice(0, 10)}.json`;
-
-    if (electron) {
-      const saved = await nativeExportBackup(json, defaultName);
-      if (saved) toast.success('Backup exported');
-      else toast.info('Export cancelled');
-      return;
-    }
-
-    // Browser fallback
+  /** Save a backup file: the desktop app's save dialog, or a download in a browser. True when a file was written. */
+  const saveBackupFile = async (json: string, defaultName: string): Promise<boolean> => {
+    if (electron) return !!(await nativeExportBackup(json, defaultName));
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -146,21 +143,98 @@ export default function BackupRestorePage() {
     a.download = defaultName;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success('Backup exported');
+    return true;
+  };
+
+  const handleExport = async () => {
+    const defaultName = `desi-pos-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    const saved = await saveBackupFile(exportData(), defaultName);
+    if (saved) toast.success('Backup exported');
+    else toast.info('Export cancelled');
+  };
+
+  // v1.94.0 — the data file holds only links to menu photos and logos. This packs the pictures into the file.
+  const handleExportWithImages = async () => {
+    let data: unknown;
+    try { data = JSON.parse(exportData()); } catch { toast.error('Could not read the data to back up'); return; }
+    const total = remoteImageUrls(data).length;
+    if (total === 0) toast.info('There are no linked pictures to pack, so this backup is the same as the plain one.');
+    setPacking({ done: 0, total });
+    try {
+      const res = await embedImages(data, { onProgress: (done, t) => setPacking({ done, total: t }) });
+      const defaultName = `desi-pos-backup-with-pictures-${new Date().toISOString().slice(0, 10)}.json`;
+      const saved = await saveBackupFile(JSON.stringify(res.data, null, 2), defaultName);
+      if (!saved) { toast.info('Export cancelled'); return; }
+      const mb = (res.bytes / 1048576).toFixed(1);
+      if (res.failed.length) {
+        toast.warning(
+          `Backup exported with ${res.embedded} picture(s) (${mb} MB). ${res.failed.length} could not be fetched and stay as links in the file.`,
+          { duration: 12000 },
+        );
+      } else {
+        toast.success(`Backup exported with ${res.embedded} picture(s) (${mb} MB)`);
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Export failed');
+    } finally {
+      setPacking(null);
+    }
+  };
+
+  const finishRestore = (raw: string) => {
+    try {
+      importData(raw);
+      toast.success('Data restored — uploading to cloud, please wait...');
+      // Cloud push runs in the background; reloading too early kills it.
+      setTimeout(() => window.location.reload(), 6000);
+    } catch {
+      toast.error('Invalid backup file');
+    }
+  };
+
+  // A backup that carries its pictures can put them back in this restaurant's own storage first (v1.94.0). Only
+  // offered when there is cloud storage to upload to, and only when the file actually holds pictures.
+  const startRestore = async (raw: string) => {
+    let parsed: unknown;
+    try { parsed = JSON.parse(raw); } catch { toast.error('Invalid backup file'); return; }
+    const count = embeddedImageCount(parsed);
+    if (count > 0) {
+      let canUpload = false;
+      try { canUpload = (await import('@/lib/authProvider')).usingSupabaseAuth(); } catch { /* local mode */ }
+      if (canUpload) { setPendingRestore({ raw, count }); return; }
+    }
+    finishRestore(raw);
+  };
+
+  const continueRestore = async (upload: boolean) => {
+    const p = pendingRestore;
+    if (!p) return;
+    if (!upload) { setPendingRestore(null); finishRestore(p.raw); return; }
+    setUploadingPics({ done: 0, total: p.count });
+    try {
+      const res = await restoreImages(JSON.parse(p.raw), uploadTenantImage, {
+        onProgress: (done, total) => setUploadingPics({ done, total }),
+      });
+      if (res.keptInline > 0) {
+        toast.warning(
+          `${res.uploaded} picture(s) uploaded; ${res.keptInline} kept inside the data (${res.failed.length} upload error(s)).`,
+          { duration: 12000 },
+        );
+      }
+      setPendingRestore(null);
+      finishRestore(JSON.stringify(res.data));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not upload the pictures');
+    } finally {
+      setUploadingPics(null);
+    }
   };
 
   const handleImport = async () => {
     if (electron) {
       const data = await nativeImportBackup();
       if (!data) { toast.info('Import cancelled'); return; }
-      try {
-        importData(data);
-        toast.success('Data restored — uploading to cloud, please wait...');
-        // Cloud push runs in the background; reloading too early kills it.
-        setTimeout(() => window.location.reload(), 6000);
-      } catch {
-        toast.error('Invalid backup file');
-      }
+      await startRestore(data);
       return;
     }
     // Browser fallback
@@ -171,16 +245,7 @@ export default function BackupRestorePage() {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        importData(reader.result as string);
-        toast.success('Data restored — uploading to cloud, please wait...');
-        // Cloud push runs in the background; reloading too early kills it.
-        setTimeout(() => window.location.reload(), 6000);
-      } catch {
-        toast.error('Invalid backup file');
-      }
-    };
+    reader.onload = () => { void startRestore(reader.result as string); };
     reader.readAsText(file);
   };
 
@@ -208,6 +273,19 @@ export default function BackupRestorePage() {
           <h3 className="text-sm font-semibold mb-1">Export Backup</h3>
           <p className="text-xs text-muted-foreground mb-3">Download all system data as a JSON file.</p>
           <Button onClick={handleExport}><Download className="h-4 w-4 mr-2" /> Export JSON</Button>
+        </div>
+
+        <div className="border-t pt-4">
+          <h3 className="text-sm font-semibold mb-1">Export with pictures</h3>
+          <p className="text-xs text-muted-foreground mb-3">
+            The plain backup keeps only links to your menu photos, logos and banners. This one packs the pictures into
+            the file, so the restaurant can be restored complete — on a new account, or if the storage is ever lost.
+            The file is larger (about 100 KB per picture). Staff photos and documents are never included.
+          </p>
+          <Button variant="outline" onClick={handleExportWithImages} disabled={!!packing}>
+            <Images className="h-4 w-4 mr-2" />
+            {packing ? `Packing pictures ${packing.done} / ${packing.total}…` : 'Export with pictures'}
+          </Button>
         </div>
 
         <div className="border-t pt-4">
@@ -353,6 +431,27 @@ export default function BackupRestorePage() {
               <Trash2 className="h-4 w-4 mr-2" />
               {erasing ? 'Erasing…' : `Erase ${selected.size} collection(s)`}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* v1.94.0 — a backup that carries its pictures: put them in this restaurant's storage, or leave them inside. */}
+      <Dialog open={!!pendingRestore} onOpenChange={o => { if (!o && !uploadingPics) setPendingRestore(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>This backup contains {pendingRestore?.count} picture(s)</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Upload them to this restaurant's own storage (recommended): the menu keeps small links and loads fast.
+            Or keep them inside the data as they are — nothing is uploaded, but the data becomes much larger.
+          </p>
+          {uploadingPics && (
+            <p className="text-sm font-medium" role="status">Uploading pictures {uploadingPics.done} / {uploadingPics.total}…</p>
+          )}
+          <DialogFooter className="flex-wrap gap-2 sm:gap-2">
+            <Button variant="ghost" onClick={() => setPendingRestore(null)} disabled={!!uploadingPics}>Cancel</Button>
+            <Button variant="outline" onClick={() => continueRestore(false)} disabled={!!uploadingPics}>Keep inside the data</Button>
+            <Button onClick={() => continueRestore(true)} disabled={!!uploadingPics}>Upload the pictures</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
