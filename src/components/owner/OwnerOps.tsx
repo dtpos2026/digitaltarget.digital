@@ -8,7 +8,7 @@
 // phone has no printer, so a till prints the kitchen ticket.
 // ============================================================
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Bike, Check, ChefHat, Clock, MapPin, Phone, Search, X } from 'lucide-react';
+import { AlertTriangle, Bike, Check, ChefHat, Clock, MapPin, Moon, Phone, Search, X } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   getAttendance, getBranches, getCreditPayments, getCustomers, getEmployees, getOrders, getRiders, getSettings, getUsers, saveOrder,
@@ -135,7 +135,7 @@ export function OwnerApprovals({ by }: { by: { userId?: string; userName?: strin
               className="h-11 w-full rounded-xl border bg-background px-3 text-[15px]" />
             <div className="flex gap-2">
               <button type="button" onClick={() => setRejecting(null)} className="h-11 flex-1 rounded-xl border bg-card text-[15px] font-semibold">Cancel</button>
-              <button type="button" onClick={reject} className="h-11 flex-1 rounded-xl bg-[hsl(var(--own-bad))] text-[15px] font-bold text-white">Reject order</button>
+              <button type="button" onClick={reject} className="h-11 flex-1 rounded-xl bg-[hsl(var(--own-bad))] text-[15px] font-bold text-[hsl(var(--primary-foreground))]">Reject order</button>
             </div>
           </div>
         </div>
@@ -209,7 +209,7 @@ export function OwnerDelivery() {
           <Label>Needs attention</Label>
           <div className="space-y-2" data-testid="own-delivery-stuck">
             {board.stuck.map(({ order: o, why }) => (
-              <Card key={o.id} className="flex items-center gap-3 border-amber-300/80 py-3">
+              <Card key={o.id} className="flex items-center gap-3 border-[hsl(var(--own-warn)/.45)] py-3">
                 <AlertTriangle className="h-5 w-5 shrink-0 text-[hsl(var(--own-warn))]" />
                 <div className="min-w-0 flex-1">
                   <div className="text-[15px] font-bold">#{o.orderNumber} · {why}</div>
@@ -378,7 +378,7 @@ export function OwnerStaff() {
 }
 
 // ------------------------------------------------------------------ OWN-22
-export function OwnerProfile({ userName, role, onLogout }: { userName: string; role: string; onLogout: () => void }) {
+export function OwnerProfile({ userName, role, onLogout, dark, onDark }: { userName: string; role: string; onLogout: () => void; dark: boolean; onDark: (v: boolean) => void }) {
   const settings = getSettings();
   return (
     <div className="space-y-3" data-testid="owner-profile">
@@ -389,6 +389,14 @@ export function OwnerProfile({ userName, role, onLogout }: { userName: string; r
       </Card>
       <div><Label>Workspace code — staff type it into DT Rider and DT Order Taker</Label><WorkspaceCodeCard /></div>
       <PlanStatusWidget />
+      <Card className="flex items-center gap-3" data-testid="own-theme">
+        <Moon className="h-5 w-5 text-muted-foreground" />
+        <div className="min-w-0 flex-1"><div className="text-[15.5px] font-semibold">Dark theme</div><div className="text-[13px] text-muted-foreground">Easier on the eyes in the evening. Kept on this phone.</div></div>
+        <button type="button" role="switch" aria-checked={dark} aria-label="Dark theme" onClick={() => onDark(!dark)}
+          className={cn('relative h-7 w-12 shrink-0 rounded-full transition-colors', dark ? 'bg-primary' : 'bg-border')}>
+          <span className={cn('absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-all', dark ? 'left-[22px]' : 'left-0.5')} />
+        </button>
+      </Card>
       <button type="button" onClick={onLogout} className="w-full rounded-2xl border bg-card py-3.5 text-[15px] font-semibold text-[hsl(var(--own-bad))]">Sign out</button>
       <p className="px-1 text-[12px] text-muted-foreground">Changing your password stays in the full software (Users &amp; Access).</p>
     </div>

@@ -1,6 +1,6 @@
 // Shared visual pieces of the Owner app screens (v1.86.0) — cards, chips, badges, headers. Hooks: ./ownerHooks.ts
 import type { ReactNode } from 'react';
-import { ChevronLeft } from 'lucide-react';
+import { AlertTriangle, ChevronLeft, Lock, RefreshCw, WifiOff } from 'lucide-react';
 import { useNavigate } from '@/lib/hash-router';
 import { cn } from '@/lib/utils';
 import { PRESETS, type RangePreset, type Tone } from '@/lib/ownerApp';
@@ -30,12 +30,12 @@ export function PresetChips({ value, onChange, presets = PRESETS }: { value: Ran
 }
 
 const TONE: Record<Tone, string> = {
-  info: 'bg-[hsl(214_95%_93%)] text-[hsl(var(--own-info))]',
-  success: 'bg-[hsl(141_84%_93%)] text-[hsl(var(--own-ok))]',
-  warning: 'bg-[hsl(48_96%_89%)] text-[hsl(var(--own-warn))]',
-  danger: 'bg-[hsl(0_93%_94%)] text-[hsl(var(--own-bad))]',
+  info: 'bg-[hsl(var(--own-info-bg))] text-[hsl(var(--own-info))]',
+  success: 'bg-[hsl(var(--own-ok-bg))] text-[hsl(var(--own-ok))]',
+  warning: 'bg-[hsl(var(--own-warn-bg))] text-[hsl(var(--own-warn))]',
+  danger: 'bg-[hsl(var(--own-bad-bg))] text-[hsl(var(--own-bad))]',
   neutral: 'bg-muted text-muted-foreground',
-  accent: 'bg-[hsl(258_68%_93%)] text-primary',
+  accent: 'bg-[hsl(var(--own-accent-bg))] text-primary',
 };
 export function Badge({ tone, children, className }: { tone: Tone; children: ReactNode; className?: string }) {
   return <span className={cn('inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-[12px] font-bold', TONE[tone], className)}>{children}</span>;
@@ -70,7 +70,7 @@ export function IconButton({ label, onClick, children, badge }: { label: string;
     <button type="button" aria-label={label} title={label} onClick={onClick} className="relative grid h-10 w-10 shrink-0 place-items-center rounded-xl border bg-card text-foreground">
       {children}
       {!!badge && badge > 0 && (
-        <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-[hsl(var(--own-bad))] px-1 text-[11px] font-bold text-white">{badge > 99 ? '99+' : badge}</span>
+        <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-[hsl(var(--own-bad))] px-1 text-[11px] font-bold text-[hsl(var(--primary-foreground))]">{badge > 99 ? '99+' : badge}</span>
       )}
     </button>
   );
@@ -91,6 +91,49 @@ export function Bar({ value, className, tone = 'primary' }: { value: number; cla
   return (
     <div className={cn('h-1.5 overflow-hidden rounded-full bg-muted', className)} role="presentation">
       <div className={cn('h-full rounded-full', tone === 'bad' ? 'bg-[hsl(var(--own-bad))]' : 'bg-primary')} style={{ width: `${pct}%` }} />
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------ OWN-23 — what the owner sees when there is nothing, it is loading, or it failed (v1.91.0)
+
+/** Placeholder rows in the shape of the content while it loads. */
+export function Skeletons({ rows = 3, height = 'h-16' }: { rows?: number; height?: string }) {
+  return (
+    <div className="space-y-2.5" aria-label="Loading" role="status">
+      {Array.from({ length: rows }, (_, i) => <div key={i} className={cn('animate-pulse rounded-2xl bg-muted', height)} />)}
+    </div>
+  );
+}
+
+/** A failed load, with the way out. The cached content stays on screen below it. */
+export function RetryBanner({ children, onRetry }: { children: ReactNode; onRetry: () => void }) {
+  return (
+    <div role="alert" className="flex items-center gap-3 rounded-2xl border border-[hsl(var(--own-bad)/.35)] bg-[hsl(var(--own-bad-bg))] px-4 py-3 text-[14px] font-semibold text-[hsl(var(--own-bad))]">
+      <AlertTriangle className="h-5 w-5 shrink-0" />
+      <span className="flex-1">{children}</span>
+      <button type="button" onClick={onRetry} className="inline-flex h-9 items-center gap-1.5 rounded-xl border bg-card px-3 text-[13.5px] font-bold text-foreground"><RefreshCw className="h-3.5 w-3.5" />Retry</button>
+    </div>
+  );
+}
+
+/** The phone has no connection: what is shown is the last data it loaded. */
+export function OfflineBanner() {
+  return (
+    <div role="status" data-testid="own-offline" className="flex items-center gap-3 rounded-2xl border border-[hsl(var(--own-warn)/.35)] bg-[hsl(var(--own-warn-bg))] px-4 py-2.5 text-[13.5px] font-semibold text-[hsl(var(--own-warn))]">
+      <WifiOff className="h-4 w-4 shrink-0" /> You are offline. Showing the last data this phone loaded; changes are kept and sent when you are back.
+    </div>
+  );
+}
+
+/** This account may not open the screen: say so, and who can. */
+export function PermissionDenied({ what, onBack }: { what: string; onBack: () => void }) {
+  return (
+    <div className="space-y-4 pt-10 text-center" data-testid="own-denied">
+      <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-muted text-muted-foreground"><Lock className="h-7 w-7" /></div>
+      <h1 className="text-[20px] font-extrabold">{what} is not available to your account</h1>
+      <p className="mx-auto max-w-[320px] text-[14.5px] text-muted-foreground">Your role does not include this screen. Ask the restaurant owner or administrator to allow it.</p>
+      <button type="button" onClick={onBack} className="rounded-2xl border bg-card px-5 py-3 text-[15px] font-semibold">Back to Overview</button>
     </div>
   );
 }

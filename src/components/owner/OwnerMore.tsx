@@ -8,7 +8,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   AlertTriangle, BarChart3, Bike, Boxes, Building2, ChefHat, ChevronRight, CircleCheck, Globe, IdCard, LayoutDashboard, LogOut, Phone, Plus,
-  Receipt, Settings, Smartphone, Truck, Users, X,
+  Receipt, Settings, Smartphone, TrendingUp, Truck, Users, X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from '@/lib/hash-router';
@@ -60,12 +60,13 @@ export function OwnerMore({ caps }: { caps: MoreCaps }) {
   const money = [
     (caps.can('customers') || caps.can('credits')) && <Row key="c" icon={Users} label="Customers and credit" to={`${OWNER_BASE}/customers`} testId="own-more-customers" />,
     (caps.can('hr') || caps.can('users')) && <Row key="s" icon={IdCard} label="Staff" to={`${OWNER_BASE}/staff`} testId="own-more-staff" />,
+    caps.can('financials') && <Row key="p" icon={TrendingUp} label="Profit" to={`${OWNER_BASE}/profit`} testId="own-more-profit" />,
     caps.can('accounts') && <Row key="e" icon={Receipt} label="Expenses" to={`${OWNER_BASE}/expenses`} testId="own-more-expenses" />,
     caps.can('inventory') && <Row key="i" icon={Boxes} label="Inventory and low stock" to={`${OWNER_BASE}/stock`} testId="own-more-stock" />,
   ].filter(Boolean);
   const admin = [
-    caps.can('online-portal') && <Row key="w" icon={Globe} label="Website and app switches" to="/online-portal" />,
-    caps.can('devices') && <Row key="v" icon={Smartphone} label="Devices" to="/devices" />,
+    caps.can('online-portal') && <Row key="w" icon={Globe} label="Website and app switches" to={`${OWNER_BASE}/switches`} testId="own-more-switches" />,
+    caps.can('devices') && <Row key="v" icon={Smartphone} label="Devices" to={`${OWNER_BASE}/devices`} testId="own-more-devices" />,
     caps.can('settings') && <Row key="t" icon={Settings} label="Settings" to="/settings" />,
     <Row key="f" icon={LayoutDashboard} label="Open the full software" to="/dashboard" />,
   ].filter(Boolean);
@@ -101,7 +102,7 @@ export function OwnerStock() {
       <ScreenHeader title="Low stock" back={OWNER_BASE} />
       {rows.length === 0 ? <Empty>Everything is above its reorder level.</Empty> : (
         <>
-          <div className="flex items-center gap-3 rounded-2xl border border-amber-300/70 bg-amber-50 px-4 py-3 text-[14.5px] font-semibold text-[hsl(var(--own-warn))]" data-testid="own-stock-banner">
+          <div className="flex items-center gap-3 rounded-2xl border border-[hsl(var(--own-warn)/.35)] bg-[hsl(var(--own-warn-bg))] px-4 py-3 text-[14.5px] font-semibold text-[hsl(var(--own-warn))]" data-testid="own-stock-banner">
             <AlertTriangle className="h-5 w-5 shrink-0" /> {rows.length} item{rows.length === 1 ? ' is' : 's are'} at or below the reorder level.
           </div>
           <div className="space-y-2.5" data-testid="own-stock-list">
@@ -210,7 +211,7 @@ export function OwnerExpenses({ userName }: { userName: string }) {
               <h2 className="text-[19px] font-extrabold">Add expense</h2>
               <button type="button" onClick={() => setOpen(false)} aria-label="Close" className="grid h-10 w-10 place-items-center rounded-xl border bg-card"><X className="h-5 w-5" /></button>
             </div>
-            {error && <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[14px] font-semibold text-[hsl(var(--own-bad))]" role="alert">{error}</div>}
+            {error && <div className="rounded-xl border border-[hsl(var(--own-bad)/.3)] bg-[hsl(var(--own-bad-bg))] px-3 py-2 text-[14px] font-semibold text-[hsl(var(--own-bad))]" role="alert">{error}</div>}
             <label className="block text-[13px] font-semibold text-muted-foreground">Amount
               <input inputMode="decimal" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} placeholder="e.g. 1500" aria-label="Amount" className="mt-1 h-12 w-full rounded-xl border bg-card px-3 text-[18px] font-bold tabular-nums text-foreground outline-none" />
             </label>

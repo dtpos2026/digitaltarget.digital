@@ -59,7 +59,7 @@ export function OwnerReports() {
             <div className="text-[13px] text-muted-foreground">{report.bills} bill{report.bills === 1 ? '' : 's'} · before: {rs(report.prevTotal)}</div>
           </div>
           {report.pct !== null && report.pct !== 0 && (
-            <span data-testid="own-report-change" className={cn('shrink-0 rounded-full px-2.5 py-1 text-[13px] font-bold', report.pct > 0 ? 'bg-[hsl(141_84%_93%)] text-[hsl(var(--own-ok))]' : 'bg-[hsl(0_93%_94%)] text-[hsl(var(--own-bad))]')}>
+            <span data-testid="own-report-change" className={cn('shrink-0 rounded-full px-2.5 py-1 text-[13px] font-bold', report.pct > 0 ? 'bg-[hsl(var(--own-ok-bg))] text-[hsl(var(--own-ok))]' : 'bg-[hsl(var(--own-bad-bg))] text-[hsl(var(--own-bad))]')}>
               {report.pct > 0 ? '▲' : '▼'} {Math.abs(report.pct)}%
             </span>
           )}

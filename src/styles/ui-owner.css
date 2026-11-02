@@ -26,11 +26,37 @@
   --own-warn: 26 90% 37%;      /* #b45309 */
   --own-bad: 0 72% 51%;        /* #dc2626 */
   --own-info: 224 76% 48%;     /* #1d4ed8 */
+  --own-ok-bg: 141 84% 93%;  --own-warn-bg: 48 96% 89%;  --own-bad-bg: 0 93% 94%;  --own-info-bg: 214 95% 93%;  --own-accent-bg: 258 68% 93%;
   background: hsl(var(--background));
   color: hsl(var(--foreground));
   font-feature-settings: "tnum" 1;
   -webkit-tap-highlight-color: transparent;
+  color-scheme: light;
 }
+/* OWN-24 — dark, for evening checks. The accent is lifted from #5b21b6 to stay readable on the dark ground. */
+.dt-owner[data-theme="dark"] {
+  --background: 258 37% 7%;    /* #0f0b18 */
+  --foreground: 260 47% 96%;   /* #f4f1fa */
+  --card: 260 31% 11%;         /* #1a1426 */
+  --card-foreground: 260 47% 96%;
+  --popover: 260 31% 11%;
+  --popover-foreground: 260 47% 96%;
+  --primary: 262 83% 68%;      /* #9b6dff-ish: 4.5:1 on the dark card */
+  --primary-foreground: 258 37% 7%;
+  --secondary: 259 31% 16%;
+  --secondary-foreground: 260 47% 96%;
+  --muted: 259 31% 16%;        /* #241c35 */
+  --muted-foreground: 261 20% 72%; /* #b4aac6 */
+  --accent: 259 31% 16%;
+  --accent-foreground: 260 47% 96%;
+  --border: 259 26% 23%;       /* #352b4a */
+  --input: 259 26% 28%;
+  --ring: 262 83% 68%;
+  --own-ok: 142 69% 58%;   --own-warn: 38 92% 60%;   --own-bad: 0 91% 71%;   --own-info: 213 94% 68%;
+  --own-ok-bg: 140 48% 14%;  --own-warn-bg: 39 71% 14%;  --own-bad-bg: 0 51% 16%;  --own-info-bg: 221 59% 19%;  --own-accent-bg: 259 31% 18%;
+  color-scheme: dark;
+}
+.dt-owner[data-theme="dark"] [data-own-card] { box-shadow: 0 1px 2px rgba(0, 0, 0, .4); }
 .dt-owner :is(button, a, input, select, textarea, [tabindex]):focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px hsl(263 69% 42% / .25);
