@@ -41,6 +41,8 @@ export const REFINED_SCHEMES: RefinedScheme[] = [
   { id: 'sunset', name: 'Sunset', blurb: 'Warm cream page, burnt-orange actions.', surface: 'warm', accent: '#c2410c' },
   { id: 'rose', name: 'Rose', blurb: 'Clean grey page, crimson actions.', surface: 'white', accent: '#be123c' },
   { id: 'graphite', name: 'Graphite', blurb: 'Neutral and quiet: grey page, slate actions.', surface: 'white', accent: '#334155' },
+  { id: 'berry', name: 'Berry', blurb: 'Soft white page, raspberry-pink actions (the food-delivery look).', surface: 'white', accent: '#be185d' },
+  { id: 'sunrise', name: 'Sunrise', blurb: 'Warm cream page, bright orange actions (the bakery look).', surface: 'warm', accent: '#d9480f' },
   { id: 'night', name: 'Night', blurb: 'Dark page and panels with a violet accent, for a dim shop.', surface: 'night', accent: '#8b5cf6' },
 ];
 const STYLES: { id: Choice; name: string; blurb: string }[] = [

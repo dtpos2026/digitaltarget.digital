@@ -189,8 +189,8 @@ describe('the Appearance card', () => {
     expect(container.querySelectorAll('[role="radiogroup"][aria-label="Accent colour"] [role="radio"]').length).toBeGreaterThan(3);
   });
 
-  it('the ready-made schemes are the intended seven, each with a known surface', () => {
-    expect(REFINED_SCHEMES.map(s => s.id)).toEqual(['dt-purple', 'ocean', 'emerald', 'sunset', 'rose', 'graphite', 'night']);
+  it('the ready-made schemes are the intended nine, each with a known surface', () => {
+    expect(REFINED_SCHEMES.map(s => s.id)).toEqual(['dt-purple', 'ocean', 'emerald', 'sunset', 'rose', 'graphite', 'berry', 'sunrise', 'night']);
     for (const s of REFINED_SCHEMES) {
       expect(REFINED_SURFACES.some(x => x.id === s.surface), s.id).toBe(true);
       if (s.accent) expect(s.accent).toMatch(/^#[0-9a-f]{6}$/);
