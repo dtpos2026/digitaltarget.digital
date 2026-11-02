@@ -17,6 +17,7 @@ import {
   getCurrentBranchId, getBranches, validatePromoCode, incrementPromoUsage
 } from '@/lib/store';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import OrderTakerReview from '@/components/pos/OrderTakerReview';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import ManagerAuthDialog from '@/components/ManagerAuthDialog';
@@ -168,6 +169,8 @@ export default function POSScreen() {
   const settings = useMemo(() => getSettings(), []);
   // Order Taker = create-only mode (no billing / payment / credit / void)
   const isOrderTaker = useMemo(() => (localStorage.getItem('pos-user-role') || '') === 'order_taker', []);
+  // v1.92.0 — OTK-07: an order taker looks over the order once before it goes to the kitchen.
+  const [reviewOpen, setReviewOpen] = useState(false);
   // Manager-approval gate for money-touching actions (payment / void / discount…)
   const { guard: guardAction, dialog: managerGateDialog } = useRestrictedAction();
   /** Table label for the audit trail (empty for takeaway/delivery). */
@@ -2033,7 +2036,7 @@ export default function POSScreen() {
             {isOrderTaker ? (
               <button
                 data-pos-pay
-                onClick={() => { if (cart.length === 0) { toast.error('Cart is empty'); return; } processOrder('running'); }}
+                onClick={() => { if (cart.length === 0) { toast.error('Cart is empty'); return; } setReviewOpen(true); }}
                 className="h-9 rounded-lg bg-status-success text-status-success-foreground text-sm font-black hover:bg-status-success/90 transition-all duration-150 active:scale-95 shadow-lg hover:shadow-xl flex items-center justify-center gap-1"
               >
                 <ChefHat className="h-4 w-4" /> Send
@@ -2192,7 +2195,7 @@ export default function POSScreen() {
             variant="outline"
             size="sm"
             className="flex-1 h-10 text-xs font-black border-status-warning text-status-warning hover:bg-status-warning/10"
-            onClick={() => processOrder('running')}
+            onClick={() => { if (isOrderTaker) { if (cart.length === 0) { toast.error('Cart is empty'); return; } setReviewOpen(true); } else processOrder('running'); }}
           >
             <Pause className="h-4 w-4 mr-1" /> {editingOrderId ? 'Update' : (isOrderTaker ? 'Send to Kitchen' : 'Running')}
           </Button>
@@ -2745,6 +2748,14 @@ export default function POSScreen() {
         </DialogContent>
       </Dialog>
       {managerGateDialog}
+      {isOrderTaker && (
+        <OrderTakerReview
+          open={reviewOpen} onClose={() => setReviewOpen(false)} lines={cart} total={grandTotal} editing={!!editingOrderId}
+          where={orderType === 'dining' ? (tableObjName() ? `Table ${tableObjName()}` : 'Dine-in') : orderType === 'delivery' ? 'Delivery' : 'Takeaway'}
+          onQty={updateQty}
+          onSend={() => { setReviewOpen(false); processOrder('running'); }}
+        />
+      )}
     </div>
   );
 }

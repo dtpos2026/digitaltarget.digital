@@ -16,6 +16,7 @@ import LoginPage from "@/pages/LoginPage";
 import BusinessTypeSetupScreen from "@/components/BusinessTypeSetupScreen";
 import { getSettings, onLowStock } from "@/lib/store";
 import OwnerLoginPage from "@/pages/OwnerLoginPage";
+import OwnerSplash from "@/components/OwnerSplash";
 import MisconfiguredBuildScreen from "@/components/MisconfiguredBuildScreen";
 import POSScreen from "@/pages/POSScreen";
 // Heavy / rarely-used pages — code-split to keep initial bundle small
@@ -109,7 +110,7 @@ import { isCloudConfigured } from '@/lib/cloudMode';
 import { isFirebaseConfigured, fbAuth } from '@/lib/firebase';
 import { getTenantId, clearTenant } from '@/lib/tenant';
 import { isPublicTenantRoute, applyPublicTenantFromUrl, packagedTenantId, parsePublicTenantId, looksLikeSlug, cachedSlugTenant, resolveSlugTenant } from '@/lib/publicTenant';
-import { applyAppEntry } from '@/lib/appEntry';
+import { applyAppEntry, isOwnerAppRoute } from '@/lib/appEntry';
 
 // ===== v1.47.0 — a portal APK must never open somebody else's screen =====
 //
@@ -743,6 +744,8 @@ const App = () => {
 
 
   if (!ready) {
+    // v1.92.0 — OWN-01: the Owner app opens on its own start screen (the "slow sync" help below still appears if it takes long).
+    if (isOwnerAppRoute() && !initTimedOut) return <OwnerSplash />;
     return (
       <div className="flex items-center justify-center h-screen bg-background">
         <div className="text-center space-y-3 max-w-sm px-6">
@@ -854,7 +857,7 @@ const App = () => {
           <Toaster />
           <Sonner />
           <HashRouter>
-            <Suspense fallback={<PageFallback />}>
+            <Suspense fallback={<OwnerSplash />}>
               <Routes>
                 <Route path="/owner-app/*" element={<OwnerAppPage onLogout={handleLogout} />} />
               </Routes>

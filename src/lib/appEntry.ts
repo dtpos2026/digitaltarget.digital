@@ -110,3 +110,13 @@ export function applyAppEntry(): PortalApp | null {
 export function clearPortalApp() {
   try { localStorage.removeItem(KEY); } catch { /* ignore */ }
 }
+
+/**
+ * v1.92.0 — is this the DT Owner app? Its route is #/owner-app (capacitor.owner.config.json opens it). The sign-in
+ * screens and the start screen take the Owner app's own look on that route and nowhere else, so the till's sign-in is
+ * exactly what it was. Nothing about how anyone signs in depends on this.
+ */
+export function isOwnerAppRoute(hash?: string): boolean {
+  const h = hash ?? (typeof window !== 'undefined' ? window.location.hash : '');
+  return /^#?\/owner-app(\/|$|\?)/.test(h);
+}

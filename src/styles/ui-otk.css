@@ -3,10 +3,12 @@
  *
  * The app's own look: Order Taker teal on the DT neutrals, light, and dark for dim dining rooms (OTK-14), whatever
  * theme the restaurant's tills use. The colours are tokens on .dt-otk, so the POS, Tables and Bills screens inside it
- * (the cashier's own screens) take the teal too. The cards, toggles, tab bar and sheets are the phone-app kit shared
+ * (the cashier's own screens) take the teal too. The same tokens are set on :root while the app is open
+ * (data-app="otk"): dialogs and pop-ups are portalled to <body>, outside .dt-otk, and would otherwise come up in the
+ * till's colours (found in v1.92.0; the item options, table and weight dialogs are among them). The cards, toggles, tab bar and sheets are the phone-app kit shared
  * with DT Rider (src/styles/ui-rider.css, [data-rd-*]).
  * ============================================================ */
-.dt-otk {
+:is(.dt-otk, :root[data-app="otk"]) {
   --background: 260 43% 97%;   /* #f7f5fb */
   --foreground: 261 25% 11%;   /* #1a1523 */
   --card: 0 0% 100%;
@@ -39,7 +41,7 @@
   color-scheme: light;
 }
 /* OTK-14 — dim dining rooms. */
-.dt-otk[data-theme="dark"] {
+:is(.dt-otk[data-theme="dark"], :root[data-app="otk"][data-otk-theme="dark"]) {
   --background: 258 37% 7%;    /* #0f0b18 */
   --foreground: 260 47% 96%;   /* #f4f1fa */
   --card: 260 31% 11%;         /* #1a1426 */
@@ -64,4 +66,24 @@
   --rd-info: 213 94% 68%; --rd-info-bg: 221 59% 19%;
   --rd-shadow: 0 1px 2px rgba(0, 0, 0, .4);
   color-scheme: dark;
+}
+
+/* OTK-05 — on a phone, the cashier screens' dialogs (item options, table, weight…) come up from the bottom as a sheet.
+ * The dialog centres itself with the individual `translate` and `scale` properties (Tailwind 4), so those are what is
+ * switched off here — not `transform` — and its zoom-in animation is replaced by a slide up. */
+@keyframes otk-sheet-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@media (max-width: 640px) {
+  :root[data-app="otk"] [role="dialog"][data-state="open"] {
+    top: auto !important; bottom: 0 !important; left: 0 !important; right: 0 !important;
+    translate: none !important; scale: none !important; rotate: none !important;
+    width: 100% !important; max-width: none !important;
+    max-height: 92dvh; overflow-y: auto;
+    border-radius: 24px 24px 0 0 !important;
+    padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px)) !important;
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, .25);
+    animation: otk-sheet-up .22s ease-out !important;
+  }
+}
+@media (max-width: 640px) and (prefers-reduced-motion: reduce) {
+  :root[data-app="otk"] [role="dialog"][data-state="open"] { animation: none !important; }
 }

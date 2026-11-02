@@ -7,10 +7,11 @@ import { getTenantId, getTenantName } from '@/lib/tenant';
 import { User } from '@/lib/types';
 const posLoader = () => import('@/pages/POSScreen');
 const tablesLoader = () => import('@/pages/TablesPage');
-const billsLoader = () => import('@/pages/RunningBillsPage');
+// v1.92.0 — the Bills tab is the order taker's own screen; the cashier's Running Bills page stays the cashier's.
+const billsLoader = () => import('@/components/OrderTakerBills');
 const POSScreen = lazy(posLoader);
 const TablesPage = lazy(tablesLoader);
-const RunningBillsPage = lazy(billsLoader);
+const OrderTakerBills = lazy(billsLoader);
 import AutoKotPrinter from '@/components/AutoKotPrinter';
 import AutoReadyTimer from '@/components/AutoReadyTimer';
 import ReadyNotificationBus from '@/components/ReadyNotificationBus';
@@ -63,6 +64,18 @@ export default function OrderTakerPortalPage() {
   };
   const settings = ready ? getSettings() : null;
   const logo = settings?.orderTakerLogo || settings?.logo;
+
+  // v1.92.0 — dialogs and pop-ups are portalled to <body>, outside .dt-otk: while this app is open the colour tokens
+  // (and the dark choice) are on <html> too, so they come up teal, and as bottom sheets on a phone (ui-otk.css).
+  useEffect(() => {
+    const root = document.documentElement;
+    root.dataset.app = 'otk';
+    return () => { delete root.dataset.app; delete root.dataset.otkTheme; };
+  }, []);
+  useEffect(() => {
+    const root = document.documentElement;
+    if (dark) root.dataset.otkTheme = 'dark'; else delete root.dataset.otkTheme;
+  }, [dark]);
 
   // Preload all route chunks on mount so tab switches are instant (no loading spinner).
   useEffect(() => {
@@ -318,7 +331,7 @@ export default function OrderTakerPortalPage() {
               <Route path="/" element={<POSScreen />} />
               <Route path="/pos" element={<POSScreen />} />
               <Route path="/tables" element={<TablesPage />} />
-              <Route path="/bills" element={<RunningBillsPage />} />
+              <Route path="/bills" element={<OrderTakerBills />} />
               {/* v1.46.0 — the order taker's own profile: picture, name, phone,
                   and which restaurant this app belongs to. */}
               <Route path="/me" element={<OrderTakerMe shareLocation={shareLocation} onToggleLocation={toggleShareLocation} dark={dark} onDark={setTheme} onLogout={logout} />} />

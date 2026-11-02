@@ -4,6 +4,8 @@ import DtMark, { DtAppIcon } from '@/components/DtMark';
 import BrandLockup from '@/components/BrandLockup';
 import { BRAND } from '@/lib/brand';
 import { APP_NAME, APP_VERSION, getInstalledVersion } from '@/lib/version';
+import { isOwnerAppRoute } from '@/lib/appEntry';
+import { OwnerLoginFrame } from '@/components/OwnerSplash';
 
 // The sign-in screen's frame: a brand panel in the active theme's colour on the left, a quiet page with the
 // form on the right. It reads only the theme's semantic tokens (primary, background, card, border…), so every
@@ -90,6 +92,8 @@ function VersionLine() {
 
 /** `logo` is the restaurant's own logo when it has one; without one the Digital Target app icon is shown. */
 export default function LoginShell({ logo, children }: { logo?: string | null; children: ReactNode }) {
+  // v1.92.0 — on the Owner app's route the sign-in is the phone screen of the design (OWN-02); everywhere else it is this frame.
+  if (isOwnerAppRoute()) return <OwnerLoginFrame>{children}</OwnerLoginFrame>;
   return (
     <div data-login-shell className="min-h-screen grid lg:grid-cols-[44%_1fr] bg-background text-foreground">
       <LoginBrandPanel />

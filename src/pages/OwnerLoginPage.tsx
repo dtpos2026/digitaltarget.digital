@@ -15,6 +15,7 @@ import { APP_VERSION } from '@/lib/version';
 import { effectiveDeviceLimit, setCurrentTenantPlan, setCurrentTenantOverrides } from '@/lib/plans';
 import { setCurrentTenantExpiry, tsToDate, isExpired } from '@/lib/billing';
 import LoginShell from '@/components/LoginShell';
+import { isOwnerAppRoute } from '@/lib/appEntry';
 import { BRAND } from '@/lib/brand';
 import ContactDigitalTargetDialog from '@/components/ContactDigitalTargetDialog';
 
@@ -92,6 +93,22 @@ export default function OwnerLoginPage({ onSuccess }: Props) {
   // so admin's approval auto-proceeds the login without re-entering credentials.
   const [pendingDevice, setPendingDevice] = useState<{ tid: string; deviceId: string; deviceName: string } | null>(null);
   const pendingUnsubRef = useRef<null | (() => void)>(null);
+  const approvalCbRef = useRef<null | ((s: { approved: boolean; blocked: boolean }) => void | Promise<void>)>(null);
+  const [checking, setChecking] = useState(false);
+  const ownerApp = isOwnerAppRoute();
+  /** OWN-03 "Check again": ask the server now instead of waiting for the next poll. */
+  const checkApprovalNow = async () => {
+    if (!pendingDevice) return;
+    setChecking(true);
+    try {
+      const { sb } = await import('@/lib/supabase');
+      const { data } = await sb().from('devices').select('approved,blocked').eq('id', pendingDevice.deviceId).maybeSingle();
+      const row = data as { approved?: boolean; blocked?: boolean } | null;
+      if (row) await approvalCbRef.current?.({ approved: !!row.approved, blocked: !!row.blocked });
+      if (row && !row.approved && !row.blocked) toast.info('Not approved yet.');
+    } catch { toast.error('Could not check. Are you online?'); }
+    finally { setChecking(false); }
+  };
   useEffect(() => () => { pendingUnsubRef.current?.(); }, []);
 
   // Hard timeout safety net so loader never spins forever.
@@ -301,7 +318,7 @@ export default function OwnerLoginPage({ onSuccess }: Props) {
                 deviceName: meta.deviceName || 'This device',
               });
               setLoading(false);
-              pendingUnsubRef.current = watchDeviceApproval(reg.deviceId, async (s) => {
+              const onApprovalState = async (s: { approved: boolean; blocked: boolean }) => {
                 if (s.blocked) {
                   pendingUnsubRef.current?.(); pendingUnsubRef.current = null;
                   setPendingDevice(null);
@@ -315,7 +332,10 @@ export default function OwnerLoginPage({ onSuccess }: Props) {
                   startDeviceHeartbeat(reg.deviceId);
                   onSuccess({ superAdmin: false });
                 }
-              });
+              };
+              // v1.92.0 — kept so the Owner app's "Check again" runs exactly the same decision as the live listener.
+              approvalCbRef.current = onApprovalState;
+              pendingUnsubRef.current = watchDeviceApproval(reg.deviceId, onApprovalState);
               return;
             }
 
@@ -405,18 +425,30 @@ export default function OwnerLoginPage({ onSuccess }: Props) {
               <MonitorSmartphone className="h-7 w-7" />
             </div>
             <h2 className="text-xl font-bold">Waiting for Device Approval</h2>
-            <p className="text-sm text-muted-foreground">
-              Aap ka device <b className="text-foreground">{pendingDevice.deviceName}</b> Super Admin ki approval ka intezaar kar raha hai.
-              Approval hote hi ye screen <b className="text-foreground">khud b khud aage barhegi</b> — dobara login karne ki zaroorat nahi.
-            </p>
+            {ownerApp ? (
+              <p className="text-sm text-muted-foreground" data-owner-pending-copy>
+                <b className="text-foreground">{pendingDevice.deviceName}</b> is a new device. It must be approved once from a device that is already signed in
+                (More → Devices), or by Digital Target. This screen continues by itself when it is approved.
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Aap ka device <b className="text-foreground">{pendingDevice.deviceName}</b> Super Admin ki approval ka intezaar kar raha hai.
+                Approval hote hi ye screen <b className="text-foreground">khud b khud aage barhegi</b> — dobara login karne ki zaroorat nahi.
+              </p>
+            )}
             <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" /> Live listening for approval…
             </div>
             <div className="text-[11px] text-muted-foreground">
               Device limit cross hone par admin se rabta karein: <b className="text-foreground">{BRAND.phoneShort}</b>
             </div>
+            {ownerApp && (
+              <Button className="w-full" disabled={checking} onClick={() => void checkApprovalNow()}>
+                {checking ? 'Checking…' : 'Check again'}
+              </Button>
+            )}
             <Button variant="outline" className="w-full" onClick={cancelPendingWait}>
-              Cancel & Logout
+              {ownerApp ? 'Sign in with another account' : 'Cancel & Logout'}
             </Button>
           </div>
         ) : (
