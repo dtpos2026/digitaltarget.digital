@@ -22,9 +22,9 @@ let m: ReturnType<typeof mount> | null = null;
 afterEach(() => { m?.unmount(); m = null; });
 
 describe('the apps', () => {
-  it('are the POS and the three phone apps, once each', () => {
-    expect(BRAND_APPS.map(a => a.id)).toEqual(['pos', 'customer', 'rider', 'ordertaker']);
-    expect(new Set(BRAND_APPS.map(a => a.accent.mid)).size).toBe(4);   // four distinct colours
+  it('are the POS and the phone apps, once each (DT Owner added in v1.86.0)', () => {
+    expect(BRAND_APPS.map(a => a.id)).toEqual(['pos', 'customer', 'rider', 'ordertaker', 'owner']);
+    expect(new Set(BRAND_APPS.map(a => a.accent.mid)).size).toBe(5);   // five distinct colours
   });
   it('the phone apps have the package ids the Android projects use, and a glyph for their job', () => {
     const phone = BRAND_APPS.filter(a => a.androidFolder);
@@ -32,11 +32,12 @@ describe('the apps', () => {
       ['Customer', 'com.digitaltarget.dtcustomer', 'ShoppingBag'],
       ['Rider', 'com.digitaltarget.dtrider', 'Motorbike'],
       ['OrderTaker', 'com.digitaltarget.dtordertaker', 'ClipboardList'],
+      ['Owner', 'com.digitaltarget.dtowner', 'Crown'],
     ]);
     expect(BRAND_APPS.find(a => a.id === 'pos')!.glyph).toBeUndefined();   // the POS is the brand itself
   });
   it('the Android labels the apps already carry match the brand labels', () => {
-    expect(BRAND_APPS.map(a => a.label)).toEqual(['DT POS', 'DT Customer', 'DT Rider', 'DT Order Taker']);
+    expect(BRAND_APPS.map(a => a.label)).toEqual(['DT POS', 'DT Customer', 'DT Rider', 'DT Order Taker', 'DT Owner']);
   });
 });
 

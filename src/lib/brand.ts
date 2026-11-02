@@ -48,16 +48,16 @@ export const PALETTE = {
 
 /** One icon colour per app, all in the same artwork: a three-stop gradient with a white mark on it. */
 export interface BrandApp {
-  id: 'pos' | 'customer' | 'rider' | 'ordertaker';
+  id: 'pos' | 'customer' | 'rider' | 'ordertaker' | 'owner';
   /** What the app is called under its icon and on its splash screen. */
   label: string;
   /** Android folder in dtpos.apk, when the app is an Android app. */
-  androidFolder?: 'Customer' | 'Rider' | 'OrderTaker';
+  androidFolder?: 'Customer' | 'Rider' | 'OrderTaker' | 'Owner';
   packageId?: string;
   /** What the app is for, in the guide. */
   role?: string;
   /** The Lucide icon in the badge at the icon's lower right: the app's job, readable at launcher size. The POS has none — it is the brand itself. */
-  glyph?: 'ShoppingBag' | 'Motorbike' | 'ClipboardList';
+  glyph?: 'ShoppingBag' | 'Motorbike' | 'ClipboardList' | 'Crown';
   /** light → mid → dark gradient; `mid` is also the Android adaptive-icon background and the theme colour. */
   accent: { light: string; mid: string; dark: string; tint: string; shadow: string };
 }
@@ -71,6 +71,9 @@ export const BRAND_APPS: readonly BrandApp[] = [
     accent: { light: '#ea580c', mid: '#c2410c', dark: '#7c2d12', tint: '#ffedd5', shadow: '#431407' } },
   { id: 'ordertaker', label: 'DT Order Taker', androidFolder: 'OrderTaker', packageId: 'com.digitaltarget.dtordertaker', role: 'Waiters and order takers take orders at the table', glyph: 'ClipboardList',
     accent: { light: '#0d9488', mid: '#0f766e', dark: '#134e4a', tint: '#ccfbf1', shadow: '#042f2e' } },
+  // v1.86.0 — the owner's phone app (design package OWN-01: DT purple with a crown badge).
+  { id: 'owner', label: 'DT Owner', androidFolder: 'Owner', packageId: 'com.digitaltarget.dtowner', role: 'Owners and managers watch every branch from anywhere', glyph: 'Crown',
+    accent: { light: '#6d28d9', mid: '#5b21b6', dark: '#3c096c', tint: '#ede9fe', shadow: '#1e0338' } },
 ];
 
 /** Android launcher densities: legacy icon, adaptive foreground, portrait and landscape splash. */
