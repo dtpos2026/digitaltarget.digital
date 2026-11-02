@@ -6,6 +6,7 @@
 @import "./styles/ui-retail.css";
 @import "./styles/ui-refined.css";
 @import "./styles/ui-owner.css";
+@import "./styles/ui-rider.css";
 
 @source "../src";
 @config "../tailwind.config.ts";

@@ -1,31 +1,51 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { setLocationConsent, startLocationTracking, stopLocationTracking } from '@/lib/staffLocation';
 import { money } from '@/lib/currency';
-import { getOrders, saveOrder, getUsers, getRiders, saveRider, getSettings, refreshOrdersFromCloud, onDataChange } from '@/lib/store';
+import { getOrders, saveOrder, getUsers, getRiders, saveRider, getSettings, getBranches, refreshOrdersFromCloud, onDataChange } from '@/lib/store';
 import { Order, DeliveryStatus, Rider } from '@/lib/types';
 import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Bike, MapPin, Phone, Navigation, CheckCircle, Truck, PackageCheck, ChefHat, XCircle, Radio, RefreshCw, User as UserIcon, History as HistoryIcon, LogOut } from 'lucide-react';
+import { AlertTriangle, Bike, ChevronRight, LifeBuoy, LogOut, MapPin, Moon, Radio, User as UserIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { normalizePhone, openWhatsApp } from '@/lib/whatsapp';
 import { shouldSendPing, appendRoutePoint, type PingPoint } from '@/lib/riderPing';
-import { buildTrackingMessage, buildTrackingWhatsAppText, setDeliveryStage, DELIVERY_STAGE_LABEL, computeDistance, estimateEta, notifyCustomerStage } from '@/lib/delivery';
-import DeliveryRouteMap from '@/components/DeliveryRouteMap';
+import { buildTrackingWhatsAppText, setDeliveryStage, DELIVERY_STAGE_LABEL, computeDistance, estimateEta, notifyCustomerStage } from '@/lib/delivery';
 import ReadyNotificationBus from '@/components/ReadyNotificationBus';
 import ReadyOrderPoller from '@/components/ReadyOrderPoller';
 import { portalClaimOrder, portalSetDeliveryStage } from '@/lib/portalData';
 import { startVisiblePoll } from '@/lib/visiblePoll';
 import PortalRestaurantBadge from '@/components/PortalRestaurantBadge';
 import StaffProfileCard from '@/components/StaffProfileCard';
+import { useRestaurantIdentity } from '@/hooks/useRestaurantIdentity';
+import { APP_VERSION } from '@/lib/version';
+import { cn } from '@/lib/utils';
+import {
+  historyRows, initials, localHistory, nextAction, periodSummary, problemMessage, type DeliveryRecord,
+} from '@/lib/riderApp';
+import { Banner, RButton, RCard, RLabel, Toggle } from '@/components/rider/riderUi';
+import {
+  AvailableRow, ClaimSheet, OrderCard, OrdersTab, ReadyAlert, RecordSheet, RecordTab, RefreshButton, TabBar,
+  type OrdersSeg, type RiderTab,
+} from '@/components/rider/RiderTabs';
+import {
+  CallSheet, DeliverScreen, DoneScreen, HelpScreen, OrderScreen, PickupScreen, StageSheet,
+} from '@/components/rider/RiderDelivery';
 
-const STAGE_FLOW: { stage: DeliveryStatus; label: string; icon: any; color: string }[] = [
-  { stage: 'rider_picked',  label: 'Picked Up',     icon: PackageCheck, color: 'bg-amber-500 hover:bg-amber-600 text-white' },
-  { stage: 'onway',         label: 'On the Way',    icon: Truck,        color: 'bg-blue-600 hover:bg-blue-700 text-white' },
-  { stage: 'rider_reached', label: 'Reached',       icon: MapPin,       color: 'bg-indigo-600 hover:bg-indigo-700 text-white' },
-  { stage: 'delivered',     label: 'Delivered',     icon: CheckCircle,  color: 'bg-green-600 hover:bg-green-700 text-white' },
-];
+// ===== v1.88.0 — the rider screens of the design package (design-project/05-rider-app) =====
+//
+// The page keeps every piece of logic it had — sign-in, the 15-second poll, the heartbeat, the GPS ration, the
+// claim and stage changes that go to the server first — and only what is drawn changed: four tabs (Home, Orders,
+// Record, Profile), one screen per delivery with the next step as the one big button, a bag checklist at pickup
+// and the money to collect at the door. The screens live in src/components/rider; their rules in lib/riderApp.ts.
+
+/** A screen that covers the tabs: one delivery, its steps, or help. */
+type RiderView =
+  | { kind: 'order'; id: string }
+  | { kind: 'pickup'; id: string }
+  | { kind: 'deliver'; id: string }
+  | { kind: 'done'; orderNumber: number }
+  | { kind: 'help'; id?: string };
+
+const RIDER_THEME_KEY = 'rider-theme';
 
 const RIDER_PORTAL_KEY = 'rider-portal-id';
 
@@ -74,6 +94,29 @@ export default function RiderAppPage() {
   const [workspaceCode, setWorkspaceCode] = useState(() => {
     try { return localStorage.getItem('pos-workspace-code') || ''; } catch { return ''; }
   });
+  const [loginError, setLoginError] = useState('');
+
+  // v1.88.0 — where the rider is in the app.
+  const [tab, setTab] = useState<RiderTab>('home');
+  const [seg, setSeg] = useState<OrdersSeg>('mine');
+  const [view, setView] = useState<RiderView | null>(null);
+  const [claimId, setClaimId] = useState<string | null>(null);
+  const [callId, setCallId] = useState<string | null>(null);
+  const [stagesId, setStagesId] = useState<string | null>(null);
+  const [record, setRecord] = useState<DeliveryRecord | null>(null);
+  const [alertId, setAlertId] = useState<string | null>(null);
+  const [gpsError, setGpsError] = useState<string | null>(null);
+  const [online, setOnline] = useState(() => typeof navigator === 'undefined' || navigator.onLine !== false);
+  const [dark, setDark] = useState(() => { try { return localStorage.getItem(RIDER_THEME_KEY) === 'dark'; } catch { return false; } });
+  const identity = useRestaurantIdentity();
+
+  useEffect(() => {
+    const up = () => setOnline(true);
+    const down = () => setOnline(false);
+    window.addEventListener('online', up);
+    window.addEventListener('offline', down);
+    return () => { window.removeEventListener('online', up); window.removeEventListener('offline', down); };
+  }, []);
 
   /**
    * Fetch this rider's orders from the server.
@@ -197,7 +240,7 @@ export default function RiderAppPage() {
     return () => { clearInterval(t); document.removeEventListener('visibilitychange', onVis); };
   }, [rider?.id]);
 
-  // Ready-for-pickup toast (rider receives "Order #N ready, pickup karo")
+  // Ready for pickup (the rider hears "Order #N ready, pickup karo") — RID-06 banner
   useEffect(() => {
     if (!rider) return;
     const seen = new Set<string>();
@@ -208,9 +251,11 @@ export default function RiderAppPage() {
         (!o.riderId || o.riderId === rider.id) &&
         !seen.has(o.id)
       );
-      for (const o of list) {
-        seen.add(o.id);
-        toast.success(`📦 Order #${o.orderNumber} READY — pickup karo`, { duration: 10000 });
+      for (const o of list) seen.add(o.id);
+      // v1.88.0 — RID-06: a banner with Claim / Open and Later, instead of a toast that disappears in ten seconds.
+      if (list.length) {
+        setAlertId(list[list.length - 1].id);
+        try { navigator.vibrate?.(200); } catch { /* no vibration on this device */ }
       }
     };
     const t = setInterval(tick, 10000);
@@ -238,6 +283,7 @@ export default function RiderAppPage() {
         const { latitude: lat, longitude: lng } = pos.coords;
         // The rider's own screen follows every fix...
         setMyPos({ lat, lng });
+        setGpsError(null);
         // ...but the database is written on a ration (see src/lib/riderPing.ts): a phone in a vehicle reports about once
         // a second, and each write re-sends the whole order and rebuilds its item rows.
         const point = { lat, lng, at: Date.now() };
@@ -265,7 +311,7 @@ export default function RiderAppPage() {
         }
         if (wrote) setOrders(getOrders());
       },
-      (err) => { console.warn(err); toast.error('GPS error: ' + err.message); },
+      (err) => { console.warn(err); setGpsError(err.message || 'Location unavailable'); toast.error('GPS error: ' + err.message); },
       { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
     );
     return () => {
@@ -313,21 +359,25 @@ export default function RiderAppPage() {
     orders: Array<Record<string, unknown>>;
     totals: { delivered?: number; today?: number; earnings?: number };
   } | null>(null);
-  const [showHistory, setShowHistory] = useState(false);
+  const [historyState, setHistoryState] = useState<'loading' | 'ready' | 'failed' | 'local'>('loading');
 
   const loadHistory = useCallback(async () => {
     try {
       const { hasPortalSession, portalMyHistory } = await import('@/lib/portalData');
-      if (!hasPortalSession()) return;
+      if (!hasPortalSession()) { setHistoryState('local'); return; }
       const res = await portalMyHistory(100);
-      if (res.ok) setHistory(res.data);
-    } catch { /* the local tiles still show today */ }
+      if (res.ok) { setHistory(res.data); setHistoryState('ready'); }
+      else setHistoryState(s => (s === 'ready' ? s : 'failed'));
+    } catch {
+      // the local tiles still show today; an earlier good load stays on screen
+      setHistoryState(s => (s === 'ready' ? s : 'failed'));
+    }
   }, []);
 
   useEffect(() => { void loadHistory(); }, [loadHistory, tick]);
 
-  const claimOrder = async (o: Order) => {
-    if (!rider) return;
+  const claimOrder = async (o: Order): Promise<boolean> => {
+    if (!rider) return false;
 
     // ===== v1.41.0 — the claim has to reach the SERVER =====
     //
@@ -342,14 +392,14 @@ export default function RiderAppPage() {
     const res = await portalClaimOrder(o.id);
     if (!res.ok) {
       toast.error(res.message || 'Could not claim this order.');
-      return;
+      return false;
     }
     if (res.data?.ok === false) {
       toast.error(res.data.reason === 'already_claimed'
         ? 'Another rider just took this order.'
         : 'Could not claim this order.');
       setOrders(getOrders());
-      return;
+      return false;
     }
 
     const next = setDeliveryStage({ ...o, riderId: rider.id, riderName: rider.name, riderPhone: rider.phone }, 'rider_assigned');
@@ -360,15 +410,16 @@ export default function RiderAppPage() {
     // chosen either way is switched on when they take an order; one who switched it OFF on purpose stays off
     // (and is reminded by the banner below).
     if (localStorage.getItem('rider-tracking') === null) { localStorage.setItem('rider-tracking', '1'); setTracking(true); }
+    return true;
   };
 
-  const advance = async (o: Order, stage: DeliveryStatus) => {
+  const advance = async (o: Order, stage: DeliveryStatus): Promise<boolean> => {
     // Same reason as claimOrder: without this the stage change never leaves
     // the phone. The server also refuses a stage change on an order that is
     // not this rider's, which the local write could not check.
     const res = await portalSetDeliveryStage(o.id, stage);
-    if (!res.ok) { toast.error(res.message || 'Could not update this delivery.'); return; }
-    if (res.data?.ok === false) { toast.error('Could not update this delivery.'); return; }
+    if (!res.ok) { toast.error(res.message || 'Could not update this delivery.'); return false; }
+    if (res.data?.ok === false) { toast.error('Could not update this delivery.'); return false; }
 
     let next = setDeliveryStage(o, stage);
     if (stage === 'delivered') {
@@ -399,6 +450,8 @@ export default function RiderAppPage() {
     notifyCustomerStage(next, stage);
     setOrders(getOrders());
     toast.success(DELIVERY_STAGE_LABEL[stage]);
+    if (stage === 'delivered') void loadHistory();
+    return true;
   };
 
   const sendTracking = (o: Order) => {
@@ -407,12 +460,74 @@ export default function RiderAppPage() {
     openWhatsApp(phone, buildTrackingWhatsAppText(o));
   };
 
+  // ---------------------------------------------------------------- v1.88.0 — what the screens need
+  // Read on every render: the poll re-renders every 15 seconds, so "today" moves on at midnight by itself.
+  const now = new Date();
+  const records: DeliveryRecord[] = useMemo(() => {
+    if (historyState === 'local') return rider ? localHistory(orders, rider.id) : [];
+    return historyRows(history?.orders);
+  }, [historyState, history, orders, rider]);
+  const recordState: 'loading' | 'ready' | 'failed' = historyState === 'local' ? 'ready' : historyState;
+  const today = periodSummary(records, 'today', now);
+  const doneToday = history?.totals?.today ?? (historyState === 'local' ? today.count : completedToday.length);
+  const valueToday = records.length || historyState !== 'loading'
+    ? today.total
+    : completedToday.reduce((s, o) => s + (o.grandTotal || 0), 0);
+
+  const byId = (id: string | null | undefined) => (id ? orders.find(o => o.id === id) || null : null);
+
+  /** The restaurant on the map and on the phone: the order's branch first, then the restaurant's settings. */
+  const restaurantFor = (o: Order | null) => {
+    const s = getSettings();
+    const b = o?.branchId ? getBranches().find(x => x.id === o.branchId) : undefined;
+    const point = b?.lat != null && b?.lng != null
+      ? { lat: b.lat, lng: b.lng }
+      : s?.restaurantLat != null && s?.restaurantLng != null ? { lat: s.restaurantLat, lng: s.restaurantLng } : null;
+    const phone = normalizePhone(b?.phone) || normalizePhone(s?.supportWhatsappNumber) || normalizePhone(s?.phone1) || normalizePhone(s?.phone2);
+    const name = [identity.name || s?.name, b?.name || identity.branchName].filter(Boolean).join(' · ');
+    return { point, phone, name };
+  };
+
+  const sendProblem = (problem: string, o: Order | null) => {
+    const text = problemMessage(problem, o, rider?.name);
+    const phone = restaurantFor(o).phone;
+    if (phone) { openWhatsApp(phone, text); return; }
+    // No number on this phone: WhatsApp opens with the message written and the rider picks the restaurant's chat.
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
+  };
+
+  const setTheme = (next: boolean) => {
+    setDark(next);
+    try { localStorage.setItem(RIDER_THEME_KEY, next ? 'dark' : 'light'); } catch { /* the choice lasts this session */ }
+  };
+
+  const openOrder = (o: Order) => { setView({ kind: 'order', id: o.id }); window.scrollTo?.(0, 0); };
+
+  /** Shell: the rider's own look, light or night (RID-22), with the tab bar at the thumb. */
+  const shell = (children: React.ReactNode, opts?: { tabs?: boolean }) => (
+    <div
+      className={cn('dt-rider flex flex-col', publicMode ? 'min-h-[100dvh]' : 'min-h-[calc(100dvh-4rem)] rounded-none')}
+      data-theme={dark ? 'dark' : 'light'}
+      data-rider-app
+    >
+      <div className="mx-auto flex w-full max-w-md flex-1 flex-col px-4 pb-4 pt-[calc(8px+env(safe-area-inset-top,0px))]">
+        {children}
+      </div>
+      {opts?.tabs && (
+        <div className="sticky bottom-0 z-30 mx-auto w-full max-w-md">
+          <TabBar tab={tab} onTab={t => { setTab(t); window.scrollTo?.(0, 0); }} badge={myOrders.length} />
+        </div>
+      )}
+    </div>
+  );
+
   if (!rider) {
-    // Public portal: phone + PIN login
+    // Public portal: phone + PIN login (RID-02)
     if (publicMode) {
       const doLogin = async () => {
         const typed = loginPhone.trim();
-        if (!typed || !loginPin) { toast.error('Enter your username / phone and PIN'); return; }
+        if (!typed || !loginPin) { setLoginError('Enter your username / phone and PIN'); return; }
+        setLoginError('');
         setLoggingIn(true);
         try {
           // Cloud first — ONE DT Rider app for ALL restaurants. The server
@@ -460,93 +575,265 @@ export default function RiderAppPage() {
             toast.success(`Welcome ${match.name}!`);
             return;
           }
-          toast.error(message || 'Wrong username/phone or PIN');
+          // Lockout and rate-limit messages come from the server unchanged.
+          setLoginError(message || 'Wrong username/phone or PIN');
         } finally { setLoggingIn(false); }
       };
-      return (
-        <div className="min-h-screen bg-gradient-to-b from-primary/5 to-background flex items-center justify-center p-4">
-          <Card className="p-6 max-w-sm w-full space-y-4">
-            <div className="text-center space-y-2">
-              <div className="h-14 w-14 mx-auto rounded-full bg-primary/10 text-primary flex items-center justify-center">
-                <Bike className="h-7 w-7" />
-              </div>
-              <h2 className="text-xl font-extrabold">DT Rider</h2>
-              <p className="text-xs text-muted-foreground">Sign in with the account your restaurant admin created</p>
+      const field = 'h-12 w-full rounded-xl border bg-card px-3 text-[16px] outline-none focus:border-primary';
+      return shell(
+        <div className="flex flex-1 flex-col gap-5 pt-6" data-rider-screen="login">
+          <div className="flex flex-col items-center gap-3 text-center">
+            <div data-rd-hero className="grid h-20 w-20 place-items-center rounded-[22px]"><Bike className="relative z-10 h-10 w-10" /></div>
+            <div>
+              <h1 className="text-[26px] font-extrabold tracking-tight">DT Rider</h1>
+              <p className="text-[14px] text-muted-foreground">Sign in with the account your restaurant created</p>
             </div>
-            <div className="space-y-2">
-              <label className="text-[11px] font-semibold">Username / Phone</label>
+          </div>
+          {loginError && <Banner tone="bad" icon={AlertTriangle}>{loginError}</Banner>}
+          <form className="space-y-3" onSubmit={e => { e.preventDefault(); void doLogin(); }}>
+            <label className="block">
+              <span className="mb-1 block text-[13px] font-bold">Username / Phone</span>
               <input type="text" value={loginPhone} onChange={e => setLoginPhone(e.target.value)} placeholder="username or 03xxxxxxxxx"
-                className="w-full h-11 px-3 rounded-md border bg-background text-base" autoFocus />
-              <label className="text-[11px] font-semibold">PIN / Password</label>
-              <input type="password" maxLength={64} value={loginPin}
-                onChange={e => setLoginPin(e.target.value)} placeholder="••••"
-                className="w-full h-11 px-3 rounded-md border bg-background text-base font-mono tracking-widest text-center"
-                onKeyDown={e => { if (e.key === 'Enter') void doLogin(); }} />
-              <label className="text-[11px] font-semibold">
-                Workspace Code {needCode ? '(required)' : '(optional)'}
-              </label>
-              <input type="text" maxLength={12} value={workspaceCode}
-                onChange={e => setWorkspaceCode(e.target.value.toUpperCase())} placeholder="ABC123"
-                className={`w-full h-11 px-3 rounded-md border bg-background text-base font-mono tracking-widest text-center ${needCode ? 'ring-2 ring-amber-400' : ''}`}
-                onKeyDown={e => { if (e.key === 'Enter') void doLogin(); }} />
-            </div>
-            <Button className="w-full h-11 text-sm font-bold" disabled={loggingIn} onClick={() => void doLogin()}>
-              {loggingIn ? 'Signing in…' : 'Login as Rider'}
-            </Button>
-            <p className="text-[10px] text-muted-foreground text-center">
-              One DT Rider app works for every restaurant — your account decides which one you see.
-            </p>
-          </Card>
-        </div>
+                className={field} autoFocus autoComplete="username" />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-[13px] font-bold">PIN / Password</span>
+              <input type="password" maxLength={64} value={loginPin} onChange={e => setLoginPin(e.target.value)} placeholder="••••"
+                className={cn(field, 'text-center font-mono tracking-widest')} autoComplete="current-password" />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-[13px] font-bold">Workspace code {needCode ? '(required)' : '(optional)'}</span>
+              <input type="text" maxLength={12} value={workspaceCode} onChange={e => setWorkspaceCode(e.target.value.toUpperCase())} placeholder="ABC123"
+                className={cn(field, 'text-center font-mono tracking-widest', needCode && 'border-[hsl(var(--rd-warn))] ring-2 ring-[hsl(var(--rd-warn)/.35)]')} />
+            </label>
+            <RButton type="submit" variant="primary" size="lg" className="w-full" busy={loggingIn}>
+              {loggingIn ? 'Signing in…' : 'Sign in'}
+            </RButton>
+          </form>
+          <p className="mt-auto text-center text-[12.5px] text-muted-foreground">
+            One DT Rider app works for every restaurant — your account decides which one you see.
+          </p>
+        </div>,
       );
     }
     // Staff route: quick picker
-    return (
-      <div className="p-4 max-w-md mx-auto space-y-3">
-        <Card className="p-4 text-center space-y-2">
-          <Bike className="h-10 w-10 mx-auto text-primary" />
-          <h2 className="font-bold">Select your rider profile</h2>
-          <p className="text-xs text-muted-foreground">Your login isn't linked to a rider. Pick yourself:</p>
-          {allRiders.length === 0 && <p className="text-xs text-destructive">No riders configured. Ask admin to add riders in Settings.</p>}
-          <div className="space-y-2 pt-2">
-            {allRiders.map(r => (
-              <Button key={r.id} variant="outline" className="w-full justify-start" onClick={() => { localStorage.setItem('rider-profile-id', r.id); setRider(r); }}>
-                <UserIcon className="h-4 w-4 mr-2" /> {r.name} <span className="ml-auto text-[10px] text-muted-foreground">{r.phone}</span>
-              </Button>
-            ))}
-          </div>
-        </Card>
-      </div>
+    return shell(
+      <div className="space-y-3 pt-4">
+        <div className="text-center">
+          <Bike className="mx-auto h-10 w-10 text-primary" />
+          <h2 className="mt-2 text-[20px] font-extrabold">Select your rider profile</h2>
+          <p className="text-[14px] text-muted-foreground">Your login isn't linked to a rider. Pick yourself:</p>
+        </div>
+        {allRiders.length === 0 && <Banner tone="bad" icon={AlertTriangle}>No riders configured. Ask admin to add riders in Settings.</Banner>}
+        {allRiders.map(r => (
+          <button key={r.id} type="button" className="block w-full text-left" onClick={() => { localStorage.setItem('rider-profile-id', r.id); setRider(r); }}>
+            <RCard className="flex items-center gap-3 py-3">
+              <UserIcon className="h-5 w-5 text-primary" />
+              <span className="flex-1 text-[15px] font-bold">{r.name}</span>
+              <span className="text-[13px] text-muted-foreground">{r.phone}</span>
+            </RCard>
+          </button>
+        ))}
+      </div>,
     );
   }
 
-  return (
-    <div className="p-3 lg:p-6 max-w-2xl mx-auto space-y-3">
+  const background = (
+    <>
       <ReadyNotificationBus />
       <ReadyOrderPoller types={['delivery']} />
-      {/* Header */}
-      <div className="rounded-2xl p-4 bg-gradient-hero text-primary-foreground shadow-elegant flex items-center gap-3">
-        <div className="h-11 w-11 rounded-full bg-white/15 text-primary-foreground flex items-center justify-center">
-          <Bike className="h-5 w-5" />
+    </>
+  );
+
+  // ---------------------------------------------------------------- one delivery (covers the tabs)
+  if (view) {
+    const o = view.kind === 'done' ? null : byId(view.id);
+    const back = () => setView(null);
+    let body: React.ReactNode = null;
+    if (view.kind === 'done') {
+      body = <DoneScreen orderNumber={view.orderNumber} riderName={rider.name} today={doneToday} todayValue={valueToday}
+        onBack={() => { setView(null); setTab('home'); }} />;
+    } else if (view.kind === 'help') {
+      body = <HelpScreen order={o} restaurantPhone={restaurantFor(o).phone} onBack={() => setView(o ? { kind: 'order', id: o.id } : null)}
+        onProblem={p => sendProblem(p, o)} />;
+    } else if (!o) {
+      body = (
+        <div className="space-y-3 pt-6">
+          <Banner tone="warn" icon={AlertTriangle}>This order is no longer on this phone. It may have been reassigned or cancelled.</Banner>
+          <RButton className="w-full" onClick={back}>Back to orders</RButton>
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="font-extrabold truncate">{rider.name}</div>
-          <div className="text-[11px] opacity-80">{rider.phone}</div>
-          {/* v1.43.0 — whose app this is. One build serves every restaurant. */}
-          <div className="mt-0.5"><PortalRestaurantBadge compact showCode /></div>
+      );
+    } else if (view.kind === 'pickup') {
+      body = <PickupScreen order={o} onBack={() => setView({ kind: 'order', id: o.id })}
+        onConfirm={async () => { if (await advance(o, 'rider_picked')) setView({ kind: 'order', id: o.id }); }} />;
+    } else if (view.kind === 'deliver') {
+      body = <DeliverScreen order={o} onBack={() => setView({ kind: 'order', id: o.id })}
+        onConfirm={async () => { if (await advance(o, 'delivered')) setView({ kind: 'done', orderNumber: o.orderNumber }); }} />;
+    } else {
+      const r = restaurantFor(o);
+      body = (
+        <OrderScreen
+          order={o} riderPos={myPos} restaurant={r.point} restaurantName={r.name} restaurantPhone={r.phone} online={online}
+          gpsOff={!!gpsError || (!tracking && o.riderId === rider.id)}
+          onBack={back}
+          onCall={() => setCallId(o.id)}
+          onHelp={() => setView({ kind: 'help', id: o.id })}
+          onStages={() => setStagesId(o.id)}
+          onNext={async () => {
+            const next = nextAction(o);
+            if (!next) return;
+            if (next.confirm === 'pickup') { setView({ kind: 'pickup', id: o.id }); return; }
+            if (next.confirm === 'deliver') { setView({ kind: 'deliver', id: o.id }); return; }
+            await advance(o, next.stage);
+          }}
+        />
+      );
+    }
+    const callOrder = byId(callId);
+    return shell(
+      <>
+        {background}
+        {body}
+        <CallSheet order={callOrder} phone={normalizePhone(callOrder?.customer?.phone)} onClose={() => setCallId(null)} onTracking={sendTracking} />
+        <StageSheet order={byId(stagesId)} onClose={() => setStagesId(null)}
+          onPick={(ord, stage) => {
+            setStagesId(null);
+            if (stage === 'delivered') { setView({ kind: 'deliver', id: ord.id }); return; }
+            void advance(ord, stage);
+          }} />
+      </>,
+    );
+  }
+
+  // ---------------------------------------------------------------- the four tabs
+  const alertOrder = byId(alertId);
+  const refresh = <RefreshButton refreshing={refreshing} onRefresh={() => void pullOrders({ announce: true })} />;
+  const claimOrderSheet = byId(claimId);
+
+  let body: React.ReactNode;
+  if (tab === 'home') {
+    body = (
+      <div className="space-y-3" data-rider-screen="home">
+        {/* Header (RID-04): who, which restaurant, and the Live switch the restaurant's rider map depends on. */}
+        <div data-rd-hero className="flex items-center gap-3 p-3.5">
+          <span className="relative z-10 grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/20 text-[16px] font-extrabold">{initials(rider.name)}</span>
+          <div className="relative z-10 min-w-0 flex-1">
+            <div className="truncate text-[16px] font-extrabold">{rider.name}</div>
+            {/* v1.43.0 — whose app this is. One build serves every restaurant. */}
+            <div className="opacity-90"><PortalRestaurantBadge compact showCode /></div>
+          </div>
+          <button type="button" onClick={toggleTracking} aria-pressed={tracking}
+            className={cn('relative z-10 inline-flex h-10 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-extrabold', tracking ? 'bg-[#16a34a] text-white' : 'bg-white/20 text-white')}>
+            <Radio className={cn('h-4 w-4', tracking && 'animate-pulse')} />{tracking ? 'LIVE' : 'Go Live'}
+          </button>
         </div>
-        <Button size="sm" variant={tracking ? 'default' : 'secondary'} onClick={toggleTracking} className={tracking ? 'bg-green-600 hover:bg-green-700 text-white' : ''}>
-          <Radio className={`h-4 w-4 mr-1 ${tracking ? 'animate-pulse' : ''}`} />
-          {tracking ? 'LIVE' : 'Go Live'}
-        </Button>
+
+        {!online && <Banner tone="bad" icon={AlertTriangle}>You are offline. Orders shown are the last ones loaded.</Banner>}
+
+        {/* v1.75.0 — the customer (and the restaurant's tracking view) can only see a rider who is Live. */}
+        {myOrders.length > 0 && !tracking && (
+          <Card data-rider-live-reminder className="flex items-center gap-3 rounded-xl border-transparent bg-[hsl(var(--rd-warn-bg))] p-3 text-[hsl(var(--rd-warn))] shadow-none">
+            <Radio className="h-5 w-5 shrink-0" />
+            <div className="flex-1 text-[13px]">
+              <p className="font-extrabold">Your location is OFF</p>
+              <p>The customer cannot see where you are. Turn on Live so they can follow their order.</p>
+            </div>
+            <RButton size="sm" variant="primary" onClick={toggleTracking}>Go Live</RButton>
+          </Card>
+        )}
+        {tracking && gpsError && <Banner tone="warn" icon={MapPin}>Location is off or blocked ({gpsError}). Turn it on so the restaurant can see you on the map.</Banner>}
+
+        {/* Stats — the server's count when it has one, so a reinstall does not reset the rider's record. */}
+        <div className="grid grid-cols-3 gap-2">
+          <RCard className="px-2 py-2.5 text-center"><div className="text-[12px] text-muted-foreground">Active</div><b className="text-[18px] text-primary">{myOrders.length}</b></RCard>
+          <RCard className="px-2 py-2.5 text-center"><div className="text-[12px] text-muted-foreground">Done today</div><b className="text-[18px] text-[hsl(var(--rd-ok))]">{doneToday}</b></RCard>
+          <RCard className="px-2 py-2.5 text-center" title="The value of the bills you delivered today">
+            <div className="text-[12px] text-muted-foreground">Bills today</div><b className="block truncate text-[16px]">{money(valueToday)}</b>
+          </RCard>
+        </div>
+
+        <RLabel>My active orders ({myOrders.length})</RLabel>
+        {myOrders.length === 0
+          ? <RCard className="py-6 text-center text-[14px] text-muted-foreground">No active orders. New ones appear here automatically.</RCard>
+          : <div className="space-y-2">{myOrders.map((o, i) => <OrderCard key={o.id} order={o} active={i === 0} onOpen={() => openOrder(o)} />)}</div>}
+
+        {unassigned.length > 0 && (
+          <>
+            <RLabel right={unassigned.length > 3 ? <button type="button" className="inline-flex items-center text-[13px] font-bold text-primary" onClick={() => { setTab('orders'); setSeg('available'); }}>See all<ChevronRight className="h-4 w-4" /></button> : undefined}>
+              Available orders ({unassigned.length})
+            </RLabel>
+            <div className="space-y-2">{unassigned.slice(0, 3).map(o => <AvailableRow key={o.id} order={o} onClaim={() => setClaimId(o.id)} />)}</div>
+          </>
+        )}
+
+        {myPos && tracking && (
+          <div className="text-center text-[11.5px] text-muted-foreground">
+            📍 {myPos.lat.toFixed(5)}, {myPos.lng.toFixed(5)} · pings save automatically
+          </div>
+        )}
+        {refresh}
+      </div>
+    );
+  } else if (tab === 'orders') {
+    body = (
+      <div data-rider-screen="orders">
+        <h1 className="py-3 text-[22px] font-extrabold tracking-tight">Orders</h1>
+        <OrdersTab
+          seg={seg} onSeg={setSeg} mine={myOrders} available={unassigned}
+          history={records} historyState={recordState}
+          onOpen={openOrder} onClaim={o => setClaimId(o.id)} onRecord={setRecord} onRetryHistory={() => void loadHistory()}
+          refresh={refresh} now={now}
+        />
+      </div>
+    );
+  } else if (tab === 'record') {
+    body = (
+      <div data-rider-screen="record">
+        <h1 className="py-3 text-[22px] font-extrabold tracking-tight">My record</h1>
+        <RecordTab rows={records} lifetime={history?.totals?.delivered} state={recordState}
+          onRetry={() => void loadHistory()} onRecord={setRecord} now={now} />
+      </div>
+    );
+  } else {
+    body = (
+      <div className="space-y-3" data-rider-screen="profile">
+        <h1 className="py-3 text-[22px] font-extrabold tracking-tight">Profile</h1>
+        <div className="flex items-center gap-3">
+          <span className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-[hsl(var(--rd-tint))] text-[20px] font-extrabold text-primary">{initials(rider.name)}</span>
+          <div className="min-w-0">
+            <div className="truncate text-[18px] font-bold">{rider.name}</div>
+            <div className="text-[13px] text-muted-foreground">{rider.phone}</div>
+            <div className="text-muted-foreground"><PortalRestaurantBadge compact showCode /></div>
+          </div>
+        </div>
+        <RCard className="divide-y py-1">
+          <div className="flex items-center gap-3 py-3">
+            <Radio className="h-5 w-5 text-muted-foreground" />
+            <span className="flex-1 text-[15px]">Live location while on duty</span>
+            <Toggle checked={tracking} onChange={() => toggleTracking()} label="Live location while on duty" />
+          </div>
+          <div className="flex items-center gap-3 py-3">
+            <Moon className="h-5 w-5 text-muted-foreground" />
+            <span className="flex-1 text-[15px]">Dark theme (night shift)</span>
+            <Toggle checked={dark} onChange={setTheme} label="Dark theme" />
+          </div>
+          <button type="button" className="flex w-full items-center gap-3 py-3 text-left" onClick={() => setView({ kind: 'help' })}>
+            <LifeBuoy className="h-5 w-5 text-muted-foreground" />
+            <span className="flex-1 text-[15px]">Help and support</span>
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </button>
+        </RCard>
+
+        {/* v1.46.0 — the rider's own picture, name and phone. */}
+        <StaffProfileCard onSaved={() => setTick(t => t + 1)} />
+
         {/* ===== v1.49.0 — REPORTED: "profile icon dabao to logout ho jata hai" =====
             It did, and the icon was a PERSON with title="Logout". Every rider
             who tapped it expecting their profile was signed out instead. The
-            profile now lives in the card below; this is a logout button and it
-            finally looks like one, and it asks first. */}
+            profile is this tab; this is a logout button, it looks like one,
+            and it asks first. */}
         {publicMode && (
-          <Button size="sm" variant="ghost" title="Log out" aria-label="Log out"
-            className="text-primary-foreground hover:bg-white/15"
+          <RButton className="w-full" icon={LogOut} aria-label="Log out"
             onClick={() => {
               if (!window.confirm('Log out of DT Rider? You will need your username and PIN to sign back in.')) return;
               // v1.47.0 — same as the Order Taker: clearing the local rider
@@ -559,215 +846,34 @@ export default function RiderAppPage() {
                   await portalLogout();
                 } catch { /* the local token is gone either way */ }
               })();
-              setRider(null); setLoginPhone(''); setLoginPin('');
+              setRider(null); setLoginPhone(''); setLoginPin(''); setTab('home'); setView(null);
             }}>
-            <LogOut className="h-4 w-4" />
-          </Button>
+            Log out
+          </RButton>
         )}
+        <p className="pt-1 text-center text-[12px] text-muted-foreground">DT Rider v{APP_VERSION} · Powered by Digital Target</p>
       </div>
+    );
+  }
 
-      {/* Stats — the server's count when it has one, so a reinstall does not
-          reset the rider's record; the local tally is the offline fallback. */}
-      <div className="grid grid-cols-3 gap-2">
-        <StatTile label="Active" value={myOrders.length} accent="text-blue-600" />
-        <StatTile label="Done Today" value={history?.totals?.today ?? completedToday.length} accent="text-green-600" />
-        <StatTile
-          label="Earnings"
-          value={money(history?.totals?.earnings ?? completedToday.reduce((s, o) => s + (o.grandTotal || 0), 0))}
-          accent="text-primary"
-          small
-        />
-      </div>
-
-      {/* v1.46.0 — the rider's own picture, name and phone. */}
-      <StaffProfileCard onSaved={() => setTick(t => t + 1)} />
-
-      {/* My record — every delivery this rider has completed, kept server-side */}
-      <button
-        type="button"
-        onClick={() => { setShowHistory(v => !v); void loadHistory(); }}
-        className="w-full rounded-lg border bg-card px-3 py-2 flex items-center justify-between text-xs font-semibold"
-      >
-        <span className="flex items-center gap-1.5">
-          <HistoryIcon className="h-3.5 w-3.5" />
-          My Deliveries
-          {typeof history?.totals?.delivered === 'number' && (
-            <span className="text-muted-foreground font-normal">
-              ({history.totals.delivered} total)
-            </span>
-          )}
-        </span>
-        <span className="text-muted-foreground">{showHistory ? 'Hide' : 'Show'}</span>
-      </button>
-
-      {showHistory && (
-        <div className="space-y-1.5">
-          {(history?.orders?.length ?? 0) === 0 && (
-            <Card className="p-4 text-center text-xs text-muted-foreground">
-              No completed deliveries yet.
-            </Card>
-          )}
-          {history?.orders?.map((h) => {
-            const o = h as Record<string, string | number | null>;
-            return (
-              <Card key={String(o.id)} className="p-2.5 flex items-center gap-2 text-xs">
-                <div className="min-w-0 flex-1">
-                  <div className="font-bold">#{String(o.orderNumber ?? '')}</div>
-                  <div className="text-[11px] text-muted-foreground truncate">
-                    {String(o.customerName ?? 'Customer')}
-                    {o.address ? ` · ${String(o.address)}` : ''}
-                  </div>
-                </div>
-                <div className="text-right shrink-0">
-                  <div className="font-bold text-primary">{money(Number(o.grandTotal) || 0)}</div>
-                  <div className="text-[10px] text-muted-foreground">
-                    {o.deliveredAt ? new Date(String(o.deliveredAt)).toLocaleDateString() : ''}
-                  </div>
-                </div>
-              </Card>
-            );
-          })}
-        </div>
+  return shell(
+    <>
+      {background}
+      {alertOrder && alertOrder.deliveryStatus === 'ready' && (!alertOrder.riderId || alertOrder.riderId === rider.id) && (
+        <ReadyAlert order={alertOrder} mine={alertOrder.riderId === rider.id}
+          onLater={() => setAlertId(null)}
+          onAct={() => { setAlertId(null); if (alertOrder.riderId === rider.id) openOrder(alertOrder); else setClaimId(alertOrder.id); }} />
       )}
-
-      {myPos && (
-        <div className="text-[10px] text-muted-foreground text-center">
-          📍 {myPos.lat.toFixed(5)}, {myPos.lng.toFixed(5)} · pings save automatically
-        </div>
-      )}
-
-      {/* v1.75.0 — the customer (and the restaurant's tracking view) can only see a rider who is Live. */}
-      {myOrders.length > 0 && !tracking && (
-        <Card data-rider-live-reminder className="p-3 flex items-center gap-3 border-status-warning bg-status-warning/10">
-          <Radio className="h-5 w-5 text-status-warning shrink-0" />
-          <div className="flex-1 text-xs">
-            <p className="font-extrabold">Your location is OFF</p>
-            <p className="text-muted-foreground">The customer cannot see where you are. Turn on Live so they can follow their order.</p>
-          </div>
-          <Button size="sm" onClick={toggleTracking}>Go Live</Button>
-        </Card>
-      )}
-
-      {/* My Orders */}
-      <div>
-        <h3 className="text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-1">
-          <Truck className="h-3 w-3" /> My Active Orders ({myOrders.length})
-        </h3>
-        {myOrders.length === 0 && (
-          <Card className="p-6 text-center text-xs text-muted-foreground">No active orders.</Card>
-        )}
-        <div className="space-y-2">
-          {myOrders.map(o => <OrderCard key={o.id} order={o} riderPos={myPos} onAdvance={advance} onTracking={sendTracking} />)}
-        </div>
-      </div>
-
-      {/* Unassigned orders to claim */}
-      {unassigned.length > 0 && (
-        <div>
-          <h3 className="text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-1">
-            <PackageCheck className="h-3 w-3" /> Available Orders ({unassigned.length})
-          </h3>
-          <div className="space-y-2">
-            {unassigned.map(o => (
-              <Card key={o.id} className="p-3 flex items-center gap-2">
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-sm">#{o.orderNumber} · {money(o.grandTotal)}</div>
-                  <div className="text-[11px] text-muted-foreground truncate">{o.customer?.name} · {o.customer?.address}</div>
-                </div>
-                <Button size="sm" onClick={() => claimOrder(o)}>Claim</Button>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <Button
-        variant="outline"
-        size="sm"
-        className="w-full"
-        disabled={refreshing}
-        onClick={() => void pullOrders({ announce: true })}
-      >
-        <RefreshCw className={`h-3 w-3 mr-1 ${refreshing ? 'animate-spin' : ''}`} />
-        {refreshing ? 'Refreshing…' : 'Refresh'}
-      </Button>
-    </div>
-  );
-}
-
-function OrderCard({ order, riderPos, onAdvance, onTracking }: { order: Order; riderPos?: { lat: number; lng: number } | null; onAdvance: (o: Order, s: DeliveryStatus) => void; onTracking: (o: Order) => void }) {
-  const s = getSettings();
-  const branch = (s?.restaurantLat != null && s?.restaurantLng != null) ? { lat: s.restaurantLat, lng: s.restaurantLng } : null;
-  const phone = normalizePhone(order.customer?.phone);
-  const lat = order.delivery?.customerLat;
-  const lng = order.delivery?.customerLng;
-  const stage = order.deliveryStatus || 'pending';
-  const nextStages = STAGE_FLOW.filter(s => s.stage !== stage);
-
-  return (
-    <Card className="p-3 space-y-2">
-      <div className="flex items-center justify-between">
-        <div className="font-bold text-sm">#{order.orderNumber}</div>
-        <Badge variant="secondary" className="text-[10px]">{DELIVERY_STAGE_LABEL[stage]}</Badge>
-      </div>
-      {order.customer && (
-        <div className="space-y-0.5 text-[12px]">
-          <div className="font-medium">{order.customer.name}</div>
-          {phone && (
-            <a href={`tel:${phone}`} className="text-primary inline-flex items-center gap-1">
-              <Phone className="h-3 w-3" /> {order.customer.phone}
-            </a>
-          )}
-          <div className="text-muted-foreground flex items-start gap-1">
-            <MapPin className="h-3 w-3 mt-0.5 shrink-0" />
-            <span>{order.customer.address}</span>
-          </div>
-        </div>
-      )}
-      {(lat != null && lng != null) && (
-        <DeliveryRouteMap
-          branch={branch}
-          rider={riderPos || null}
-          customer={{ lat, lng }}
-          height={220}
-        />
-      )}
-      <div className="flex items-center justify-between text-[11px]">
-        <span className="font-bold text-primary">{money(order.grandTotal)}</span>
-        {order.delivery?.distanceKm != null && (
-          <span className="text-muted-foreground">{order.delivery.distanceKm.toFixed(1)} km · ~{order.delivery.etaMinutes || estimateEta(order.delivery.distanceKm)} min</span>
-        )}
-      </div>
-      <div className="flex gap-1 flex-wrap">
-        {lat != null && lng != null ? (
-          <a href={`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`} target="_blank" rel="noreferrer" className="flex-1">
-            <Button size="sm" variant="outline" className="w-full h-8 text-[11px]"><Navigation className="h-3 w-3 mr-1" /> Navigate</Button>
-          </a>
-        ) : order.customer?.address ? (
-          <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.customer.address)}`} target="_blank" rel="noreferrer" className="flex-1">
-            <Button size="sm" variant="outline" className="w-full h-8 text-[11px]"><Navigation className="h-3 w-3 mr-1" /> Navigate</Button>
-          </a>
-        ) : null}
-        <Button size="sm" variant="outline" className="h-8 text-[11px]" disabled={!phone} onClick={() => onTracking(order)}>
-          Tracking
-        </Button>
-      </div>
-      <div className="grid grid-cols-2 gap-1 pt-1">
-        {nextStages.map(s => (
-          <Button key={s.stage} size="sm" className={`h-8 text-[11px] ${s.color}`} onClick={() => onAdvance(order, s.stage)}>
-            <s.icon className="h-3 w-3 mr-1" /> {s.label}
-          </Button>
-        ))}
-      </div>
-    </Card>
-  );
-}
-
-function StatTile({ label, value, accent, small }: { label: string; value: any; accent?: string; small?: boolean }) {
-  return (
-    <Card className="p-2 text-center">
-      <div className="text-[9px] uppercase tracking-wider text-muted-foreground">{label}</div>
-      <div className={`font-extrabold ${accent || ''} ${small ? 'text-sm' : 'text-lg'}`}>{value}</div>
-    </Card>
+      {body}
+      <ClaimSheet order={claimOrderSheet} onClose={() => setClaimId(null)}
+        onClaim={async o => {
+          const ok = await claimOrder(o);
+          setClaimId(null);
+          if (ok) openOrder(o);
+          return ok;
+        }} />
+      <RecordSheet r={record} onClose={() => setRecord(null)} />
+    </>,
+    { tabs: true },
   );
 }

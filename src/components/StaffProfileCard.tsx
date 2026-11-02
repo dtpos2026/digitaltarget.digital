@@ -145,7 +145,8 @@ export default function StaffProfileCard({ onSaved }: { onSaved?: (me: { name: s
               <Stat label="Assigned"  value={stats.assigned ?? 0} />
               <Stat label="Delivered" value={stats.delivered ?? 0} accent="text-green-600" />
               <Stat label="Pending"   value={stats.pending ?? 0} accent="text-amber-600" />
-              <Stat label="Earnings"  value={money(stats.earnings ?? 0)} accent="text-primary" />
+              {/* v1.88.0 — the server's "earnings" is the total of the bills delivered, not the rider's pay. */}
+              <Stat label="Bills Rs"  value={money(stats.earnings ?? 0)} accent="text-primary" />
             </div>
           ) : (
             <div className="grid grid-cols-4 gap-1.5">

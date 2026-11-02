@@ -1,0 +1,145 @@
+/* ============================================================
+ * DT RIDER — the design package's rider screens (design-project/05-rider-app), v1.88.0
+ *
+ * The rider app has its own look (rider orange on the DT neutrals, 01-design-system/tokens.css), whatever theme the
+ * restaurant's tills use, and a dark version for night shifts (RID-22). Everything is scoped to .dt-rider, so no
+ * other screen changes.
+ * ============================================================ */
+.dt-rider {
+  --background: 260 43% 97%;   /* #f7f5fb */
+  --foreground: 261 25% 11%;   /* #1a1523 */
+  --card: 0 0% 100%;
+  --card-foreground: 261 25% 11%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 261 25% 11%;
+  --primary: 17 88% 40%;       /* #c2410c rider orange */
+  --primary-foreground: 0 0% 100%;
+  --secondary: 258 68% 96%;
+  --secondary-foreground: 261 25% 11%;
+  --muted: 258 68% 96%;        /* #f3effc */
+  --muted-foreground: 261 9% 43%; /* #6b6478 */
+  --accent: 33 100% 96%;       /* #fff7ed */
+  --accent-foreground: 17 88% 40%;
+  --border: 260 37% 91%;       /* #e4def0 */
+  --input: 260 30% 85%;
+  --ring: 17 88% 40%;
+  --rd-deep: 15 75% 28%;       /* #7c2d12 */
+  --rd-tint: 33 100% 96%;
+  --rd-faint: 260 11% 62%;
+  --rd-ok: 142 72% 29%;   --rd-ok-bg: 141 84% 93%;
+  --rd-warn: 26 90% 37%;  --rd-warn-bg: 48 96% 89%;
+  --rd-bad: 0 72% 51%;    --rd-bad-bg: 0 93% 94%;
+  --rd-info: 224 76% 48%; --rd-info-bg: 214 95% 93%;
+  --rd-shadow: 0 1px 2px rgba(26, 21, 35, .06), 0 4px 14px rgba(26, 21, 35, .06);
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-feature-settings: "tnum" 1;
+  -webkit-tap-highlight-color: transparent;
+  color-scheme: light;
+}
+/* RID-22 — night shift: lower glare, the orange kept readable. */
+.dt-rider[data-theme="dark"] {
+  --background: 258 37% 7%;    /* #0f0b18 */
+  --foreground: 260 47% 96%;   /* #f4f1fa */
+  --card: 260 31% 11%;         /* #1a1426 */
+  --card-foreground: 260 47% 96%;
+  --popover: 260 31% 11%;
+  --popover-foreground: 260 47% 96%;
+  --primary: 21 90% 48%;       /* #ea580c — #c2410c is too dark to read on the night background */
+  --secondary: 259 31% 16%;
+  --secondary-foreground: 260 47% 96%;
+  --muted: 259 31% 16%;        /* #241c35 */
+  --muted-foreground: 261 20% 72%; /* #b4aac6 */
+  --accent: 21 57% 15%;        /* #3a1f10 */
+  --accent-foreground: 21 90% 60%;
+  --border: 259 26% 23%;       /* #352b4a */
+  --input: 259 26% 28%;
+  --ring: 21 90% 48%;
+  --rd-tint: 21 57% 15%;
+  --rd-faint: 260 12% 51%;
+  --rd-ok: 142 69% 58%;   --rd-ok-bg: 140 48% 14%;
+  --rd-warn: 38 92% 60%;  --rd-warn-bg: 39 71% 14%;
+  --rd-bad: 0 91% 71%;    --rd-bad-bg: 0 51% 16%;
+  --rd-info: 213 94% 68%; --rd-info-bg: 221 59% 19%;
+  --rd-shadow: 0 1px 2px rgba(0, 0, 0, .4);
+  color-scheme: dark;
+}
+/* In the components layer: Tailwind's utilities come after it, so a screen's own classes (a tinted card, no shadow)
+ * win over these defaults. Unlayered, these would beat every utility whatever its specificity. */
+@layer components {
+  .dt-rider :is(button, a, input, select, textarea, [tabindex]):focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px hsl(var(--primary) / .3);
+  }
+  .dt-rider [data-rd-card] {
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: 16px;
+    box-shadow: var(--rd-shadow);
+  }
+  .dt-rider [data-rd-card][data-active="true"] { border-color: hsl(var(--primary)); background: hsl(var(--rd-tint)); }
+  .dt-rider [data-rd-hero] {
+    position: relative; overflow: hidden; border-radius: 20px; color: #fff;
+    background: linear-gradient(120deg, hsl(var(--rd-deep)), hsl(17 88% 40%));
+  }
+  .dt-rider [data-rd-hero]::after {
+    content: ''; position: absolute; right: -30px; top: -30px; width: 180px; height: 180px; border-radius: 50%;
+    background: rgba(255, 255, 255, .12); pointer-events: none;
+  }
+  .dt-rider [data-rd-chip] {
+    height: 2.25rem; padding: 0 1rem; border-radius: 999px; white-space: nowrap;
+    border: 1px solid hsl(var(--border)); background: hsl(var(--card));
+    font-size: 14px; font-weight: 600; color: hsl(var(--foreground));
+  }
+  .dt-rider [data-rd-chip][aria-selected="true"] {
+    background: hsl(var(--primary)); border-color: hsl(var(--primary)); color: hsl(var(--primary-foreground));
+  }
+  .dt-rider [data-rd-seg] { display: inline-flex; background: hsl(var(--muted)); border-radius: 12px; padding: 3px; }
+  .dt-rider [data-rd-seg] > button {
+    padding: 7px 14px; border-radius: 9px; font-weight: 700; font-size: 14px; color: hsl(var(--muted-foreground));
+  }
+  .dt-rider [data-rd-seg] > button[aria-selected="true"] {
+    background: hsl(var(--card)); color: hsl(var(--foreground)); box-shadow: var(--rd-shadow);
+  }
+  .dt-rider [data-rd-label] {
+    font-size: 11.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: hsl(var(--muted-foreground));
+  }
+  .dt-rider [data-rd-tabbar] {
+    background: hsl(var(--card)); border-top: 1px solid hsl(var(--border));
+    padding: 6px 4px calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+  .dt-rider [data-rd-tabbar] > button { color: hsl(var(--rd-faint)); }
+  .dt-rider [data-rd-tabbar] > button[aria-current="page"] { color: hsl(var(--primary)); }
+  .dt-rider [data-rd-sheet] {
+    background: hsl(var(--card)); border-radius: 24px 24px 0 0; box-shadow: 0 -10px 40px rgba(0, 0, 0, .2);
+    padding: 14px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+  }
+  .dt-rider [data-rd-sheet]::before {
+    content: ''; display: block; width: 40px; height: 4px; border-radius: 2px; background: hsl(var(--border)); margin: 0 auto 12px;
+  }
+  .dt-rider [data-rd-check] {
+    width: 24px; height: 24px; border-radius: 7px; border: 2px solid hsl(var(--border)); flex: none;
+    display: inline-flex; align-items: center; justify-content: center; color: #fff;
+  }
+  .dt-rider [data-rd-check][data-on="true"] { background: hsl(var(--primary)); border-color: hsl(var(--primary)); }
+  .dt-rider [data-rd-toggle] {
+    position: relative; width: 44px; height: 26px; border-radius: 999px; background: hsl(var(--border)); flex: none;
+    transition: background-color .15s;
+  }
+  .dt-rider [data-rd-toggle]::after {
+    content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .3); transition: left .15s;
+  }
+  .dt-rider [data-rd-toggle][aria-checked="true"] { background: hsl(var(--primary)); }
+  .dt-rider [data-rd-toggle][aria-checked="true"]::after { left: 21px; }
+  .dt-rider [data-rd-skel] {
+    border-radius: 10px;
+    background: linear-gradient(90deg, hsl(var(--muted)), hsl(var(--border)), hsl(var(--muted)));
+    background-size: 200% 100%;
+    animation: rd-skel 1.2s ease-in-out infinite;
+  }
+}
+@keyframes rd-skel { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .dt-rider [data-rd-skel] { animation: none; } }
+.dt-rider .rd-tone-ok { color: hsl(var(--rd-ok)); }
+.dt-rider .rd-tone-bad { color: hsl(var(--rd-bad)); }
