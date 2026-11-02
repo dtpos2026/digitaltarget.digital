@@ -6,6 +6,7 @@ import { useEffect } from 'react';
 import { getOrders, getSettings, saveOrder } from '@/lib/store';
 import { notifyReady } from '@/lib/readyNotify';
 import type { Order } from '@/lib/types';
+import { isStillActiveCooking } from '@/lib/autoReady';
 
 const TICK_MS = 30_000;
 
@@ -20,14 +21,6 @@ function prepMinutesFor(order: Order, defaultMinutes: number): number {
   return max > 0 ? max : defaultMinutes;
 }
 
-function isStillActiveCooking(order: Order): boolean {
-  if (order.status === 'void' || order.status === 'cancelled') return false;
-  // already ready / past ready?
-  if (order.kitchenStatus === 'ready' || order.kitchenStatus === 'served') return false;
-  if (order.deliveryStatus && ['ready', 'rider_assigned', 'rider_picked', 'onway', 'rider_reached', 'delivered', 'cancelled'].includes(order.deliveryStatus)) return false;
-  return true;
-}
-
 export default function AutoReadyTimer() {
   useEffect(() => {
     const tick = () => {
@@ -38,7 +31,7 @@ export default function AutoReadyTimer() {
         const now = Date.now();
         const orders = getOrders();
         for (const o of orders) {
-          if (!isStillActiveCooking(o)) continue;
+          if (!isStillActiveCooking(o, now)) continue;
           const prep = prepMinutesFor(o, defMin);
           const startedIso = o.cookingStartedAt || (o as any).createdAt;
           if (!startedIso) continue;
