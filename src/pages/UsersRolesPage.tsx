@@ -12,6 +12,7 @@ import { Plus, Trash2, Edit2, Save, ShieldCheck, KeyRound } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { PAGES, defaultPermissionsForRole, FEATURE_PERMISSIONS, FEATURE_GROUP_ORDER, defaultFeaturePermissionsForRole } from '@/lib/permissions';
+import { LEVEL_LABEL, LEVEL_ORDER, ROLE_PRESETS, findPreset, matchPreset, presetPermissions } from '@/lib/orgStructure';
 import { Zap } from 'lucide-react';
 
 const roleColors: Record<UserRole, string> = {
@@ -208,6 +209,22 @@ export default function UsersRolesPage() {
     });
   };
 
+  // v1.97.0 — a named position (Branch Manager, Kitchen Head, Accounts Head …) sets the role and every permission at once.
+  // A head of department works across branches, so the branch lock is cleared; a floor position keeps whatever branch is set.
+  const applyPreset = (id: string) => {
+    if (!editUser) return;
+    const preset = findPreset(id);
+    if (!preset) return;
+    const p = presetPermissions(preset);
+    setEditUser({
+      ...editUser,
+      role: p.role,
+      permissions: p.permissions,
+      featurePermissions: p.featurePermissions,
+      ...(preset.acrossBranches ? { branchId: undefined } : {}),
+    });
+  };
+
   const groups: Array<PageDef['group']> = ['Operations', 'Marketing', 'Inventory', 'Accounts', 'Staff', 'Reports', 'Admin'];
   const isAdmin = editUser?.role === 'admin';
   const isPortalRole = editUser?.role === 'order_taker' || editUser?.role === 'rider';
@@ -249,7 +266,10 @@ export default function UsersRolesPage() {
                 <tr key={u.id} className="border-b hover:bg-muted/30 transition-smooth">
                   <td className="px-4 py-2.5 font-bold">{u.name}</td>
                   <td className="px-4 py-2.5 font-mono text-muted-foreground">{u.username}</td>
-                  <td className="px-4 py-2.5"><Badge className={`text-[10px] ${roleColors[u.role]}`}>{u.role}</Badge></td>
+                  <td className="px-4 py-2.5">
+                    <Badge className={`text-[10px] ${roleColors[u.role]}`}>{u.role}</Badge>
+                    {matchPreset(u) && <div className="mt-0.5 text-[10px] font-semibold text-muted-foreground">{matchPreset(u)!.name}</div>}
+                  </td>
                   <td className="px-4 py-2.5">
                     <span className="font-bold text-foreground">{perms}</span>
                     <span className="text-muted-foreground"> / {PAGES.length}</span>
@@ -325,6 +345,27 @@ export default function UsersRolesPage() {
                     </div>
                   </>
                 )}
+                <div className="col-span-2" data-testid="position-picker">
+                  <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Position</label>
+                  <Select value={matchPreset(editUser)?.id || 'custom'} onValueChange={applyPreset}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {LEVEL_ORDER.map(level => (
+                        <div key={level}>
+                          <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{LEVEL_LABEL[level]}</div>
+                          {ROLE_PRESETS.filter(p => p.level === level).map(p => (
+                            <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                          ))}
+                        </div>
+                      ))}
+                      <SelectItem value="custom" disabled>Custom (edited below)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    {matchPreset(editUser)?.summary || 'This person\'s pages have been customised. Pick a position to start from a standard one.'}
+                    {' '}Everything can still be changed below.
+                  </p>
+                </div>
                 <div className={isPortalRole ? '' : ''}>
                   <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Role</label>
                   <Select value={editUser.role} onValueChange={(v: UserRole) => applyRoleDefaults(v)}>
