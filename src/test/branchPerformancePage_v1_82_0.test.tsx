@@ -8,7 +8,9 @@ import { visiblePagesForUser, MULTI_BRANCH_ONLY_PAGES, PAGES } from '@/lib/permi
 import { featureEnabled } from '@/lib/plans';
 import type { Order, Transaction, User } from '@/lib/types';
 
-const today = (h = 11) => { const d = new Date(); d.setHours(Math.min(h, 23), 0, 0, 0); return d.toISOString(); };
+// An hour ago: always inside the default 7-day window, whatever the clock says (a fixed hour of "today" is in the
+// future just after midnight, which is how this test first failed).
+const today = (_h = 11) => new Date(Date.now() - 3600_000).toISOString();
 const bill = (o: Partial<Order>): Order => ({
   id: Math.random().toString(36).slice(2), orderNumber: 1, orderType: 'dining', status: 'paid', paymentMethod: 'cash',
   items: [{ id: 'i', menuItemId: 'm', name: 'Karahi', quantity: 1, lineTotal: 1000 } as any], subtotal: 1000, discount: 0, tax: 0, serviceCharge: 0,
@@ -50,7 +52,6 @@ describe('a restaurant with several branches', () => {
   it('shows the group, one row per branch (including one that sold nothing) and the group row', () => {
     seed();
     mount();
-    fireEvent.click(screen.getByRole('tab', { name: 'Today' }));
     const t = screen.getByTestId('compare-table');
     for (const n of ['Gulberg', 'DHA', 'Johar Town']) expect(within(t).getByText(n)).toBeInTheDocument();
     expect(within(screen.getByTestId('row-A')).getByText(/Rs\.8,000/)).toBeInTheDocument();
@@ -62,7 +63,6 @@ describe('a restaurant with several branches', () => {
   it('the group cards agree with the table', () => {
     seed();
     mount();
-    fireEvent.click(screen.getByRole('tab', { name: 'Today' }));
     const k = screen.getByTestId('group-kpis');
     expect(within(k).getByText('Rs.11,000')).toBeInTheDocument();        // sales
     expect(within(k).getByText('Rs.9,500')).toBeInTheDocument();         // profit = 11,000 − 1,500
@@ -72,7 +72,6 @@ describe('a restaurant with several branches', () => {
   it('names the leader and the weakest branch, and re-ranks when the measure changes', () => {
     seed();
     mount();
-    fireEvent.click(screen.getByRole('tab', { name: 'Today' }));
     expect(screen.getByTestId('rank-note')).toHaveTextContent(/Gulberg.*leads/);
     expect(screen.getByTestId('rank-note')).toHaveTextContent(/DHA.*weakest/);
     fireEvent.change(screen.getByLabelText('Rank by'), { target: { value: 'expenses' } });
@@ -83,7 +82,6 @@ describe('a restaurant with several branches', () => {
   it('shares of the business add up to 100 %', () => {
     seed();
     mount();
-    fireEvent.click(screen.getByRole('tab', { name: 'Today' }));
     const text = screen.getByTestId('share-list').textContent || '';
     const shares = [...text.matchAll(/(\d+(?:\.\d)?)%/g)].map(m => Number(m[1]));
     expect(shares.reduce((a, b) => a + b, 0)).toBeCloseTo(100, 0);
@@ -93,7 +91,6 @@ describe('a restaurant with several branches', () => {
     seed();
     saveOrder(bill({ grandTotal: 400, subtotal: 400, branchId: undefined }));
     mount();
-    fireEvent.click(screen.getByRole('tab', { name: 'Today' }));
     // with no current branch the order stays unstamped: it gets its own row and is part of the group
     expect(within(screen.getByTestId('row-__none__')).getByText('No branch recorded')).toBeInTheDocument();
     expect(within(screen.getByTestId('row-group')).getByText(/Rs\.11,400/)).toBeInTheDocument();

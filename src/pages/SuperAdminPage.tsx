@@ -11,7 +11,10 @@ import {
 } from 'firebase/firestore';
 import {
   Shield, CheckCircle2, XCircle, RefreshCw, LogOut, Trash2, Smartphone, Store, MapPin, Wifi, Users, Receipt, Calendar, AlertTriangle, MessageCircle, Package, Download, FileSignature, Sparkles, Plus, KeyRound,
+  LayoutDashboard,
 } from 'lucide-react';
+import AdminDashboard from '@/components/superadmin/AdminDashboard';
+import { toMs } from '@/lib/superAdminOverview';
 import ReleaseManagerPage from '@/pages/ReleaseManagerPage';
 import SuperAdminMonitoringPanel from '@/components/SuperAdminMonitoringPanel';
 import dtLogo from '@/assets/digital-target-logo.png';
@@ -159,7 +162,7 @@ interface RestaurantLocation {
 interface Props { onLogout: () => void; }
 
 export default function SuperAdminPage({ onLogout }: Props) {
-  const [tab, setTab] = useState<'restaurants' | 'clients' | 'reports' | 'packages' | 'plans' | 'messages' | 'devices' | 'map' | 'team' | 'releases' | 'cleanup' | 'monitor' | 'customerApps'>('restaurants');
+  const [tab, setTab] = useState<'dashboard' | 'restaurants' | 'clients' | 'reports' | 'packages' | 'plans' | 'messages' | 'devices' | 'map' | 'team' | 'releases' | 'cleanup' | 'monitor' | 'customerApps'>('dashboard');
   const [rows, setRows] = useState<IndexRow[]>([]);
   const [devices, setDevices] = useState<DeviceRow[]>([]);
   const [restaurants, setRestaurants] = useState<RestaurantLocation[]>([]);
@@ -1028,6 +1031,27 @@ export default function SuperAdminPage({ onLogout }: Props) {
   const totalPendingD = devices.filter(d => !d.approved).length;
   const totalApprovedD = devices.filter(d => d.approved).length;
 
+  // v1.84.0 — one list of sections, drawn as a left sidebar on large screens (the reference layout) and as the
+  // scrollable pill strip on small ones. The Dashboard comes first.
+  const tabItems = ([
+    { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="h-4 w-4" /> },
+                { id: 'restaurants', label: 'Restaurants', icon: <Store className="h-4 w-4" />, badge: totalPendingR },
+                { id: 'clients', label: 'Clients', icon: <Receipt className="h-4 w-4" /> },
+                { id: 'messages', label: 'Messages', icon: <MessageCircle className="h-4 w-4" /> },
+                { id: 'reports', label: 'Reports & Ledger', icon: <Receipt className="h-4 w-4" /> },
+                { id: 'packages', label: 'Packages', icon: <Package className="h-4 w-4" /> },
+                { id: 'plans', label: 'Plans', icon: <Package className="h-4 w-4" /> },
+                { id: 'customerApps', label: 'Customer Apps', icon: <Smartphone className="h-4 w-4" /> },
+                { id: 'devices', label: 'Devices', icon: <Smartphone className="h-4 w-4" />, badge: totalPendingD },
+                { id: 'map', label: 'Live Map', icon: <MapPin className="h-4 w-4" /> },
+                { id: 'team', label: 'Team', icon: <Users className="h-4 w-4" /> },
+                { id: 'monitor', label: 'Monitor', icon: <Wifi className="h-4 w-4" /> },
+                { id: 'releases', label: 'Releases', icon: <Sparkles className="h-4 w-4" /> },
+                ...(currentRole === 'owner'
+                  ? [{ id: 'cleanup', label: 'Cleanup', icon: <Trash2 className="h-4 w-4" /> }]
+                  : []),
+                ] as Array<{ id: any; label: string; icon: ReactNode; badge?: number }>);
+
   return (
     <div className="admin-shell min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
       {/* Header bar */}
@@ -1053,36 +1077,41 @@ export default function SuperAdminPage({ onLogout }: Props) {
       </div>
 
 
-      <div className="max-w-[1600px] mx-auto p-4 sm:p-6">
+      <div className="max-w-[1600px] mx-auto p-4 sm:p-6 lg:grid lg:grid-cols-[232px_minmax(0,1fr)] lg:gap-6">
+        {/* v1.84.0 — the reference layout: a brand sidebar with every section; the content beside it. */}
+        <aside className="hidden lg:block" data-testid="admin-sidebar">
+          <nav className="sticky top-20 overflow-hidden rounded-2xl p-2 text-white shadow-lg" style={{ background: 'linear-gradient(180deg, #3c096c 0%, #5a189a 55%, #7b2cbf 100%)' }} aria-label="Super Admin sections">
+            {tabItems.map(t => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setTab(t.id)}
+                aria-current={tab === t.id ? 'page' : undefined}
+                className={`mb-0.5 flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-[13.5px] font-semibold transition-colors ${tab === t.id ? 'bg-white text-[#3c096c] shadow' : 'text-white/85 hover:bg-white/10 hover:text-white'}`}
+              >
+                {t.icon}
+                <span className="min-w-0 flex-1 truncate">{t.label}</span>
+                {!!t.badge && t.badge > 0 && <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-extrabold text-[#3c096c]">{t.badge}</span>}
+              </button>
+            ))}
+          </nav>
+        </aside>
+        <div className="min-w-0">
         {/* Stats */}
+        {tab !== 'dashboard' && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           <StatCard icon={<Store className="h-4 w-4" />} label="Pending Restaurants" value={totalPendingR} tone="amber" />
           <StatCard icon={<CheckCircle2 className="h-4 w-4" />} label="Approved Restaurants" value={totalApprovedR} tone="green" />
           <StatCard icon={<Smartphone className="h-4 w-4" />} label="Pending Devices" value={totalPendingD} tone="amber" />
           <StatCard icon={<CheckCircle2 className="h-4 w-4" />} label="Approved Devices" value={totalApprovedD} tone="green" />
         </div>
+        )}
 
         {/* Tabs + search — responsive scroll strip (redesign v1) */}
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_260px] items-center gap-3 mb-5">
-          <div className="min-w-0 -mx-1 px-1 overflow-x-auto pos-scrollbar">
+        <div className={`grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_260px] items-center gap-3 mb-5 ${tab === 'dashboard' ? 'lg:hidden' : ''}`}>
+          <div className="min-w-0 -mx-1 px-1 overflow-x-auto pos-scrollbar lg:hidden">
             <div className="inline-flex gap-1 p-1 bg-muted/60 rounded-full border border-border/60 whitespace-nowrap">
-              {([
-                { id: 'restaurants', label: 'Restaurants', icon: <Store className="h-4 w-4" />, badge: totalPendingR },
-                { id: 'clients', label: 'Clients', icon: <Receipt className="h-4 w-4" /> },
-                { id: 'messages', label: 'Messages', icon: <MessageCircle className="h-4 w-4" /> },
-                { id: 'reports', label: 'Reports & Ledger', icon: <Receipt className="h-4 w-4" /> },
-                { id: 'packages', label: 'Packages', icon: <Package className="h-4 w-4" /> },
-                { id: 'plans', label: 'Plans', icon: <Package className="h-4 w-4" /> },
-                { id: 'customerApps', label: 'Customer Apps', icon: <Smartphone className="h-4 w-4" /> },
-                { id: 'devices', label: 'Devices', icon: <Smartphone className="h-4 w-4" />, badge: totalPendingD },
-                { id: 'map', label: 'Live Map', icon: <MapPin className="h-4 w-4" /> },
-                { id: 'team', label: 'Team', icon: <Users className="h-4 w-4" /> },
-                { id: 'monitor', label: 'Monitor', icon: <Wifi className="h-4 w-4" /> },
-                { id: 'releases', label: 'Releases', icon: <Sparkles className="h-4 w-4" /> },
-                ...(currentRole === 'owner'
-                  ? [{ id: 'cleanup', label: 'Cleanup', icon: <Trash2 className="h-4 w-4" /> }]
-                  : []),
-              ] as Array<{ id: any; label: string; icon: ReactNode; badge?: number }>).map(t => (
+              {tabItems.map(t => (
                 <button
                   key={t.id}
                   onClick={() => setTab(t.id)}
@@ -1116,6 +1145,15 @@ export default function SuperAdminPage({ onLogout }: Props) {
           <div className="flex items-center justify-center py-20">
             <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
+        ) : tab === 'dashboard' ? (
+          <AdminDashboard
+            tenants={rows.map(r => ({ id: r.id, name: r.restaurantName || r.email || r.id, email: r.email, approved: r.approved, createdAt: r.createdAt, planExpiryAt: r.planExpiryAt, plan: r.plan }))}
+            devices={devices.map(d => ({ tenantId: d.tenantId, approved: !!d.approved, blocked: !!d.blocked, lastSeenMs: d.lastActiveMs ?? toMs(d.lastActiveAt) }))}
+            onApprove={(id) => { const r = rows.find(x => x.id === id); if (r) approve(r); }}
+            onOpenBilling={(id) => { const r = rows.find(x => x.id === id); if (r) setBillingFor(r); }}
+            onGo={(t) => setTab(t as any)}
+            onRefresh={load}
+          />
         ) : tab === 'restaurants' ? (
           <>
             {/* Add New Restaurant */}
@@ -1458,6 +1496,7 @@ export default function SuperAdminPage({ onLogout }: Props) {
 
         <div className="mt-10 max-w-md mx-auto">
           <PoweredByBrand />
+        </div>
         </div>
       </div>
 
