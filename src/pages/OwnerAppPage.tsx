@@ -21,6 +21,7 @@ import { OwnerReports } from '@/components/owner/OwnerReports';
 import { OwnerMenu } from '@/components/owner/OwnerMenu';
 import { OwnerExpenses, OwnerMore, OwnerStock } from '@/components/owner/OwnerMore';
 import { OwnerCompare, OwnerTransfers } from '@/components/owner/OwnerBranches';
+import { OwnerApprovals, OwnerCustomers, OwnerDelivery, OwnerKitchen, OwnerProfile, OwnerStaff } from '@/components/owner/OwnerOps';
 import { getBranches } from '@/lib/store';
 import { isBranchAllowed } from '@/lib/branchAccess';
 
@@ -29,7 +30,7 @@ const TABS = [
   { key: 'orders', label: 'Orders', icon: ReceiptText, to: `${OWNER_BASE}/orders`, match: (p: string) => p.startsWith(`${OWNER_BASE}/orders`) },
   { key: 'menu', label: 'Menu', icon: UtensilsCrossed, to: `${OWNER_BASE}/menu`, match: (p: string) => p.startsWith(`${OWNER_BASE}/menu`) },
   { key: 'reports', label: 'Reports', icon: BarChart3, to: `${OWNER_BASE}/reports`, match: (p: string) => p.startsWith(`${OWNER_BASE}/reports`) },
-  { key: 'more', label: 'More', icon: MenuIcon, to: `${OWNER_BASE}/more`, match: (p: string) => /^\/owner-app\/(more|stock|expenses|transfers)/.test(p) },
+  { key: 'more', label: 'More', icon: MenuIcon, to: `${OWNER_BASE}/more`, match: (p: string) => /^\/owner-app\/(more|stock|expenses|transfers|approvals|kitchen|delivery|customers|staff|profile)/.test(p) },
 ] as const;
 
 export default function OwnerAppPage({ onLogout }: { onLogout: () => void }) {
@@ -98,6 +99,13 @@ export default function OwnerAppPage({ onLogout }: { onLogout: () => void }) {
           <Route path="/more" element={<OwnerMore caps={{ can, userName: user?.name || '', role: user?.role || '', onLogout, multiBranch: multi }} />} />
           {can('inventory') && <Route path="/stock" element={<OwnerStock />} />}
           {can('accounts') && <Route path="/expenses" element={<OwnerExpenses userName={user?.name || ''} />} />}
+          {/* v1.90.0 — the operations screens (OWN-08/09/10/16/17/22), each behind its module's permission */}
+          {can('online-approval') && <Route path="/approvals" element={<OwnerApprovals by={{ userId: user?.id, userName: user?.name }} />} />}
+          {can('kitchen') && <Route path="/kitchen" element={<OwnerKitchen />} />}
+          {can('delivery') && <Route path="/delivery" element={<OwnerDelivery />} />}
+          {(can('customers') || can('credits')) && <Route path="/customers" element={<OwnerCustomers credit={can('credits')} />} />}
+          {(can('hr') || can('users')) && <Route path="/staff" element={<OwnerStaff />} />}
+          <Route path="/profile" element={<OwnerProfile userName={user?.name || ''} role={user?.role || ''} onLogout={onLogout} />} />
           <Route path="*" element={<Navigate to={OWNER_BASE} replace />} />
         </Routes>
       </main>

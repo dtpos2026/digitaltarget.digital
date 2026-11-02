@@ -37,6 +37,7 @@ function Row({ icon: Icon, label, to, onClick, badge, testId }: { icon: typeof B
 }
 
 export function OwnerMore({ caps }: { caps: MoreCaps }) {
+  const navigate = useNavigate();
   const tick = useLiveTick(['orders']);
   const approvals = useMemo(() => (caps.can('online-approval') ? getOrders().filter(o => o.status === 'pending_approval').length : 0), [tick]); // eslint-disable-line react-hooks/exhaustive-deps
   const settings = getSettings();
@@ -45,9 +46,10 @@ export function OwnerMore({ caps }: { caps: MoreCaps }) {
   useEffect(() => { let off = false; resolveRestaurantIdentity().then(id => { if (!off) setWorkspaceCode(id.workspaceCode || undefined); }).catch(() => { /* offline */ }); return () => { off = true; }; }, []);
   const initials = (caps.userName || caps.role || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
   const ops = [
-    caps.can('delivery') && <Row key="d" icon={Bike} label="Delivery and riders" to="/delivery" />,
-    caps.can('kitchen') && <Row key="k" icon={ChefHat} label="Kitchen" to="/kitchen" />,
-    caps.can('online-approval') && <Row key="a" icon={CircleCheck} label="Online approvals" to="/online-approval" badge={approvals > 0 ? <Badge tone="warning">{approvals}</Badge> : undefined} />,
+    // v1.90.0 — phone screens now (they opened the till's full pages before).
+    caps.can('online-approval') && <Row key="a" icon={CircleCheck} label="Online approvals" to={`${OWNER_BASE}/approvals`} testId="own-more-approvals" badge={approvals > 0 ? <Badge tone="warning">{approvals}</Badge> : undefined} />,
+    caps.can('kitchen') && <Row key="k" icon={ChefHat} label="Kitchen" to={`${OWNER_BASE}/kitchen`} testId="own-more-kitchen" />,
+    caps.can('delivery') && <Row key="d" icon={Bike} label="Delivery and riders" to={`${OWNER_BASE}/delivery`} testId="own-more-delivery" />,
   ].filter(Boolean);
   // v1.87.0 — branches, A to Z
   const branchRows = caps.multiBranch ? [
@@ -56,8 +58,8 @@ export function OwnerMore({ caps }: { caps: MoreCaps }) {
     caps.can('branch-management') && <Row key="bm" icon={Building2} label="Branch management (full)" to="/branch-management" />,
   ].filter(Boolean) : [];
   const money = [
-    (caps.can('customers') || caps.can('credits')) && <Row key="c" icon={Users} label="Customers and credit" to={caps.can('credits') ? '/credits' : '/customers'} />,
-    (caps.can('hr') || caps.can('users')) && <Row key="s" icon={IdCard} label="Staff" to={caps.can('hr') ? '/hr' : '/users'} />,
+    (caps.can('customers') || caps.can('credits')) && <Row key="c" icon={Users} label="Customers and credit" to={`${OWNER_BASE}/customers`} testId="own-more-customers" />,
+    (caps.can('hr') || caps.can('users')) && <Row key="s" icon={IdCard} label="Staff" to={`${OWNER_BASE}/staff`} testId="own-more-staff" />,
     caps.can('accounts') && <Row key="e" icon={Receipt} label="Expenses" to={`${OWNER_BASE}/expenses`} testId="own-more-expenses" />,
     caps.can('inventory') && <Row key="i" icon={Boxes} label="Inventory and low stock" to={`${OWNER_BASE}/stock`} testId="own-more-stock" />,
   ].filter(Boolean);
@@ -71,7 +73,8 @@ export function OwnerMore({ caps }: { caps: MoreCaps }) {
   return (
     <div className="space-y-4" data-testid="owner-more">
       <ScreenHeader title="More" />
-      <Card className="flex items-center gap-3.5">
+      <Card className="flex cursor-pointer items-center gap-3.5" role="button" tabIndex={0} data-testid="own-more-profile" aria-label="Profile and workspace"
+        onClick={() => navigate(`${OWNER_BASE}/profile`)} onKeyDown={e => { if (e.key === 'Enter') navigate(`${OWNER_BASE}/profile`); }}>
         <span className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-muted text-[18px] font-extrabold text-primary">{initials || '?'}</span>
         <div className="min-w-0 flex-1">
           <div className="truncate text-[17px] font-bold">{caps.userName || caps.role}</div>

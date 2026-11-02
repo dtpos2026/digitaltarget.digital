@@ -4,6 +4,7 @@ import { useNavigate } from '@/lib/hash-router';
 import { getOrders, getSettings, refreshOrdersFromCloud, onDataChange } from '@/lib/store';
 import type { Order } from '@/lib/types';
 import { enqueueKot } from '@/lib/printQueue';
+import { needsTillKot } from '@/lib/ownerOps';
 import { shouldAutoApprove, holdForApproval, rejectOrder } from '@/lib/onlineApproval';
 import { isCustomerBlocked, findBlockingLocation } from '@/lib/blocklist';
 import { Bell, X, Truck, Globe, QrCode, ClipboardList } from 'lucide-react';
@@ -73,6 +74,8 @@ export default function NewOrderNotifier() {
   const [pending, setPending] = useState<Order[]>([]);
   const [muted, setMuted] = useState<boolean>(() => localStorage.getItem(MUTE_KEY) === '1');
   const initRef = useRef(false);
+  // Owner-app approvals this till has already queued a ticket for (the order's kotPrinted stamp follows the print).
+  const tillKotSent = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     let cancelled = false;
@@ -97,6 +100,20 @@ export default function NewOrderNotifier() {
         initRef.current = true;
         DBG('init', { remoteCount: remote.length });
         return;
+      }
+
+      // ===== v1.90.0 — orders approved on the Owner app =====
+      // The owner's phone has no printer, so its approval leaves the kitchen ticket to a till (lib/ownerOps.ts,
+      // approveFromPhone). Same rule as a fresh website order: auto-KOT on unless the restaurant sends to the kitchen
+      // by hand. Printing stamps kotPrinted, which is what stops a second print here or on another till.
+      for (const o of all) {
+        if (!needsTillKot(o) || tillKotSent.current.has(o.id)) continue;
+        tillKotSent.current.add(o.id);
+        if (!shouldAutoKot(o)) continue;
+        try {
+          const job = enqueueKot(o);
+          DBG('KOT for an Owner-app approval', { no: o.orderNumber, jobId: (job as { id?: string } | null)?.id });
+        } catch (e) { DBG('enqueueKot FAILED (Owner-app approval)', e); }
       }
 
       const fresh = remote.filter(o => !seen.has(o.id));

@@ -56,7 +56,7 @@ export function OwnerOverview({ caps }: { caps: OwnerCaps }) {
       <ScreenHeader
         sub={greeting}
         title={settings.name || 'Your restaurant'}
-        right={caps.approvals ? <IconButton label="Online approvals" badge={approvals} onClick={() => navigate('/online-approval')}><BellRing className="h-5 w-5" /></IconButton> : undefined}
+        right={caps.approvals ? <IconButton label="Online approvals" badge={approvals} onClick={() => navigate(`${OWNER_BASE}/approvals`)}><BellRing className="h-5 w-5" /></IconButton> : undefined}
       />
       <PresetChips value={preset} onChange={setPreset} />
 
@@ -73,7 +73,7 @@ export function OwnerOverview({ caps }: { caps: OwnerCaps }) {
       {(approvals > 0 || low > 0) && (
         <div className="space-y-2" data-testid="own-shortcuts">
           {approvals > 0 && (
-            <button type="button" onClick={() => navigate('/online-approval')} className="flex w-full items-center gap-3 rounded-2xl border border-amber-300/70 bg-amber-50 px-4 py-3 text-left text-[14px] font-semibold text-[hsl(var(--own-warn))]">
+            <button type="button" onClick={() => navigate(`${OWNER_BASE}/approvals`)} className="flex w-full items-center gap-3 rounded-2xl border border-amber-300/70 bg-amber-50 px-4 py-3 text-left text-[14px] font-semibold text-[hsl(var(--own-warn))]">
               <BellRing className="h-4 w-4 shrink-0" /><span className="flex-1">{approvals} online order{approvals === 1 ? '' : 's'} waiting for approval</span><ChevronRight className="h-4 w-4" />
             </button>
           )}

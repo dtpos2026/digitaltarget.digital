@@ -492,6 +492,8 @@ export interface Order {
   approvedBy?: string;           // user id
   approvedByName?: string;
   approvedAt?: string;
+  /** v1.90.0 — approved on a phone with no printer (Owner app): a till prints the kitchen ticket (NewOrderNotifier). */
+  kotFromTill?: boolean;
   rejectedBy?: string;
   rejectedByName?: string;
   rejectedAt?: string;
