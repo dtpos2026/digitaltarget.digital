@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } fro
 import { money, screenAmount } from '@/lib/currency';
 import { releasedTable } from '@/lib/tableRelease';
 import { sortOrdersNewestFirst, liveOrdersForTable } from '@/lib/orderOrder';
-import { Search, Plus, Minus, Trash2, CreditCard, Pause, Weight, Edit3, ShoppingCart, RotateCcw, Delete, User, Phone, Ban, Gift, XCircle, ChefHat, MessageCircle, ChevronLeft, ChevronRight, AlertTriangle, LayoutGrid } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, CreditCard, Pause, Weight, Edit3, ShoppingCart, RotateCcw, Delete, User, Phone, Ban, Gift, XCircle, ChefHat, MessageCircle, ChevronLeft, ChevronRight, AlertTriangle, LayoutGrid, Receipt, Ticket, Calculator, Pencil, StickyNote, Banknote } from 'lucide-react';
 import { normalizePhone, buildPaidMessage, buildDeliveryMessage, openWhatsApp } from '@/lib/whatsapp';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -2009,14 +2009,14 @@ export default function POSScreen() {
           <div className="bg-card rounded-lg px-3 py-1 mb-1.5 flex items-center justify-between border border-border/50 shadow-sm">
             <span className="text-[10px] text-muted-foreground font-semibold">
               {numpadItem ? (
-                `💰 ${numpadItem.name} — Enter Price`
+                <span className="inline-flex items-center gap-1"><Banknote className="h-3.5 w-3.5" /> {numpadItem.name} — enter price</span>
               ) : selectedCartItem ? (
                 <span className="flex items-center gap-1">
-                  ✏️ {cart.find(c => c.id === selectedCartItem)?.name}
+                  <Pencil className="h-3 w-3" /> {cart.find(c => c.id === selectedCartItem)?.name}
                   <button onClick={() => setNumpadCartMode('qty')} className={`px-2 py-0.5 rounded-md text-[9px] font-bold transition-colors ${numpadCartMode === 'qty' ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-muted hover:bg-accent'}`}>QTY</button>
                   <button onClick={() => setNumpadCartMode('price')} className={`px-2 py-0.5 rounded-md text-[9px] font-bold transition-colors ${numpadCartMode === 'price' ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-muted hover:bg-accent'}`}>PRICE</button>
                 </span>
-              ) : '🔢 Calculator'}
+              ) : <span className="inline-flex items-center gap-1"><Calculator className="h-3.5 w-3.5" /> Calculator</span>}
             </span>
             <span className="text-base font-extrabold font-mono text-foreground tracking-wider">
               {numpadValue || '0'}
@@ -2060,7 +2060,7 @@ export default function POSScreen() {
                 onClick={() => processOrder('hold')}
                 className="h-9 rounded-lg bg-status-warning/10 border border-status-warning/30 text-status-warning text-sm font-black hover:bg-status-warning/20 transition-all duration-150 active:scale-95"
               >
-                ⏸ Hold
+                <Pause className="h-4 w-4" /> Hold
               </button>
             )}
             {isOrderTaker ? (
@@ -2077,7 +2077,7 @@ export default function POSScreen() {
                 onClick={handleDirectPay}
                 className="h-9 rounded-lg bg-status-success text-status-success-foreground text-sm font-black hover:bg-status-success/90 transition-all duration-150 active:scale-95 shadow-lg hover:shadow-xl"
               >
-                💰 PAY
+                <Banknote className="h-4 w-4" /> PAY
               </button>
             )}
           </div>
@@ -2098,7 +2098,7 @@ export default function POSScreen() {
                   : 'bg-muted text-muted-foreground border border-border/60 opacity-70 cursor-not-allowed'
               }`}
             >
-              🎫 PRINT TOKEN{canPrintToken ? ` (${tokenLines.length})` : ''}
+              <Ticket className="h-4 w-4" /> PRINT TOKEN{canPrintToken ? ` (${tokenLines.length})` : ''}
             </button>
           )}
 
@@ -2107,7 +2107,7 @@ export default function POSScreen() {
             <button
               onClick={async () => {
                 // Auto-create a running order (no payment required) and show kitchen slip
-                if (cart.length === 0 && !lastOrder) { toast.error('کوئی آرڈر نہیں ہے'); return; }
+                if (cart.length === 0 && !lastOrder) { toast.error('There is no order yet'); return; }
                 if (cart.length > 0) {
                   // Dining/Delivery need their info dialog first — defer kitchen slip until confirm.
                   if (orderType === 'dining' && !selectedTable && !editingOrderId) {
@@ -2128,13 +2128,13 @@ export default function POSScreen() {
               }}
               className="h-9 rounded-lg bg-accent/50 border border-border/50 text-xs font-black hover:bg-accent transition-all flex items-center justify-center gap-1.5 active:scale-[0.98]"
             >
-              <ChefHat className="h-4 w-4" /> 🍳 Kitchen
+              <ChefHat className="h-4 w-4" /> Kitchen
             </button>
             {!isOrderTaker && (
             <button
               onClick={() => {
                 // Build a preview order if no real one exists yet — supports unpaid / credit
-                if (cart.length === 0 && !lastOrder) { toast.error('کوئی آرڈر نہیں ہے'); return; }
+                if (cart.length === 0 && !lastOrder) { toast.error('There is no order yet'); return; }
                 if (lastOrder) {
                   setShowReceipt(true);
                 } else {
@@ -2167,7 +2167,7 @@ export default function POSScreen() {
               }}
               className="h-9 rounded-lg bg-primary/10 border border-primary/30 text-primary text-xs font-black hover:bg-primary/20 transition-all flex items-center justify-center gap-1.5 active:scale-[0.98]"
             >
-              🧾 Customer Receipt
+              <Receipt className="h-4 w-4 shrink-0" /> <span className="truncate">Receipt</span>
             </button>
             )}
           </div>
@@ -2176,7 +2176,7 @@ export default function POSScreen() {
         {/* Special Kitchen Note — prints on KOT (e.g. "no onion", "extra spicy") */}
         <div className="px-2 pt-2">
           <label className="flex items-center gap-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
-            📝 Special Note <span className="text-[9px] font-normal normal-case text-muted-foreground/70">(KOT par print hoga)</span>
+            <StickyNote className="h-3.5 w-3.5" /> Special note <span className="text-[9px] font-normal normal-case text-muted-foreground/70">(printed on the kitchen slip)</span>
           </label>
           {(settings.kotNotePresets || []).length > 0 && (
             <div className="flex flex-wrap gap-1 mb-1.5">
@@ -2503,7 +2503,7 @@ export default function POSScreen() {
                 onClick={() => { setShowReceipt(true); setShowKitchenReceipt(false); }}
                 className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors ${showReceipt && !showKitchenReceipt ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-accent'}`}
               >
-                🧾 Customer Receipt
+                <Receipt className="h-4 w-4 shrink-0" /> <span className="truncate">Receipt</span>
               </button>
               <button
                 onClick={() => { openKitchenSlip(); setShowReceipt(false); }}
