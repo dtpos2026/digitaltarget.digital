@@ -14,9 +14,11 @@ import {
 } from 'recharts';
 import PlanStatusWidget from '@/components/PlanStatusWidget';
 import WorkspaceCodeCard from '@/components/WorkspaceCodeCard';
-import { useUiStyle } from '@/lib/uiStyle';
+import { useThemeId, useUiStyle } from '@/lib/uiStyle';
+import { isRefinedTheme } from '@/lib/uiThemes';
 import ModernDashboard from '@/components/dashboard/ModernDashboard';
 import OverviewDashboard from '@/components/dashboard/OverviewDashboard';
+import RefinedDashboard from '@/components/dashboard/RefinedDashboard';
 import { resolveDashboardLayout, setDashboardLayout, type DashboardLayout } from '@/lib/dashboardOverview';
 import { getCurrentScope, orderBelongsTo, listCashierUsers, getShiftStart, resetShift, filterCurrentShift } from '@/lib/cashierScope';
 import { getCurrentBusinessDay, getBusinessDayOffset, isInBusinessDay } from '@/lib/businessDay';
@@ -612,9 +614,12 @@ function StatTile({ label, value, tone }: { label: string; value: any; tone: 'go
 export default function DashboardPage() {
   const d = useDashboardData();
   const modern = useUiStyle() === 'modern';
+  const themeId = useThemeId();
   // v1.80.0 — management opens on the Overview; a cashier keeps the standard page. Either can switch, and the choice is remembered.
   const [layout, setLayout] = useState<DashboardLayout>(() => resolveDashboardLayout(d.scope.restrict));
   const choose = (l: DashboardLayout) => { setLayout(l); setDashboardLayout(l); };
+  // v1.85.0 — with the DT Refined theme the overview is the design package's own dashboard (SW-02).
+  if (layout === 'overview' && modern && isRefinedTheme(themeId)) return <RefinedDashboard d={d} onSwitch={() => choose('standard')} />;
   if (layout === 'overview') return <OverviewDashboard d={d} onSwitch={() => choose('standard')} />;
   return (
     <>

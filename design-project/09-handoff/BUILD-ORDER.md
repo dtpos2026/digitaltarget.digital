@@ -12,3 +12,13 @@ The order the product owner asked for. Each step names the screens it implements
 | 6 | **Needs-backend items** | RID-03/06/14/20, OWN-18 | Decisions 1–4 in HANDOFF.md | Each is its own small project |
 
 Rules for every step: ship behind the existing tests, add tests for new pure logic, keep Lovable history intact (no force-push), and update `docs/CHANGELOG.md`.
+
+## Progress
+
+| # | Step | State | Where |
+|---|---|---|---|
+| 1 | Windows POS inner shell + SW-02 | **Built in v1.85.0** as the **DT Refined** theme (Settings → Appearance, open to every restaurant). Every other theme and route unchanged. | `src/styles/ui-refined.css`, `src/components/shell/RefinedSidebar.tsx`, `src/components/shell/ModernHeader.tsx`, `src/components/dashboard/RefinedDashboard.tsx`, `src/lib/refinedDashboard.ts`; QA: `docs/qa/2026-11-02-QAT-UAT-v1.85.0-design-package-step-1.md` |
+| 2 | Owner portal pages | next | — |
+| 3 | Customer order site | waiting for the database backup confirmation and approval of the additive table | — |
+| 4–6 | Phone apps, Android icons, needs-backend items | after 2–3; step 5 needs the Android build run by the owner; step 6 needs decisions 1–4 in HANDOFF.md | — |
+

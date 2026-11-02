@@ -1,0 +1,57 @@
+/* ============================================================
+ * DT REFINED — the DT design package's shell and components (v1.85.0)
+ *
+ * Source of truth: design-project/01-design-system/tokens.css and COMPONENTS.md
+ *   card radius 16 · padding 16 · --shadow-card · top bar 64 · sidebar 248 / 72 · focus ring 3px accent at 25 %
+ *   sidebar: white, accordion groups, active item filled with the accent (SW-02 / SW-10 previews)
+ * Everything is scoped to the theme, so no other theme changes.
+ * ============================================================ */
+html[data-ui="modern"][data-ui-theme="dt-refined"] {
+  --ui-radius-card: 16px;
+  --ui-radius-control: 10px;
+  --ui-header-h: 4rem;                /* 64 */
+  --ui-sidebar-w: 15.5rem;            /* 248 */
+  --ui-sidebar-w-collapsed: 4.5rem;   /* 72 */
+  --ui-shadow-card: 0 1px 2px rgba(26, 21, 35, .06), 0 4px 14px rgba(26, 21, 35, .06);
+  --ui-shadow-pop: 0 12px 36px rgba(26, 21, 35, .18);
+  --sidebar-background: 0 0% 100%;
+  --dt-accent-deep: 271 85% 23%;      /* #3c096c */
+  --dt-accent-tint: 258 68% 96%;      /* #f3effc */
+  --dt-ok: 142 72% 29%;   --dt-ok-bg: 141 84% 93%;
+  --dt-warn: 26 90% 37%;  --dt-warn-bg: 48 96% 89%;
+  --dt-bad: 0 72% 51%;    --dt-bad-bg: 0 93% 94%;
+  --dt-info: 224 76% 48%; --dt-info-bg: 214 95% 93%;
+}
+
+/* focus ring of the design system */
+html[data-ui="modern"][data-ui-theme="dt-refined"] :is(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px hsl(263 69% 42% / .25);
+}
+
+/* ---------- sidebar ---------- */
+html[data-ui="modern"][data-ui-theme="dt-refined"] [data-ui-shell="sidebar"] { background: #fff; }
+html[data-ui="modern"][data-ui-theme="dt-refined"] [data-refined-nav-item] {
+  height: 2.5rem; border-radius: 10px; font-size: 14px; font-weight: 600; color: hsl(261 25% 11% / .86);
+}
+html[data-ui="modern"][data-ui-theme="dt-refined"] [data-refined-nav-item]:hover { background: hsl(var(--dt-accent-tint)); color: hsl(261 25% 11%); }
+html[data-ui="modern"][data-ui-theme="dt-refined"] [data-refined-nav-item][aria-current="page"] {
+  background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); box-shadow: 0 4px 12px -4px hsl(263 69% 42% / .55);
+}
+html[data-ui="modern"][data-ui-theme="dt-refined"] [data-refined-nav-item][aria-current="page"] svg { color: currentColor; }
+html[data-ui="modern"][data-ui-theme="dt-refined"] [data-refined-group-head] {
+  font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: hsl(261 9% 43%);
+}
+html[data-ui="modern"][data-ui-theme="dt-refined"] [data-refined-count] {
+  min-width: 1.5rem; border-radius: 999px; background: hsl(var(--dt-accent-tint)); color: hsl(261 9% 43%);
+  font-size: 11px; font-weight: 700; text-align: center; padding: 1px 6px;
+}
+
+/* ---------- top bar ---------- */
+html[data-ui="modern"][data-ui-theme="dt-refined"] [data-ui-shell="header"] { background: #fff; }
+
+/* ---------- cards and tiles follow the design system's radius and shadow ---------- */
+html[data-ui="modern"][data-ui-theme="dt-refined"] [data-stat-card],
+html[data-ui="modern"][data-ui-theme="dt-refined"] [data-section-card] {
+  border-radius: 16px; box-shadow: var(--ui-shadow-card); border-color: hsl(260 38% 91%);
+}

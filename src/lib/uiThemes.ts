@@ -54,8 +54,9 @@ export interface UiTheme {
   sidebar: SidebarStyle;
   /** The sidebar colour when it is dark (also used by the gallery preview). */
   sidebarColor?: Triplet;
-  /** 'retail' marks the DT Retail family (gradient sidebar, hero banner, motion). Absent = a plain Modern theme. */
-  family?: 'retail';
+  /** 'retail' marks the DT Retail family (gradient sidebar, hero banner, motion); 'design' the DT design package's own look.
+   *  Absent = a plain Modern theme. */
+  family?: 'retail' | 'design';
   /** The whole page is dark (Night, Black & Gold), not just the sidebar. */
   dark?: boolean;
   /** Top and bottom of the retail sidebar gradient. */
@@ -287,8 +288,33 @@ export const RETAIL_THEMES: UiTheme[] = [
   },
 ];
 
-/** Every theme the picker can apply: the thirteen Modern ones, then the DT Retail eight. */
-export const ALL_THEMES: UiTheme[] = [...UI_THEMES, ...RETAIL_THEMES];
+// ============================================================
+// THE DT DESIGN PACKAGE — "DT Refined" (v1.85.0)
+//
+// design-project/01-design-system/tokens.css, as one more theme (the package's own handoff: "the redesign ships as
+// one more theme plus component changes, so existing themes keep working"). Light lavender page, white panels, a white
+// grouped sidebar, DT purple. The triplets are the package's hex values converted to HSL:
+//   --accent #5b21b6 → 263 69% 42% · --bg #f7f5fb → 260 43% 97% · --surface-2 #f3effc → 258 68% 96%
+//   --border #e4def0 → 260 38% 91% · --text #1a1523 → 261 25% 11% · --muted #6b6478 → 261 9% 43%
+// It is the product's standard design, so it is NOT part of the premium set (see premiumTheme.ts).
+// ============================================================
+export const REFINED_THEME_ID = 'dt-refined';
+
+export const DESIGN_THEMES: UiTheme[] = [
+  {
+    id: REFINED_THEME_ID, family: 'design', name: 'DT Refined',
+    tagline: 'The DT design package: white sidebar, lavender page, DT purple.',
+    accent: { h: 263, s: 69, l: 42 }, onAccent: 'light',
+    surface: { background: '260 43% 97%', card: '0 0% 100%', foreground: '261 25% 11%', mutedForeground: '261 9% 43%', muted: '258 68% 96%', border: '260 38% 91%' },
+    sidebar: 'light',
+    swatches: ['#ffffff', '#5b21b6', '#f7f5fb', '#3c096c'],
+  },
+];
+
+/** Every theme the picker can apply: the thirteen Modern ones, the DT Retail eight, then the design package's own. */
+export const ALL_THEMES: UiTheme[] = [...UI_THEMES, ...RETAIL_THEMES, ...DESIGN_THEMES];
+
+export const isRefinedTheme = (id: string | null | undefined): boolean => id === REFINED_THEME_ID;
 
 export const DEFAULT_THEME_ID = 'ember';
 

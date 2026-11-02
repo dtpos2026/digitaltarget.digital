@@ -3,10 +3,11 @@
 // (tenants/{tid}/meta/settings.premiumThemeAllowed). The restaurant owner
 // can then enable/disable it from Settings → Theme.
 
+import { isRefinedTheme } from './uiThemes';
 import { getSettings } from './store';
 import { setActiveTheme, getActiveTheme, type ThemeId } from './themes';
 import { REFERENCE_THEME_SPECS } from './referenceThemes';
-import { getUiStyle, setUiStyle } from './uiStyle';
+import { getUiStyle, setUiStyle, getThemeId } from './uiStyle';
 
 export const PREMIUM_THEME_ID: ThemeId = 'vince-premium';
 export const PREMIUM_BRAND_NAME = 'VINCE BY TAIMOOR';
@@ -81,7 +82,8 @@ export function enforcePremiumThemeGate() {
     }
     // v1.78.0 — the Modern interface style (its 13 themes, the 8 DT Retail looks and Custom themes) is part of the same
     // premium set. A restaurant whose allotment was revoked goes back to the Classic (DT Enterprise) look.
-    if (getUiStyle() === 'modern' && !isPremiumThemeAllowed()) {
+    // v1.85.0 — except the DT design package's own theme (DT Refined): it is the product's standard design, open to all.
+    if (getUiStyle() === 'modern' && !isPremiumThemeAllowed() && !isRefinedTheme(getThemeId())) {
       setUiStyle('classic');
     }
   } catch {}

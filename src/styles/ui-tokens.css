@@ -413,6 +413,26 @@
   --sidebar-foreground: 266 9% 40%;
   --sidebar-border: 266 15% 89%;
 }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] {
+  /* DT design package (design-project/01-design-system/tokens.css) — v1.85.0 */
+  --background: 260 43% 97%;
+  --foreground: 261 25% 11%;
+  --card: 0 0% 100%;
+  --card-foreground: 261 25% 11%;
+  --popover-foreground: 261 25% 11%;
+  --secondary: 258 68% 96%;
+  --secondary-foreground: 261 25% 11%;
+  --muted: 258 68% 96%;
+  --muted-foreground: 261 9% 43%;
+  --accent: 258 68% 96%;
+  --accent-foreground: 261 25% 11%;
+  --border: 260 38% 91%;
+  --input: 260 30% 85%;
+  --pos-grid-bg: 260 43% 97%;
+  --pos-sidebar-foreground: 261 25% 11%;
+  --sidebar-foreground: 261 9% 43%;
+  --sidebar-border: 260 38% 91%;
+}
 :root[data-ui="modern"][data-ui-theme="teal"] {
   --background: 176 28% 96%;
   --foreground: 180 28% 9%;

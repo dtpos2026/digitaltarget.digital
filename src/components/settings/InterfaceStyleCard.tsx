@@ -19,7 +19,7 @@ import {
   useThemeId, useUiLook, useUiStyle, type UiStyle,
 } from '@/lib/uiStyle';
 import type { UiTheme } from '@/lib/uiThemes';
-import { INK_ON_ACCENT } from '@/lib/uiThemes';
+import { DEFAULT_THEME_ID, DESIGN_THEMES, INK_ON_ACCENT, REFINED_THEME_ID, isRefinedTheme } from '@/lib/uiThemes';
 import { canRestartApp, restartApp } from '@/lib/appRestart';
 import { ThemePreview } from '@/components/settings/ThemePreview';
 import CustomThemeManager from '@/components/settings/CustomThemeManager';
@@ -30,8 +30,10 @@ import { onDataChange } from '@/lib/store';
 
 export { ThemePreview };
 
-const STYLES: { id: UiStyle; name: string; blurb: string }[] = [
-  { id: 'modern', name: 'Modern', blurb: 'Light, calm and quick to scan. Short menu with a “More” launcher. Thirteen themes, plus the seven DT Retail looks. Recommended.' },
+type Choice = 'refined' | UiStyle;
+const STYLES: { id: Choice; name: string; blurb: string }[] = [
+  { id: 'refined', name: 'DT Refined', blurb: 'The DT design package: white grouped sidebar, lavender page, DT purple, the new dashboard. Open to every restaurant. Recommended.' },
+  { id: 'modern', name: 'Modern', blurb: 'Light, calm and quick to scan. Short menu with a “More” launcher. Thirteen themes, plus the seven DT Retail looks.' },
   { id: 'classic', name: 'DT Enterprise (Classic)', blurb: 'The signature DT Enterprise look and the full menu, with its own colour themes below.' },
 ];
 
@@ -122,18 +124,32 @@ export default function InterfaceStyleCard() {
   const customHsl = hexToHsl(custom);
   const customContrast = customHsl ? contrastWithWhite(customHsl) : null;
 
-  const pickStyle = (next: UiStyle) => {
-    if (next === style) return;
+  const choice: Choice = style === 'modern' && isRefinedTheme(themeId) ? 'refined' : style;
+  const pickStyle = (next: Choice) => {
+    if (next === choice) return;
+    if (next === 'refined') {
+      // The design package's own theme: no premium allotment needed.
+      setTheme(REFINED_THEME_ID);
+      setUiStyle('modern');
+      toast.success('DT Refined is on — the DT design package look');
+      return;
+    }
     if (next === 'modern' && !allowed) {
       toast.error('🔒 The Modern look and its themes are a premium feature — ask Super Admin to allot it to this restaurant (digitaltarget.digital@gmail.com)');
       return;
     }
+    // Leaving DT Refined for Modern: start from the default Modern theme (otherwise the look would not change).
+    if (next === 'modern' && isRefinedTheme(themeId)) setTheme(DEFAULT_THEME_ID);
     setUiStyle(next);
     toast.success(next === 'modern' ? 'Modern look is on' : 'DT Enterprise look is back — nothing else changed');
   };
 
   const pickTheme = (t: UiTheme) => {
     if (t.id === themeId && !override) return;
+    if (!allowed && !isRefinedTheme(t.id)) {
+      toast.error('🔒 This theme is part of the premium set — ask Super Admin to allot it. DT Refined is open to everyone.');
+      return;
+    }
     setTheme(t.id);
     setCustom('');
     toast.success(`${t.name} theme is on`);
@@ -155,33 +171,36 @@ export default function InterfaceStyleCard() {
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Interface style">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" role="radiogroup" aria-label="Interface style">
         {STYLES.map(s => (
           <button
             key={s.id}
             type="button"
             role="radio"
-            aria-checked={style === s.id}
+            aria-checked={choice === s.id}
+            data-style-choice={s.id}
             onClick={() => pickStyle(s.id)}
             className={cn(
               'space-y-3 rounded-xl border p-3 text-left transition-colors',
-              style === s.id ? 'border-primary bg-primary/5 ring-2 ring-primary/25' : 'hover:border-primary/40',
+              choice === s.id ? 'border-primary bg-primary/5 ring-2 ring-primary/25' : 'hover:border-primary/40',
             )}
           >
             {s.id === 'modern' && !allowed && (
               <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-bold text-muted-foreground"><Lock className="h-3 w-3" /> Premium — locked</span>
             )}
-            {s.id === 'classic' ? <ClassicPreview /> : <ThemePreview theme={look.theme} accent={hslToHex(look.accent)} onAccent={look.darkOnAccent ? hsl(INK_ON_ACCENT) : '#fff'} />}
+            {s.id === 'classic' ? <ClassicPreview />
+              : s.id === 'refined' ? <ThemePreview theme={DESIGN_THEMES[0]} accent="#5b21b6" onAccent="#fff" />
+              : <ThemePreview theme={look.theme} accent={hslToHex(look.accent)} onAccent={look.darkOnAccent ? hsl(INK_ON_ACCENT) : '#fff'} />}
             <div className="flex items-center justify-between gap-2">
               <span className="text-[14px] font-bold">{s.name}</span>
-              {style === s.id && <span className="inline-flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[11px] font-bold text-primary-foreground"><Check className="h-3 w-3" /> In use</span>}
+              {choice === s.id && <span className="inline-flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[11px] font-bold text-primary-foreground"><Check className="h-3 w-3" /> In use</span>}
             </div>
             <p className="text-[12.5px] text-muted-foreground">{s.blurb}</p>
           </button>
         ))}
       </div>
 
-      {style === 'modern' && (
+      {choice === 'modern' && (
         <div className="space-y-5 border-t pt-4">
           <div>
             <div className="text-[13px] font-bold">Theme manager</div>

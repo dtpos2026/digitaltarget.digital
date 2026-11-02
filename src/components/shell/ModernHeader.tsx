@@ -4,14 +4,14 @@
 // clock, zoom), grouped and quieter. Nothing was removed.
 // ============================================================
 import type { ReactNode } from 'react';
-import { LogOut, Menu, PanelLeftClose, PanelLeftOpen, Search, Type, ZoomIn, ZoomOut } from 'lucide-react';
+import { Activity, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Search, Type, ZoomIn, ZoomOut } from 'lucide-react';
 import HeaderNotificationBar from '@/components/HeaderNotificationBar';
 import BillingStatusBar from '@/components/BillingStatusBar';
 import HeaderClock from '@/components/shell/HeaderClock';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useThemeId, useUiLook } from '@/lib/uiStyle';
-import { ESPRESSO_THEME_ID } from '@/lib/uiThemes';
+import { ESPRESSO_THEME_ID, isRefinedTheme } from '@/lib/uiThemes';
 
 interface Props {
   title: string;
@@ -39,6 +39,9 @@ export default function ModernHeader({
 }: Props) {
   const themeId = useThemeId();
   const espresso = useUiLook() === 'retail' && themeId === ESPRESSO_THEME_ID;
+  // v1.85.0 — DT Refined (design package SW-02): a wide search, the branch, the sync state, the bell and the user;
+  // the other live status chips (connection, print mode, setup check, version) sit one click away under "Status".
+  const refined = isRefinedTheme(themeId);
   return (
     <header data-ui-shell="header" className="flex h-[var(--ui-header-h)] shrink-0 items-center gap-2 border-b bg-card px-4">
       <button type="button" className={`${iconButton} lg:hidden`} onClick={onOpenMobileMenu} aria-label="Open menu">
@@ -59,13 +62,13 @@ export default function ModernHeader({
         type="button"
         onClick={onOpenLauncher}
         data-dtr="search-wide"
-        className="ml-2 hidden h-9 w-[220px] shrink-0 items-center gap-2 rounded-[10px] border bg-background px-3 text-[13px] text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground 2xl:flex"
+        className={`ml-2 hidden h-9 shrink-0 items-center gap-2 rounded-[10px] border bg-background px-3 text-[13px] text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground ${refined ? 'w-[300px] xl:flex' : 'w-[220px] 2xl:flex'}`}
         aria-label="Search modules"
       >
         <Search className="h-4 w-4" />
-        <span className="flex-1 text-left">Go to module…</span>
+        <span className="flex-1 text-left">{refined ? 'Search modules…' : 'Go to module…'}</span>
       </button>
-      <button type="button" data-dtr="search-icon" className={`${iconButton} shrink-0 2xl:hidden`} onClick={onOpenLauncher} aria-label="Search modules">
+      <button type="button" data-dtr="search-icon" className={`${iconButton} shrink-0 ${refined ? 'xl:hidden' : '2xl:hidden'}`} onClick={onOpenLauncher} aria-label="Search modules">
         <Search className="h-[18px] w-[18px]" />
       </button>
 
@@ -73,9 +76,23 @@ export default function ModernHeader({
         {/* The cloud app shows more live status than the offline POS did (connection, print mode, setup check, version,
             billing, pending sync). They share the room that is left and scroll sideways rather than push the clock off. */}
         <div className="dt-header-chips flex min-w-0 items-center gap-1.5 overflow-x-auto">
-          <div className="hidden shrink-0 items-center gap-1.5 xl:flex">
-            <BillingStatusBar />
-          </div>
+          {refined ? (
+            <Popover>
+              <PopoverTrigger asChild>
+                <button type="button" className={iconButton} aria-label="Status" title="Connection, printing and setup status" data-testid="refined-status">
+                  <Activity className="h-[18px] w-[18px]" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-auto max-w-[min(92vw,560px)] p-3">
+                <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">Status</div>
+                <div className="flex flex-wrap items-center gap-1.5"><BillingStatusBar /></div>
+              </PopoverContent>
+            </Popover>
+          ) : (
+            <div className="hidden shrink-0 items-center gap-1.5 xl:flex">
+              <BillingStatusBar />
+            </div>
+          )}
           <HeaderNotificationBar />
           {chips}
         </div>
@@ -98,9 +115,11 @@ export default function ModernHeader({
         </Popover>
         {tail}
         {userChip && (
-          <div data-dtr="user-chip">
-            <span data-dtr="avatar" className="text-[13px]">{(userChip.name || userChip.role || '?').slice(0, 1).toUpperCase()}</span>
-            <span className="hidden min-w-0 leading-tight sm:block">
+          <div data-dtr="user-chip" className={refined ? 'ml-1 flex shrink-0 items-center gap-2.5 border-l pl-3' : undefined}>
+            <span data-dtr="avatar" className={refined ? 'grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary/10 text-[13px] font-extrabold text-primary' : 'text-[13px]'}>
+              {refined ? (userChip.name || userChip.role || '?').slice(0, 2).toUpperCase() : (userChip.name || userChip.role || '?').slice(0, 1).toUpperCase()}
+            </span>
+            <span className={`hidden min-w-0 leading-tight ${refined ? 'xl:block' : 'sm:block'}`}>
               <span className="block max-w-[9rem] truncate text-[13px] font-bold">{userChip.name || userChip.role}</span>
               <span className="block text-[11px] capitalize text-muted-foreground">{userChip.role}</span>
             </span>

@@ -30,9 +30,11 @@ import SyncPendingChip from '@/components/SyncPendingChip';
 import BillingStatusBar from '@/components/BillingStatusBar';
 import UpdateAvailableBanner from '@/components/UpdateAvailableBanner';
 import ModernSidebar from '@/components/shell/ModernSidebar';
+import RefinedSidebar from '@/components/shell/RefinedSidebar';
+import { isRefinedTheme } from '@/lib/uiThemes';
 import ModernHeader from '@/components/shell/ModernHeader';
 import ModuleLauncher from '@/components/shell/ModuleLauncher';
-import { useUiLook, useUiStyle } from '@/lib/uiStyle';
+import { useThemeId, useUiLook, useUiStyle } from '@/lib/uiStyle';
 import { toast } from 'sonner';
 
 
@@ -345,6 +347,9 @@ export default function AppLayout({ children, userRole, onLogout }: Props) {
   // Appearance) swaps the sidebar, header and the "More" launcher for the offline POS's, with every status chip kept.
   const modern = useUiStyle() === 'modern';
   const retail = useUiLook() === 'retail';
+  // v1.85.0 — the DT design package's own shell (grouped white sidebar, status card) when the DT Refined theme is on.
+  const themeId = useThemeId();
+  const refined = modern && isRefinedTheme(themeId);
   const [launcherOpen, setLauncherOpen] = useState(false);
   const signedInName = (() => {
     try { return getUsers().find(u => u.id === (localStorage.getItem('pos-user-id') || ''))?.name || ''; } catch { return ''; }
@@ -509,7 +514,9 @@ export default function AppLayout({ children, userRole, onLogout }: Props) {
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      {modern
+      {modern && refined
+        ? <RefinedSidebar userRole={userRole} onLogout={onLogout} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} collapsed={collapsed} onOpenLauncher={() => setLauncherOpen(true)} />
+        : modern
         ? <ModernSidebar userRole={userRole} onLogout={onLogout} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} collapsed={collapsed} onOpenLauncher={() => setLauncherOpen(true)} />
         : <Sidebar userRole={userRole} onLogout={onLogout} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} collapsed={collapsed} />}
 
@@ -533,9 +540,9 @@ export default function AppLayout({ children, userRole, onLogout }: Props) {
             zoom={zoom}
             onZoom={d => setZoom(z => Math.max(70, Math.min(130, z + d)))}
             onResetZoom={() => setZoom(100)}
-            userChip={retail ? { name: signedInName, role: userRole, onLogout } : undefined}
+            userChip={retail || refined ? { name: signedInName, role: userRole, onLogout } : undefined}
             chips={<><SyncPendingChip /><RestaurantIdentityChip /></>}
-            tail={<div className="hidden lg:flex items-center gap-1.5 text-[10px] text-muted-foreground border-l border-border pl-3"><SyncStatusBadge /></div>}
+            tail={refined ? undefined : <div className="hidden lg:flex items-center gap-1.5 text-[10px] text-muted-foreground border-l border-border pl-3"><SyncStatusBadge /></div>}
           >
             <BranchSelector />
           </ModernHeader>

@@ -88,8 +88,8 @@ describe('the DT Retail themes (the guide’s seven + Espresso Orange)', () => {
   it('are listed after the thirteen Modern ones, which are untouched', () => {
     expect(RETAIL_THEMES.map(t => t.id)).toEqual(RETAIL_IDS);
     expect(UI_THEMES).toHaveLength(13);
-    expect(ALL_THEMES).toHaveLength(21);
-    expect(new Set(ALL_THEMES.map(t => t.id)).size).toBe(21);
+    expect(ALL_THEMES).toHaveLength(22); // + DT Refined, the design package theme (v1.85.0)
+    expect(new Set(ALL_THEMES.map(t => t.id)).size).toBe(22);
     expect(RETAIL_THEMES.map(t => t.name)).toEqual(['Royal Purple', 'Crimson Red & White', 'Black & Gold', 'Emerald', 'Sunset Orange', 'Ocean Blue', 'Night', 'Espresso Orange']);
     for (const t of RETAIL_THEMES) { expect(isRetailTheme(t.id)).toBe(true); expect(findTheme(t.id).id).toBe(t.id); }
     for (const t of UI_THEMES) expect(isRetailTheme(t.id)).toBe(false);

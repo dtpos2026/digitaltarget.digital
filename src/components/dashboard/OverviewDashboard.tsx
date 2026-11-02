@@ -233,7 +233,8 @@ function OrderTypes({ orders, days }: { orders: DashboardData['orders']; days: n
   );
 }
 
-function RecentOrders({ orders }: { orders: DashboardData['orders'] }) {
+/** Also used by the DT Refined dashboard (SW-02's orders table). */
+export function RecentOrders({ orders }: { orders: DashboardData['orders'] }) {
   const navigate = useNavigate();
   const [q, setQ] = useState('');
   const menu = useMemo(() => { try { return getMenuItems(); } catch { return []; } }, []);

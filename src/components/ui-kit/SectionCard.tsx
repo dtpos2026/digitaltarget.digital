@@ -14,7 +14,7 @@ interface Props {
 /** A titled panel — the building block of dashboards, reports and settings. */
 export default function SectionCard({ title, description, actions, children, className, flush }: Props) {
   return (
-    <section className={cn('rounded-[var(--ui-radius-card,1rem)] border bg-card shadow-sm', className)}>
+    <section data-section-card className={cn('rounded-[var(--ui-radius-card,1rem)] border bg-card shadow-sm', className)}>
       {(title || actions) && (
         <header className="flex flex-wrap items-center justify-between gap-2 px-5 pb-0 pt-4">
           <div className="min-w-0">

@@ -235,7 +235,7 @@ describe('using a custom theme', () => {
     saveCustomThemeDef({ ...DEFAULT_CUSTOM_DEF, name: 'Teal' });
     expect(UI_THEMES).toHaveLength(13);
     expect(RETAIL_THEMES).toHaveLength(8);
-    expect(ALL_THEMES).toHaveLength(21);
+    expect(ALL_THEMES).toHaveLength(22); // 13 Modern + 8 DT Retail + DT Refined (v1.85.0)
     expect(isThemeId('custom-teal')).toBe(true);
     expect(findTheme('custom-teal').custom).toBe(true);
     expect(findTheme('tomato').custom).toBeUndefined();

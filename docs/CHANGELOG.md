@@ -8,6 +8,7 @@ Not in this list: the Windows shell (`dtpos-desktop`) and the Android apps (`dtp
 
 ## Releases
 
+- **v1.85.0** · 2026-11-02 · DT design package, step 1: the **DT Refined** theme (the design tokens; open to every restaurant) with the design's grouped white sidebar, top bar and the **SW-02 dashboard** (today against the same weekday last week, payment mix, top items, orders by hour, needs attention, export). Fix: the auto-ready kitchen timer no longer re-saves and announces old, paid or unapproved bills (it froze a till holding a long history)  `PENDING`
 - **v1.84.0** · 2026-11-02 · Super Admin console in the reference layout: brand sidebar, a dashboard of cards (restaurants, approvals, device requests, active, payment pending, expired, expiring, blocked, collected, outstanding, online), waiting-for-approval and renewals-due lists, + New invoice  `247d840`
 - **v1.83.0** · 2026-11-01 · online invoice verification: a QR code and link on every Digital Target invoice open a public page that confirms the invoice, its customer, total and payment state (new read-only database function, additive)  `4038276`
 - **v1.82.0** · 2026-11-01 · Branch Performance: every branch side by side and the group (sales, expenses, profit, discounts, voids, guests, stock, staff, top items) against the period before; hidden for a single-branch restaurant; multi-branch architecture note  `baadd5e`
