@@ -34,6 +34,8 @@ import {
   type PublicStorefront,
 } from '@/lib/publicStorefront';
 import { getCachedStorefront, loadPublicStorefront } from '@/lib/storefrontClient';
+import { CartBar, CategoryTiles, HeroBanner, ItemCard, SiteHeader } from '@/components/website/siteBits';
+import { categoryTiles, heroFor, iconFor, priceLabel, toneIndex } from '@/lib/websiteHome';
 
 const ACCOUNT_KEY = 'dt-online-account-v1';
 const BRANCH_KEY_PREFIX = 'dt-online-branch-v1:';
@@ -498,6 +500,13 @@ export default function OnlineOrderPage() {
     return list;
   }, [menuItems, activeCat, search]);
 
+  // v1.98.0 — the home page: what leads, and the category tiles (design package WEB-01).
+  const isHome = activeCat === 'all' && !search.trim();
+  const tiles = useMemo(() => categoryTiles(categories, menuItems), [categories, menuItems]);
+  const hero = useMemo(
+    () => heroFor({ banner: settings.onlineBanner, tagline: settings.onlineTagline, name: appConfig?.appName || settings.name || 'Restaurant', deals: ready ? getDeals() : [], items: menuItems }),
+    [settings.onlineBanner, settings.onlineTagline, settings.name, appConfig?.appName, menuItems, ready, dataTick], // eslint-disable-line react-hooks/exhaustive-deps
+  );
   const subtotal = cart.reduce((s, c) => s + c.lineTotal, 0);
   const promoDiscount = promoApplied?.discount || 0;
   const freeDeliveryThreshold = Number(settings.freeDeliveryThreshold || 0);
@@ -1076,111 +1085,44 @@ export default function OnlineOrderPage() {
         </div>
       )}
 
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-gradient-hero text-primary-foreground shadow-elegant">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 min-w-0">
-            {/* v1.29.5 — who this restaurant IS, for someone who is not signed in.
-              *
-              * settings.* comes from tenant_settings, which is behind RLS: as the
-              * anon role a customer reads 0 rows from it. On the web that never
-              * showed, because the link gets opened on a machine where the owner
-              * is signed in and their settings are already in localStorage. A
-              * freshly installed APK has no such leftovers, so the header said
-              * the literal word "Restaurant".
-              *
-              * appConfig comes from public_customer_app_config(), which anon CAN
-              * call, and which now falls back to the restaurant's own POS
-              * branding when Super Admin has set no override. It goes first
-              * because this is the customer-facing surface Super Admin
-              * configures; settings.* stays as the fallback so an owner
-              * previewing their own page sees exactly what they always did. */}
-            {(appConfig?.logoUrl || appConfig?.iconUrl || settings.webPortalLogo || settings.logo) && (
-              <img
-                src={appConfig?.logoUrl || appConfig?.iconUrl || settings.webPortalLogo || settings.logo}
-                alt=""
-                className="h-9 w-9 rounded object-cover bg-white/10 p-0.5"
-              />
-            )}
-            <div className="min-w-0">
-              <h1 className="text-base font-extrabold leading-tight truncate">{appConfig?.appName || settings.name || 'Restaurant'}</h1>
-              {branches.length > 1 ? (
-                <button
-                  onClick={() => setBranchPickerOpen(true)}
-                  className="inline-flex items-center gap-1 text-[10px] opacity-90 hover:opacity-100 underline-offset-2 hover:underline truncate"
-                >
-                  <Store className="h-3 w-3" />
-                  <span className="truncate">{currentBranch ? `${currentBranch.name}${currentBranch.city ? ' · ' + currentBranch.city : ''}` : 'Select branch'}</span>
-                  <ChevronDown className="h-3 w-3" />
-                </button>
-              ) : (
-                <p className="text-[10px] opacity-80 truncate">Online Ordering · Delivery</p>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-1.5">
-            {account && (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setProfileOpen(true)}
-                className="h-8"
-                title="My profile and saved addresses"
-              >
-                <User className="h-4 w-4 sm:mr-1" />
-                <span className="hidden sm:inline truncate max-w-[90px]">{account.name || 'Profile'}</span>
-              </Button>
-            )}
-            {account && featureOn(appConfig, 'history') ? (
-              <Button variant="secondary" size="sm" onClick={() => setOrdersOpen(true)} className="h-8">
-                <ClipboardList className="h-4 w-4 mr-1" />
-                <span className="hidden sm:inline">My Orders</span>
-                <span className="sm:hidden">Orders</span>
-                {myOrders.length > 0 && (
-                  <span className="ml-1 h-4 min-w-[16px] px-1 rounded-full bg-gold text-foreground text-[10px] font-extrabold flex items-center justify-center">{myOrders.length}</span>
-                )}
-              </Button>
-            ) : account ? null : (
-              <Button variant="secondary" size="sm" onClick={() => setLoginOpen(true)} className="h-8">
-                <LogIn className="h-4 w-4 mr-1" /> Login
-              </Button>
-            )}
-            <Button variant="secondary" size="sm" onClick={() => setCartOpen(true)} className="relative h-8">
-              <ShoppingBag className="h-4 w-4 mr-1" />
-              Cart
-              {cart.length > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 h-5 min-w-[20px] px-1 rounded-full bg-gold text-foreground text-[10px] font-extrabold flex items-center justify-center">
-                  {cart.reduce((s, c) => s + c.quantity, 0)}
-                </span>
-              )}
-            </Button>
-          </div>
-        </div>
-
-        {/* Search + categories */}
-        <div className="max-w-6xl mx-auto px-4 pb-3 space-y-2">
-          <div className="relative">
-            <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search menu…"
-              className="h-8 pl-7 text-xs bg-background text-foreground"
-            />
-          </div>
-          <div className="flex gap-1.5 overflow-x-auto pos-scrollbar -mx-1 px-1 pb-1">
-            <CatChip active={activeCat === 'all'} onClick={() => setActiveCat('all')} label={`All (${menuItems.length})`} />
-            {categories.map(c => {
-              const n = menuItems.filter(m => m.categoryId === c.id).length;
-              if (n === 0) return null;
-              return <CatChip key={c.id} active={activeCat === c.id} onClick={() => setActiveCat(c.id)} label={`${c.name} (${n})`} />;
-            })}
-          </div>
-        </div>
-      </header>
+      {/* Header — v1.98.0, design package WEB-01 */}
+      <SiteHeader
+        name={appConfig?.appName || settings.name || 'Restaurant'}
+        logo={appConfig?.logoUrl || appConfig?.iconUrl || settings.webPortalLogo || settings.logo || null}
+        onBranch={branches.length > 1 ? () => setBranchPickerOpen(true) : undefined}
+        branchLabel={currentBranch ? `${currentBranch.name}${currentBranch.city ? ' · ' + currentBranch.city : ''}` : null}
+        fulfilment={!dineIn && fulfilOpts.delivery && fulfilOpts.pickup ? { value: fulfillment, onChange: setFulfillment } : null}
+        search={search} onSearch={setSearch}
+        signedIn={!!account} accountName={account?.name} showOrders={featureOn(appConfig, 'history')} ordersCount={myOrders.length}
+        onProfile={() => setProfileOpen(true)} onOrders={() => setOrdersOpen(true)} onLogin={() => setLoginOpen(true)}
+        cartCount={cart.reduce((n, c) => n + c.quantity, 0)} onCart={() => setCartOpen(true)}
+      />
 
       {/* Menu grid */}
-      <main className="max-w-6xl mx-auto p-4">
+      <main className="max-w-6xl mx-auto space-y-5 p-4 pb-24 md:pb-6">
+        {isHome && !dineIn && menuItems.length > 0 && (
+          <HeroBanner
+            hero={hero}
+            price={hero.kind === 'deal' && hero.dealPrice != null ? money(hero.dealPrice) : undefined}
+            onOrder={() => {
+              const deal = hero.dealId ? menuItems.find(m => m.id === hero.dealId) : null;
+              if (deal) addItem(deal); else document.getElementById('site-menu')?.scrollIntoView({ behavior: 'smooth' });
+            }}
+          />
+        )}
+        {isHome && tiles.length > 0 && (
+          <section aria-labelledby="site-categories">
+            <h2 id="site-categories" className="mb-3 text-lg font-extrabold">Categories</h2>
+            <CategoryTiles tiles={tiles} onPick={id => { setActiveCat(id); document.getElementById('site-menu')?.scrollIntoView({ behavior: 'smooth' }); }} />
+          </section>
+        )}
+        {!isHome && (
+          <div className="flex gap-1.5 overflow-x-auto pos-scrollbar pb-1" role="tablist" aria-label="Menu categories">
+            <CatChip active={false} onClick={() => { setActiveCat('all'); setSearch(''); }} label="← All" />
+            {tiles.map(t => <CatChip key={t.id} active={activeCat === t.id} onClick={() => setActiveCat(t.id)} label={`${t.name} (${t.count})`} />)}
+          </div>
+        )}
+        <h2 id="site-menu" className="text-lg font-extrabold">{isHome ? 'Menu' : (search.trim() ? `Results for “${search.trim()}”` : tiles.find(t => t.id === activeCat)?.name || 'Menu')}</h2>
         {visibleItems.length === 0 && loadFailed ? (
           // Could not reach the restaurant — say so, and offer the way out.
           <div className="text-center py-16 space-y-3">
@@ -1195,81 +1137,35 @@ export default function OnlineOrderPage() {
         ) : visibleItems.length === 0 ? (
           <div className="text-center py-16 text-muted-foreground text-sm">No items found.</div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
             {visibleItems.map(m => {
               const inCart = cart.find(c => c.menuItemId === m.id);
               const vi = variantInfo(m);
+              const catName = categories.find(c => c.id === m.categoryId)?.name || '';
+              const deal = getDeals().find(d => d.id === m.id);
+              const all = deal?.items?.length ? getMenuItems() : [];
+              const notes = [
+                vi.hasVariants ? `${vi.list.length} size${vi.list.length > 1 ? 's' : ''}` : '',
+                m.flavors && m.flavors.length > 0 ? `${m.flavors.length} flavour${m.flavors.length > 1 ? 's' : ''}` : '',
+                deal?.items?.length ? deal.items.map(di => `${di.quantity}× ${all.find(x => x.id === di.menuItemId)?.name || 'Item'}`).join(', ') : '',
+              ].filter(Boolean);
               return (
-                <div key={m.id} className="bg-card rounded-xl border shadow-card overflow-hidden flex flex-col">
-                  {m.image ? (
-                    <img src={m.image} alt={m.name} className="w-full h-32 object-cover" />
-                  ) : (
-                    <div className="w-full h-32 bg-gradient-to-br from-primary/10 to-gold/10 flex items-center justify-center text-3xl">🍽️</div>
-                  )}
-                  <div className="p-2.5 flex-1 flex flex-col gap-1.5">
-                    <h3 className="text-xs font-bold leading-tight line-clamp-2">{m.name}</h3>
-                    {vi.hasVariants && (
-                      <p className="text-[9px] text-emerald-700 font-bold leading-tight">
-                        📏 {vi.list.length} size{vi.list.length > 1 ? 's' : ''} — Select karein
-                      </p>
-                    )}
-                    {m.flavors && m.flavors.length > 0 && (
-                      <p className="text-[9px] text-primary/80 font-medium leading-tight">
-                        {m.flavors.length} flavor{m.flavors.length > 1 ? 's' : ''} available
-                      </p>
-                    )}
-                    {(() => {
-                      const deal = getDeals().find(d => d.id === m.id);
-                      if (!deal || !deal.items?.length) return null;
-                      const allItems = getMenuItems();
-                      return (
-                        <p className="text-[9px] text-muted-foreground italic line-clamp-2 leading-tight">
-                          🎁 {deal.items.map(di => `${di.quantity}× ${allItems.find(x => x.id === di.menuItemId)?.name || 'Item'}`).join(', ')}
-                        </p>
-                      );
-                    })()}
-                    <div className="mt-auto flex items-center justify-between">
-                      <span className="text-sm font-extrabold text-primary">
-                        {vi.hasVariants ? `From ${money(vi.minPrice)}` : `${money(m.price)}`}
-                      </span>
-                      {vi.hasVariants ? (
-                        <Button size="sm" className="h-7 text-[11px] bg-emerald-600 hover:bg-emerald-700" onClick={() => addItem(m)}>
-                          <Plus className="h-3 w-3 mr-0.5" /> Select Size
-                        </Button>
-                      ) : inCart ? (
-                        <div className="flex items-center gap-1">
-                          <Button size="sm" variant="outline" className="h-6 w-6 p-0" onClick={() => updateQty(inCart.id, -1)}><Minus className="h-3 w-3" /></Button>
-                          <span className="text-xs font-bold w-5 text-center">{inCart.quantity}</span>
-                          <Button size="sm" variant="outline" className="h-6 w-6 p-0" onClick={() => updateQty(inCart.id, 1)}><Plus className="h-3 w-3" /></Button>
-                        </div>
-                      ) : (
-                        <Button size="sm" className="h-7 text-[11px]" onClick={() => addItem(m)}>
-                          <Plus className="h-3 w-3 mr-0.5" /> Add
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </div>
+                <ItemCard
+                  key={m.id} id={m.id} name={m.name} image={m.image || undefined}
+                  priceText={priceLabel(money, m.price, vi.hasVariants ? vi.minPrice : undefined)}
+                  icon={iconFor(catName)} tone={toneIndex(catName || m.name)} notes={notes}
+                  mode={vi.hasVariants ? 'choose' : inCart ? 'stepper' : 'add'} quantity={inCart?.quantity}
+                  onAdd={() => addItem(m)} onMinus={inCart ? () => updateQty(inCart.id, -1) : undefined} onPlus={inCart ? () => updateQty(inCart.id, 1) : undefined}
+                />
               );
             })}
           </div>
         )}
       </main>
 
-      {/* Floating cart bar (mobile) */}
+      {/* Floating cart bar (phones) */}
       {cart.length > 0 && !cartOpen && (
-        <div className="fixed bottom-3 left-3 right-3 z-30 md:hidden">
-          <button
-            onClick={() => setCartOpen(true)}
-            className="w-full bg-primary text-primary-foreground rounded-xl px-4 py-3 flex items-center justify-between shadow-elegant"
-          >
-            <span className="flex items-center gap-2 text-sm font-bold">
-              <ShoppingBag className="h-4 w-4" />
-              {cart.reduce((s, c) => s + c.quantity, 0)} items
-            </span>
-            <span className="text-sm font-extrabold">{money(subtotal)} →</span>
-          </button>
-        </div>
+        <CartBar count={cart.reduce((n, c) => n + c.quantity, 0)} total={money(subtotal)} onOpen={() => setCartOpen(true)} />
       )}
 
       {/* Cart drawer */}
@@ -2029,13 +1925,15 @@ export default function OnlineOrderPage() {
 }
 
 function CatChip({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
+  // v1.98.0 — the rail sits on the page, no longer on a coloured header: it reads on light and dark pages.
   return (
     <button
+      type="button" role="tab" aria-selected={active}
       onClick={onClick}
-      className={`shrink-0 px-3.5 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-smooth border ${
+      className={`shrink-0 h-9 px-4 rounded-full text-[13px] font-semibold whitespace-nowrap transition-colors border ${
         active
-          ? 'bg-white text-primary border-white shadow-card'
-          : 'bg-white/10 text-primary-foreground border-white/20 hover:bg-white/20'
+          ? 'bg-primary text-primary-foreground border-primary shadow-card'
+          : 'bg-card text-foreground border-border hover:bg-muted'
       }`}
     >
       {label}
