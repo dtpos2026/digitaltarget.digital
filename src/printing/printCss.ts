@@ -14,6 +14,7 @@
 //  10. Density-friendly: tighter line-height, no anti-alias bleed
 // ============================================================
 import type { PaperSize } from './printConfig';
+import { isElectron } from '@/lib/electron';
 // ONE source of truth for paper widths. This file used to carry its own copy
 // of the numbers, and its 110mm printable width (100mm) disagreed with the
 // 104mm every other module used — a 4mm drift that landed straight on the
@@ -562,6 +563,93 @@ function buildCompactOverrides(): string {
   `;
 }
 
+// ============================================================
+// v1.105.0 — BROWSER PRINTING PRINTS THE DESIGN, NOT THE THERMAL RULES
+//
+// Reported: "the printout is not clean and is not as designed — it changes in the browser".
+// The stylesheet above is written for a 203-DPI thermal HEAD in the desktop app: it repaints every colour black, forces 1 px black
+// borders on every table and cell, forces fixed table layout, bold on first columns and headings, a grey filter on logos and a
+// fixed content width, and declares `@page { size: 80mm auto }` — which no browser accepts (a page height may not be `auto` next
+// to a length), so the whole `size` rule is dropped. Printed from a browser to an ordinary printer or a PDF, all of that
+// changes the slip the shop designed: grid lines appear, greys and colours turn black, the logo darkens.
+//
+// In a browser (no desktop app) the slip now prints as designed: the template's own colours, borders, weights, widths and fonts;
+// backgrounds forced on (so tinted bands and boxes print); no invented `size`; margin 0; everything else on the page hidden.
+// The desktop app is untouched. A shop that prints from a browser straight to a thermal head and prefers the all-black rendering
+// can switch back in Settings → Printer ("Print for a thermal head").
+// ============================================================
+export type BrowserPrintStyle = 'design' | 'thermal';
+export const BROWSER_PRINT_STYLE_KEY = 'dtpos-browser-print-style';
+export function getBrowserPrintStyle(): BrowserPrintStyle {
+  try { return localStorage.getItem(BROWSER_PRINT_STYLE_KEY) === 'thermal' ? 'thermal' : 'design'; } catch { return 'design'; }
+}
+export function setBrowserPrintStyle(v: BrowserPrintStyle): void {
+  try { localStorage.setItem(BROWSER_PRINT_STYLE_KEY, v); } catch { /* storage unavailable */ }
+}
+
+/** The slip exactly as designed, for a browser's print dialog. */
+export function buildBrowserPrintCss(paperWidth: PaperSize, compact: boolean = false): string {
+  const mm = widthMm(paperWidth);
+  const compactBlock = compact ? buildCompactOverrides() : '';
+  return `
+    @page { margin: 0 !important; }
+    html, body {
+      margin: 0 !important;
+      padding: 0 !important;
+      background: #fff !important;
+      overflow: visible !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    body.thermal-printing .receipt-print-portal { display: none !important; }
+    /* Laid out at paper width but never seen on a monitor (the till screen is left alone while a slip is prepared). */
+    body.thermal-printing .receipt-print-portal[data-active-print="true"] {
+      display: block !important;
+      position: fixed !important;
+      left: -20000px !important;
+      top: 0 !important;
+      width: ${mm}mm !important;
+      height: auto !important;
+      max-height: none !important;
+      overflow: visible !important;
+      background: #fff !important;
+      opacity: 0 !important;
+      visibility: visible !important;
+      pointer-events: none !important;
+    }
+    body.thermal-printing .receipt-print-portal[data-active-print="true"] .print-receipt {
+      max-width: 100% !important;
+      box-sizing: border-box !important;
+      margin-left: auto !important;
+      margin-right: auto !important;
+      margin-top: 0 !important;
+      overflow: visible !important;
+    }
+    body.thermal-printing .receipt-print-portal[data-active-print="true"] .print-receipt img { max-width: 100% !important; }
+    ${compactBlock}
+    @media print {
+      body.thermal-printing > *:not(.receipt-print-portal[data-active-print="true"]) { display: none !important; }
+      body.thermal-printing[data-print-active="true"] .receipt-print-portal[data-active-print="true"],
+      body.thermal-printing .receipt-print-portal[data-active-print="true"] {
+        position: static !important;
+        left: 0 !important;
+        top: 0 !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        display: block !important;
+        width: ${mm}mm !important;
+      }
+      html, body { width: ${mm}mm !important; height: auto !important; }
+      /* Colours, tinted bands and boxes print as drawn (browsers drop backgrounds unless asked). */
+      body.thermal-printing .receipt-print-portal[data-active-print="true"],
+      body.thermal-printing .receipt-print-portal[data-active-print="true"] * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+    }
+  `;
+}
+
 const STYLE_ID = 'dt-print-style';
 
 export function injectPrintCss(paperWidth: PaperSize, compact: boolean = false) {
@@ -569,7 +657,10 @@ export function injectPrintCss(paperWidth: PaperSize, compact: boolean = false) 
   document.getElementById(STYLE_ID)?.remove();
   const style = document.createElement('style');
   style.id = STYLE_ID;
-  style.textContent = buildPrintCss(paperWidth, compact);
+  // The desktop app keeps the thermal-head rules; a browser prints the design (see buildBrowserPrintCss).
+  style.textContent = (!isElectron() && getBrowserPrintStyle() === 'design')
+    ? buildBrowserPrintCss(paperWidth, compact)
+    : buildPrintCss(paperWidth, compact);
   document.head.appendChild(style);
   return () => style.remove();
 }

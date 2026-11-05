@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, Trash2, AlertTriangle, Download, Printer, Palette, MapPin, Navigation, ShoppingBag, Globe2, Settings as SettingsIcon, MessageCircle } from 'lucide-react';
 import { isElectron, getPrinters, getAutoStart, setAutoStart } from '@/lib/electron';
 import { Slider } from '@/components/ui/slider';
+import { getBrowserPrintStyle, setBrowserPrintStyle, type BrowserPrintStyle } from '@/printing/printCss';
 
 interface Props {
   settings: RestaurantSettings;
@@ -26,8 +27,33 @@ interface Props {
 }
 
 export default function PrinterSettingsTab({ settings, setSettings, onSave, printers, receiptSizePresets, autoStartEnabled, onToggleAutoStart }: Props) {
+  // v1.105.0 — how a slip prints from a BROWSER (the desktop app is unaffected).
+  const [browserStyle, setBrowserStyle] = React.useState<BrowserPrintStyle>(() => getBrowserPrintStyle());
   return (
     <div className="space-y-4">
+      {!isElectron() && (
+        <div className="rounded-xl border bg-card p-4 shadow-sm" data-testid="browser-print-style">
+          <p className="text-sm font-bold">Printing from the browser</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Choose how a receipt, KOT or token looks when it is printed from this browser. The desktop app has its own printing and is not affected.
+          </p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Browser print style">
+            {([
+              ['design', 'Exactly as designed', 'Your template\'s own colours, borders, fonts and logo — what you see in the preview. Best for laser, inkjet and PDF.'],
+              ['thermal', 'Print for a thermal head', 'Everything pure black with fixed grid lines and a darkened logo, tuned for a thermal receipt printer.'],
+            ] as const).map(([id, title, hint]) => (
+              <button
+                key={id} type="button" role="radio" aria-checked={browserStyle === id} data-style={id}
+                onClick={() => { setBrowserPrintStyle(id); setBrowserStyle(id); toast.success(id === 'design' ? 'Browser printing will print the design exactly' : 'Browser printing is tuned for a thermal head'); }}
+                className={`rounded-xl border p-3 text-left transition-colors ${browserStyle === id ? 'border-primary bg-primary/5 ring-2 ring-primary/25' : 'hover:border-primary/40'}`}
+              >
+                <span className="block text-[13px] font-bold">{title}</span>
+                <span className="mt-0.5 block text-[12px] text-muted-foreground">{hint}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
             <div className="border rounded-lg p-4 space-y-4">
               <div className="flex items-center gap-2 mb-2">
                 <Printer className="h-5 w-5" />
