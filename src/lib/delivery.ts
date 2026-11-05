@@ -2,6 +2,7 @@
 import { Order, DeliveryStatus } from './types';
 import { addToPendingQueue, normalizePhone } from './whatsapp';
 import { getTenantId } from './tenant';
+import { money } from '@/lib/currency';
 
 export interface LatLng { lat: number; lng: number; }
 
@@ -134,7 +135,7 @@ export function buildTrackingMessage(order: Order): string {
   if (order.delivery?.customerLat && order.delivery?.customerLng) {
     lines.push(`Location: https://maps.google.com/?q=${order.delivery.customerLat},${order.delivery.customerLng}`);
   }
-  lines.push(`Grand Total: PKR ${order.grandTotal.toLocaleString()}`);
+  lines.push(`Grand Total: ${money(order.grandTotal)}`);
   return lines.join('\n');
 }
 

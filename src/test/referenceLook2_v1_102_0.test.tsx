@@ -110,7 +110,8 @@ describe('the stylesheet', () => {
   it('the order-card block is scoped to DT Refined and restyles only the kitchen markup', () => {
     const css = read('src/styles/ui-refined-pos.css');
     const at = css.indexOf('Order cards (v1.102.0)');
-    const block = css.slice(css.indexOf('*/', at) + 2);
+    const end = css.indexOf('/* The phone Order Taker runs the classic grid');
+    const block = css.slice(css.indexOf('*/', at) + 2, end > at ? end : undefined);   // the Order Taker's own rules follow the kitchen block
     for (const sel of ['[data-kds-card]', '[data-kds-ring]', '[data-kds-action="ready"]', '[data-kds-action="delivered"]']) expect(block).toContain(sel);
     const body = block.replace(/\/\*[\s\S]*?\*\//g, '');
     for (const b of body.split('}')) {

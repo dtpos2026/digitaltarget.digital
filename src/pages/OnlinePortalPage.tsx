@@ -269,7 +269,7 @@ export default function OnlinePortalPage() {
           <Badge variant="outline" className="ml-auto text-[9px]">Customer-facing</Badge>
         </div>
         <p className="text-[11px] text-muted-foreground">
-          Yeh fields aap ki <b>online ordering website</b>, <b>tracking page</b> aur <b>rider portal</b> par dikhte hain.
+          These fields show on your <b>online ordering website</b>, <b>tracking page</b> and <b>rider portal</b>.
         </p>
         <div className="grid lg:grid-cols-2 gap-3">
           <div className="space-y-2">

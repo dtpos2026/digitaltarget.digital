@@ -10,6 +10,7 @@
 // ============================================================
 import type { Order, OrderEditLog, OrderEditAction, KotRevision, KotRevisionLine, KotRevisionType, CartItem } from './types';
 import { getDeviceMeta } from './tenant';
+import { money } from '@/lib/currency';
 
 function getCurrentUser(): { id?: string; name?: string; role?: string } {
   try {
@@ -77,7 +78,7 @@ export function diffOrderMeta(prev: Order, next: Order): OrderEditLog[] {
     if (next.status === 'void') logs.push(makeEditLog('VOID', { oldValue: prev.status, newValue: 'void', reason: next.voidReason }));
     else if (next.status === 'complimentary') logs.push(makeEditLog('COMPLIMENTARY', { oldValue: prev.status, newValue: 'complimentary', reason: next.complimentaryReason }));
     else if (next.status === 'cancelled') logs.push(makeEditLog('CANCEL_ORDER', { oldValue: prev.status, newValue: 'cancelled', reason: next.cancelReason }));
-    else if (next.status === 'paid') logs.push(makeEditLog('PAYMENT', { oldValue: prev.status, newValue: `paid (PKR ${next.grandTotal})` }));
+    else if (next.status === 'paid') logs.push(makeEditLog('PAYMENT', { oldValue: prev.status, newValue: `paid (${money(next.grandTotal)})` }));
     else logs.push(makeEditLog('STATUS', { oldValue: prev.status, newValue: next.status }));
   }
   return logs;

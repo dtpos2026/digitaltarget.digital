@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle2, RefreshCw, Plus, AlertCircle } from 'lucide-react';
 import type { Category, MenuItem, InventoryItem } from '@/lib/types';
+import { money } from '@/lib/currency';
 
 interface ImportData {
   categories: Category[];
@@ -102,7 +103,7 @@ export default function MenuImportPreview({
                     <td className="px-3 py-1.5"><ActionBadge isNew={isNew} /></td>
                     <td className="px-3 py-1.5 font-medium">{it.name}</td>
                     <td className="px-3 py-1.5 text-muted-foreground">{cat}</td>
-                    <td className="px-3 py-1.5 text-right">PKR {it.price || it.ratePerKg || 0}</td>
+                    <td className="px-3 py-1.5 text-right">{money(it.price || it.ratePerKg || 0)}</td>
                   </tr>
                 );
               })}
@@ -114,7 +115,7 @@ export default function MenuImportPreview({
                     <td className="px-3 py-1.5"><ActionBadge isNew={isNew} /></td>
                     <td className="px-3 py-1.5 font-medium">{iv.name}</td>
                     <td className="px-3 py-1.5 text-muted-foreground">{cat}</td>
-                    <td className="px-3 py-1.5 text-right">PKR {iv.costPrice || 0}</td>
+                    <td className="px-3 py-1.5 text-right">{money(iv.costPrice || 0)}</td>
                   </tr>
                 );
               })}

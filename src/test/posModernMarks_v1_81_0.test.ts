@@ -24,8 +24,9 @@ describe('the order screen carries every mark the Modern POS stylesheet styles',
 describe('the Classic look is left alone', () => {
   it('every Modern-only structure is behind the modern flag', () => {
     // card add-circle shown only in Modern, the ADD bar only in Classic
-    expect(pos).toMatch(/\{modern && \(\s*<div data-pos-card-add/);
-    expect(pos).toMatch(/\{!modern && \(\s*<div className="dt-menu-add-btn/);
+    // (v1.104.0: the phone Order Taker also shows the Add pill and never the classic bar — photoLook)
+    expect(pos).toMatch(/\{\(modern \|\| photoLook\) && \(\s*<div data-pos-card-add/);
+    expect(pos).toMatch(/\{!modern && !photoLook && \(\s*<div className="dt-menu-add-btn/);
     // Classic keeps its own grid classes and cart width
     expect(pos).toContain("{ className: legacyGridClass }");
     expect(pos).toContain("modern ? '' : 'md:w-[clamp(280px,26vw,460px)]'");

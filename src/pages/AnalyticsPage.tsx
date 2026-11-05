@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { getOrders } from '@/lib/store';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { TrendingUp, ShoppingBag, DollarSign, Calendar } from 'lucide-react';
+import { money } from '@/lib/currency';
 
 export default function AnalyticsPage() {
   const orders = useMemo(() => getOrders(), []);
@@ -45,7 +46,8 @@ export default function AnalyticsPage() {
     })).filter(t => t.value > 0);
   }, [paidOrders]);
 
-  const COLORS = ['hsl(210,79%,46%)', 'hsl(38,92%,50%)', 'hsl(173,80%,40%)'];
+  // v1.104.0 — chart colours follow the colour scheme (accent first, then the design's teal and orange), not fixed blues and maroons.
+  const COLORS = ['hsl(var(--primary))', 'hsl(173 80% 30%)', 'hsl(17 88% 45%)'];
 
   const todayStr = new Date().toISOString().split('T')[0];
   const todaySales = paidOrders.filter(o => (o.paidAt || o.createdAt).startsWith(todayStr)).reduce((s, o) => s + o.grandTotal, 0);
@@ -61,13 +63,13 @@ export default function AnalyticsPage() {
           <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
             <DollarSign className="h-4 w-4" /> Today's Sales
           </div>
-          <p className="text-xl font-extrabold text-primary">PKR {todaySales.toLocaleString()}</p>
+          <p className="text-xl font-extrabold text-primary">{money(todaySales)}</p>
         </div>
         <div className="bg-card border rounded-xl p-4">
           <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
             <TrendingUp className="h-4 w-4" /> Total Sales
           </div>
-          <p className="text-xl font-extrabold text-foreground">PKR {totalSales.toLocaleString()}</p>
+          <p className="text-xl font-extrabold text-foreground">{money(totalSales)}</p>
         </div>
         <div className="bg-card border rounded-xl p-4">
           <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
@@ -80,7 +82,7 @@ export default function AnalyticsPage() {
             <Calendar className="h-4 w-4" /> Avg Order
           </div>
           <p className="text-xl font-extrabold text-foreground">
-            PKR {paidOrders.length > 0 ? Math.round(totalSales / paidOrders.length).toLocaleString() : '0'}
+            {money(paidOrders.length > 0 ? Math.round(totalSales / paidOrders.length).toLocaleString() : '0')}
           </p>
         </div>
       </div>
@@ -95,8 +97,8 @@ export default function AnalyticsPage() {
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(0,0%,88%)" />
               <XAxis dataKey="date" tick={{ fontSize: 10 }} />
               <YAxis tick={{ fontSize: 10 }} />
-              <Tooltip formatter={(v: number) => [`PKR ${v.toLocaleString()}`, 'Sales']} />
-              <Bar dataKey="sales" fill="hsl(345,80%,28%)" radius={[4, 4, 0, 0]} />
+              <Tooltip formatter={(v: number) => [`${money(v)}`, 'Sales']} />
+              <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -111,7 +113,7 @@ export default function AnalyticsPage() {
                   <Cell key={i} fill={COLORS[i % COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip formatter={(v: number) => [`PKR ${v.toLocaleString()}`]} />
+              <Tooltip formatter={(v: number) => [`${money(v)}`]} />
             </PieChart>
           </ResponsiveContainer>
         </div>
@@ -124,8 +126,8 @@ export default function AnalyticsPage() {
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(0,0%,88%)" />
               <XAxis type="number" tick={{ fontSize: 10 }} />
               <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 10 }} />
-              <Tooltip formatter={(v: number) => [`PKR ${v.toLocaleString()}`, 'Sales']} />
-              <Bar dataKey="total" fill="hsl(173,80%,40%)" radius={[0, 4, 4, 0]} />
+              <Tooltip formatter={(v: number) => [`${money(v)}`, 'Sales']} />
+              <Bar dataKey="total" fill="hsl(var(--primary) / 0.6)" radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>

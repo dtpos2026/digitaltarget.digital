@@ -96,7 +96,7 @@ export default function RidersListPage() {
         <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
           {filtered.length === 0 && (
             <Card className="p-8 text-center text-sm text-muted-foreground col-span-full">
-              Koi rider configured nahi — Settings → Riders se add karein.
+              No rider is set up — add one in Settings → Riders.
             </Card>
           )}
           {filtered.map(r => (

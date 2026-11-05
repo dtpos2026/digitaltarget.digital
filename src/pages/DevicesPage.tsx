@@ -87,7 +87,7 @@ export default function DevicesPage() {
             .select('id').eq('tenant_id', t).order('sort_order').limit(1).maybeSingle();
           branch = (b as any)?.id ?? null;
         }
-        if (!branch) throw new Error('Is restaurant ka koi branch nahin mila — pehle branch banayein');
+        if (!branch) throw new Error('This restaurant has no branch yet — create a branch first');
         const meta = getDeviceMeta();
         const reg = await registerThisDevice(meta.deviceId, meta.deviceName || 'POS', branch, meta.platform, APP_VERSION);
         startDeviceHeartbeat(reg.deviceId);
@@ -340,7 +340,7 @@ export default function DevicesPage() {
           </div>
           <div>
             <h1 className="text-xl font-extrabold">Device Authorization</h1>
-            <p className="text-xs text-muted-foreground">Apne restaurant ke devices auto-approve hote hain plan limit tak</p>
+            <p className="text-xs text-muted-foreground">Your restaurant's devices are approved automatically up to the plan limit</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -413,7 +413,7 @@ export default function DevicesPage() {
         {isFull && (
           <div className="mt-3 text-xs text-red-600 font-semibold flex items-start gap-2">
             <Shield className="h-4 w-4 shrink-0 mt-0.5" />
-            <span>Device limit reached. Naya device login nahi ho sakta jab tak Super Admin limit increase na karein ya purana device remove na karein.</span>
+            <span>Device limit reached. A new device cannot sign in until a Super Admin raises the limit or an old device is removed.</span>
           </div>
         )}
       </div>
@@ -466,7 +466,7 @@ export default function DevicesPage() {
               <DeviceRowView key={d.deviceId} d={d} current={d.deviceId === currentDeviceId}>
                 <KdsAssign d={d} onAssign={assignKds} onClear={clearKds} />
                 <span className="text-[10px] text-muted-foreground italic">
-                  Ledger PDF Super Admin se request karein
+                  Request the ledger PDF from the Super Admin
                 </span>
               </DeviceRowView>
             ))}

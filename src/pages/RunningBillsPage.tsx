@@ -253,7 +253,7 @@ export default function RunningBillsPage() {
                   <p className="text-xs text-amber-700">🛵 Rider: <span className="italic">Not assigned</span></p>
                 )}
                 <p className="text-xs text-muted-foreground">{order.items.length} items</p>
-                <p className="text-sm font-bold text-primary">PKR {order.grandTotal.toLocaleString()}</p>
+                <p className="text-sm font-bold text-primary">{money(order.grandTotal)}</p>
                 {(order as any).cashierName && (
                   <p className="text-[10px] text-muted-foreground">👤 {(order as any).cashierName}</p>
                 )}

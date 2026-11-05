@@ -38,7 +38,8 @@ export interface CurrencyDef {
 }
 
 export const CURRENCIES: CurrencyDef[] = [
-  { code: 'PKR', symbol: 'Rs.', name: 'Pakistani Rupee', country: 'Pakistan', flag: '🇵🇰', position: 'prefix', decimals: 0, locale: 'en-PK' },
+  // v1.104.0 — "Rs 1,450" (a space, no full stop) on every screen, bill and message: the owner's one amount format.
+  { code: 'PKR', symbol: 'Rs', name: 'Pakistani Rupee', country: 'Pakistan', flag: '🇵🇰', position: 'prefix', decimals: 0, locale: 'en-PK', space: true },
   { code: 'SGD', symbol: 'S$', name: 'Singapore Dollar', country: 'Singapore', flag: '🇸🇬', position: 'prefix', decimals: 2, locale: 'en-SG' },
   { code: 'AED', symbol: 'AED', name: 'UAE Dirham', country: 'United Arab Emirates', flag: '🇦🇪', position: 'prefix', decimals: 2, locale: 'en-AE', space: true },
   { code: 'SAR', symbol: 'SAR', name: 'Saudi Riyal', country: 'Saudi Arabia', flag: '🇸🇦', position: 'prefix', decimals: 2, locale: 'en-SA', space: true },
@@ -109,7 +110,7 @@ export interface MoneyOptions {
  * THE single money formatter. Handles symbol position, spacing, decimals
  * and locale digit grouping.
  *
- *   formatMoney(1200)            -> "Rs.1,200"    (PKR)
+ *   formatMoney(1200)            -> "Rs 1,200"    (PKR)
  *   formatMoney(1200)            -> "S$1,200.00"  (SGD)
  *   formatMoney(1200, {noSymbol:true}) -> "1,200.00"
  */
@@ -154,14 +155,12 @@ export const money = formatMoney;
  * set to SAR or AED still saw rupees on its POS total. This follows the
  * restaurant's currency instead.
  *
- * PKR installs keep the exact wording they have always had ("PKR 1,200" — note:
- * not formatMoney's "Rs.1,200"), because the rule of this module is that nothing
- * changes for an existing restaurant unless its owner changes the currency.
+ * v1.104.0 — one amount format everywhere: PKR reads "Rs 1,200" (a space, no full stop), the same as formatMoney. It used to be
+ * "PKR 1,200" here and "Rs.1,200" there, which is how one screen showed both.
  * Display only: it never feeds a calculation, a saved value or a printed slip.
  */
 export function screenAmount(amount: number | string | null | undefined): string {
   const n = Number(amount) || 0;
-  if (getActiveCurrency().code === DEFAULT_CURRENCY) return `PKR ${n.toLocaleString()}`;
   return formatMoney(n);
 }
 

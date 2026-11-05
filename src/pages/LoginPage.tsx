@@ -626,7 +626,7 @@ export default function LoginPage({ onLogin }: Props) {
             {timedOut && (
               <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
                 <p className="font-bold mb-1">Login failed</p>
-                <p>Login slow ho raha hai. Internet/cache check karein ya Retry dabayein.</p>
+                <p>Sign-in is slow. Check the internet connection or cache, or press Retry.</p>
                 <button
                   type="button"
                   onClick={() => { setTimedOut(false); handleLogin(); }}

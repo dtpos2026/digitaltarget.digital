@@ -84,7 +84,7 @@ export default function DataIntegrityPage() {
             <ShieldCheck className="h-5 w-5" /> Data Integrity
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Duplicate records, missing IDs aur ordering ke masail yahan se check karein.
+            Check duplicate records, missing IDs and ordering problems here.
           </p>
         </div>
         <div className="flex gap-2">
@@ -100,10 +100,10 @@ export default function DataIntegrityPage() {
       {problems.length === 0 ? (
         <Card className="p-4 border-green-400/50 bg-green-50/40">
           <p className="text-sm font-bold text-green-800 flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4" /> Koi duplicate ID ya missing ID nahi mili ✅
+            <ShieldCheck className="h-4 w-4" /> No duplicate or missing IDs found ✅
           </p>
           <p className="text-[11px] text-green-900/70 mt-1">
-            Menu, categories, tables aur orders — sab ke IDs unique hain.
+            Menu, categories, tables and orders — every ID is unique.
           </p>
         </Card>
       ) : (

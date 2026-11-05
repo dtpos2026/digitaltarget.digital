@@ -10,6 +10,7 @@ import { getCurrentScope, orderBelongsTo, listCashierUsers } from '@/lib/cashier
 import DateTimeRangeFilter, { DateTimeRange } from '@/components/DateTimeRangeFilter';
 import { getCurrentBusinessDay } from '@/lib/businessDay';
 import { getAllHistoricalOrders } from '@/lib/orderArchive';
+import { money } from '@/lib/currency';
 
 const reportOrders = () => getAllHistoricalOrders(getOrders());
 
@@ -136,7 +137,7 @@ export default function ReportsPage() {
       <body>${logoHtml}
       <h3 style="text-align:center;margin:10px 0 5px">Sales Report</h3>
       <p style="text-align:center;font-size:12px;color:#555">Period: ${new Date(range.startMs).toLocaleString('en-PK')} to ${new Date(range.endMs).toLocaleString('en-PK')}</p>
-      <p>Total Sales: PKR ${totalSales.toLocaleString()} (${paidOrders.length} orders)</p>
+      <p>Total Sales: ${money(totalSales)} (${paidOrders.length} orders)</p>
       <table><tr><th>#</th><th>Customer</th><th>Phone</th><th>Type</th><th>Payment</th><th>Account</th><th>Items</th><th>Total</th><th>Date</th></tr>
       ${paidOrders.map(o => `<tr><td>${o.orderNumber}</td><td>${o.customer?.name || '—'}</td><td>${o.customer?.phone || '—'}</td><td>${o.orderType}</td><td>${(o.paymentMethod || 'cash').toUpperCase()}</td><td>${o.paymentAccountName || ((o.paymentMethod || 'cash') === 'cash' ? 'Cash Drawer' : '—')}</td><td>${o.items.length}</td><td>${o.grandTotal.toLocaleString()}</td><td>${new Date(o.createdAt).toLocaleString()}</td></tr>`).join('')}
       </table></body></html>`);
@@ -147,7 +148,7 @@ export default function ReportsPage() {
   const printPosReport = async (includeOrders: boolean) => {
     const paperWidth = settings.paperSize || '80mm';
       const ordersBlock = includeOrders
-      ? paidOrders.map(o => `<div style="border-bottom:1px dotted #999;padding:4px 0;font-size:10px"><div style="display:flex;justify-content:space-between;font-weight:800"><span>#${o.orderNumber} ${o.orderType.toUpperCase()}</span><span>PKR ${o.grandTotal.toLocaleString()}</span></div><div>${o.customer?.name || 'Walk-in'}${o.customer?.phone ? ` • ${o.customer.phone}` : ''}</div><div>PAYMENT: ${(o.paymentMethod || 'cash').toUpperCase()}${o.paymentAccountName ? ` • ${o.paymentAccountName}` : (o.paymentMethod === 'cash' || !o.paymentMethod ? ' • Cash Drawer' : '')}</div><div>${new Date(o.createdAt).toLocaleString('en-PK')}</div></div>`).join('')
+      ? paidOrders.map(o => `<div style="border-bottom:1px dotted #999;padding:4px 0;font-size:10px"><div style="display:flex;justify-content:space-between;font-weight:800"><span>#${o.orderNumber} ${o.orderType.toUpperCase()}</span><span>${money(o.grandTotal)}</span></div><div>${o.customer?.name || 'Walk-in'}${o.customer?.phone ? ` • ${o.customer.phone}` : ''}</div><div>PAYMENT: ${(o.paymentMethod || 'cash').toUpperCase()}${o.paymentAccountName ? ` • ${o.paymentAccountName}` : (o.paymentMethod === 'cash' || !o.paymentMethod ? ' • Cash Drawer' : '')}</div><div>${new Date(o.createdAt).toLocaleString('en-PK')}</div></div>`).join('')
       : '';
     const content = `
       <div style="font-family:'Lucida Console','Consolas','Courier New',monospace;color:#000;background:#fff;padding:${settings.receiptMarginTop ?? 0}mm ${settings.receiptMarginRight ?? 3}mm ${settings.receiptMarginBottom ?? 0}mm ${settings.receiptMarginLeft ?? 3}mm;box-sizing:border-box;">
@@ -162,10 +163,10 @@ export default function ReportsPage() {
         <div style="font-size:11px;display:flex;justify-content:space-between;margin-bottom:6px"><span>To:</span><span>${new Date(range.endMs).toLocaleString('en-PK')}</span></div>
         <div style="border-top:1px dashed #000;border-bottom:1px dashed #000;padding:4px 0;margin-bottom:6px;font-size:11px">
           <div style="display:flex;justify-content:space-between"><span>Paid Orders</span><span>${paidOrders.length}</span></div>
-          <div style="display:flex;justify-content:space-between"><span>Dining</span><span>PKR ${diningSales.toLocaleString()}</span></div>
-          <div style="display:flex;justify-content:space-between"><span>Takeaway</span><span>PKR ${takeawaySales.toLocaleString()}</span></div>
-          <div style="display:flex;justify-content:space-between"><span>Delivery</span><span>PKR ${deliverySales.toLocaleString()}</span></div>
-          <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:800;border-top:2px solid #000;margin-top:4px;padding-top:4px"><span>Total Sales</span><span>PKR ${totalSales.toLocaleString()}</span></div>
+          <div style="display:flex;justify-content:space-between"><span>Dining</span><span>${money(diningSales)}</span></div>
+          <div style="display:flex;justify-content:space-between"><span>Takeaway</span><span>${money(takeawaySales)}</span></div>
+          <div style="display:flex;justify-content:space-between"><span>Delivery</span><span>${money(deliverySales)}</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:800;border-top:2px solid #000;margin-top:4px;padding-top:4px"><span>Total Sales</span><span>${money(totalSales)}</span></div>
         </div>
         ${ordersBlock}
         ${buildMarketingFooterHtml()}
@@ -242,20 +243,20 @@ export default function ReportsPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="bg-card border rounded-xl p-4">
           <p className="text-xs text-muted-foreground">Total Sales (Paid)</p>
-          <p className="text-xl font-bold text-primary">PKR {totalSales.toLocaleString()}</p>
+          <p className="text-xl font-bold text-primary">{money(totalSales)}</p>
           <p className="text-[10px] text-muted-foreground mt-1">{paidOrders.length} orders</p>
         </div>
         <div className="bg-card border rounded-xl p-4">
           <p className="text-xs text-muted-foreground">Dining</p>
-          <p className="text-lg font-bold text-status-info">PKR {diningSales.toLocaleString()}</p>
+          <p className="text-lg font-bold text-status-info">{money(diningSales)}</p>
         </div>
         <div className="bg-card border rounded-xl p-4">
           <p className="text-xs text-muted-foreground">Takeaway</p>
-          <p className="text-lg font-bold text-status-warning">PKR {takeawaySales.toLocaleString()}</p>
+          <p className="text-lg font-bold text-status-warning">{money(takeawaySales)}</p>
         </div>
         <div className="bg-card border rounded-xl p-4">
           <p className="text-xs text-muted-foreground">Delivery</p>
-          <p className="text-lg font-bold text-status-teal">PKR {deliverySales.toLocaleString()}</p>
+          <p className="text-lg font-bold text-status-teal">{money(deliverySales)}</p>
         </div>
       </div>
 
@@ -268,22 +269,22 @@ export default function ReportsPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div className="rounded-lg p-3 bg-status-success/10 border border-status-success/30">
             <p className="text-[10px] uppercase tracking-wider text-status-success font-bold">🌐 Website</p>
-            <p className="text-lg font-extrabold text-status-success">PKR {websiteSales.toLocaleString()}</p>
+            <p className="text-lg font-extrabold text-status-success">{money(websiteSales)}</p>
             <p className="text-[10px] text-muted-foreground">{websiteOrders.length} orders</p>
           </div>
           <div className="rounded-lg p-3 bg-status-teal/10 border border-status-teal/30">
             <p className="text-[10px] uppercase tracking-wider text-status-teal font-bold">🛵 Delivery</p>
-            <p className="text-lg font-extrabold text-status-teal">PKR {deliverySales.toLocaleString()}</p>
+            <p className="text-lg font-extrabold text-status-teal">{money(deliverySales)}</p>
             <p className="text-[10px] text-muted-foreground">{paidOrders.filter(o => o.orderType === 'delivery').length} orders</p>
           </div>
           <div className="rounded-lg p-3 bg-status-warning/10 border border-status-warning/30">
             <p className="text-[10px] uppercase tracking-wider text-status-warning font-bold">📋 Order Taker</p>
-            <p className="text-lg font-extrabold text-status-warning">PKR {otSales.toLocaleString()}</p>
+            <p className="text-lg font-extrabold text-status-warning">{money(otSales)}</p>
             <p className="text-[10px] text-muted-foreground">{otOrders.length} orders</p>
           </div>
           <div className="rounded-lg p-3 bg-status-info/10 border border-status-info/30">
             <p className="text-[10px] uppercase tracking-wider text-status-info font-bold">🖥️ POS Counter</p>
-            <p className="text-lg font-extrabold text-status-info">PKR {posSales.toLocaleString()}</p>
+            <p className="text-lg font-extrabold text-status-info">{money(posSales)}</p>
             <p className="text-[10px] text-muted-foreground">{posOrders.length} orders</p>
           </div>
         </div>
@@ -295,7 +296,7 @@ export default function ReportsPage() {
           <div>
             <p className="text-sm font-semibold">Unpaid / Running Bills</p>
             <p className="text-xs text-muted-foreground">
-              <span className="font-bold text-status-warning">{unpaidCount}</span> orders — PKR {unpaidAmount.toLocaleString()} NOT in sales.
+              <span className="font-bold text-status-warning">{unpaidCount}</span> orders — {money(unpaidAmount)} NOT in sales.
             </p>
           </div>
         </div>
@@ -316,7 +317,7 @@ export default function ReportsPage() {
         <div className="bg-card border-2 border-gold/30 rounded-xl p-4">
           <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
             👥 Cashier Performance
-            <span className="text-[10px] font-normal text-muted-foreground">(har cashier ka apna hisaab — closing time pe verify karne ke liye)</span>
+            <span className="text-[10px] font-normal text-muted-foreground">(each cashier's own totals — to verify at closing time)</span>
           </h3>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
@@ -334,17 +335,17 @@ export default function ReportsPage() {
                   <tr key={row.id} className="border-b hover:bg-muted/30">
                     <td className="p-2 font-semibold">👤 {row.name}</td>
                     <td className="p-2 text-right">{row.count}</td>
-                    <td className="p-2 text-right font-bold text-primary">PKR {row.total.toLocaleString()}</td>
-                    <td className="p-2 text-right text-status-success">PKR {row.cash.toLocaleString()}</td>
-                    <td className="p-2 text-right text-muted-foreground">PKR {(row.total - row.cash).toLocaleString()}</td>
+                    <td className="p-2 text-right font-bold text-primary">{money(row.total)}</td>
+                    <td className="p-2 text-right text-status-success">{money(row.cash)}</td>
+                    <td className="p-2 text-right text-muted-foreground">{money((row.total - row.cash))}</td>
                   </tr>
                 ))}
                 <tr className="font-extrabold bg-gold/10">
                   <td className="p-2">TOTAL</td>
                   <td className="p-2 text-right">{cashierBreakdown.reduce((s, r) => s + r.count, 0)}</td>
-                  <td className="p-2 text-right text-primary">PKR {cashierBreakdown.reduce((s, r) => s + r.total, 0).toLocaleString()}</td>
-                  <td className="p-2 text-right text-status-success">PKR {cashierBreakdown.reduce((s, r) => s + r.cash, 0).toLocaleString()}</td>
-                  <td className="p-2 text-right">PKR {cashierBreakdown.reduce((s, r) => s + (r.total - r.cash), 0).toLocaleString()}</td>
+                  <td className="p-2 text-right text-primary">{money(cashierBreakdown.reduce((s, r) => s + r.total, 0))}</td>
+                  <td className="p-2 text-right text-status-success">{money(cashierBreakdown.reduce((s, r) => s + r.cash, 0))}</td>
+                  <td className="p-2 text-right">{money(cashierBreakdown.reduce((s, r) => s + (r.total - r.cash), 0))}</td>
                 </tr>
               </tbody>
             </table>
@@ -387,7 +388,7 @@ export default function ReportsPage() {
                     <td className="px-4 py-2 capitalize">{order.orderType}</td>
                     <td className="px-4 py-2 uppercase">{order.paymentMethod || 'cash'}</td>
                     <td className="px-4 py-2">{order.paymentAccountName || (order.paymentMethod === 'cash' || !order.paymentMethod ? 'Cash Drawer' : '—')}</td>
-                    <td className="px-4 py-2 text-right font-bold text-primary">PKR {order.grandTotal.toLocaleString()}</td>
+                    <td className="px-4 py-2 text-right font-bold text-primary">{money(order.grandTotal)}</td>
                     <td className="px-4 py-2 text-muted-foreground">{new Date(order.createdAt).toLocaleString('en-PK')}</td>
                     <td className="px-4 py-2 text-center">
                       {order.reprintCount ? (
@@ -419,7 +420,7 @@ export default function ReportsPage() {
                               {order.items.map(item => (
                                 <div key={item.id} className="flex justify-between text-xs">
                                   <span>{item.name} x{item.quantity}</span>
-                                  <span className="font-semibold">PKR {item.lineTotal.toLocaleString()}</span>
+                                  <span className="font-semibold">{money(item.lineTotal)}</span>
                                 </div>
                               ))}
                             </div>
@@ -430,7 +431,7 @@ export default function ReportsPage() {
                               <div className="flex justify-between"><span>Subtotal</span><span>{order.subtotal.toLocaleString()}</span></div>
                               {order.discount > 0 && <div className="flex justify-between"><span>Discount</span><span>-{order.discount.toLocaleString()}</span></div>}
                               {order.tax > 0 && <div className="flex justify-between"><span>Tax</span><span>{order.tax.toLocaleString()}</span></div>}
-                              <div className="flex justify-between font-bold border-t pt-1"><span>Grand Total</span><span>PKR {order.grandTotal.toLocaleString()}</span></div>
+                              <div className="flex justify-between font-bold border-t pt-1"><span>Grand Total</span><span>{money(order.grandTotal)}</span></div>
                                <div className="flex justify-between text-muted-foreground"><span>Payment</span><span className="capitalize">{order.paymentMethod || 'cash'}</span></div>
                                <div className="flex justify-between text-muted-foreground"><span>Account</span><span>{order.paymentAccountName || (order.paymentMethod === 'cash' || !order.paymentMethod ? 'Cash Drawer' : '—')}</span></div>
                             </div>
@@ -464,7 +465,7 @@ function BucketCard({ label, count, amount, tone }: { label: string; count: numb
   return (
     <div className={`rounded-lg border p-2.5 ${tone}`}>
       <p className="text-[10px] font-bold uppercase tracking-wider opacity-80">{label}</p>
-      <p className="text-sm font-extrabold mt-0.5">PKR {amount.toLocaleString()}</p>
+      <p className="text-sm font-extrabold mt-0.5">{money(amount)}</p>
       <p className="text-[10px] opacity-70">{count} bills</p>
     </div>
   );

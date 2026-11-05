@@ -606,7 +606,7 @@ export default function AppLayout({ children, userRole, onLogout }: Props) {
         </header>
         )}
 
-        <main className="flex-1 min-h-0 overflow-auto bg-background relative">
+        <main data-ui-shell="content" className="flex-1 min-h-0 overflow-auto bg-background relative">
           {children}
           <PersistentWhatsApp />
           <NewOrderNotifier />

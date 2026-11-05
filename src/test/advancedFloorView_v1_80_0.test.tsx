@@ -166,7 +166,7 @@ describe('colours and counts', () => {
 
   it('the total in the status bar is the sum of the open bills of the floor', () => {
     open();
-    expect(within(screen.getByTestId('floor-statusbar')).getByText(/Rs\.8,500/)).toBeInTheDocument();
+    expect(within(screen.getByTestId('floor-statusbar')).getByText(/Rs 8,500/)).toBeInTheDocument();
   });
 });
 

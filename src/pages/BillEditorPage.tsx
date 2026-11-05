@@ -271,7 +271,7 @@ export default function BillEditorPage() {
             <Edit3 className="h-5 w-5 text-primary" /> Bill Editor — Manager / Admin
           </h2>
           <p className="text-xs text-muted-foreground">
-            Bill / KOT bn jane ke baad bhi koi bhi change — har action permanent audit log me jata hai.
+            Any change after a bill / KOT is created — every action goes into the permanent audit log.
           </p>
         </div>
       </div>
@@ -530,7 +530,7 @@ export default function BillEditorPage() {
         <DialogContent className="max-w-sm">
           <DialogHeader><DialogTitle className="text-base flex items-center gap-2"><Trash2 className="h-4 w-4 text-red-600" /> Void Item</DialogTitle></DialogHeader>
           <p className="text-xs text-muted-foreground">
-            Item delete nahi hota — record audit log me reason ke sath save hoga.
+            The item is not deleted — the record is kept in the audit log with the reason.
           </p>
           <Textarea
             placeholder="Void reason (required)…"
@@ -608,7 +608,7 @@ export default function BillEditorPage() {
               )}
             </div>
             <p className="text-[10px] text-muted-foreground italic">
-              Add karne ke baad <b>Save Changes</b> dabayen, phir <b>KOT</b> reprint karen taake kitchen ko new item bhej diya jaye.
+              After adding, press <b>Save Changes</b>, then reprint the <b>KOT</b> so the kitchen gets the new item.
             </p>
           </div>
         </DialogContent>

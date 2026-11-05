@@ -286,7 +286,7 @@ export default function WhatsAppPage() {
                 <Send className="h-4 w-4 mr-2" /> Open WhatsApp Popup
               </Button>
               <p className="text-[11px] text-muted-foreground">
-                Agar popup block ho — browser ke address bar mein "Allow popups for this site" enable karein.
+                If the popup is blocked, choose "Allow popups for this site" in the browser's address bar.
               </p>
             </div>
           </div>

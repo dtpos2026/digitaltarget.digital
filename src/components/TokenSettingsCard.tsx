@@ -304,7 +304,7 @@ export default function TokenSettingsCard() {
           <option value="smart">Smart (auto — status ke mutabiq)</option>
           <option value="always-paid">Hamesha "PAID"</option>
           <option value="always-unpaid">Hamesha "UNPAID"</option>
-          <option value="none">Kuch na likhein</option>
+          <option value="none">Print nothing</option>
         </select>
       </div>
 
@@ -323,7 +323,7 @@ export default function TokenSettingsCard() {
               <option value="smart">Smart (auto)</option>
               <option value="always-paid">Hamesha PAID</option>
               <option value="always-unpaid">Hamesha UNPAID</option>
-              <option value="none">Kuch na likhein</option>
+              <option value="none">Print nothing</option>
             </select>
           </div>
         ))}

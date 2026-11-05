@@ -121,6 +121,21 @@ describe('the POS, mounted', () => {
   });
 });
 
+
+describe('the phone Order Taker app (v1.104.0)', () => {
+  beforeEach(() => { cleanup(); localStorage.clear(); seed(); localStorage.setItem('pos-user-role', 'order_taker'); localStorage.setItem('pos-user-name', 'Taker'); });
+  afterEach(() => cleanup());
+
+  it('takes the same photo cards, the Add pill and category tiles — in the classic grid, with no classic ADD bar', async () => {
+    setUiStyle('classic'); setTheme('ember');
+    const { container } = await mountPos();
+    expect(container.querySelectorAll('[data-pos-card-sub]').length).toBe(2);
+    expect([...container.querySelectorAll('[data-pos-card-add]')].every(a => /Add/.test(a.textContent || ''))).toBe(true);
+    expect(container.querySelector('.dt-menu-add-btn')).toBeNull();
+    expect([...container.querySelectorAll('.cat-ribbon .cat-pill:not(.cat-grid-btn)')].every(t => !!t.querySelector('[data-cat-icon] svg'))).toBe(true);
+  });
+});
+
 describe('the stylesheet', () => {
   const css = read('src/styles/ui-refined-pos.css');
   it('styles the photo card, the icon tiles and the line thumbnail, all scoped to DT Refined', () => {
@@ -129,7 +144,7 @@ describe('the stylesheet', () => {
     for (const block of body.split('}')) {
       const sel = block.split('{')[0].trim().replace(/^@media[^{]*$/, '');
       if (!sel || sel.startsWith('@')) continue;
-      for (const one of sel.split(/,\s*(?![^()]*\))/)) expect(one.trim(), one).toMatch(/^:root\[data-ui="modern"\]\[data-ui-theme="dt-refined"\]/);
+      for (const one of sel.split(/,\s*(?![^()]*\))/)) expect(one.trim(), one).toMatch(/^(:root\[data-ui="modern"\]\[data-ui-theme="dt-refined"\]|:is\(:root\[data-ui="modern"\]\[data-ui-theme="dt-refined"\], :root\[data-app="otk"\]\)|:root\[data-app="otk"\])/);
     }
   });
 });

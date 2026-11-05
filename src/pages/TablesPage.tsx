@@ -709,7 +709,7 @@ export default function TablesPage() {
                 </Badge>
                 {order && (
                   <p className="text-[10px] mt-1.5 font-semibold text-foreground">
-                    #{order.orderNumber} · <span className="text-gold">PKR {order.grandTotal.toLocaleString()}</span>
+                    #{order.orderNumber} · <span className="text-gold">{money(order.grandTotal)}</span>
                   </p>
                 )}
                 {seated && (
@@ -785,7 +785,7 @@ export default function TablesPage() {
                   <div className="flex justify-between"><span className="font-bold">Session #{(historyTable.sessions?.length || 0) - i}</span><span className="font-mono">{fmtDuration(s.durationMinutes)}</span></div>
                   <div className="text-muted-foreground">Seated: {new Date(s.seatedAt).toLocaleString()}</div>
                   <div className="text-muted-foreground">Freed: {new Date(s.freedAt).toLocaleString()}</div>
-                  {s.orderNumber !== undefined && <div>Order #{s.orderNumber} {s.total ? `· PKR ${s.total.toLocaleString()}` : ''}</div>}
+                  {s.orderNumber !== undefined && <div>Order #{s.orderNumber} {s.total ? `· ${money(s.total)}` : ''}</div>}
                 </div>
               ))}
               {(!historyTable.sessions || historyTable.sessions.length === 0) && !historyTable.seatedAt && (
@@ -811,7 +811,7 @@ export default function TablesPage() {
                 <p className="text-sm">Chairs: {selectedTable.seats} · Shape: {selectedTable.shape || 'square'}</p>
                 {seated && <p className="text-sm">⏱ Sitting since: <span className="font-mono font-bold">{seated}</span></p>}
                 {order && (
-                  <p className="text-sm">Order: <span className="font-bold">#{order.orderNumber}</span> · {order.items.length} item(s) · <span className="text-gold font-bold">PKR {order.grandTotal.toLocaleString()}</span></p>
+                  <p className="text-sm">Order: <span className="font-bold">#{order.orderNumber}</span> · {order.items.length} item(s) · <span className="text-gold font-bold">{money(order.grandTotal)}</span></p>
                 )}
 
                 {/* v1.12.4 — explicit route to the POS. This used to happen
@@ -845,7 +845,7 @@ export default function TablesPage() {
                     </div>
                     {order.status === 'hold' && (
                       <p className="text-[11px] text-amber-700 font-semibold text-center">
-                        ⏸ Ye bill HOLD par hai — bill actions phir bhi chalte hain
+                        ⏸ This bill is on HOLD — bill actions still work
                       </p>
                     )}
                     <Button onClick={() => { markPendingPayment(selectedTable); setSelectedTable(null); }}
@@ -925,7 +925,7 @@ export default function TablesPage() {
                     <div className="space-y-3 pt-2 border-t">
                       <div>
                         <div className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-2">
-                          Kitne persons baith rahe hain?
+                          How many people are seated?
                         </div>
                         <div className="flex flex-wrap justify-center gap-1.5 mb-3">
                           {Array.from({ length: total }).map((_, i) => {
@@ -1030,7 +1030,7 @@ export default function TablesPage() {
                 <button key={t.id} onClick={() => selectedTable && mergeBill(selectedTable, t)}
                   className="p-3 rounded-lg border-2 border-status-running/30 hover:border-status-running bg-status-running/5 text-sm font-bold text-left">
                   {t.name}
-                  {o && <div className="text-[10px] text-muted-foreground font-normal">#{o.orderNumber} · PKR {o.grandTotal.toLocaleString()}</div>}
+                  {o && <div className="text-[10px] text-muted-foreground font-normal">#{o.orderNumber} · {money(o.grandTotal)}</div>}
                 </button>
               );
             })}
@@ -1057,7 +1057,7 @@ export default function TablesPage() {
                       />
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium truncate">{i.name}</div>
-                        <div className="text-[10px] text-muted-foreground">Qty {i.quantity} · PKR {i.lineTotal.toLocaleString()}</div>
+                        <div className="text-[10px] text-muted-foreground">Qty {i.quantity} · {money(i.lineTotal)}</div>
                       </div>
                     </label>
                   ))}
@@ -1090,7 +1090,7 @@ export default function TablesPage() {
             <TableQR tableName={qrTable.name} floorName={floorNameOf(qrTable)} />
           )}
           <p className="text-[11px] text-muted-foreground text-center">
-            Customer QR scan karega → menu khulega → khud order de sakta hai ya waiter bula sakta hai.
+            The customer scans the QR → the menu opens → they can order themselves or call the waiter.
           </p>
         </DialogContent>
       </Dialog>
@@ -1105,7 +1105,7 @@ export default function TablesPage() {
           </DialogHeader>
           {publicQrOpen && <PublicOrderQR mode={publicQrOpen} />}
           <p className="text-[11px] text-muted-foreground text-center">
-            Customer scan karega → menu khulega → khud order karega → track bhi kar sakta hai.
+            The customer scans → the menu opens → they order themselves → and can track the order.
           </p>
         </DialogContent>
       </Dialog>

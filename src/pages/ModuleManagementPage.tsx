@@ -85,7 +85,7 @@ export default function ModuleManagementPage() {
             <LayoutGrid className="h-5 w-5" /> Module Management
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Har module yahan se on/off hota hai — foran asar, koi app update nahi chahiye.
+            Every module is switched on/off here — it takes effect at once, no app update needed.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -142,7 +142,7 @@ export default function ModuleManagementPage() {
         <div className="relative flex-1">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Module dhoondein…"
+            placeholder="Search modules…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="pl-8"

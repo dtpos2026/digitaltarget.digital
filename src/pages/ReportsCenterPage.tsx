@@ -415,7 +415,7 @@ function PaymentByAccountTab({ paid }: { paid: Order[] }) {
 
       {unassignedOnline.length > 0 && (
         <div className="text-[11px] p-2 rounded bg-status-warning/10 border border-status-warning/30 text-status-warning">
-          ⚠ {unassignedOnline.length} online bills bina account ke hain ({money(unassignedOnline.reduce((s, o) => s + o.grandTotal, 0))})
+          ⚠ {unassignedOnline.length} online bills have no account ({money(unassignedOnline.reduce((s, o) => s + o.grandTotal, 0))})
         </div>
       )}
 

@@ -628,7 +628,7 @@ export default function InventoryPage() {
         <ConfirmContent className="sm:max-w-sm">
           <ConfirmHeader><ConfirmTitle className="text-destructive">Delete {selected.size} items?</ConfirmTitle></ConfirmHeader>
           <p className="text-xs text-muted-foreground">
-            Ye action permanent hai. Confirm karne k liye neeche <b className="text-destructive">DELETE</b> type karein.
+            This action is permanent. To confirm, type <b className="text-destructive">DELETE</b> below.
           </p>
           <Input value={deleteConfirmText} onChange={e => setDeleteConfirmText(e.target.value)} placeholder="Type DELETE" />
           <ConfirmFooter>

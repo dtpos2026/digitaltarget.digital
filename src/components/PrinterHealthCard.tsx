@@ -120,7 +120,7 @@ export default function PrinterHealthCard() {
                   <Badge variant="outline" className="text-[10px] uppercase">{r.cfg.role}</Badge>
                 </div>
                 <p className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
-                  {r.cfg.connection === 'lan' ? r.realName : (r.cfg.printerName || '— koi Windows printer select nahi —')}
+                  {r.cfg.connection === 'lan' ? r.realName : (r.cfg.printerName || '— no Windows printer selected —')}
                   {r.ok && r.realName && r.realName !== r.cfg.printerName && r.cfg.connection !== 'lan'
                     ? ` → ${r.realName}` : ''}
                 </p>

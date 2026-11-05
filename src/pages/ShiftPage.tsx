@@ -106,7 +106,7 @@ export default function ShiftPage() {
           </div>
           <p className="text-[11px] text-muted-foreground">
             Count the cash currently in the drawer and enter it — this is what the
-            shift ke aakhir me hisaab milega.
+            the closing totals are calculated from it.
           </p>
           <div className="grid sm:grid-cols-2 gap-3">
             <div>
@@ -115,7 +115,7 @@ export default function ShiftPage() {
                 onChange={e => setStartCash(e.target.value)} placeholder="0.00" />
             </div>
             <div>
-              <Label className="text-xs">Staff email (report par chhapega)</Label>
+              <Label className="text-xs">Staff email (printed on the report)</Label>
               <Input value={staffEmail} onChange={e => setStaffEmail(e.target.value)}
                 placeholder="staff@example.com" />
             </div>

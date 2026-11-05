@@ -95,8 +95,8 @@ export default function PraEimsSettingsPage() {
           </h2>
           <p className="text-sm text-muted-foreground mt-2">
             Ye module abhi OFF hai. Settings → Advanced → Features me
-            <b> "🧾 PRA EIMS (Punjab Revenue Authority)"</b> ON karein.
-            Sirf un restaurants ke liye jo PRA ke saath registered hain.
+            <b> "🧾 PRA EIMS (Punjab Revenue Authority)"</b> turn ON.
+            Only for restaurants registered with the PRA.
           </p>
         </Card>
       </div>
@@ -134,7 +134,7 @@ export default function PraEimsSettingsPage() {
           <div>
             <Label className="text-sm font-bold">PRA Integration</Label>
             <p className="text-[11px] text-muted-foreground">
-              OFF hone par koi invoice PRA ko nahi jati.
+              While OFF, no invoice is sent to the PRA.
             </p>
           </div>
           <Switch
@@ -190,7 +190,7 @@ export default function PraEimsSettingsPage() {
             </div>
             {cfg.environment === 'production' && (
               <p className="text-[10px] text-amber-700 mt-0.5">
-                ⚠️ Production me asli invoices PRA record par jati hain.
+                ⚠️ In production, real invoices are recorded with the PRA.
               </p>
             )}
           </div>

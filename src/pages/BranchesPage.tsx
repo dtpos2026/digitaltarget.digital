@@ -348,7 +348,7 @@ export default function BranchesPage() {
                   )}
                   {enabledCities.length === 0 && (
                     <p className="text-[10px] text-muted-foreground mt-0.5">
-                      Settings → 📍 Cities mein apni cities select karein taake yahan dropdown ban jaye.
+                      Select your cities in Settings → 📍 Cities to fill this dropdown.
                     </p>
                   )}
                 </div>
@@ -483,7 +483,7 @@ export default function BranchesPage() {
                     onMapClick={(lat, lng) => setEditing({ ...editing, lat, lng })}
                   />
                   <p className="text-[10px] text-muted-foreground px-1 pt-1">
-                    Pin galat jagah ho to map par drag karein ya sahi jagah click karein.
+                    If the pin is in the wrong place, drag it on the map or click the right spot.
                   </p>
                 </div>
               ) : (

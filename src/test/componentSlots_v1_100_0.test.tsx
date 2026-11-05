@@ -107,7 +107,7 @@ describe('v1.100.0 — DT Refined styles the slots, and only DT Refined', () => 
     const body = rf.replace(/\/\*[\s\S]*?\*\//g, '');
     for (const block of body.split('}')) {
       const sel = block.split('{')[0].trim();
-      if (!sel) continue;
+      if (!sel || sel.startsWith('@media')) continue;   // a media wrapper only carries scoped rules
       // split on top-level commas only (a comma inside :is( … ) belongs to one selector)
       const parts: string[] = []; let depth = 0; let cur = '';
       for (const ch of sel) {

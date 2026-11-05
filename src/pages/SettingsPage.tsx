@@ -1095,7 +1095,7 @@ export default function SettingsPage() {
                   onChange={e => setSettings({ ...settings, taxAmount: Number(e.target.value) || 0 })}
                 />
                 <p className="text-[10px] text-muted-foreground mt-0.5">
-                  Sirf tab use hota hai jab Tax Mode = Off ho.
+                  Used only when Tax Mode = Off.
                 </p>
               </div>
             </div>
@@ -1190,7 +1190,7 @@ export default function SettingsPage() {
                   {preview.taxMode === 'inclusive' && preview.taxAmount > 0 && (
                     <div className="text-[10px] text-muted-foreground font-sans pt-0.5">
                       Inclusive: customer sirf Rs.{preview.grandTotal.toFixed(2)} deta hai —
-                      {' '}{preview.taxLabel} pehle se price me shamil hai.
+                      {' '}{preview.taxLabel} is already included in the price.
                     </div>
                   )}
                 </div>
@@ -1935,7 +1935,7 @@ export default function SettingsPage() {
                   <option value="top">Top — horizontal ribbon (default)</option>
                   <option value="side">Side — left vertical sidebar</option>
                 </select>
-                <p className="text-[10px] text-muted-foreground mt-1">Admin apni restaurant ke hisaab se categories ki position select kar sakta hai — upar (ribbon) ya menu ke saath bagal mein (sidebar).</p>
+                <p className="text-[10px] text-muted-foreground mt-1">Choose where the categories sit: above the menu (ribbon) or beside it (sidebar).</p>
               </div>
             </div>
           </div>
@@ -1967,7 +1967,7 @@ export default function SettingsPage() {
               />
               <div className="text-xs">
                 <div className="font-bold">Enable Sub-Category / Flavor Layer</div>
-                <div className="text-[10px] text-muted-foreground">ON: category click pe pehle flavors (Chicken Fajita / BBQ / Supreme …) show hon, phir item.</div>
+                <div className="text-[10px] text-muted-foreground">ON: tapping a category shows its flavours first (Chicken Fajita / BBQ / Supreme …), then the items.</div>
               </div>
             </label>
 
@@ -2393,7 +2393,7 @@ function NotePresetsEditor({ value, onChange }: { value: string[]; onChange: (li
         <Button type="button" size="sm" onClick={add} className="h-9 px-3">Add</Button>
       </div>
       {value.length === 0 ? (
-        <p className="text-[10px] text-muted-foreground italic">Abhi koi preset nahi — upar likh kar Add one.</p>
+        <p className="text-[10px] text-muted-foreground italic">No presets yet — type one above and press Add.</p>
       ) : (
         <div className="flex flex-wrap gap-1.5">
           {value.map((n, i) => (

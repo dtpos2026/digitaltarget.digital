@@ -131,7 +131,7 @@ describe('the wiring and the stylesheet', () => {
   it('the stylesheet is scoped to DT Refined and hides only what the bar replaces', () => {
     const selectors = css.replace(/\/\*[\s\S]*?\*\//g, '').match(/[^{}]+(?=\{)/g)!.flatMap(s => s.split(/,(?![^(]*\))/)).map(s => s.trim()).filter(s => s && !s.startsWith('@media')); // a media wrapper only carries scoped rules
     expect(selectors.length).toBeGreaterThan(30);
-    for (const s of selectors) expect(s.startsWith(':root[data-ui="modern"][data-ui-theme="dt-refined"]'), s).toBe(true);
+    for (const s of selectors) expect(s.startsWith(':root[data-ui="modern"][data-ui-theme="dt-refined"]') || s.startsWith(':is(:root[data-ui="modern"][data-ui-theme="dt-refined"], :root[data-app="otk"])') || s.startsWith(':root[data-app="otk"]'), s).toBe(true);   // v1.104.0: the card and category blocks also serve the Order Taker app
     const hidden = css.match(/\[data-pos-hold\][\s\S]*?\{ display: none; \}/)![0];
     for (const k of ['[data-pos-hold]', '[data-pos-pay]', '[data-pos-actions-secondary]', '[data-pos-keypad] > button']) expect(hidden).toContain(k);
     expect(hidden).not.toContain('[data-pos-clr]');                      // CLR and Apply belong to the calculator and stay

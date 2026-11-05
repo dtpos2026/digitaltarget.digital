@@ -125,7 +125,7 @@ export default function RecipesPage() {
 
       {inventory.length === 0 && (
         <div className="bg-status-warning/10 border border-status-warning/30 rounded-lg p-3 text-sm">
-          ⚠️ Pehle <strong>Inventory</strong> mein ingredients add karein, phir un ko recipes mein link kar sakte hain.
+          ⚠️ First add the ingredients in <strong>Inventory</strong>; you can then link them to recipes.
         </div>
       )}
 
@@ -188,15 +188,15 @@ export default function RecipesPage() {
 
           <div className="space-y-3">
             <div className="bg-muted/30 rounded p-3 text-xs text-muted-foreground">
-              Jab is item ka order <strong>paid</strong> hota hai, neeche di gayi quantities automatically inventory se deduct ho jati hain.
+              When an order for this item is <strong>paid</strong>, the quantities below are deducted from inventory automatically.
               {editing?.variantKey && (
                 <> Yeh recipe sirf <strong>{editing.variantKey.split(':')[1]}</strong> variant ke liye apply hogi.</>
               )}
               {editing?.menuItem.pricingType === 'weight' && !editing?.variantKey && (
-                <> Weight-based item ke liye quantities <strong>per 1 kg</strong> menu item enter karein.</>
+                <> For a weight-based item, enter quantities <strong>per 1 kg</strong> of the menu item.</>
               )}
               {editing?.menuItem.pricingType !== 'weight' && (
-                <> Quantities <strong>per 1 unit/plate</strong> enter karein.</>
+                <> Enter quantities <strong>per 1 unit/plate</strong>.</>
               )}
             </div>
 

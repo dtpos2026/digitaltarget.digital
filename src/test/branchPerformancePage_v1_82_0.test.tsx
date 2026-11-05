@@ -54,18 +54,18 @@ describe('a restaurant with several branches', () => {
     mount();
     const t = screen.getByTestId('compare-table');
     for (const n of ['Gulberg', 'DHA', 'Johar Town']) expect(within(t).getByText(n)).toBeInTheDocument();
-    expect(within(screen.getByTestId('row-A')).getByText(/Rs\.8,000/)).toBeInTheDocument();
-    expect(within(screen.getByTestId('row-B')).getAllByText(/Rs\.3,000/).length).toBeGreaterThan(0);
-    expect(within(screen.getByTestId('row-C')).getAllByText(/Rs\.0/).length).toBeGreaterThan(0);
-    expect(within(screen.getByTestId('row-group')).getByText(/Rs\.11,000/)).toBeInTheDocument();
+    expect(within(screen.getByTestId('row-A')).getByText(/Rs 8,000/)).toBeInTheDocument();
+    expect(within(screen.getByTestId('row-B')).getAllByText(/Rs 3,000/).length).toBeGreaterThan(0);
+    expect(within(screen.getByTestId('row-C')).getAllByText(/Rs 0/).length).toBeGreaterThan(0);
+    expect(within(screen.getByTestId('row-group')).getByText(/Rs 11,000/)).toBeInTheDocument();
   });
 
   it('the group cards agree with the table', () => {
     seed();
     mount();
     const k = screen.getByTestId('group-kpis');
-    expect(within(k).getByText('Rs.11,000')).toBeInTheDocument();        // sales
-    expect(within(k).getByText('Rs.9,500')).toBeInTheDocument();         // profit = 11,000 − 1,500
+    expect(within(k).getByText('Rs 11,000')).toBeInTheDocument();        // sales
+    expect(within(k).getByText('Rs 9,500')).toBeInTheDocument();         // profit = 11,000 − 1,500
     expect(within(k).getByText('3')).toBeInTheDocument();                // orders
   });
 
@@ -93,7 +93,7 @@ describe('a restaurant with several branches', () => {
     mount();
     // with no current branch the order stays unstamped: it gets its own row and is part of the group
     expect(within(screen.getByTestId('row-__none__')).getByText('No branch recorded')).toBeInTheDocument();
-    expect(within(screen.getByTestId('row-group')).getByText(/Rs\.11,400/)).toBeInTheDocument();
+    expect(within(screen.getByTestId('row-group')).getByText(/Rs 11,400/)).toBeInTheDocument();
   });
 });
 

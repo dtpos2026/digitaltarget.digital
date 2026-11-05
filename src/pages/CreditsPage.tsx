@@ -12,6 +12,7 @@ import {
 } from '@/lib/store';
 import { Order, PaymentMethod } from '@/lib/types';
 import ReceiptPreview from '@/components/ReceiptPreview';
+import { money } from '@/lib/currency';
 
 type FilterT = 'all' | 'unpaid' | 'partial' | 'paid';
 
@@ -73,11 +74,11 @@ export default function CreditsPage() {
     const amt = parseFloat(payAmount);
     if (!amt || amt <= 0) { toast.error('Enter an amount'); return; }
     const s = getCreditOrderSummary(payOrder.id);
-    if (amt > s.balance + 0.01) { toast.error(`Max receivable: PKR ${s.balance.toLocaleString()}`); return; }
+    if (amt > s.balance + 0.01) { toast.error(`Max receivable: ${money(s.balance)}`); return; }
     const currentUserId = localStorage.getItem('pos-user-id') || '';
     const userName = getUsers().find(u => u.id === currentUserId)?.name || '';
     recordCreditPayment(payOrder.id, amt, payMethod, payNote || undefined, userName);
-    toast.success(`Payment received: PKR ${amt.toLocaleString()}`);
+    toast.success(`Payment received: ${money(amt)}`);
     setPayOrder(null);
     refresh();
   };
@@ -105,15 +106,15 @@ export default function CreditsPage() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="bg-card border rounded-xl p-4">
           <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Total Credit</p>
-          <p className="text-xl font-extrabold mt-1">PKR {totals.total.toLocaleString()}</p>
+          <p className="text-xl font-extrabold mt-1">{money(totals.total)}</p>
         </div>
         <div className="bg-status-success/10 border border-status-success/30 rounded-xl p-4">
           <p className="text-[10px] font-bold text-status-success uppercase tracking-wider">Recovered</p>
-          <p className="text-xl font-extrabold mt-1 text-status-success">PKR {totals.paid.toLocaleString()}</p>
+          <p className="text-xl font-extrabold mt-1 text-status-success">{money(totals.paid)}</p>
         </div>
         <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-4">
           <p className="text-[10px] font-bold text-destructive uppercase tracking-wider">Outstanding</p>
-          <p className="text-xl font-extrabold mt-1 text-destructive">PKR {totals.balance.toLocaleString()}</p>
+          <p className="text-xl font-extrabold mt-1 text-destructive">{money(totals.balance)}</p>
         </div>
       </div>
 
@@ -174,15 +175,15 @@ export default function CreditsPage() {
 
                 <div className="text-right">
                   <div className="text-[10px] text-muted-foreground font-bold uppercase">Total</div>
-                  <div className="text-sm font-extrabold">PKR {sum.total.toLocaleString()}</div>
+                  <div className="text-sm font-extrabold">{money(sum.total)}</div>
                 </div>
                 <div className="text-right">
                   <div className="text-[10px] text-status-success font-bold uppercase">Paid</div>
-                  <div className="text-sm font-extrabold text-status-success">PKR {sum.paid.toLocaleString()}</div>
+                  <div className="text-sm font-extrabold text-status-success">{money(sum.paid)}</div>
                 </div>
                 <div className="text-right">
                   <div className="text-[10px] text-destructive font-bold uppercase">Balance</div>
-                  <div className="text-base font-extrabold text-destructive">PKR {sum.balance.toLocaleString()}</div>
+                  <div className="text-base font-extrabold text-destructive">{money(sum.balance)}</div>
                 </div>
 
                 <div className="flex items-center gap-1.5">
@@ -218,9 +219,9 @@ export default function CreditsPage() {
                 <div className="bg-muted/50 rounded-lg p-3 text-xs space-y-1">
                   <div className="flex justify-between"><span>Order #</span><span className="font-bold">{payOrder.orderNumber}</span></div>
                   <div className="flex justify-between"><span>Customer</span><span className="font-bold">{payOrder.creditCustomerName || payOrder.customer?.name}</span></div>
-                  <div className="flex justify-between"><span>Total</span><span className="font-bold">PKR {s.total.toLocaleString()}</span></div>
-                  <div className="flex justify-between"><span>Paid</span><span className="font-bold text-status-success">PKR {s.paid.toLocaleString()}</span></div>
-                  <div className="flex justify-between border-t pt-1 mt-1"><span className="font-bold">Balance</span><span className="font-extrabold text-destructive">PKR {s.balance.toLocaleString()}</span></div>
+                  <div className="flex justify-between"><span>Total</span><span className="font-bold">{money(s.total)}</span></div>
+                  <div className="flex justify-between"><span>Paid</span><span className="font-bold text-status-success">{money(s.paid)}</span></div>
+                  <div className="flex justify-between border-t pt-1 mt-1"><span className="font-bold">Balance</span><span className="font-extrabold text-destructive">{money(s.balance)}</span></div>
                 </div>
                 <div>
                   <label className="text-[11px] font-bold text-muted-foreground">Amount Received (PKR)</label>
@@ -276,7 +277,7 @@ export default function CreditsPage() {
               .map(p => (
               <div key={p.id} className="border rounded-lg p-2.5 flex items-center justify-between gap-2">
                 <div className="min-w-0">
-                  <div className="text-sm font-extrabold text-status-success">PKR {p.amount.toLocaleString()}</div>
+                  <div className="text-sm font-extrabold text-status-success">{money(p.amount)}</div>
                   <div className="text-[10px] text-muted-foreground">
                     {new Date(p.date).toLocaleString()} • {p.method}
                     {p.receivedBy && ` • by ${p.receivedBy}`}

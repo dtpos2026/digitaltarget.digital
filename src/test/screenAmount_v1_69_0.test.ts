@@ -8,12 +8,12 @@ import { screenAmount, setActiveCurrency, formatMoney } from '@/lib/currency';
 afterEach(() => setActiveCurrency('PKR'));
 
 describe('screenAmount', () => {
-  it('PKR keeps the exact wording it always had', () => {
+  it('PKR reads "Rs 1,952" — the one amount format since v1.104.0 (it used to be "PKR 1,952")', () => {
     setActiveCurrency('PKR');
-    expect(screenAmount(1952)).toBe('PKR 1,952');
-    expect(screenAmount(0)).toBe('PKR 0');
-    expect(screenAmount(1234567)).toBe('PKR 1,234,567');
-    expect(screenAmount(1952)).toBe(`PKR ${(1952).toLocaleString()}`);   // the old expression, unchanged
+    expect(screenAmount(1952)).toBe('Rs 1,952');
+    expect(screenAmount(0)).toBe('Rs 0');
+    expect(screenAmount(1234567)).toBe('Rs 1,234,567');
+    expect(screenAmount(1952)).toBe(formatMoney(1952));   // one formatter
   });
   it('another currency uses its own format and never says PKR', () => {
     setActiveCurrency('SAR');
@@ -23,9 +23,9 @@ describe('screenAmount', () => {
   });
   it('tolerates empty and string input (it is display only)', () => {
     setActiveCurrency('PKR');
-    expect(screenAmount(undefined)).toBe('PKR 0');
-    expect(screenAmount(null)).toBe('PKR 0');
-    expect(screenAmount('250')).toBe('PKR 250');
+    expect(screenAmount(undefined)).toBe('Rs 0');
+    expect(screenAmount(null)).toBe('Rs 0');
+    expect(screenAmount('250')).toBe('Rs 250');
   });
 });
 

@@ -341,7 +341,7 @@ export default function BackupRestorePage() {
               <ShieldAlert className="h-4 w-4" /> Erase Selected Data (Admin Only)
             </h3>
             <p className="text-xs text-muted-foreground mb-3">
-              Sirf woh data delete karein jo aap chahte hain — orders, menu, customers, HR vagaira.
+              Delete only the data you choose — orders, menu, customers, HR and so on.
               Yeh action permanent hai (local + cloud dono se mit jata hai).
             </p>
             <Button variant="destructive" onClick={() => { setSelected(new Set()); setConfirmText(''); setEraseOpen(true); }}>

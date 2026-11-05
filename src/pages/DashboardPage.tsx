@@ -322,7 +322,7 @@ function ClassicDashboard({ d }: { d: DashboardData }) {
               <span className="text-[10px] uppercase tracking-widest text-primary font-bold">My Dashboard</span>
               <span className="text-sm font-extrabold">👤 {scope.name}</span>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/30">
-                Sirf aapka data — closing time pe hisaab clean
+                Your data only — your totals reset at closing
               </span>
             </div>
           </>

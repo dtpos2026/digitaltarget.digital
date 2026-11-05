@@ -3,7 +3,7 @@
 //
 // The two things that MUST hold:
 //  1. An existing restaurant that never touches the setting keeps
-//     seeing exactly what it saw before (PKR, "Rs.", 0 decimals).
+//     seeing exactly what it saw before (PKR, 0 decimals; the symbol is now "Rs ", v1.104.0).
 //  2. A new market (e.g. Singapore) gets correct symbol, position
 //     and decimals — a wrong decimal count means wrong prices.
 // ============================================================
@@ -57,9 +57,9 @@ describe('backward compatibility — existing restaurants are untouched', () => 
   });
 
   it('renders exactly like the old hardcoded output', () => {
-    expect(formatMoney(1200)).toBe('Rs.1,200');
-    expect(formatMoney(0)).toBe('Rs.0');
-    expect(formatMoney(999999)).toBe('Rs.999,999');
+    expect(formatMoney(1200)).toBe('Rs 1,200');
+    expect(formatMoney(0)).toBe('Rs 0');
+    expect(formatMoney(999999)).toBe('Rs 999,999');
   });
 
   it('an unknown or missing code falls back to PKR instead of breaking a bill', () => {
@@ -85,7 +85,7 @@ describe('Singapore Dollar (the requested market)', () => {
 
 describe('formatting rules per currency', () => {
   it('0-decimal currencies do not show cents', () => {
-    expect(formatMoney(1500, { code: 'PKR' })).toBe('Rs.1,500');
+    expect(formatMoney(1500, { code: 'PKR' })).toBe('Rs 1,500');
     expect(formatMoney(1500, { code: 'JPY' })).toBe('¥1,500');
   });
 
@@ -101,7 +101,7 @@ describe('formatting rules per currency', () => {
 
   it('rounds to the currency precision rather than truncating', () => {
     expect(formatMoney(10.999, { code: 'SGD' })).toBe('S$11.00');
-    expect(formatMoney(10.4, { code: 'PKR' })).toBe('Rs.10');
+    expect(formatMoney(10.4, { code: 'PKR' })).toBe('Rs 10');
   });
 
   it('noSymbol renders the number alone (for inputs and columns)', () => {
@@ -110,27 +110,27 @@ describe('formatting rules per currency', () => {
 
   it('a historical bill can be rendered in its own currency', () => {
     setActiveCurrency('SGD');
-    expect(formatMoney(500, { code: 'PKR' })).toBe('Rs.500');
+    expect(formatMoney(500, { code: 'PKR' })).toBe('Rs 500');
     expect(formatMoney(500)).toBe('S$500.00');
   });
 });
 
 describe('robustness — a bill must never print NaN', () => {
   it('handles null, undefined and non-numeric input', () => {
-    expect(formatMoney(null)).toBe('Rs.0');
-    expect(formatMoney(undefined)).toBe('Rs.0');
-    expect(formatMoney(NaN)).toBe('Rs.0');
-    expect(formatMoney(Infinity)).toBe('Rs.0');
+    expect(formatMoney(null)).toBe('Rs 0');
+    expect(formatMoney(undefined)).toBe('Rs 0');
+    expect(formatMoney(NaN)).toBe('Rs 0');
+    expect(formatMoney(Infinity)).toBe('Rs 0');
   });
 
   it('accepts numeric strings, including toFixed() output', () => {
-    expect(formatMoney('1200')).toBe('Rs.1,200');
-    expect(formatMoney((12.5).toFixed(2))).toBe('Rs.13');
-    expect(formatMoney('garbage')).toBe('Rs.0');
+    expect(formatMoney('1200')).toBe('Rs 1,200');
+    expect(formatMoney((12.5).toFixed(2))).toBe('Rs 13');
+    expect(formatMoney('garbage')).toBe('Rs 0');
   });
 
   it('strips grouping from a pre-formatted string', () => {
-    expect(formatMoney('1,200')).toBe('Rs.1,200');
+    expect(formatMoney('1,200')).toBe('Rs 1,200');
   });
 
   it('handles negative amounts (refunds / adjustments)', () => {
@@ -145,7 +145,7 @@ describe('robustness — a bill must never print NaN', () => {
 
 describe('switching currency persists for the restaurant', () => {
   it('setActiveCurrency updates what everything renders', () => {
-    expect(formatMoney(100)).toBe('Rs.100');
+    expect(formatMoney(100)).toBe('Rs 100');
     setActiveCurrency('USD');
     expect(formatMoney(100)).toBe('$100.00');
     setActiveCurrency('GBP');

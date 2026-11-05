@@ -178,7 +178,7 @@ export default function ReleaseManagerPage() {
           <h2 className="text-lg font-extrabold flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />Release Manager
           </h2>
-          <p className="text-xs text-muted-foreground">Web + Desktop ke liye versions release karein. Restaurants ko automatic update notification milti hai.</p>
+          <p className="text-xs text-muted-foreground">Release versions for Web and Desktop. Restaurants are notified of updates automatically.</p>
         </div>
         <Button onClick={openNew} className="bg-primary text-primary-foreground">
           <Plus className="h-4 w-4 mr-1" />New Release
@@ -194,7 +194,7 @@ export default function ReleaseManagerPage() {
           </div>
         ) : rows.length === 0 ? (
           <div className="p-10 text-center text-sm text-muted-foreground">
-            Abhi koi release nahi — "+ New Release" se start karein.
+            No releases yet — start with "+ New Release".
           </div>
         ) : (
           <table className="w-full text-sm">

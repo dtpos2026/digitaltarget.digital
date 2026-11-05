@@ -65,7 +65,7 @@ export default function TenantVersionPage() {
         <h1 className="text-2xl font-extrabold flex items-center gap-2">
           <Rocket className="h-6 w-6 text-primary" /> Software Version
         </h1>
-        <p className="text-xs text-muted-foreground">Apni installed version aur naye updates yahan se check karein.</p>
+        <p className="text-xs text-muted-foreground">Check your installed version and new updates here.</p>
       </div>
 
       {/* Version cards */}

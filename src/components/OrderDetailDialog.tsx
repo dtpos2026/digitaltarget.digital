@@ -8,6 +8,7 @@ import { Printer, History, ChefHat, Receipt, Clock, ShieldCheck, FileText } from
 import { enqueueKot, enqueueKotUpdate } from '@/lib/printQueue';
 import { logOrderReprint } from '@/lib/store';
 import { toast } from 'sonner';
+import { money } from '@/lib/currency';
 
 interface Props {
   order: Order | null;
@@ -108,7 +109,7 @@ export default function OrderDetailDialog({ order, onClose }: Props) {
                 </tbody>
               </table>
             </div>
-            <div className="text-right text-sm font-bold">Grand Total: PKR {order.grandTotal.toLocaleString()}</div>
+            <div className="text-right text-sm font-bold">Grand Total: {money(order.grandTotal)}</div>
           </TabsContent>
 
           {/* ====== KOT HISTORY ====== */}
@@ -195,7 +196,7 @@ export default function OrderDetailDialog({ order, onClose }: Props) {
               <div><span className="text-muted-foreground">Cash Received:</span> {order.cashReceived ?? '—'}</div>
               <div><span className="text-muted-foreground">Change:</span> {order.changeReturned ?? '—'}</div>
               <div><span className="text-muted-foreground">Discount:</span> {order.discount || 0}{order.discountTitle ? ` (${order.discountTitle})` : ''}</div>
-              <div><span className="text-muted-foreground">Grand Total:</span> PKR {order.grandTotal.toLocaleString()}</div>
+              <div><span className="text-muted-foreground">Grand Total:</span> {money(order.grandTotal)}</div>
             </div>
             {(order.reprintLog && order.reprintLog.length > 0) && (
               <div className="mt-2">

@@ -98,7 +98,10 @@ html[data-ui="modern"][data-ui-theme="dt-refined"] [data-slot="badge"][data-vari
 }
 
 /* ---------- tabs: segmented control ---------- */
-html[data-ui="modern"][data-ui-theme="dt-refined"] [data-slot="tabs-list"] { background: hsl(var(--dt-accent-tint)); border-radius: 12px; height: 2.5rem; }
+html[data-ui="modern"][data-ui-theme="dt-refined"] [data-slot="tabs-list"] {
+  background: hsl(var(--dt-accent-tint)); border-radius: 12px; min-height: 2.5rem; height: auto;
+  flex-wrap: wrap; justify-content: flex-start; gap: 2px;   /* a long row of tabs wraps inside its own bar instead of spilling over the content below */
+}
 html[data-ui="modern"][data-ui-theme="dt-refined"] [data-slot="tabs-trigger"] { font-size: 14px; color: hsl(var(--muted-foreground)); }
 html[data-ui="modern"][data-ui-theme="dt-refined"] [data-slot="tabs-trigger"][data-state="active"] {
   background: hsl(var(--card)); color: hsl(var(--primary-text, var(--primary)));
@@ -114,3 +117,33 @@ html[data-ui="modern"][data-ui-theme="dt-refined"] select:not([data-slot]) {
   border-radius: var(--ui-radius-control); border-color: hsl(var(--border)); background-color: hsl(var(--card));
   min-height: 2.5rem; font-size: 14px;
 }
+
+/* ---------- page frame (v1.104.0): one gutter, and plain tables read like the Table component ----------
+ * Pages choose their own outer padding (16 here, 24 there), so the same screen starts at a different edge on every module.
+ * The page's outer wrapper gets one gutter: 24 on a desktop window, 16 below it. Full-bleed screens (POS, maps, TV boards) do not
+ * ask for padding and are untouched. */
+html[data-ui="modern"][data-ui-theme="dt-refined"] [data-ui-shell="content"] > :is([class~="p-4"], [class~="p-6"], [class~="lg:p-6"], [class~="md:p-6"], [class~="sm:p-6"]) { padding: 16px; }
+@media (min-width: 1024px) {
+  html[data-ui="modern"][data-ui-theme="dt-refined"] [data-ui-shell="content"] > :is([class~="p-4"], [class~="p-6"], [class~="lg:p-6"], [class~="md:p-6"], [class~="sm:p-6"]) { padding: 24px; }
+}
+/* Older screens draw their own <table> with bare cells, so an amount and the date beside it ran together. They get the Table
+ * component's horizontal room and quiet header; their own row heights (py-*) are left alone. */
+html[data-ui="modern"][data-ui-theme="dt-refined"] [data-ui-shell="content"] table:not([data-slot]) :is(th, td) { padding-inline: 12px; }
+html[data-ui="modern"][data-ui-theme="dt-refined"] [data-ui-shell="content"] table:not([data-slot]) thead th {
+  font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: hsl(var(--muted-foreground));
+  padding-block: 8px; white-space: nowrap;
+}
+html[data-ui="modern"][data-ui-theme="dt-refined"] [data-ui-shell="content"] table:not([data-slot]) tbody tr { border-color: hsl(var(--border)); }
+
+/* ---------- the delivery board's lane headers: a quiet white head with a coloured edge, not a solid block ---------- */
+html[data-ui="modern"][data-ui-theme="dt-refined"] [data-board-col-head] {
+  background: hsl(var(--card)); color: hsl(var(--foreground)); border: 1px solid hsl(var(--border)); border-bottom: 0;
+  border-radius: 14px 14px 0 0; padding: 10px 12px; font-weight: 700; box-shadow: inset 0 3px 0 var(--lane, hsl(var(--primary)));
+}
+html[data-ui="modern"][data-ui-theme="dt-refined"] [data-board-col-head] * { color: inherit; }
+html[data-ui="modern"][data-ui-theme="dt-refined"] [data-board-col-head][data-col="pending"] { --lane: hsl(var(--dt-warn)); }
+html[data-ui="modern"][data-ui-theme="dt-refined"] [data-board-col-head][data-col="cooking"] { --lane: hsl(var(--dt-info)); }
+html[data-ui="modern"][data-ui-theme="dt-refined"] [data-board-col-head][data-col="ready"] { --lane: hsl(var(--dt-ok)); }
+html[data-ui="modern"][data-ui-theme="dt-refined"] [data-board-col-head][data-col="onway"] { --lane: hsl(var(--primary)); }
+html[data-ui="modern"][data-ui-theme="dt-refined"] [data-board-col-head][data-col="delivered"] { --lane: hsl(var(--dt-ok)); }
+html[data-ui="modern"][data-ui-theme="dt-refined"] [data-board-col-head][data-col="cancelled"] { --lane: hsl(var(--dt-bad)); }

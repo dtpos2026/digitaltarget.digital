@@ -98,7 +98,7 @@ export default function TrackOrderPage() {
   // Search — order# alone OK (takeaway token), or with phone/table for extra verification
   // FIX (#3): Always pull from Firebase first; do NOT depend on local cache.
   const findOrder = async () => {
-    if (!orderNo.trim() && !initial.id) { toast.error('Order # likhein'); return; }
+    if (!orderNo.trim() && !initial.id) { toast.error('Enter the order #'); return; }
     const num = parseInt(orderNo.trim(), 10);
     const last4 = phoneLast.replace(/\D/g, '').slice(-4);
     const tNorm = tableLabel.trim().toLowerCase();

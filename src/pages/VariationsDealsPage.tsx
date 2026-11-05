@@ -178,7 +178,7 @@ export default function VariationsDealsPage() {
             <div>
               <Label>Items in Deal</Label>
               <p className="text-[11px] text-muted-foreground mb-1">
-                Item par <b>click</b> karein — agar uske variants (Small/Medium/Large …) hain to variant select karne ka popup khulega, jaise POS me hota hai.
+                <b>Click</b> an item — if it has variants (Small/Medium/Large …) a popup opens to choose one, as in the POS.
               </p>
               <div className="relative mb-2">
                 <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -193,10 +193,10 @@ export default function VariationsDealsPage() {
               {/* Items grid — POS style */}
               <div className="border rounded p-2 max-h-72 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {items.length === 0 && (
-                  <p className="text-xs text-muted-foreground text-center p-3 col-span-full">Pehle Menu me items add karein</p>
+                  <p className="text-xs text-muted-foreground text-center p-3 col-span-full">Add items to the Menu first</p>
                 )}
                 {items.length > 0 && filteredItems.length === 0 && (
-                  <p className="text-xs text-muted-foreground text-center p-3 col-span-full">Koi item match nahi hua "{itemSearch}"</p>
+                  <p className="text-xs text-muted-foreground text-center p-3 col-span-full">No item matches "{itemSearch}"</p>
                 )}
                 {filteredItems.map(i => {
                   const vs = itemVariants(i);

@@ -440,7 +440,7 @@ export default function OwnerLoginPage({ onSuccess }: Props) {
               <Loader2 className="h-4 w-4 animate-spin" /> Live listening for approval…
             </div>
             <div className="text-[11px] text-muted-foreground">
-              Device limit cross hone par admin se rabta karein: <b className="text-foreground">{BRAND.phoneShort}</b>
+              If the device limit is reached, contact the admin: <b className="text-foreground">{BRAND.phoneShort}</b>
             </div>
             {ownerApp && (
               <Button className="w-full" disabled={checking} onClick={() => void checkApprovalNow()}>
@@ -528,7 +528,7 @@ export default function OwnerLoginPage({ onSuccess }: Props) {
               {timedOut && (
                 <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
                   <p className="font-bold mb-1">Login failed</p>
-                  <p>Server slow ho raha hai. Internet stable ho to Retry dabayein.</p>
+                  <p>The server is slow. Once the internet is stable, press Retry.</p>
                   <button
                     type="button"
                     onClick={() => { setTimedOut(false); handleSubmit(); }}

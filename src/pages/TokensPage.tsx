@@ -38,7 +38,7 @@ export default function TokensPage() {
         <Ticket className="h-10 w-10 mx-auto mb-3 opacity-30" />
         <p className="font-semibold">The Token module is off</p>
         <p className="text-sm mt-1">
-          Admin ise Settings → Printing me "Token Printing Module" se on kar sakta hai.
+          An admin can turn it on in Settings → Printing → "Token Printing Module".
         </p>
       </div>
     );

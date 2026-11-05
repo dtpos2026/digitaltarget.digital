@@ -232,7 +232,7 @@ export default function MarketingPage() {
                   <TableBody>
                     {filtered.length === 0 && (
                       <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                        No contacts. Customers POS orders se aate hain ya Excel import karein.
+                        No contacts. Customers come from POS orders, or import an Excel file.
                       </TableCell></TableRow>
                     )}
                     {filtered.map((c, i) => (
@@ -281,7 +281,7 @@ export default function MarketingPage() {
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                Imported contacts <b>Customers tab</b> mein "Imported" category ke saath show honge. Phir select karke bulk send karein.
+                Imported contacts appear in the <b>Customers tab</b> under the "Imported" category. Select them to send in bulk.
               </p>
             </TabsContent>
           </Tabs>
@@ -305,7 +305,7 @@ export default function MarketingPage() {
             <Send className="h-4 w-4 mr-2" /> Send to {selected.size} selected
           </Button>
           <p className="text-[10px] text-muted-foreground leading-snug">
-            Note: Har contact ke liye WhatsApp window/popup khulegi (browser limitation). Aap "Send" press karein,
+            Note: a WhatsApp window opens for each contact (a browser limitation). Press "Send" in each,
             agla aa jayega 1.5s baad. Desktop .exe mein embedded module use hota hai.
           </p>
         </Card>

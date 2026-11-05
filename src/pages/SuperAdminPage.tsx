@@ -727,7 +727,7 @@ export default function SuperAdminPage({ onLogout }: Props) {
     } catch (e: any) {
       const raw = e?.message ?? String(e);
       toast.error(/unauthor|authorization/i.test(raw)
-        ? 'Super Admin session expire ho gayi — dobara sign in karein.'
+        ? 'The Super Admin session has expired — sign in again.'
         : raw);
     }
   };
@@ -1367,7 +1367,7 @@ export default function SuperAdminPage({ onLogout }: Props) {
                     >
                       👑 Premium UI{r.premiumThemeAllowed ? ' ✓' : ''}
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => fixOwnerLogin(r)} title="Owner ka login banayein / password reset karein">
+                    <Button size="sm" variant="outline" onClick={() => fixOwnerLogin(r)} title="Create the owner's login / reset the password">
                       <KeyRound className="h-4 w-4 mr-1" />Fix Owner Login
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => revoke(r)}>

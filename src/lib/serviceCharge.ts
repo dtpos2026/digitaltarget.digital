@@ -1,4 +1,5 @@
 // ============================================================
+import { money } from '@/lib/currency';
 // SERVICE CHARGE — which orders get one, how much, and how it reads on a slip.
 //
 // A shop sets ONE service charge (a percentage, or a flat PKR amount) and says
@@ -126,7 +127,7 @@ export function describeServiceCharge(settings: ServiceChargeSettings): string {
   if (value <= 0) return 'No service charge is set.';
   const on = (['dining', 'takeaway', 'delivery'] as const).filter(t => serviceChargeAppliesTo(settings, t));
   const names: Record<ServiceChargeOrderType, string> = { dining: 'Dine-In', takeaway: 'Takeaway', delivery: 'Delivery' };
-  const amount = mode === 'percent' ? `${value}%` : `PKR ${value}`;
+  const amount = mode === 'percent' ? `${value}%` : `${money(value)}`;
   if (!on.length) return `${amount} is set, but it is switched off for every order type.`;
   return `${amount} is added automatically to ${on.map(t => names[t]).join(', ')} bills.`;
 }

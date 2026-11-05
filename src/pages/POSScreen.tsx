@@ -312,6 +312,8 @@ export default function POSScreen() {
   const modern = useUiStyle() === 'modern';
   // v1.99.0 — DT Refined: the design package's POS (SW-03): order header, lines with steppers, three actions and one big Pay.
   const refined = modern && isRefinedTheme(useThemeId());
+  // v1.104.0 — the phone Order Taker takes the same photo-first cards and category tiles (in its own teal); the rest of the Refined panel stays Refined.
+  const photoLook = refined || isOrderTaker;
   const [showDisc, setShowDisc] = useState(false);
   const [showKeypad, setShowKeypad] = useState(false);
   const [showCash, setShowCash] = useState(false);
@@ -325,7 +327,7 @@ export default function POSScreen() {
   const { layout } = usePosLayout(posRootRef, {
     categoryLayoutSetting: ((settings.categoryLayout as string) === 'side' ? 'side' : (settings.categoryLayout as string) === 'right' ? 'right' : 'top'),
     preferredColumns: settings.menuGridColumns || 6,
-    photoCards: refined,
+    photoCards: photoLook,
   });
   const catPlacement: 'top' | 'side' | 'right' = modern ? layout.categoryPlacement : ((settings.categoryLayout || 'top') === 'side' ? 'side' : 'top');
   const legacyGridClass = ({
@@ -1489,7 +1491,7 @@ export default function POSScreen() {
               data-cat-all
               className="cat-pill"
             >
-              {refined ? <span data-cat-icon aria-hidden><TileIconView icon="default" className="h-5 w-5" /></span> : '📋 '}<span data-cat-name>All</span>
+              {photoLook ? <span data-cat-icon aria-hidden><TileIconView icon="default" className="h-5 w-5" /></span> : '📋 '}<span data-cat-name>All</span>
               {modern && <span data-cat-count>{catCounts.all}</span>}
             </button>
             {categories.map((cat, catIndex) => {
@@ -1513,7 +1515,7 @@ export default function POSScreen() {
                   ) : (
                     <>
                       <span data-cat-dot aria-hidden className="hidden" />
-                      {refined
+                      {photoLook
                         ? <span data-cat-icon aria-hidden><TileIconView icon={iconFor(cat.name)} className="h-5 w-5" /></span>
                         : <span data-cat-icon className="text-sm">{cat.icon}</span>}
                     </>
@@ -1690,9 +1692,9 @@ export default function POSScreen() {
                   data-pos-card-image
                   data-initials={tileInitials(item.name)}
                   className="w-full h-16 bg-gradient-to-br from-primary/8 to-accent/30 flex items-center justify-center"
-                  style={{ ['--tile-hue' as any]: tileHue(item.categoryId), ...(modern ? { height: refined ? layout.cardImageHeight : Math.round(layout.cardImageHeight * 0.66) } : {}) }}
+                  style={{ ['--tile-hue' as any]: tileHue(item.categoryId), ...(modern ? { height: photoLook ? layout.cardImageHeight : Math.round(layout.cardImageHeight * 0.66) } : {}) }}
                 >
-                  {refined ? (
+                  {photoLook ? (
                     <TileIconView icon={iconFor(categoryById.get(item.categoryId)?.name || item.name)} className="h-9 w-9" />
                   ) : (
                   <span className="text-2xl opacity-40 group-hover:scale-110 transition-transform duration-200">
@@ -1703,7 +1705,7 @@ export default function POSScreen() {
               )}
               <div data-pos-card-body className="p-2.5">
                 <p data-pos-card-name className="text-xs font-bold text-foreground truncate leading-tight" style={itemFontStyle}>{item.name}</p>
-                {refined && <p data-pos-card-sub className="truncate">{categoryById.get(item.categoryId)?.name || ''}</p>}
+                {photoLook && <p data-pos-card-sub className="truncate">{categoryById.get(item.categoryId)?.name || ''}</p>}
                 {item.categoryId === DEALS_CATEGORY_ID && (() => {
                   const deal = dealsById.get(item.id);
                   if (!deal || !deal.items?.length) return null;
@@ -1738,14 +1740,14 @@ export default function POSScreen() {
                   ) : (
                     <span className="text-xs font-bold text-status-warning">Manual</span>
                   )}
-                  {modern && (
-                    <div data-pos-card-add className="rounded-full bg-primary/10 p-1 text-primary"><Plus className="h-3.5 w-3.5" />{refined && <span>Add</span>}</div>
+                  {(modern || photoLook) && (
+                    <div data-pos-card-add className="rounded-full bg-primary/10 p-1 text-primary"><Plus className="h-3.5 w-3.5" />{photoLook && <span>Add</span>}</div>
                   )}
                 </div>
               </div>
               {/* Full-width themed Add button (visual — the whole card is the
                   actual click target, so touch behaviour is unchanged) */}
-              {!modern && (
+              {!modern && !photoLook && (
               <div className="dt-menu-add-btn h-7 flex items-center justify-center gap-1 text-[11px] font-extrabold">
                 <Plus className="h-3.5 w-3.5" /> ADD
               </div>

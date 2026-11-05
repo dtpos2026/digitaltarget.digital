@@ -87,7 +87,7 @@ export default function BillReprintPage() {
         <div className="flex-1 min-w-0">
           <h1 className="text-xl font-extrabold tracking-tight">Bill Reprint</h1>
           <p className="text-[11px] text-muted-foreground flex items-center gap-1">
-            <Lock className="h-3 w-3" /> Read-only. Cashier purana bill <b>edit nahi</b> kar sakta — sirf reprint.
+            <Lock className="h-3 w-3" /> Read-only. A cashier cannot <b>edit</b> an old bill — only reprint it.
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => setShowLog(true)}>
@@ -158,7 +158,7 @@ export default function BillReprintPage() {
       )}
 
       {/* v1.6.0 — Payment correction: pehle manager auth, phir method select.
-          Paisa nahi badalta — sirf method/account; audit trail order par
+          The amount does not change — only the method/account; the audit trail stays on the order
           hamesha rehta hai. */}
       {correctTarget && !correctAuth && (
         <ManagerAuthDialog
@@ -179,7 +179,7 @@ export default function BillReprintPage() {
             <div className="space-y-2">
               <p className="text-xs text-muted-foreground">
                 Abhi: <b className="uppercase">{correctTarget.paymentAccountName || correctTarget.paymentMethod || 'cash'}</b>
-                {' '}· Rs.{correctTarget.grandTotal?.toLocaleString()} — amount nahi badlegi, sirf method.
+                {' '}· Rs.{correctTarget.grandTotal?.toLocaleString()} — the amount does not change, only the method.
               </p>
               <div className="grid gap-1.5">
                 {(() => {

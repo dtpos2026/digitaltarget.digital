@@ -395,7 +395,7 @@ export default function SuperAdminMessages({ clients }: Props) {
                   value={text}
                   onChange={e => setText(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
-                  placeholder="Reply likhein…"
+                  placeholder="Write a reply…"
                   rows={2}
                   className="flex-1 px-3 py-1.5 text-xs border rounded-lg bg-background outline-none focus:border-violet-500 resize-none"
                 />

@@ -14,7 +14,7 @@ import SupportInboxDialog from '@/components/SupportInboxDialog';
 const MODES: { id: AIMode; label: string; desc: string }[] = [
   { id: 'off',      label: 'AI Off',           desc: 'Sirf manual replies. AI silent.' },
   { id: 'manual',   label: 'Manual Only',      desc: 'The Super Admin will reply personally. An AI suggest button is available.' },
-  { id: 'ai',       label: 'AI Auto-Reply',    desc: 'AI khud reply bhej dega owner ko.' },
+  { id: 'ai',       label: 'AI Auto-Reply',    desc: 'The AI replies to the owner by itself.' },
   { id: 'ai_human', label: 'AI + Human Review',desc: 'AI sends a reply but keeps the status as "in_progress".' },
 ];
 

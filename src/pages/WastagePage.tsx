@@ -101,7 +101,7 @@ export default function WastagePage() {
       {inventory.length === 0 && (
         <div className="bg-status-warning/10 border border-status-warning/30 rounded-lg p-3 text-sm flex items-center gap-2">
           <AlertTriangle className="h-4 w-4 text-status-warning" />
-          Pehle Inventory mein items add karein.
+          First add items in Inventory.
         </div>
       )}
 

@@ -138,10 +138,10 @@ export default function ReceivingPage() {
       <div class="row"><span>Item:</span><span class="bold">${entry.itemName}</span></div>
       <div class="row"><span>Qty:</span><span>${entry.quantity} ${entry.unit}</span></div>
       ${entry.baseQty ? `<div class="row"><span>Stock added:</span><span>${entry.baseQty.toFixed(2)} ${entry.baseUnit || ''}</span></div>` : ''}
-      ${entry.rate ? `<div class="row"><span>Rate:</span><span>PKR ${entry.rate} / ${entry.unit}</span></div>` : ''}
-      ${entry.rate ? `<div class="row"><span>Subtotal:</span><span>PKR ${(entry.quantity * entry.rate).toLocaleString()}</span></div>` : ''}
-      ${entry.surcharge ? `<div class="row"><span>Surcharge:</span><span>PKR ${entry.surcharge.toLocaleString()}</span></div>` : ''}
-      ${(entry.rate || entry.surcharge) ? `<div class="row bold"><span>Total:</span><span>PKR ${((entry.quantity * entry.rate) + (entry.surcharge || 0)).toLocaleString()}</span></div>` : ''}
+      ${entry.rate ? `<div class="row"><span>Rate:</span><span>${money(entry.rate)} / ${entry.unit}</span></div>` : ''}
+      ${entry.rate ? `<div class="row"><span>Subtotal:</span><span>${money((entry.quantity * entry.rate))}</span></div>` : ''}
+      ${entry.surcharge ? `<div class="row"><span>Surcharge:</span><span>${money(entry.surcharge)}</span></div>` : ''}
+      ${(entry.rate || entry.surcharge) ? `<div class="row bold"><span>Total:</span><span>${money(((entry.quantity * entry.rate) + (entry.surcharge || 0)))}</span></div>` : ''}
       <hr/>
       ${entry.receivedBy ? `<div class="row"><span>Received By:</span><span>${entry.receivedBy}</span></div>` : ''}
       ${entry.notes ? `<div class="row"><span>Notes:</span><span>${entry.notes}</span></div>` : ''}
@@ -167,7 +167,7 @@ export default function ReceivingPage() {
 
       {inventory.length === 0 && (
         <div className="bg-status-warning/10 border border-status-warning/30 rounded-lg p-3 text-sm mb-3">
-          ⚠️ Pehle <strong>Inventory</strong> page se items add karein, phir un ka stock yahan se receive ho ga.
+          ⚠️ First add the items on the <strong>Inventory</strong> page; their stock can then be received here.
         </div>
       )}
 
@@ -200,9 +200,9 @@ export default function ReceivingPage() {
                     ? <span className="font-bold text-status-success">+{e.baseQty.toFixed(2)} {e.baseUnit || ''}</span>
                     : <span className="text-muted-foreground">—</span>}
                 </td>
-                <td className="px-3 py-2 text-right">{e.rate ? `PKR ${e.rate}` : '—'}</td>
+                <td className="px-3 py-2 text-right">{e.rate ? `${money(e.rate)}` : '—'}</td>
                 <td className="px-3 py-2 text-right font-bold text-primary">
-                  {(e.rate || e.surcharge) ? `PKR ${((e.quantity * e.rate) + (e.surcharge || 0)).toLocaleString()}` : '—'}
+                  {(e.rate || e.surcharge) ? `${money(((e.quantity * e.rate) + (e.surcharge || 0)))}` : '—'}
                   {e.surcharge ? <div className="text-[9px] font-normal text-muted-foreground">+{money(e.surcharge)} surcharge</div> : null}
                 </td>
                 <td className="px-3 py-2">{e.receivedBy || '—'}</td>
@@ -303,16 +303,16 @@ export default function ReceivingPage() {
                 {(form.rate > 0 || form.surcharge > 0) && (
                   <>
                     <div className="flex justify-between"><span>Subtotal ({form.quantity} × {form.rate}):</span>
-                      <span>PKR {subtotal.toLocaleString()}</span></div>
+                      <span>{money(subtotal)}</span></div>
                     {form.surcharge > 0 && (
                       <div className="flex justify-between"><span>+ Surcharge:</span>
-                        <span>PKR {form.surcharge.toLocaleString()}</span></div>
+                        <span>{money(form.surcharge)}</span></div>
                     )}
                     <div className="flex justify-between"><span>Cost per {baseUnit} (incl. surcharge):</span>
-                      <span className="font-bold">PKR {baseUnitCost.toFixed(2)}</span></div>
+                      <span className="font-bold">{money(baseUnitCost.toFixed(2))}</span></div>
                     <div className="flex justify-between border-t pt-1 mt-1">
                       <span>Total bill:</span>
-                      <span className="font-bold text-primary">PKR {total.toLocaleString()}</span>
+                      <span className="font-bold text-primary">{money(total)}</span>
                     </div>
                   </>
                 )}

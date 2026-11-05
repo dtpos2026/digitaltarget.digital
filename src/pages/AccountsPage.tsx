@@ -602,7 +602,7 @@ function CashCloseTab() {
             <span>{money(pendingCreditTotal)}</span>
           </div>
           <p className="text-xs text-amber-700/70 dark:text-amber-400/70 mt-1">
-            {pendingCreditOrders.length} bill(s) udhaar — Close Day se delete nahi honge.
+            {pendingCreditOrders.length} bill(s) on credit — Close Day does not delete them.
           </p>
         </div>
         <div><Label>Notes</Label><Input value={notes} onChange={e => setNotes(e.target.value)} /></div>

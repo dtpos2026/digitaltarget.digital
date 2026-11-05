@@ -15,6 +15,7 @@ import { featureActive } from '@/lib/optionalModules';
 import { uploadTenantImage } from '@/lib/storage';
 import BulkImageUpload from '@/components/BulkImageUpload';
 import ExcelImportDialog from '@/components/ExcelImportDialog';
+import { money } from '@/lib/currency';
 
 async function pickAndUpload(file: File, prefix: string, setUrl: (u: string) => void) {
   const tId = toast.loading('Uploading image…');
@@ -595,7 +596,7 @@ export default function MenuManagerPage() {
                     : <Badge className="text-[10px] bg-green-600 hover:bg-green-700">Active</Badge>}
                 </td>
                 <td className="px-4 py-2 text-right font-medium">
-                  {item.pricingType === 'fixed' ? `PKR ${item.price}` : `PKR ${item.ratePerKg}/kg`}
+                  {item.pricingType === 'fixed' ? `${money(item.price)}` : `${money(item.ratePerKg)}/kg`}
                 </td>
                 <td className="px-4 py-2 text-right whitespace-nowrap">
                   <Button variant="ghost" size="sm" onClick={() => openEditItem(item)}><Edit2 className="h-3 w-3" /></Button>
@@ -624,7 +625,7 @@ export default function MenuManagerPage() {
               {allSubCategories.map(s => <option key={s} value={s} />)}
             </datalist>
             <p className="text-[10px] text-muted-foreground">
-              Khali chhodne se selected items se sub-category remove ho jayegi.
+              Leaving it empty removes the sub-category from the selected items.
             </p>
             {allSubCategories.length > 0 && (
               <div className="flex flex-wrap gap-1 pt-1">
@@ -671,7 +672,7 @@ export default function MenuManagerPage() {
         <DialogContent className="sm:max-w-sm">
           <DialogHeader><DialogTitle className="text-destructive">Delete {selected.size} items?</DialogTitle></DialogHeader>
           <p className="text-xs text-muted-foreground">
-            Ye items Recycle Bin me move ho jayenge — galti ho to wahan se restore kar sakte hain. Confirm karne k liye neeche <b className="text-destructive">DELETE</b> type karein.
+            These items move to the Recycle Bin — if it was a mistake you can restore them from there. To confirm, type <b className="text-destructive">DELETE</b> below.
           </p>
           <Input value={deleteConfirmText} onChange={e => setDeleteConfirmText(e.target.value)} placeholder="Type DELETE" />
           <DialogFooter>
@@ -733,7 +734,7 @@ export default function MenuManagerPage() {
                   onChange={e => setEditItem({ ...editItem, inventoryItemId: e.target.value || undefined })}
                   className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm"
                 >
-                  <option value="">— koi nahi (restaurant dish) —</option>
+                  <option value="">— none (restaurant dish) —</option>
                   {getInventory().filter((i: any) => i.isActive !== false).map((i: any) => (
                     <option key={i.id} value={i.id}>{i.name} ({i.quantity} {i.baseUnit || i.unit})</option>
                   ))}
@@ -1011,7 +1012,7 @@ export default function MenuManagerPage() {
           )}
 
           <p className="text-[10px] text-muted-foreground italic">
-            Note: Deleted items POS, Online Order aur reports me show nahi honge. Restore karne par wapas active ho jayenge.
+            Note: deleted items do not show in the POS, Online Order or reports. Restoring them makes them active again.
           </p>
         </DialogContent>
       </Dialog>

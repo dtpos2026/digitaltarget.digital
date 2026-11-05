@@ -641,9 +641,9 @@ export default function OnlineOrderPage() {
       return;
     }
     if (!dineIn && branches.length > 1 && !branchId) { toast.error('Select a branch first'); setBranchPickerOpen(true); return; }
-    if (!dineIn && !name.trim()) { toast.error('Naam likhein'); return; }
-    if (!dineIn && (!phone.trim() || phone.replace(/\D/g, '').length < 10)) { toast.error('Valid phone likhein'); return; }
-    if (!dineIn && fulfillment === 'delivery' && !address.trim()) { toast.error('Delivery address likhein'); return; }
+    if (!dineIn && !name.trim()) { toast.error('Please enter your name'); return; }
+    if (!dineIn && (!phone.trim() || phone.replace(/\D/g, '').length < 10)) { toast.error('Please enter a valid phone number'); return; }
+    if (!dineIn && fulfillment === 'delivery' && !address.trim()) { toast.error('Please enter the delivery address'); return; }
     if (!dineIn && fulfillment === 'delivery' && (lat == null || lng == null)) {
       toast.error('📍 Sharing your live location is required for delivery');
       captureLocation();
@@ -1287,7 +1287,7 @@ export default function OnlineOrderPage() {
                             </Button>
                             {!lat && (
                               <p className="text-[10px] text-status-warning text-center">
-                                ⚠ Delivery ke liye location share karna zaroori hai
+                                ⚠ Sharing your location is required for delivery
                               </p>
                             )}
 
@@ -1327,12 +1327,12 @@ export default function OnlineOrderPage() {
                                 </div>
                                 {serviceArea.hasRadius && serviceArea.customerHasGeo && !serviceArea.inRadius && (
                                   <div className="animate-pulse text-[11px] font-extrabold text-destructive bg-destructive/10 border-2 border-destructive/40 rounded-lg px-2 py-1.5 text-center">
-                                    ⛔ Out of service radius — mazrat, aap humare delivery area se bahar hain
+                                    ⛔ Out of service radius — sorry, you are outside our delivery area
                                   </div>
                                 )}
                                 {serviceArea.hasRadius && serviceArea.customerHasGeo && serviceArea.inRadius && (
                                   <div className="text-[11px] font-bold text-status-success bg-status-success/10 border border-status-success/30 rounded-lg px-2 py-1 text-center">
-                                    ✓ Aap humare service area ke andar hain
+                                    ✓ You are inside our service area
                                   </div>
                                 )}
                               </div>
@@ -1354,7 +1354,7 @@ export default function OnlineOrderPage() {
                             </div>
                             {pickupSlot && (
                               <div className="text-[11px] text-status-success font-bold bg-status-success/10 rounded-lg p-2 text-center">
-                                ✓ {pickupSlot} minute baad counter se collect karein
+                                ✓ {pickupSlot} minutes — collect it at the counter
                               </div>
                             )}
                           </div>
@@ -1831,7 +1831,7 @@ export default function OnlineOrderPage() {
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-base">
-              {flavorPick?.item.name} — Flavor select karein
+              {flavorPick?.item.name} — choose a flavour
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-2 py-1">
@@ -1877,7 +1877,7 @@ export default function OnlineOrderPage() {
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-base">
-              {variantPick?.item.name} — {variantPick?.kind === 'inch' ? 'Inch' : 'Size'} select karein
+              {variantPick?.item.name} — {variantPick?.kind === 'inch' ? 'Inch' : 'Size'} — choose one
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-2 py-1">

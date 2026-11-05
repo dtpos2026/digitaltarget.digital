@@ -77,7 +77,7 @@ export default function RefundPage() {
       restock,
     });
     if (!res.ok) {
-      toast.error(res.errors?.join(' · ') || 'Refund nahi hui');
+      toast.error(res.errors?.join(' · ') || 'The refund did not go through');
       return;
     }
     toast.success(`Refund ${money(res.refund!.total)} — Order #${selected.orderNumber}`);
@@ -139,7 +139,7 @@ export default function RefundPage() {
 
             {prior.length > 0 && (
               <div className="text-[11px] text-amber-700 border-t pt-1">
-                Pehle {prior.length} refund ho chuki hain — kul {money(prior.reduce((s, r) => s + r.total, 0))}
+                {prior.length} refund(s) already made — total {money(prior.reduce((s, r) => s + r.total, 0))}
               </div>
             )}
 

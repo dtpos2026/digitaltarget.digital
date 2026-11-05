@@ -53,7 +53,7 @@ export default function ReasonDialog({
             autoFocus
             value={reason}
             onChange={e => setReason(e.target.value)}
-            placeholder="Reason likhein (required)…"
+            placeholder="Write a reason (required)…"
             rows={3}
             className="text-sm"
           />

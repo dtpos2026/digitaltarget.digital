@@ -23,6 +23,7 @@ import { openWhatsApp, normalizePhone } from '@/lib/whatsapp';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import { ENABLE_REDUNDANT_ORDER_POLL } from '@/lib/featureFlags';
+import { money } from '@/lib/currency';
 
 // ------------ Types ------------
 interface CreditCustomer {
@@ -95,7 +96,7 @@ function aggregate(orders: Order[], payments: CreditPayment[]): CreditCustomer[]
   return Array.from(groups.values());
 }
 
-function fmtPKR(n: number) { return 'PKR ' + Math.round(n || 0).toLocaleString(); }
+function fmtPKR(n: number) { return money(Math.round(n || 0)); }
 function fmtDate(s?: string) { return s ? new Date(s).toLocaleString('en-PK') : '—'; }
 function daysAgo(s?: string): number | null {
   if (!s) return null;
@@ -765,7 +766,7 @@ function exportCustomerPDF(c: CreditCustomer, settings: any) {
   pdf.text(`Name: ${c.name}`, 14, 26);
   pdf.text(`Phone: ${c.phone || '—'}`, 14, 32);
   pdf.text(`Address: ${c.address || '—'}`, 14, 38);
-  pdf.text(`Outstanding Balance: PKR ${Math.round(c.balance).toLocaleString()}`, 14, 46);
+  pdf.text(`Outstanding Balance: ${money(Math.round(c.balance))}`, 14, 46);
   let y = 56;
   pdf.setFontSize(8);
   pdf.text('Date', 14, y); pdf.text('Particulars', 50, y);
@@ -818,7 +819,7 @@ function printLedger(c: CreditCustomer, settings: any) {
           <td class="r">${Math.round(r.balance).toLocaleString()}</td>
         </tr>`).join('')}
       </tbody>
-      <tfoot><tr><td colspan="4">Closing Balance</td><td class="r">PKR ${Math.round(c.balance).toLocaleString()}</td></tr></tfoot>
+      <tfoot><tr><td colspan="4">Closing Balance</td><td class="r">${money(Math.round(c.balance))}</td></tr></tfoot>
     </table>
     <script>window.print();</script>
     </body></html>

@@ -175,7 +175,7 @@ export default function BarcodeManagerPage() {
           </h2>
           <p className="text-sm text-muted-foreground mt-2">
             Ye module abhi OFF hai. <b>Module Management</b> me
-            "🏷️ Barcode / SKU" ON karein.
+            turn "🏷️ Barcode / SKU" ON.
           </p>
         </Card>
       </div>
@@ -190,7 +190,7 @@ export default function BarcodeManagerPage() {
             <ScanLine className="h-5 w-5" /> Barcode &amp; Labels
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Scan kar ke item dhoondein, code assign karein, aur shelf labels print karein.
+            Scan to find an item, assign a code, and print shelf labels.
           </p>
         </div>
         <Badge variant="secondary" className="text-xs">
@@ -214,7 +214,7 @@ export default function BarcodeManagerPage() {
         </p>
         <div id="barcode-reader" className={scanning ? 'rounded-lg overflow-hidden border' : 'hidden'} />
         <div>
-          <Label className="text-xs">Ya code type / paste karein</Label>
+          <Label className="text-xs">Or type / paste a code</Label>
           <div className="flex gap-2">
             <Input
               value={lastScan}
@@ -244,7 +244,7 @@ export default function BarcodeManagerPage() {
             <Printer className="h-3.5 w-3.5 mr-1" /> Print Labels
           </Button>
         </div>
-        <Input placeholder="Item ya code dhoondein…" value={query}
+        <Input placeholder="Search an item or code…" value={query}
           onChange={e => setQuery(e.target.value)} />
 
         <div className="max-h-[26rem] overflow-auto space-y-1">

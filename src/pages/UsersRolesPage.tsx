@@ -400,7 +400,7 @@ export default function UsersRolesPage() {
                       </SelectContent>
                     </Select>
                     <p className="text-[10px] text-muted-foreground mt-1">
-                      Order Taker / Cashier ko branch assign karne se woh sirf isi branch ke orders dekhega — branch change nahi kar sakega.
+                      An Order Taker / Cashier with a branch sees only that branch's orders and cannot change the branch.
                     </p>
                   </div>
                 )}
