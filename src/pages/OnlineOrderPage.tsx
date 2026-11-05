@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Plus, Minus, Trash2, ShoppingBag, MapPin, Phone, User, Search, X, Tag, CheckCircle, LogIn, LogOut, ClipboardList, Clock, ArrowLeft, Store, ChevronDown, BellRing, Utensils, Link2 as LinkIcon } from 'lucide-react';
+import { Plus, Minus, Trash2, ShoppingBag, MapPin, Phone, User, Search, X, Tag, CheckCircle, LogIn, LogOut, ClipboardList, Clock, ArrowLeft, Store, ChevronDown, BellRing, Utensils, Link2 as LinkIcon, Lock, Truck, TriangleAlert, Ban, Check, UtensilsCrossed } from 'lucide-react';
 import { Order, CartItem, MenuItem, Branch } from '@/lib/types';
 import { openWhatsApp, normalizePhone as normWaPhone } from '@/lib/whatsapp';
 import { computeDistance } from '@/lib/delivery';
@@ -914,7 +914,7 @@ export default function OnlineOrderPage() {
             })()}
             className="block w-full bg-gold text-foreground rounded-md py-2.5 text-sm font-extrabold"
           >
-            📍 Track Live Order
+            <span className="inline-flex items-center justify-center gap-1.5"><MapPin className="h-4 w-4" /> Track Live Order</span>
           </a>
           <Button
             className="w-full bg-green-600 hover:bg-green-700 text-white"
@@ -982,10 +982,10 @@ export default function OnlineOrderPage() {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background p-6">
         <div className="max-w-md w-full bg-card border rounded-2xl p-6 text-center shadow-elegant">
-          <div className="text-5xl mb-3">🔒</div>
+          <div className="mx-auto mb-3 grid h-16 w-16 place-items-center rounded-full bg-muted"><Lock className="h-8 w-8 text-muted-foreground" aria-hidden /></div>
           <h1 className="text-lg font-extrabold mb-1">{settings.name || 'Restaurant'}</h1>
           <p className="text-sm text-muted-foreground">Online ordering is temporarily closed. Please try again shortly or call us directly.</p>
-          {settings.phone && <a href={`tel:${settings.phone}`} className="inline-block mt-3 text-sm font-bold text-primary">📞 {settings.phone}</a>}
+          {settings.phone && <a href={`tel:${settings.phone}`} className="mt-3 inline-flex items-center gap-1.5 text-sm font-bold text-primary"><Phone className="h-4 w-4" /> {settings.phone}</a>}
         </div>
       </div>
     );
@@ -1242,9 +1242,9 @@ export default function OnlineOrderPage() {
                                 onClick={() => setFulfillment('delivery')}
                                 className={`p-3 rounded-xl border-2 text-left transition-all ${fulfillment === 'delivery' ? 'border-primary bg-primary/10 shadow-md' : 'border-border bg-card hover:border-primary/40'}`}
                               >
-                                <div className="text-lg">🛵</div>
+                                <Truck className="h-5 w-5" aria-hidden />
                                 <div className="text-xs font-extrabold mt-0.5">Delivery</div>
-                                <div className="text-[10px] text-muted-foreground">Ghar tak laayein</div>
+                                <div className="text-[10px] text-muted-foreground">To your door</div>
                               </button>
                               <button
                                 onClick={() => setFulfillment('pickup')}
@@ -1283,11 +1283,11 @@ export default function OnlineOrderPage() {
                               disabled={locating}
                             >
                               <MapPin className="h-3.5 w-3.5 mr-1" />
-                              {locating ? 'Detecting…' : lat ? `✓ Location captured (${lat.toFixed(4)}, ${lng?.toFixed(4)})` : '📍 Share Live Location (REQUIRED)'}
+                              {locating ? 'Detecting…' : lat ? `Location captured (${lat.toFixed(4)}, ${lng?.toFixed(4)})` : 'Share live location (required)'}
                             </Button>
                             {!lat && (
                               <p className="text-[10px] text-status-warning text-center">
-                                ⚠ Sharing your location is required for delivery
+                                <span className="inline-flex items-center gap-1"><TriangleAlert className="h-3 w-3" /> Sharing your location is required for delivery</span>
                               </p>
                             )}
 
@@ -1327,12 +1327,12 @@ export default function OnlineOrderPage() {
                                 </div>
                                 {serviceArea.hasRadius && serviceArea.customerHasGeo && !serviceArea.inRadius && (
                                   <div className="animate-pulse text-[11px] font-extrabold text-destructive bg-destructive/10 border-2 border-destructive/40 rounded-lg px-2 py-1.5 text-center">
-                                    ⛔ Out of service radius — sorry, you are outside our delivery area
+                                    <span className="inline-flex items-center justify-center gap-1"><Ban className="h-3.5 w-3.5" /> Out of service radius — sorry, you are outside our delivery area</span>
                                   </div>
                                 )}
                                 {serviceArea.hasRadius && serviceArea.customerHasGeo && serviceArea.inRadius && (
                                   <div className="text-[11px] font-bold text-status-success bg-status-success/10 border border-status-success/30 rounded-lg px-2 py-1 text-center">
-                                    ✓ You are inside our service area
+                                    <span className="inline-flex items-center justify-center gap-1"><Check className="h-3.5 w-3.5" /> You are inside our service area</span>
                                   </div>
                                 )}
                               </div>
@@ -1411,11 +1411,11 @@ export default function OnlineOrderPage() {
                     {placing
                       ? 'Placing…'
                       : dineIn
-                        ? `🍽 Send to Kitchen · ${money(grandTotal)}`
+                        ? <span className="inline-flex items-center gap-1.5"><UtensilsCrossed className="h-4 w-4" /> Send to Kitchen · {money(grandTotal)}</span>
                         : fulfillment === 'delivery' && lat == null
-                          ? '📍 Share Location to Continue'
+                          ? <span className="inline-flex items-center gap-1.5"><MapPin className="h-4 w-4" /> Share location to continue</span>
                           : fulfillment === 'delivery' && serviceArea.hasRadius && serviceArea.customerHasGeo && !serviceArea.inRadius
-                            ? '⛔ Out of Service Area'
+                            ? <span className="inline-flex items-center gap-1.5"><Ban className="h-4 w-4" /> Out of service area</span>
                             : `Place Order · ${money(grandTotal)}`}
                   </Button>
                   {dineIn ? (
@@ -1477,9 +1477,9 @@ export default function OnlineOrderPage() {
                           <p className="text-sm font-bold truncate">{b.name}</p>
                           {active && <CheckCircle className="h-3.5 w-3.5 text-primary shrink-0" />}
                         </div>
-                        {b.city && <p className="text-[11px] text-muted-foreground truncate">📍 {b.city}</p>}
+                        {b.city && <p className="flex items-center gap-1 text-[11px] text-muted-foreground truncate"><MapPin className="h-3 w-3 shrink-0" /> {b.city}</p>}
                         {b.address && <p className="text-[10px] text-muted-foreground truncate">{b.address}</p>}
-                        {b.phone && <p className="text-[10px] text-muted-foreground truncate">📞 {b.phone}</p>}
+                        {b.phone && <p className="flex items-center gap-1 text-[10px] text-muted-foreground truncate"><Phone className="h-3 w-3 shrink-0" /> {b.phone}</p>}
                       </div>
                     </div>
                   </button>
