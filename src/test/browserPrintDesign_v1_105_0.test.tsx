@@ -10,6 +10,8 @@
 // ============================================================
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { buildPrintCss, buildBrowserPrintCss, injectPrintCss, getBrowserPrintStyle, setBrowserPrintStyle, BROWSER_PRINT_STYLE_KEY } from '@/printing/printCss';
 
 describe('buildBrowserPrintCss — the design, not the thermal rules', () => {
@@ -92,5 +94,56 @@ describe('Settings → Printer: the browser choice', () => {
     (window as any).electronAPI = { getPrinters: async () => [] };
     render(<Tab {...props} />);
     expect(screen.queryByTestId('browser-print-style')).toBeNull();
+  });
+});
+
+// ------------------------------------------------------------------ v1.105.1 — the root cause on the web: index.css
+const read = (p: string) => readFileSync(resolve(__dirname, '../..', p), 'utf8');
+
+describe('index.css no longer repaints the slip when it prints as designed (v1.105.1)', () => {
+  const idx = read('src/index.css');
+
+  it('the blanket "all black on transparent" print rule is for the page, not for the slip', () => {
+    // the old behaviour is kept for everything that is not "printed as designed" …
+    expect(idx).toMatch(/html:not\(\[data-print-design\]\) body \*\s*\{[^}]*color:\s*#000000 !important;[^}]*background-color:\s*transparent !important/);
+    // … and when it is, the portal (the slip) is excluded
+    expect(idx).toMatch(/html\[data-print-design\] body \*:not\(\.receipt-print-portal, \.receipt-print-portal \*\)/);
+    // no unconditional version is left
+    expect(idx).not.toMatch(/\n  body \* \{\s*\n\s*color:\s*#000000 !important/);
+  });
+
+  it('the global print block no longer declares a page size browsers reject', () => {
+    expect(idx).not.toMatch(/@page\s*\{\s*size:\s*80mm auto/);
+  });
+
+  it('injectPrintCss raises the flag while a slip prints as designed, and lowers it afterwards (and never for the thermal rendering)', () => {
+    localStorage.clear(); delete (window as any).electronAPI;
+    const off = injectPrintCss('80mm');
+    expect(document.documentElement.getAttribute('data-print-design')).toBe('true');
+    off();
+    expect(document.documentElement.hasAttribute('data-print-design')).toBe(false);
+    setBrowserPrintStyle('thermal');
+    const off2 = injectPrintCss('80mm');
+    expect(document.documentElement.hasAttribute('data-print-design')).toBe(false);
+    off2(); localStorage.clear();
+  });
+});
+
+describe('the design stylesheet keeps the desktop geometry', () => {
+  it('lays the slip out at the head\'s printable width with equal side padding, like the thermal path', () => {
+    const css = buildBrowserPrintCss('80mm');
+    expect(css).toMatch(/width:\s*var\(--dt-print-content-width,\s*72mm\)/);
+    expect(css).toMatch(/padding:\s*var\(--dt-print-padding-top, 0mm\) var\(--dt-print-padding-right, 2mm\)/);
+    expect(css).toMatch(/margin:\s*0 auto !important/);
+  });
+});
+
+describe('the standard receipt\'s amount columns fit 1,800.00 and 12,500.00', () => {
+  it('Rate and Amount are at least 56 px and 64 px (they were 48 and 56, and ran into each other)', () => {
+    const src = read('src/components/StandardReceipt.tsx');
+    const cols = [...src.matchAll(/<col style=\{\{ width: '(\d+)px' \}\} \/>/g)].map(m => Number(m[1]));
+    expect(cols.length).toBe(3);
+    expect(cols[1]).toBeGreaterThanOrEqual(56);
+    expect(cols[2]).toBeGreaterThanOrEqual(64);
   });
 });

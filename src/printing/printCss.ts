@@ -617,15 +617,27 @@ export function buildBrowserPrintCss(paperWidth: PaperSize, compact: boolean = f
       visibility: visible !important;
       pointer-events: none !important;
     }
-    body.thermal-printing .receipt-print-portal[data-active-print="true"] .print-receipt {
-      max-width: 100% !important;
+    /* The same GEOMETRY as the thermal path (the head's printable width, equal side padding, the calibration variables), so a slip
+       lays out on paper exactly as it does in the desktop app — only the colours, borders, weights and filters are the design's. */
+    body.thermal-printing .receipt-print-portal[data-active-print="true"] .print-receipt,
+    body[data-print-active="true"] .receipt-print-portal[data-active-print="true"] .print-receipt {
+      width: var(--dt-print-content-width, ${printableMmOf(paperWidth)}mm) !important;
+      max-width: var(--dt-print-content-width, ${printableMmOf(paperWidth)}mm) !important;
+      min-width: 0 !important;
+      height: auto !important;
+      min-height: 0 !important;
+      position: relative !important;
+      top: var(--dt-print-offset-top, 0mm) !important;
+      left: calc(var(--dt-print-offset-left, 0mm) - var(--dt-print-offset-right, 0mm)) !important;
+      margin: 0 auto !important;
+      padding: var(--dt-print-padding-top, 0mm) var(--dt-print-padding-right, 2mm) var(--dt-print-padding-bottom, 0mm) var(--dt-print-padding-left, 2mm) !important;
       box-sizing: border-box !important;
-      margin-left: auto !important;
-      margin-right: auto !important;
-      margin-top: 0 !important;
       overflow: visible !important;
+      word-wrap: break-word !important;
+      overflow-wrap: break-word !important;
     }
     body.thermal-printing .receipt-print-portal[data-active-print="true"] .print-receipt img { max-width: 100% !important; }
+    body.thermal-printing .receipt-print-portal[data-active-print="true"] .print-receipt > *:first-child { margin-top: 0 !important; padding-top: 0 !important; }
     ${compactBlock}
     @media print {
       body.thermal-printing > *:not(.receipt-print-portal[data-active-print="true"]) { display: none !important; }
@@ -658,9 +670,10 @@ export function injectPrintCss(paperWidth: PaperSize, compact: boolean = false) 
   const style = document.createElement('style');
   style.id = STYLE_ID;
   // The desktop app keeps the thermal-head rules; a browser prints the design (see buildBrowserPrintCss).
-  style.textContent = (!isElectron() && getBrowserPrintStyle() === 'design')
-    ? buildBrowserPrintCss(paperWidth, compact)
-    : buildPrintCss(paperWidth, compact);
+  const design = !isElectron() && getBrowserPrintStyle() === 'design';
+  style.textContent = design ? buildBrowserPrintCss(paperWidth, compact) : buildPrintCss(paperWidth, compact);
   document.head.appendChild(style);
-  return () => style.remove();
+  // index.css carries a blanket "all text black on transparent" print rule for reports; the flag tells it to leave the slip alone.
+  if (design) document.documentElement.setAttribute('data-print-design', 'true'); else document.documentElement.removeAttribute('data-print-design');
+  return () => { style.remove(); document.documentElement.removeAttribute('data-print-design'); };
 }

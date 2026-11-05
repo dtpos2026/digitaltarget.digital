@@ -134,9 +134,9 @@ export default function StandardReceipt({ order, settings: rawSettings }: Props)
       <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '4px', fontSize: `${fsItem}px`, tableLayout: 'fixed' }}>
         <colgroup>
           <col />
-          <col style={{ width: '26px' }} />
-          <col style={{ width: '48px' }} />
+          <col style={{ width: '24px' }} />
           <col style={{ width: '56px' }} />
+          <col style={{ width: '66px' }} />   {/* wide enough for 1,800.00 / 12,500.00: they ran into each other at 48 / 56 */}
         </colgroup>
         <thead>
           <tr style={{ borderTop: '1px dashed #000', borderBottom: '1px dashed #000' }}>
