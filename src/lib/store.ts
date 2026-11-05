@@ -22,7 +22,7 @@ import { normalizeForDisplay, dedupeById } from './dataIntegrity';
 import { mergeCollection, mergeDelta } from './syncMerge';
 import { isPermanentSyncError, explainSyncError } from './syncErrors';
 import { onDeadLetter } from './deferredSync';
-import { shouldDeferCloudWrite, enqueueDeferredOp, registerDeferredFlusher, registerDeferredBatchFlusher, installDeferredSyncTriggers, stopDeferredSyncTriggers, deferredPendingCount, onDeferredSyncChange } from './deferredSync';
+import { holdDeferredFlush, shouldDeferCloudWrite, enqueueDeferredOp, registerDeferredFlusher, registerDeferredBatchFlusher, installDeferredSyncTriggers, stopDeferredSyncTriggers, deferredPendingCount, onDeferredSyncChange } from './deferredSync';
 import { onOrderRenumbered } from './orderNumbers';
 import {
   movementIdFor, isDuplicateMovement, planMovement, type MovementRef,
@@ -1170,6 +1170,10 @@ const sbPendingReload = new Set<string>();
 const SETTINGS_RELOAD_KEY = '::settings';
 const DOCS_RELOAD_KEY = '::module_documents';
 let sbReloadTimer: ReturnType<typeof setTimeout> | null = null;
+/** v1.103.0 — >0 while a backup is being uploaded; see importData(). */
+let bulkImportDepth = 0;
+const reloadsHeldDuringImport = new Set<string>();
+export function isBulkImporting(): boolean { return bulkImportDepth > 0; }
 
 /**
  * Read the pending-op keys, or null when the durable queue could not be read.
@@ -1199,6 +1203,10 @@ async function pendingOpKeys(): Promise<Set<string> | null> {
 }
 
 export async function sbReloadCollections(names: string[]) {
+  // v1.103.0 — while a restore is uploading, a reload would see every row the restore has not reached yet as "missing from the
+  // cloud" and queue it a second time, and re-read whole collections for every change the restore itself makes. Hold the reload
+  // and run it once when the restore is done.
+  if (bulkImportDepth > 0) { for (const n of names) reloadsHeldDuringImport.add(n); return; }
   const { sbLoadCollectionDelta } = await import('./supabaseStore');
   const d = loadData();
   const pendingIds = await pendingOpKeys();
@@ -3409,14 +3417,48 @@ export async function saveSettingsNow(s: RestaurantSettings): Promise<void> {
  * queue's CHUNK_SIZE so both paths behave the same under load.
  */
 const IMPORT_CHUNK_SIZE = 100;
+/** …and no request carries more than about this much JSON (pictures kept inside the data make single rows huge). */
+const IMPORT_CHUNK_BYTES = 1_200_000;
 
 export function exportData(): string { return JSON.stringify(loadData(), null, 2); }
-export function importData(json: string) {
+export interface ImportOutcome {
+  /** True when the restore was also pushed to the cloud (a signed-in restaurant); false for a local-only restore. */
+  cloud: boolean;
+  total: number;
+  ok: number;
+  failed: number;
+  /** The rows the cloud refused or could not take; each is queued and retried by the sync engine with backoff. */
+  failedRows: Array<{ col: string; id: string; error: string }>;
+  /** Set when the upload stopped on an unexpected error; everything not yet uploaded is still safe on this device and is re-queued by the next sync. */
+  error?: string;
+}
+
+/** Split a collection into upload requests of at most `maxRows` rows and about `maxBytes` of JSON (inline pictures make rows huge). */
+export function chunkForUpload<T>(rows: readonly T[], maxRows = IMPORT_CHUNK_SIZE, maxBytes = IMPORT_CHUNK_BYTES): T[][] {
+  const out: T[][] = [];
+  let cur: T[] = []; let bytes = 0;
+  for (const r of rows) {
+    let size = 0;
+    try { size = JSON.stringify(r).length; } catch { size = 0; }
+    if (cur.length && (cur.length >= maxRows || bytes + size > maxBytes)) { out.push(cur); cur = []; bytes = 0; }
+    cur.push(r); bytes += size;
+  }
+  if (cur.length) out.push(cur);
+  return out;
+}
+
+/**
+ * Restore a backup. The parse, the merge and the local save are synchronous (an invalid file throws here, before anything is
+ * touched). The returned promise settles when the CLOUD upload has finished, so the caller can show real progress (the
+ * `dt-import-progress` event) and reload only when the upload is done — a blind timer used to cut a big restore off halfway.
+ */
+export function importData(json: string): Promise<ImportOutcome> {
   const data = JSON.parse(json) as AppData;
   ensureFields(data);
 
   const current = loadData() as any;
   const d = data as any;
+  const stamp = Date.now();
 
   // ---- 1) Never lock the operator out of their own app -------------------
   // A backup from another device/restaurant carries ITS staff list. Replacing
@@ -3452,64 +3494,81 @@ export function importData(json: string) {
     } catch { /* flags stay as imported */ }
   }
 
+  // A restore is the newest word on every record it carries: stamp the local copies like the cloud copies, so a later merge keeps them.
+  try {
+    for (const col of ARRAY_COLLECTIONS) for (const it of ((d[col] || []) as any[])) if (it && typeof it === 'object' && it.id) it._updatedAt = stamp;
+    if (d.settings && typeof d.settings === 'object') d.settings._updatedAt = stamp;
+  } catch { /* stamping is best-effort */ }
+
   saveLocal(data);
 
   // ---- 3) Push everything to the CLOUD the session actually uses ---------
   // The old path wrote a Firestore batch, which does nothing on Supabase — the
   // import looked fine locally and was lost on the next device.
-  if (useCloudStore()) {
-    (async () => {
-      let ok = 0, failed = 0;
-      const stamp = Date.now();
-      // ===== v1.28.2 — a restore is a bulk upload, not 6000 little ones =====
-      //
-      // This was one awaited cloudSaveItem per record. Restoring a real
-      // restaurant's backup — 4000 orders, 2000 customers, 800 menu items —
-      // meant ~7000 sequential HTTP requests on the main thread while the
-      // operator stared at a screen that never finished. Chunked upserts turn
-      // that into ~70 requests, and the yield between chunks keeps the till
-      // usable while it runs.
-      //
-      // ARRAY_COLLECTIONS is already ordered parents-first, so uploading a
-      // collection at a time preserves the foreign keys.
+  if (!useCloudStore()) {
+    return Promise.resolve({ cloud: false, total: 0, ok: 0, failed: 0, failedRows: [] });
+  }
+  return (async (): Promise<ImportOutcome> => {
+    let ok = 0, failed = 0;
+    const failedRows: ImportOutcome['failedRows'] = [];
+    // ===== v1.28.2 — a restore is a bulk upload, not 6000 little ones =====
+    // Chunked upserts (~70 requests for a real restaurant), parents first (ARRAY_COLLECTIONS is ordered), with a yield between chunks.
+    //
+    // ===== v1.103.0 — why a big restore "hung" and showed sync trouble =====
+    // The upload ran while the rest of the sync engine kept working:
+    //   • every row the restore wrote made the cloud announce a change; each announcement reloaded the whole collection, found every
+    //     restored row the upload had not reached yet "missing from the cloud", and QUEUED it — so the same thousands of rows were in the
+    //     queue AND in the upload loop, and the queue's flush uploaded them a second time at once (the "Pending 7000" that never cleared);
+    //   • a one-off network error counted a whole chunk of 100 rows as failed and moved on;
+    //   • pictures kept inside the file made single requests of many megabytes;
+    //   • and the page reloaded after a fixed six seconds, cutting any big restore off halfway.
+    // Now: reloads and the queue's flush are held until the upload is done; a failed chunk is retried; chunks are bounded in size;
+    // rows that still fail are queued explicitly; one reconcile runs at the end.
+    bulkImportDepth++;
+    const release = holdDeferredFlush();
+    try {
       const total = ARRAY_COLLECTIONS.reduce(
         (n, col) => n + (((data as any)[col] || []) as any[]).filter(x => x?.id).length, 0);
       let processed = 0;
       const emitProgress = () => {
         try {
-          window.dispatchEvent(new CustomEvent('dt-import-progress', {
-            detail: { processedCount: processed, totalCount: total },
-          }));
+          window.dispatchEvent(new CustomEvent('dt-import-progress', { detail: { processedCount: processed, totalCount: total } }));
         } catch { /* non-browser context */ }
       };
       emitProgress();
 
       const useSb = useSupabaseBackend();
       const { sbSaveMany } = useSb ? await import('./supabaseStore') : ({} as any);
+      const fail = (col: string, id: string, error: string) => {
+        failed++; failedRows.push({ col, id, error });
+        try { enqueueDeferredOp(col, id, 'set'); } catch { /* the queue is best-effort here */ }
+      };
 
       for (const col of ARRAY_COLLECTIONS) {
         const arr = (((data as any)[col] || []) as any[]).filter(x => x?.id);
-        for (let i = 0; i < arr.length; i += IMPORT_CHUNK_SIZE) {
-          const chunk = arr.slice(i, i + IMPORT_CHUNK_SIZE)
-            .map(item => ({ id: String(item.id), data: { ...item, _updatedAt: stamp } }));
+        for (const group of chunkForUpload(arr)) {
+          const chunk = group.map(item => ({ id: String(item.id), data: { ...item, _updatedAt: stamp } }));
           if (useSb) {
-            try {
-              const res = await sbSaveMany(col, chunk);
-              ok += res.saved.length;
-              failed += res.failed.length;
-              for (const f of res.failed) {
-                console.warn(`[import] ${col}/${f.id} rejected — ${f.error}`);
+            let res: { saved: string[]; failed: Array<{ id: string; error: string }> } | null = null;
+            let lastErr = '';
+            for (let attempt = 0; attempt < 3 && !res; attempt++) {
+              try { res = await sbSaveMany(col, chunk); }
+              catch (e: any) {
+                lastErr = e?.message || String(e);
+                if (attempt < 2) await new Promise(r => setTimeout(r, 800 * Math.pow(3, attempt)));   // 0.8 s, 2.4 s
               }
-            } catch (e: any) {
-              // A whole chunk failed. Log it, count it, and carry on: the rest
-              // of the backup must still be restored.
-              failed += chunk.length;
-              console.warn(`[import] ${col} chunk of ${chunk.length} failed — ${e?.message || e}`);
+            }
+            if (res) {
+              ok += res.saved.length;
+              for (const f of res.failed) { console.warn(`[import] ${col}/${f.id} rejected — ${f.error}`); fail(col, f.id, f.error); }
+            } else {
+              console.warn(`[import] ${col} chunk of ${chunk.length} failed after retries — ${lastErr}`);
+              for (const it of chunk) fail(col, it.id, lastErr);
             }
           } else {
             for (const it of chunk) {
               try { await cloudSaveItem(col, it.id, it.data); ok++; }
-              catch { failed++; }
+              catch (e: any) { fail(col, it.id, e?.message || String(e)); }
             }
           }
           processed += chunk.length;
@@ -3535,8 +3594,21 @@ export function importData(json: string) {
       } catch { /* mirror best-effort */ }
 
       console.info(`[import] cloud push done — ${ok} records, ${failed} failed`);
-    })();
-  }
+      return { cloud: true, total, ok, failed, failedRows };
+    } catch (e: any) {
+      console.warn('[import] cloud push stopped', e);
+      return { cloud: true, total: 0, ok, failed, failedRows, error: e?.message || String(e) };
+    } finally {
+      bulkImportDepth = Math.max(0, bulkImportDepth - 1);
+      release();
+      // One reconcile for everything the cloud announced while the upload ran.
+      if (bulkImportDepth === 0 && reloadsHeldDuringImport.size) {
+        const names = Array.from(reloadsHeldDuringImport);
+        reloadsHeldDuringImport.clear();
+        void sbReloadCollections(names).catch(() => {});
+      }
+    }
+  })();
 }
 
 export function resetData() {

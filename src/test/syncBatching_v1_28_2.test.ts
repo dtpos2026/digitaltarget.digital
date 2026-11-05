@@ -101,14 +101,21 @@ describe('a backlog is uploaded in chunks, not one record at a time', () => {
 
   it('writes the shrinking queue to disk as it goes, not only at the end', async () => {
     const depths: number[] = [];
+    // The mid-flush write is throttled to once a second (PERSIST_INTERVAL_MS), so let each chunk "take" 1.1 s of the clock. (Until
+    // v1.103.0 this test also passed by accident: every enqueue chained its own full rewrite of the queue, and those leftover writes
+    // landed between the chunks. That quadratic behaviour is gone; the designed, throttled write is what is pinned here.)
+    let clock = Date.now();
+    const nowSpy = vi.spyOn(Date, 'now').mockImplementation(() => clock);
     sync.registerDeferredFlusher(async () => {});
     sync.registerDeferredBatchFlusher(async (_col, ids) => {
       depths.push((disk.deferredOps ?? []).length);
+      clock += 1100;
       return { saved: ids };
     });
 
     enqueue('orders', 300);
     await sync.flushDeferredOps();
+    nowSpy.mockRestore();
 
     // The durable copy shrank while the flush was still running — a crash
     // mid-backlog costs one chunk, not the whole upload.

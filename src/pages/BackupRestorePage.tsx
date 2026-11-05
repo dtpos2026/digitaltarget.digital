@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import type { SystemPrinterInfo } from '@/lib/electron';
 import { Download, Upload, RotateCcw, Printer, Database, Smartphone, ChevronRight, Trash2, ShieldAlert, Images } from 'lucide-react';
 import { useNavigate } from '@/lib/hash-router';
-import { exportData, importData, resetData, resetSelectedData, getCurrentUser, RESETTABLE_COLLECTIONS, type ResettableCollection } from '@/lib/store';
+import { exportData, importData, type ImportOutcome, resetData, resetSelectedData, getCurrentUser, RESETTABLE_COLLECTIONS, type ResettableCollection } from '@/lib/store';
 import { isElectron, nativeExportBackup, nativeImportBackup, getPrinters, getDataPath } from '@/lib/electron';
 import { isFirebaseConfigured } from '@/lib/firebase';
 import { embedImages, restoreImages, embeddedImageCount, remoteImageUrls } from '@/lib/backupImages';
@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { useRef, useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
 
 // Group collections for friendlier UI
@@ -181,15 +182,42 @@ export default function BackupRestorePage() {
     }
   };
 
-  const finishRestore = (raw: string) => {
+  // v1.103.0 — the restore shows its real progress and reloads only when the cloud upload has finished (it used to reload after a
+  // fixed six seconds, which cut a big restore off halfway and left the rest to be re-queued by the next start).
+  const [restoring, setRestoring] = useState<null | { processed: number; total: number; outcome?: ImportOutcome }>(null);
+  useEffect(() => {
+    if (!restoring || restoring.outcome) return;
+    const onProgress = (e: Event) => {
+      const d = (e as CustomEvent).detail || {};
+      setRestoring(r => (r && !r.outcome ? { ...r, processed: Number(d.processedCount) || 0, total: Number(d.totalCount) || 0 } : r));
+    };
+    window.addEventListener('dt-import-progress', onProgress);
+    return () => window.removeEventListener('dt-import-progress', onProgress);
+  }, [restoring]);
+
+  const finishRestore = async (raw: string) => {
+    let pending: Promise<ImportOutcome | void> | ImportOutcome | void;
     try {
-      importData(raw);
-      toast.success('Data restored — uploading to cloud, please wait...');
-      // Cloud push runs in the background; reloading too early kills it.
-      setTimeout(() => window.location.reload(), 6000);
+      pending = importData(raw);                                   // the local restore is done when this returns
     } catch {
       toast.error('Invalid backup file');
+      return;
     }
+    setRestoring({ processed: 0, total: 0 });
+    const outcome = (await Promise.resolve(pending).catch(() => undefined)) as ImportOutcome | undefined;
+    if (!outcome || !outcome.cloud) {
+      setRestoring(null);
+      toast.success('Data restored. Refreshing...');
+      setTimeout(() => window.location.reload(), 800);
+      return;
+    }
+    if (outcome.failed === 0 && !outcome.error) {
+      setRestoring({ processed: outcome.total, total: outcome.total, outcome });
+      toast.success(`Data restored — ${outcome.ok.toLocaleString()} records are in the cloud.`);
+      setTimeout(() => window.location.reload(), 1500);
+      return;
+    }
+    setRestoring({ processed: outcome.total, total: outcome.total, outcome });   // stay open: the operator reads what is left
   };
 
   // A backup that carries its pictures can put them back in this restaurant's own storage first (v1.94.0). Only
@@ -432,6 +460,48 @@ export default function BackupRestorePage() {
               {erasing ? 'Erasing…' : `Erase ${selected.size} collection(s)`}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* v1.103.0 — the restore's real progress; it cannot be dismissed while the upload runs, and says exactly what is left afterwards. */}
+      <Dialog open={!!restoring} onOpenChange={o => { if (!o && restoring?.outcome) setRestoring(null); }}>
+        <DialogContent className="max-w-md" onInteractOutside={e => e.preventDefault()} onEscapeKeyDown={e => { if (!restoring?.outcome) e.preventDefault(); }}>
+          <DialogHeader>
+            <DialogTitle>
+              {!restoring?.outcome ? 'Restoring your data…' : restoring.outcome.failed || restoring.outcome.error ? 'Restored — some records need another try' : 'Restore complete'}
+            </DialogTitle>
+          </DialogHeader>
+          {!restoring?.outcome ? (
+            <div className="space-y-3" data-testid="restore-progress">
+              <Progress value={restoring && restoring.total ? Math.min(100, Math.round((restoring.processed / restoring.total) * 100)) : 0} />
+              <p className="text-sm font-semibold tabular-nums">
+                {(restoring?.processed ?? 0).toLocaleString()} of {(restoring?.total ?? 0).toLocaleString()} records uploaded
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Keep this window open. Everything is already saved on this device; what you see here is the copy going to the cloud.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3 text-sm" data-testid="restore-summary">
+              <p><b>{restoring.outcome.ok.toLocaleString()}</b> records are in the cloud{restoring.outcome.failed ? <>, <b>{restoring.outcome.failed.toLocaleString()}</b> could not be uploaded yet</> : null}.</p>
+              {(restoring.outcome.failed > 0 || restoring.outcome.error) && (
+                <>
+                  <p className="text-muted-foreground">
+                    They are safe on this device and are queued: the app retries them by itself, and Sync shows what is still waiting.
+                  </p>
+                  {restoring.outcome.failedRows.slice(0, 4).map(f => (
+                    <p key={`${f.col}:${f.id}`} className="truncate rounded-md bg-muted px-2 py-1 text-xs"><b>{f.col}</b> · {f.error}</p>
+                  ))}
+                  {restoring.outcome.error && <p className="text-xs text-destructive">{restoring.outcome.error}</p>}
+                </>
+              )}
+            </div>
+          )}
+          {restoring?.outcome && (
+            <DialogFooter>
+              <Button onClick={() => window.location.reload()}>Reload now</Button>
+            </DialogFooter>
+          )}
         </DialogContent>
       </Dialog>
 

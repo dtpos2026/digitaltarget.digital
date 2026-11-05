@@ -159,11 +159,19 @@ async function persistNow(): Promise<void> {
 }
 
 /** Debounced persistence — batches rapid enqueues into one disk write. */
+/**
+ * v1.103.0 — a write-through that is already waiting its turn will read the WHOLE queue when it runs, so it covers every op enqueued
+ * before it starts. Chaining one more write per enqueue rewrote the entire queue for each op — re-queueing N bills after a restore or a
+ * long offline spell was N full rewrites of an N-row queue (quadratic), which is what froze the screen. Now at most one is waiting.
+ */
+let criticalWriteWaiting = false;
 function schedulePersist(critical = false): void {
   if (critical) {
+    if (criticalWriteWaiting) return;               // the waiting write will include this op
+    criticalWriteWaiting = true;
     // Serialize behind any in-flight write so the file never interleaves.
     const prev = persistInFlight ?? Promise.resolve();
-    persistInFlight = prev.then(persistNow).finally(() => { persistInFlight = null; });
+    persistInFlight = prev.then(() => { criticalWriteWaiting = false; return persistNow(); }).finally(() => { persistInFlight = null; });
     return;
   }
   if (persistTimer) return;
@@ -394,6 +402,16 @@ export async function discardDeferredOpsFor(
 type Flusher = (col: string, id: string, op: 'set' | 'delete') => Promise<void>;
 let _flusher: Flusher | null = null;
 let _flushing = false;
+/**
+ * v1.103.0 — a restore uploads every record itself; the queue must not upload the same rows at the same time.
+ * Returns the function that lifts the hold. Holds nest.
+ */
+let _flushHolds = 0;
+export function holdDeferredFlush(): () => void {
+  _flushHolds++;
+  let released = false;
+  return () => { if (!released) { released = true; _flushHolds = Math.max(0, _flushHolds - 1); } };
+}
 
 export function registerDeferredFlusher(fn: Flusher): void { _flusher = fn; }
 
@@ -461,7 +479,7 @@ export async function flushDeferredOps(): Promise<{
   flushed: number; remaining: number; skipped: boolean; error?: string; deadLettered?: number;
 }> {
   await ensureLoaded();
-  if (_flushing || !_flusher) return { flushed: 0, remaining: deferredPendingCount(), skipped: true };
+  if (_flushing || !_flusher || _flushHolds > 0) return { flushed: 0, remaining: deferredPendingCount(), skipped: true };
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
     return { flushed: 0, remaining: deferredPendingCount(), skipped: true };
   }

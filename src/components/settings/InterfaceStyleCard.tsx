@@ -27,24 +27,13 @@ import { getCustomThemeDefs } from '@/lib/customTheme';
 import { isCustomTheme } from '@/lib/uiThemes';
 import { isPremiumThemeAllowed } from '@/lib/premiumTheme';
 import { onDataChange } from '@/lib/store';
+import { REFINED_SCHEMES, applyRefinedScheme, type RefinedScheme } from '@/lib/refinedSchemes';
 
 export { ThemePreview };
 
 type Choice = 'refined' | UiStyle;
 
-/** DT Refined colour schemes (v1.96.0): a page colour and an accent, chosen together. No accent = the design package's own purple. */
-interface RefinedScheme { id: string; name: string; blurb: string; surface: RefinedSurface; accent: string | null }
-export const REFINED_SCHEMES: RefinedScheme[] = [
-  { id: 'dt-purple', name: 'DT Purple', blurb: 'The design package as drawn: lavender page, DT purple.', surface: 'lavender', accent: null },
-  { id: 'ocean', name: 'Ocean', blurb: 'Pale blue-grey page, deep blue actions.', surface: 'cool', accent: '#0369a1' },
-  { id: 'emerald', name: 'Emerald', blurb: 'Clean grey page, fresh green actions.', surface: 'white', accent: '#047857' },
-  { id: 'sunset', name: 'Sunset', blurb: 'Warm cream page, burnt-orange actions.', surface: 'warm', accent: '#c2410c' },
-  { id: 'rose', name: 'Rose', blurb: 'Clean grey page, crimson actions.', surface: 'white', accent: '#be123c' },
-  { id: 'graphite', name: 'Graphite', blurb: 'Neutral and quiet: grey page, slate actions.', surface: 'white', accent: '#334155' },
-  { id: 'berry', name: 'Berry', blurb: 'Soft white page, raspberry-pink actions (the food-delivery look).', surface: 'white', accent: '#be185d' },
-  { id: 'sunrise', name: 'Sunrise', blurb: 'Warm cream page, bright orange actions (the bakery look).', surface: 'warm', accent: '#d9480f' },
-  { id: 'night', name: 'Night', blurb: 'Dark page and panels with a violet accent, for a dim shop.', surface: 'night', accent: '#8b5cf6' },
-];
+export { REFINED_SCHEMES };
 const STYLES: { id: Choice; name: string; blurb: string }[] = [
   { id: 'refined', name: 'DT Refined', blurb: 'The DT design package: white grouped sidebar, lavender page, DT purple, the new dashboard. Open to every restaurant. Recommended.' },
   { id: 'modern', name: 'Modern', blurb: 'Light, calm and quick to scan. Short menu with a “More” launcher. Thirteen themes, plus the seven DT Retail looks.' },
@@ -142,8 +131,7 @@ export default function InterfaceStyleCard() {
   const choice: Choice = style === 'modern' && isRefinedTheme(themeId) ? 'refined' : style;
   // A ready-made scheme sets the page colour and the accent together.
   const pickScheme = (sc: RefinedScheme) => {
-    setRefinedSurface(sc.surface);
-    if (sc.accent) setAccent(sc.accent); else clearAccent();
+    applyRefinedScheme(sc);
     setCustom('');
     toast.success(`${sc.name} colour scheme is on`);
   };
