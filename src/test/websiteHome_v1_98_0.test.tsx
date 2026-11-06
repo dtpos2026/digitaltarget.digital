@@ -137,7 +137,7 @@ describe('the building blocks', () => {
 describe('the page', () => {
   const page = read('src/pages/OnlineOrderPage.tsx');
   it('uses the new blocks, shows the hero and tiles only on the home view, and keeps its ordering rules', () => {
-    for (const c of ['<SiteHeader', '<HeroBanner', '<CategoryTiles', '<ItemCard', '<CartBar']) expect(page, c).toContain(c);
+    for (const c of ['<SiteHeader', '<HeroBanner', '<CategoryRail', '<ItemCard', '<CartBar']) expect(page, c).toContain(c);
     expect(page).toContain("const isHome = activeCat === 'all' && !search.trim();");
     expect(page).toMatch(/\{isHome && !dineIn && menuItems\.length > 0 && \(\s*<HeroBanner/);
     // the switch in the header only when both ways are offered (v1.95.0)

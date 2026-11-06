@@ -6,11 +6,12 @@ import { initStore, getUsers, setCurrentBranchId, getSettings } from '@/lib/stor
 import { getTenantId, getTenantName } from '@/lib/tenant';
 import { User } from '@/lib/types';
 const posLoader = () => import('@/pages/POSScreen');
-const tablesLoader = () => import('@/pages/TablesPage');
+// v1.111.0 — the Tables tab is the order taker's own screen too (no QR buttons, layout editor or floor settings of the software).
+const tablesLoader = () => import('@/components/otk/OrderTakerTables');
 // v1.92.0 — the Bills tab is the order taker's own screen; the cashier's Running Bills page stays the cashier's.
 const billsLoader = () => import('@/components/OrderTakerBills');
 const POSScreen = lazy(posLoader);
-const TablesPage = lazy(tablesLoader);
+const OrderTakerTables = lazy(tablesLoader);
 const OrderTakerBills = lazy(billsLoader);
 import AutoKotPrinter from '@/components/AutoKotPrinter';
 import AutoReadyTimer from '@/components/AutoReadyTimer';
@@ -330,7 +331,7 @@ export default function OrderTakerPortalPage() {
             <Routes>
               <Route path="/" element={<POSScreen />} />
               <Route path="/pos" element={<POSScreen />} />
-              <Route path="/tables" element={<TablesPage />} />
+              <Route path="/tables" element={<OrderTakerTables />} />
               <Route path="/bills" element={<OrderTakerBills />} />
               {/* v1.46.0 — the order taker's own profile: picture, name, phone,
                   and which restaurant this app belongs to. */}

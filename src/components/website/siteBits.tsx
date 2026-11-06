@@ -1,7 +1,8 @@
 // v1.98.0 — the customer website's building blocks (design package WEB-01): header, hero, category tiles, item card, cart bar.
 // Presentational only: the page keeps every rule (cart, branches, sign-in, ordering) and passes what to show.
-import type { ReactNode } from 'react';
-import { Beef, CakeSlice, CookingPot, CupSoda, Flame, Gift, Minus, Pizza, Plus, Salad, Sandwich, Search, ShoppingBag, Store, Utensils, ChevronDown, User, ClipboardList, LogIn } from 'lucide-react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Beef, CakeSlice, CookingPot, CupSoda, Flame, Gift, Minus, Pizza, Plus, Salad, Sandwich, Search, ShoppingBag, Store, Utensils, ChevronDown, User, ClipboardList, LogIn, LayoutGrid } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { TONES, type CategoryTile, type Hero, type TileIcon } from '@/lib/websiteHome';
 
@@ -20,7 +21,7 @@ export interface SiteHeaderProps {
   branchLabel?: string | null; onBranch?: () => void;
   fulfilment?: { value: 'delivery' | 'pickup'; onChange: (v: 'delivery' | 'pickup') => void } | null;
   search: string; onSearch: (v: string) => void;
-  signedIn: boolean; accountName?: string; ordersCount?: number; showOrders: boolean;
+  signedIn: boolean; accountName?: string; /** the customer's own picture, if they set one */ accountPhoto?: string | null; ordersCount?: number; showOrders: boolean;
   onProfile: () => void; onOrders: () => void; onLogin: () => void;
   cartCount: number; onCart: () => void;
 }
@@ -62,7 +63,7 @@ export function SiteHeader(p: SiteHeaderProps) {
           {p.signedIn ? (
             <>
               <button type="button" onClick={p.onProfile} title="My profile and saved addresses" className="inline-flex h-10 items-center gap-1.5 rounded-xl border bg-card px-3 text-sm font-semibold hover:bg-muted">
-                <User className="h-4 w-4" /><span className="hidden max-w-[7rem] truncate sm:inline">{p.accountName || 'Profile'}</span>
+                {p.accountPhoto ? <img src={p.accountPhoto} alt="" className="h-6 w-6 rounded-full object-cover" data-account-photo /> : <User className="h-4 w-4" />}<span className="hidden max-w-[7rem] truncate sm:inline">{p.accountName || 'Profile'}</span>
               </button>
               {p.showOrders && (
                 <button type="button" onClick={p.onOrders} className="inline-flex h-10 items-center gap-1.5 rounded-xl border bg-card px-3 text-sm font-semibold hover:bg-muted">
@@ -72,7 +73,7 @@ export function SiteHeader(p: SiteHeaderProps) {
               )}
             </>
           ) : (
-            <button type="button" onClick={p.onLogin} className="inline-flex h-10 items-center gap-1.5 rounded-xl border bg-card px-3 text-sm font-semibold hover:bg-muted">
+            <button type="button" onClick={p.onLogin} title="Sign in or create an account — keep your details and addresses, and get offers and discount codes" className="inline-flex h-10 items-center gap-1.5 rounded-xl border bg-card px-3 text-sm font-semibold hover:bg-muted">
               <LogIn className="h-4 w-4" /> <span className="hidden min-[380px]:inline">Sign in</span><span className="sr-only min-[380px]:hidden">Sign in</span>
             </button>
           )}
@@ -122,6 +123,87 @@ export function CategoryTiles({ tiles, onPick }: { tiles: CategoryTile[]; onPick
         </button>
       ))}
     </div>
+  );
+}
+
+// ------------------------------------------------------------------ category rail (v1.111.0)
+// One line under the hero, the way the software's POS shows its categories: a 4-box button that opens every category, "All", and
+// bordered chips — about 5 on a phone, 8 on a tablet and 12 on a computer. Anything beyond that is one tap away in the grid.
+// A category that is open but would not fit is brought into the line, so the person always sees where they are.
+export const RAIL_LIMITS = { phone: 5, tablet: 8, desktop: 12 } as const;
+
+export function useRailLimit(): number {
+  const read = () => {
+    try {
+      if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return RAIL_LIMITS.phone;
+      if (window.matchMedia('(min-width: 1024px)').matches) return RAIL_LIMITS.desktop;
+      if (window.matchMedia('(min-width: 640px)').matches) return RAIL_LIMITS.tablet;
+    } catch { /* the phone line is the safe one */ }
+    return RAIL_LIMITS.phone;
+  };
+  const [n, setN] = useState(read);
+  useEffect(() => {
+    const on = () => setN(read());
+    window.addEventListener('resize', on);
+    return () => window.removeEventListener('resize', on);
+  }, []);
+  return n;
+}
+
+/** Which chips the line shows: the first `limit` categories, with the open one swapped in when it is further down. */
+export function railChips(tiles: CategoryTile[], active: string, limit: number): CategoryTile[] {
+  const shown = tiles.slice(0, limit);
+  if (active === 'all' || shown.some(t => t.id === active)) return shown;
+  const open = tiles.find(t => t.id === active);
+  return open ? [...shown.slice(0, Math.max(0, limit - 1)), open] : shown;
+}
+
+export function CategoryRail({ tiles, active, onPick, totalItems }: { tiles: CategoryTile[]; active: string; onPick: (id: string) => void; totalItems: number }) {
+  const [open, setOpen] = useState(false);
+  const limit = useRailLimit();
+  const chips = railChips(tiles, active, limit);
+  const lineRef = useRef<HTMLDivElement>(null);
+  // the open category is brought to the middle of the line, so it is never hiding off the edge of a phone
+  useEffect(() => {
+    const line = lineRef.current;
+    const el = line?.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (!line || !el) return;
+    line.scrollTo?.({ left: Math.max(0, el.offsetLeft - line.clientWidth / 2 + el.offsetWidth / 2), behavior: 'smooth' });
+  }, [active, limit]);
+  const chip = (on: boolean) => cn(
+    'inline-flex h-9 shrink-0 items-center whitespace-nowrap rounded-full border-2 px-3.5 text-[13px] font-semibold transition-colors',
+    on ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-card text-foreground hover:border-primary/50',
+  );
+  const pick = (id: string) => { setOpen(false); onPick(id); };
+  return (
+    <section aria-label="Menu categories" id="site-categories" className="scroll-mt-[124px] md:scroll-mt-24" data-category-rail>
+      <div className="flex items-center gap-2">
+        <button type="button" onClick={() => setOpen(true)} aria-label="All categories" title="All categories" data-rail-grid
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-border bg-card text-foreground hover:border-primary/50">
+          <LayoutGrid className="h-4 w-4" aria-hidden />
+        </button>
+        <div ref={lineRef} role="tablist" aria-label="Categories" className="relative flex min-w-0 flex-1 gap-2 overflow-x-auto pos-scrollbar py-0.5" data-rail-line>
+          <button type="button" role="tab" aria-selected={active === 'all'} onClick={() => pick('all')} data-rail-chip="all" className={chip(active === 'all')}>All</button>
+          {chips.map(t => (
+            <button key={t.id} type="button" role="tab" aria-selected={active === t.id} onClick={() => pick(t.id)} data-rail-chip={t.id} className={chip(active === t.id)}>{t.name}</button>
+          ))}
+        </div>
+      </div>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="sm:max-w-3xl" data-testid="site-category-grid">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><LayoutGrid className="h-5 w-5 text-primary" /> All categories</DialogTitle>
+            <DialogDescription>Pick a category to see its items.</DialogDescription>
+          </DialogHeader>
+          <button type="button" onClick={() => pick('all')} data-rail-all
+            className={cn('flex w-full items-center justify-between rounded-xl border-2 px-4 py-3 text-left text-sm font-bold', active === 'all' ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-card hover:border-primary/50')}>
+            <span>Everything on the menu</span><span className="text-xs font-semibold text-muted-foreground">{totalItems} item{totalItems === 1 ? '' : 's'}</span>
+          </button>
+          <div className="max-h-[60vh] overflow-y-auto pr-1"><CategoryTiles tiles={tiles} onPick={pick} /></div>
+        </DialogContent>
+      </Dialog>
+    </section>
   );
 }
 

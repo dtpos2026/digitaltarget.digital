@@ -60,12 +60,13 @@ describe('the sign-in frame', () => {
 });
 
 describe('the start screen', () => {
-  it('purple, the mark with its crown, the name and the powered-by line', () => {
+  it('purple, the crown, the name and the powered-by line (the mark only small)', () => {
     render(<OwnerSplash />);
     const s = screen.getByRole('status', { name: 'Loading DT Owner' });
     expect(s).toHaveTextContent('DT Owner');
     expect(s).toHaveTextContent('Powered by Digital Target');
-    expect(s.querySelector('[data-owner-mark]')).toBeTruthy();
+    expect(s.querySelector('[data-app-splash-tile]')).toBeTruthy();
+    expect(s.hasAttribute('data-owner-splash')).toBe(true);
   });
 });
 

@@ -122,7 +122,8 @@ describe('the Bills tab', () => {
     // payment, discount and void are not offered here
     expect(within(sheet).queryByRole('button', { name: /pay|void|discount/i })).toBeNull();
     fireEvent.click(within(sheet).getByRole('button', { name: /Add items/ }));
-    expect(window.location.hash).toBe('#/?retrieve=a');
+    // v1.111.0: "Add items" stays inside the Order Taker app (it used to open the till's root route and so the full software)
+    expect(window.location.hash).toBe('#/order-taker/t?retrieve=a');
   });
 
   it('search, and the empty and no-number states', async () => {

@@ -34,7 +34,7 @@ import {
   type PublicStorefront,
 } from '@/lib/publicStorefront';
 import { getCachedStorefront, loadPublicStorefront } from '@/lib/storefrontClient';
-import { CartBar, CategoryTiles, HeroBanner, ItemCard, SiteHeader } from '@/components/website/siteBits';
+import { CartBar, CategoryRail, HeroBanner, ItemCard, SiteHeader } from '@/components/website/siteBits';
 import { categoryTiles, heroFor, iconFor, priceLabel, toneIndex } from '@/lib/websiteHome';
 
 const ACCOUNT_KEY = 'dt-online-account-v1';
@@ -1093,7 +1093,7 @@ export default function OnlineOrderPage() {
         branchLabel={currentBranch ? `${currentBranch.name}${currentBranch.city ? ' · ' + currentBranch.city : ''}` : null}
         fulfilment={!dineIn && fulfilOpts.delivery && fulfilOpts.pickup ? { value: fulfillment, onChange: setFulfillment } : null}
         search={search} onSearch={setSearch}
-        signedIn={!!account} accountName={account?.name} showOrders={featureOn(appConfig, 'history')} ordersCount={myOrders.length}
+        signedIn={!!account} accountName={account?.name} accountPhoto={profile?.photoUrl ?? null} showOrders={featureOn(appConfig, 'history')} ordersCount={myOrders.length}
         onProfile={() => setProfileOpen(true)} onOrders={() => setOrdersOpen(true)} onLogin={() => setLoginOpen(true)}
         cartCount={cart.reduce((n, c) => n + c.quantity, 0)} onCart={() => setCartOpen(true)}
       />
@@ -1110,17 +1110,16 @@ export default function OnlineOrderPage() {
             }}
           />
         )}
-        {isHome && tiles.length > 0 && (
-          <section aria-labelledby="site-categories">
-            <h2 id="site-categories" className="mb-3 text-lg font-extrabold">Categories</h2>
-            <CategoryTiles tiles={tiles} onPick={id => { setActiveCat(id); document.getElementById('site-menu')?.scrollIntoView({ behavior: 'smooth' }); }} />
-          </section>
-        )}
-        {!isHome && (
-          <div className="flex gap-1.5 overflow-x-auto pos-scrollbar pb-1" role="tablist" aria-label="Menu categories">
-            <CatChip active={false} onClick={() => { setActiveCat('all'); setSearch(''); }} label="← All" />
-            {tiles.map(t => <CatChip key={t.id} active={activeCat === t.id} onClick={() => setActiveCat(t.id)} label={`${t.name} (${t.count})`} />)}
-          </div>
+        {/* v1.111.0 — one line of categories under the hero (and under the header once a category is open): the 4-box button opens them all */}
+        {tiles.length > 0 && (
+          <CategoryRail
+            tiles={tiles} active={search.trim() ? '' : activeCat} totalItems={menuItems.length}
+            onPick={id => {
+              setSearch('');
+              setActiveCat(id);
+              document.getElementById('site-categories')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }}
+          />
         )}
         <h2 id="site-menu" className="text-lg font-extrabold">{isHome ? 'Menu' : (search.trim() ? `Results for “${search.trim()}”` : tiles.find(t => t.id === activeCat)?.name || 'Menu')}</h2>
         {visibleItems.length === 0 && loadFailed ? (
@@ -1921,22 +1920,5 @@ export default function OnlineOrderPage() {
         </DialogContent>
       </Dialog>
     </div>
-  );
-}
-
-function CatChip({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
-  // v1.98.0 — the rail sits on the page, no longer on a coloured header: it reads on light and dark pages.
-  return (
-    <button
-      type="button" role="tab" aria-selected={active}
-      onClick={onClick}
-      className={`shrink-0 h-9 px-4 rounded-full text-[13px] font-semibold whitespace-nowrap transition-colors border ${
-        active
-          ? 'bg-primary text-primary-foreground border-primary shadow-card'
-          : 'bg-card text-foreground border-border hover:bg-muted'
-      }`}
-    >
-      {label}
-    </button>
   );
 }

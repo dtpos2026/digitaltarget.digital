@@ -993,6 +993,17 @@ html[data-public-route] [data-boot-splash] { display: none; }
   .dt-splash-orb-b { animation: dtSplashFloat 11s ease-in-out infinite reverse; }
 }
 
+/* v1.111.0 — the phone apps' own start screen (components/AppSplash.tsx). Motion stops for reduced-motion. */
+@keyframes dtAppSplashPop { 0% { opacity: 0; transform: scale(0.6); } 70% { opacity: 1; transform: scale(1.06); } 100% { opacity: 1; transform: none; } }
+@keyframes dtAppSplashRise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes dtAppSplashStreak { 0% { transform: translateX(-110%); } 100% { transform: translateX(310%); } }
+@media (prefers-reduced-motion: no-preference) {
+  .dt-appsplash-tile { animation: dtAppSplashPop 0.5s cubic-bezier(0.2, 1.3, 0.4, 1) backwards; }
+  .dt-appsplash-name { animation: dtAppSplashRise 0.45s ease-out 0.25s backwards; }
+  .dt-appsplash-bar { animation: dtAppSplashRise 0.4s ease-out 0.4s backwards; }
+  .dt-appsplash-bar > span { animation: dtAppSplashStreak 1.2s ease-in-out infinite; }
+}
+
 @layer components {
   /* ============================================================
    * Premium Polish — opt-in surface finish. Only applied when

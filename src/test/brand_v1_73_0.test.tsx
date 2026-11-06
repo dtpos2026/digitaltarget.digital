@@ -123,10 +123,12 @@ describe('the artwork', () => {
       expect(s, a.id).not.toMatch(/<text|<image|font-family/);
     }
   });
-  it('the three phone apps carry their job in a white badge; the POS does not', () => {
+  it('the phone apps lead with their job as one big white symbol and keep the mark small beneath it; the POS is the mark alone (v1.111.0)', () => {
     for (const a of BRAND_APPS) {
       const s = svg(`branding/icons/${a.id}.svg`);
-      expect(/<circle cx="700" cy="700" r="225" fill="#ffffff"\/>/.test(s), a.id).toBe(!!a.glyph);
+      expect(/stroke="#ffffff" stroke-width="2\.1"/.test(s), a.id).toBe(!!a.glyph);
+      expect(/<circle cx="700" cy="700"/.test(s), a.id).toBe(false);          // the old corner badge is gone
+      expect((s.match(/<polygon/g) || []).length, a.id).toBe(4);              // the mark: always four triangles, once
     }
   });
   it('each role glyph differs from the others (the icons are told apart by shape, not only by colour)', () => {

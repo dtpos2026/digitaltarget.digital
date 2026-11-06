@@ -7,8 +7,8 @@
 // ============================================================
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
-  AlertTriangle, BarChart3, Bike, Boxes, Building2, ChefHat, ChevronRight, CircleCheck, Globe, IdCard, LayoutDashboard, LogOut, Phone, Plus,
-  Receipt, Settings, Smartphone, TrendingUp, Truck, Users, X,
+  AlertTriangle, BarChart3, Bike, Boxes, Building2, ChefHat, ChevronRight, CircleCheck, Globe, IdCard, LogOut, Phone, Plus,
+  Receipt, ShoppingBasket, Smartphone, TrendingUp, Truck, Users, X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from '@/lib/hash-router';
@@ -55,20 +55,21 @@ export function OwnerMore({ caps }: { caps: MoreCaps }) {
   const branchRows = caps.multiBranch ? [
     <Row key="cmp" icon={BarChart3} label="Compare branches" to={`${OWNER_BASE}/compare`} testId="own-more-compare" />,
     caps.can('inventory') && <Row key="tr" icon={Truck} label="Stock transfers" to={`${OWNER_BASE}/transfers`} testId="own-more-transfers" />,
-    caps.can('branch-management') && <Row key="bm" icon={Building2} label="Branch management (full)" to="/branch-management" />,
+    caps.can('branch-management') && <Row key="bm" icon={Building2} label="Branches" to={OWNER_BASE} testId="own-more-branches" />,
   ].filter(Boolean) : [];
   const money = [
     (caps.can('customers') || caps.can('credits')) && <Row key="c" icon={Users} label="Customers and credit" to={`${OWNER_BASE}/customers`} testId="own-more-customers" />,
     (caps.can('hr') || caps.can('users')) && <Row key="s" icon={IdCard} label="Staff" to={`${OWNER_BASE}/staff`} testId="own-more-staff" />,
     caps.can('financials') && <Row key="p" icon={TrendingUp} label="Profit" to={`${OWNER_BASE}/profit`} testId="own-more-profit" />,
     caps.can('accounts') && <Row key="e" icon={Receipt} label="Expenses" to={`${OWNER_BASE}/expenses`} testId="own-more-expenses" />,
-    caps.can('inventory') && <Row key="i" icon={Boxes} label="Inventory and low stock" to={`${OWNER_BASE}/stock`} testId="own-more-stock" />,
+    caps.can('inventory') && <Row key="i" icon={Boxes} label="Inventory" to={`${OWNER_BASE}/inventory`} testId="own-more-inventory" />,
+    caps.can('inventory') && <Row key="il" icon={AlertTriangle} label="Low stock" to={`${OWNER_BASE}/stock`} testId="own-more-stock" />,
+    (caps.can('receiving') || caps.can('inventory')) && <Row key="pu" icon={ShoppingBasket} label="Purchases" to={`${OWNER_BASE}/purchases`} testId="own-more-purchases" />,
+    (caps.can('parties') || caps.can('receiving') || caps.can('inventory')) && <Row key="su" icon={Truck} label="Suppliers" to={`${OWNER_BASE}/suppliers`} testId="own-more-suppliers" />,
   ].filter(Boolean);
   const admin = [
     caps.can('online-portal') && <Row key="w" icon={Globe} label="Website and app switches" to={`${OWNER_BASE}/switches`} testId="own-more-switches" />,
     caps.can('devices') && <Row key="v" icon={Smartphone} label="Devices" to={`${OWNER_BASE}/devices`} testId="own-more-devices" />,
-    caps.can('settings') && <Row key="t" icon={Settings} label="Settings" to="/settings" />,
-    <Row key="f" icon={LayoutDashboard} label="Open the full software" to="/dashboard" />,
   ].filter(Boolean);
 
   return (
@@ -126,7 +127,7 @@ export function OwnerStock() {
           </div>
         </>
       )}
-      <p className="px-1 pb-2 text-[12px] text-muted-foreground">The supplier is the one who last delivered the item (Receiving). Stock adjustments and purchasing stay in the full software.</p>
+      <p className="px-1 pb-2 text-[12px] text-muted-foreground">The supplier is the one who last delivered the item (Receiving). Count or write off stock under Inventory; record what arrived under Purchases.</p>
     </div>
   );
 }

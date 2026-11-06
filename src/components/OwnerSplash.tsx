@@ -5,33 +5,26 @@ import { Crown } from 'lucide-react';
 import DtMark from '@/components/DtMark';
 import { BRAND } from '@/lib/brand';
 import { APP_VERSION } from '@/lib/version';
+import { AppSplashArt } from '@/components/AppSplash';
 
-const PURPLE = 'linear-gradient(160deg, #3c096c 0%, #5b21b6 100%)';
+const PURPLE = 'linear-gradient(160deg, #6d28d9 0%, #5b21b6 55%, #3c096c 100%)';
 
-/** The mark on a rounded tile with the Owner crown at its corner. */
+/** v1.111.0 — the Owner's symbol (the crown) on a soft tile, with the Digital Target mark only SMALL at the corner. */
 export function OwnerMark({ size = 88 }: { size?: number }) {
   return (
-    <span data-owner-mark className="relative inline-flex shrink-0 items-center justify-center bg-white/15 text-white" style={{ width: size, height: size, borderRadius: size * 0.26 }}>
-      <DtMark size={Math.round(size * 0.56)} title={null} />
-      <span className="absolute -bottom-1.5 -right-1.5 grid place-items-center rounded-full bg-white text-[#5b21b6] shadow" style={{ width: size * 0.36, height: size * 0.36 }}>
-        <Crown style={{ width: size * 0.2, height: size * 0.2 }} />
+    <span data-owner-mark className="relative inline-flex shrink-0 items-center justify-center bg-white/15 text-white" style={{ width: size, height: size, borderRadius: size * 0.28 }}>
+      <Crown style={{ width: size * 0.56, height: size * 0.56 }} strokeWidth={2} aria-hidden />
+      <span className="absolute -bottom-1.5 -right-1.5 grid place-items-center rounded-full bg-white text-[#5b21b6] shadow" style={{ width: size * 0.3, height: size * 0.3 }}>
+        <DtMark size={Math.round(size * 0.17)} title={null} />
       </span>
     </span>
   );
 }
 
-/** OWN-01 — full-bleed purple while the saved session is read. No white flash, no spinner text. */
+/** OWN-01 — the Owner app's start screen while the saved session is read: the same picture as its native splash and its opening screen. */
 export default function OwnerSplash() {
   return (
-    <div data-owner-splash role="status" aria-label="Loading DT Owner" className="flex h-[100dvh] flex-col items-center justify-center gap-5 text-white" style={{ background: PURPLE }}>
-      <OwnerMark />
-      <div className="text-center">
-        <div className="text-[26px] font-extrabold tracking-tight">DT Owner</div>
-        <div className="mt-1 text-[13px] opacity-80">{BRAND.poweredBy}</div>
-      </div>
-      <div className="h-7 w-7 animate-spin rounded-full border-[3px] border-white/90 border-t-transparent" />
-      <div className="absolute bottom-6 text-[11px] opacity-60">v{APP_VERSION}</div>
-    </div>
+    <AppSplashArt app="owner" label="Loading DT Owner" attrs={{ 'data-owner-splash': '' }} />
   );
 }
 

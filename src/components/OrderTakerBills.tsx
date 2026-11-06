@@ -7,7 +7,7 @@
 // cashier and the manager.
 import { useEffect, useMemo, useState } from 'react';
 import { Check, ChefHat, Clock, FileText, Phone, Plus, Search } from 'lucide-react';
-import { useNavigate } from '@/lib/hash-router';
+import { useLocation, useNavigate } from '@/lib/hash-router';
 import { getOrders, getSettings, onDataChange, refreshOrdersFromCloud } from '@/lib/store';
 import { scopeOrders } from '@/lib/cashierScope';
 import { startVisiblePoll } from '@/lib/visiblePoll';
@@ -20,6 +20,8 @@ const TONE: Record<BillState, StageTone> = { new: 'info', cooking: 'warn', ready
 
 export default function OrderTakerBills() {
   const navigate = useNavigate();
+  // v1.111.0 — stay inside the Order Taker app: "Take an order" and "Add to this bill" go to the app's own order screen, never to the till's "/".
+  const base = (useLocation().pathname.match(/^\/order-taker(\/[^/]+)?/) || ['/order-taker'])[0];
   const [orders, setOrders] = useState(() => scopeOrders(getOrders()));
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
@@ -53,7 +55,7 @@ export default function OrderTakerBills() {
       {loading && rows.length === 0 ? (
         <div className="space-y-2" aria-label="Loading">{[0, 1, 2].map(i => <Skeleton key={i} className="h-[72px] w-full" />)}</div>
       ) : rows.length === 0 ? (
-        <EmptyState icon={FileText} title={q ? 'No bill matches' : 'No open bills'} action={!q ? <RButton variant="primary" onClick={() => navigate('/')}>Take an order</RButton> : undefined}>
+        <EmptyState icon={FileText} title={q ? 'No bill matches' : 'No open bills'} action={!q ? <RButton variant="primary" onClick={() => navigate(base)}>Take an order</RButton> : undefined}>
           {q ? 'Try another table or number.' : 'Bills you take appear here until the cashier closes them.'}
         </EmptyState>
       ) : (
@@ -74,7 +76,7 @@ export default function OrderTakerBills() {
           ))}
         </div>
       )}
-      <BillSheet row={shown} phone={phone} onClose={() => setOpen(null)} onAdd={(r: BillRow) => navigate('/?retrieve=' + r.id)} />
+      <BillSheet row={shown} phone={phone} onClose={() => setOpen(null)} onAdd={(r: BillRow) => navigate(`${base}?retrieve=${r.id}`)} />
     </div>
   );
 }

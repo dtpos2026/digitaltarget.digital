@@ -18,6 +18,7 @@ import {
 } from '@/lib/store';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import OrderTakerReview from '@/components/pos/OrderTakerReview';
+import OrderTakerCart from '@/components/pos/OrderTakerCart';
 import { publishLiveBill, toLiveBill } from '@/lib/liveBill';
 import { serviceChargeLabel } from '@/lib/serviceCharge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -1771,7 +1772,8 @@ export default function POSScreen() {
       {/* Mobile floating Cart button */}
       <button
         onClick={() => setMobileCartOpen(true)}
-        className="md:hidden fixed bottom-4 right-4 z-40 bg-primary text-primary-foreground rounded-full shadow-elegant px-4 py-3 flex items-center gap-2 font-bold text-sm"
+        data-otk-cart-button={isOrderTaker ? '' : undefined}
+        className={`${isOrderTaker ? '' : 'md:hidden'} fixed bottom-4 right-4 z-40 bg-primary text-primary-foreground rounded-full shadow-elegant px-4 py-3 flex items-center gap-2 font-bold text-sm`}
       >
         <ShoppingCart className="h-4 w-4" />
         Cart
@@ -1781,12 +1783,12 @@ export default function POSScreen() {
       </button>
 
       {/* Mobile cart backdrop */}
-      {mobileCartOpen && (
+      {mobileCartOpen && !isOrderTaker && (
         <div className="md:hidden fixed inset-0 z-40 bg-black/40" onClick={() => setMobileCartOpen(false)} />
       )}
 
       {/* RIGHT: Cart + Calculator + Payment Panel */}
-      <div className={`${mobileCartOpen ? 'fixed inset-y-0 right-0 w-[88%] max-w-[380px] z-50 flex' : 'hidden'} md:relative md:flex ${modern ? '' : 'md:w-[clamp(280px,26vw,460px)]'} bg-pos-cart border-l flex-col shrink-0 shadow-lg min-h-0 overflow-hidden`}
+      <div className={`${isOrderTaker ? 'hidden' : `${mobileCartOpen ? 'fixed inset-y-0 right-0 w-[88%] max-w-[380px] z-50 flex' : 'hidden'} md:relative md:flex`} ${modern ? '' : 'md:w-[clamp(280px,26vw,460px)]'} bg-pos-cart border-l flex-col shrink-0 shadow-lg min-h-0 overflow-hidden`}
         data-pos-cart
         data-short={layout.short ? 'true' : undefined}
         style={modern && layout.cartPlacement === 'side' ? { width: layout.cartWidth } : undefined}
@@ -2866,6 +2868,21 @@ export default function POSScreen() {
         </DialogContent>
       </Dialog>
       {managerGateDialog}
+      {isOrderTaker && (
+        <OrderTakerCart
+          open={mobileCartOpen} onClose={() => setMobileCartOpen(false)} lines={cart} subtotal={subtotal} total={grandTotal} editing={!!editingOrderId}
+          where={orderType === 'dining' ? (tableObjName() ? `Table ${tableObjName()}` : 'Dine-in') : orderType === 'delivery' ? 'Delivery' : 'Takeaway'}
+          orderType={orderType} onOrderType={handleOrderTypeChange} typeLocked={!!editingOrderId}
+          types={orderTypes.filter(t => t.value !== 'foodpanda').map(t => ({ value: t.value, label: t.value === 'dining' ? 'Dine-in' : t.label }))}
+          onQty={updateQty} onRemove={removeItem}
+          onLineNote={(id, note) => setCart(prev => prev.map(l => (l.id === id ? { ...l, note } : l)))}
+          custName={custName} custPhone={custPhone} custAddress={custAddress}
+          onCustName={setCustName} onCustPhone={setCustPhone} onCustAddress={setCustAddress}
+          note={specialNote} onNote={setSpecialNote}
+          onClear={() => { clearCart(); setMobileCartOpen(false); }}
+          onSend={() => { if (cart.length === 0) { toast.error('Cart is empty'); return; } setMobileCartOpen(false); processOrder('running'); }}
+        />
+      )}
       {isOrderTaker && (
         <OrderTakerReview
           open={reviewOpen} onClose={() => setReviewOpen(false)} lines={cart} total={grandTotal} editing={!!editingOrderId}

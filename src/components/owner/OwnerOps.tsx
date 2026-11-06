@@ -372,7 +372,7 @@ export function OwnerStaff() {
           ))}
         </Card>
       )}
-      <p className="px-1 text-[12px] text-muted-foreground">Salaries and payroll are not shown on the phone. Adding staff and changing roles stay in the full software.</p>
+      <p className="px-1 text-[12px] text-muted-foreground">Salaries and payroll are not shown on the phone. Staff accounts and roles are managed by the restaurant's administrator.</p>
     </div>
   );
 }
@@ -398,7 +398,7 @@ export function OwnerProfile({ userName, role, onLogout, dark, onDark }: { userN
         </button>
       </Card>
       <button type="button" onClick={onLogout} className="w-full rounded-2xl border bg-card py-3.5 text-[15px] font-semibold text-[hsl(var(--own-bad))]">Sign out</button>
-      <p className="px-1 text-[12px] text-muted-foreground">Changing your password stays in the full software (Users &amp; Access).</p>
+      <p className="px-1 text-[12px] text-muted-foreground">To change your password, ask the restaurant's administrator or use “Forgot password” on the sign-in screen.</p>
     </div>
   );
 }

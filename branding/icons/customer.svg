@@ -22,7 +22,6 @@
   <rect width="1024" height="1024" rx="232" fill="url(#glow)"/>
   <rect x="3" y="3" width="1018" height="1018" rx="229" fill="none" stroke="#ffffff" stroke-opacity="0.10" stroke-width="6"/>
   <!-- The Digital Target mark: four right-angled triangles, right angle at each cell's top-right. -->
-  <g filter="url(#lift)" fill="url(#mark)"><polygon points="130.0,130.0 305.0,130.0 305.0,305.0"/><polygon points="305.0,130.0 480.0,130.0 480.0,305.0"/><polygon points="130.0,305.0 305.0,305.0 305.0,480.0"/><polygon points="305.0,305.0 480.0,305.0 480.0,480.0"/></g>
-  <g filter="url(#lift)"><circle cx="700" cy="700" r="225" fill="#ffffff"/></g>
-  <g transform="translate(545 545) scale(12.916666666666666)" fill="none" stroke="#b91c1c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 10a4 4 0 0 1-8 0"></path><path d="M3.103 6.034h17.794"></path><path d="M3.4 5.467a2 2 0 0 0-.4 1.2V20a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6.667a2 2 0 0 0-.4-1.2l-2-2.667A2 2 0 0 0 17 2H7a2 2 0 0 0-1.6.8z"></path></g>
+  <g filter="url(#lift)"><g transform="translate(277 217) scale(19.583333333333332)" fill="none" stroke="#ffffff" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M16 10a4 4 0 0 1-8 0"></path><path d="M3.103 6.034h17.794"></path><path d="M3.4 5.467a2 2 0 0 0-.4 1.2V20a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6.667a2 2 0 0 0-.4-1.2l-2-2.667A2 2 0 0 0 17 2H7a2 2 0 0 0-1.6.8z"></path></g></g>
+  <g fill="#ffffff" opacity="0.92"><polygon points="456.0,748.0 512.0,748.0 512.0,804.0"/><polygon points="512.0,748.0 568.0,748.0 568.0,804.0"/><polygon points="456.0,804.0 512.0,804.0 512.0,860.0"/><polygon points="512.0,804.0 568.0,804.0 568.0,860.0"/></g>
 </svg>

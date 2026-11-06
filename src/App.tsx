@@ -113,7 +113,8 @@ import { isCloudConfigured } from '@/lib/cloudMode';
 import { isFirebaseConfigured, fbAuth } from '@/lib/firebase';
 import { getTenantId, clearTenant } from '@/lib/tenant';
 import { isPublicTenantRoute, applyPublicTenantFromUrl, packagedTenantId, parsePublicTenantId, looksLikeSlug, cachedSlugTenant, resolveSlugTenant } from '@/lib/publicTenant';
-import { applyAppEntry, isOwnerAppRoute, displayWindowHash } from '@/lib/appEntry';
+import { applyAppEntry, isOwnerAppRoute, displayWindowHash, appSplashKind } from '@/lib/appEntry';
+import AppSplash, { AppSplashArt } from '@/components/AppSplash';
 import { installScreenProfile } from '@/lib/screenProfile';
 import { applyPendingErasures } from '@/lib/privacyErasures';
 import { onDataChange } from '@/lib/store';
@@ -278,6 +279,12 @@ const App = () => {
     toast.warning(`Low stock: ${names}${more}`, { duration: 8000 });
   }), []);
   const [showSplash, setShowSplash] = useState(() => !sessionStorage.getItem('pos-splash-seen'));
+  // v1.111.0 — the Owner, Rider and Order Taker apps open on their OWN start screen, once per start; the software's splash is never shown in them.
+  const appKind = appSplashKind();
+  const [appSplashDone, setAppSplashDone] = useState(() => {
+    if (!appKind) return true;
+    try { return !!sessionStorage.getItem('dt-app-splash-seen'); } catch { return false; }
+  });
   // The page was painted in the restaurant's colour until now (see lib/bootTheme); the app draws its own from here on.
   useEffect(() => { releaseBootBackground(); }, []);
   const [hashTick, setHashTick] = useState(0);
@@ -630,7 +637,10 @@ const App = () => {
     try { await forceLogoutAndWipe(); } catch {}
   };
 
-  if (showSplash && !isPublicOrderRoute) {
+  if (appKind && !appSplashDone) {
+    return <AppSplash app={appKind} onDone={() => { try { sessionStorage.setItem('dt-app-splash-seen', '1'); } catch { /* private mode */ } setAppSplashDone(true); }} />;
+  }
+  if (showSplash && !isPublicOrderRoute && !appKind) {
     return <SplashScreen onDone={handleSplashDone} />;
   }
 
@@ -640,14 +650,14 @@ const App = () => {
     // v1.56.1 — hold the route until the link's restaurant is known. Only a
     // first-ever visit to a named link waits here; everything else is already
     // resolved by the time this runs.
-    if (!slugResolved) return <PageFallback />;
+    if (!slugResolved) return appKind ? <AppSplashArt app={appKind} /> : <PageFallback />;
     return (
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <Toaster />
           <Sonner />
           <HashRouter>
-            <Suspense fallback={<PageFallback />}>
+            <Suspense fallback={appKind ? <AppSplashArt app={appKind} bar={false} /> : <PageFallback />}>
               <Routes>
                 {/* v1.20.1 — where the emailed reset link lands. Must be
                     reachable WITHOUT a session: the whole point is that the

@@ -14,6 +14,9 @@ export const DEFAULT_BOOT_PRIMARY = '273 89% 23%';
 
 export interface BootColors { p: string; f: string }
 
+/** v1.111.0 — the phone apps paint their own colour from the first frame (the same colour as their native splash), never the restaurant's. */
+export const APP_BOOT_COLORS = { owner: '#5b21b6', rider: '#c2410c', 'order-taker': '#0f766e' } as const;
+
 /** What applyTheme saves: the `--primary` and `--primary-foreground` values of the theme being applied. */
 export function saveBootColors(primary: string | undefined, foreground: string | undefined): void {
   if (!primary || !foreground) return;
@@ -27,12 +30,16 @@ export function releaseBootBackground(): void {
 
 /**
  * Runs in <head>, before first paint; never throws.
+ *  - In a phone app (the packaged apps say `?app=owner|rider|order-taker`; the Owner app's route is #/owner-app) the page is painted
+ *    in that app's colour and marked data-app, so neither the POS's colour nor its boot screen ever shows inside an app.
  *  - On a public route (customer site, portals) it marks the page and does nothing else: those paint their own colours.
  *  - Otherwise the page itself is painted in the restaurant's colour (the saved one, or the default purple), so no white
  *    frame comes before the splash — in the browser, and in the Windows window's first paint.
  */
 export const BOOT_THEME_SCRIPT =
-  `(function(){var d=document.documentElement,s=d.style,h=location.hash||'',P=${JSON.stringify(PUBLIC_PREFIXES)};` +
+  `(function(){var d=document.documentElement,s=d.style,h=location.hash||'',P=${JSON.stringify(PUBLIC_PREFIXES)},C=${JSON.stringify(APP_BOOT_COLORS)};` +
+  `var m=/[?&]app=(owner|rider|order-taker)(?:&|$)/.exec(location.search||'');` +
+  `if(m||/^#\\/owner-app(?:[\\/?]|$)/.test(h)){var a=m?m[1]:'owner';d.setAttribute('data-public-route','');d.setAttribute('data-app',a);s.backgroundColor=C[a];return;}` +
   `for(var i=0;i<P.length;i++){if(h.indexOf(P[i])===0){d.setAttribute('data-public-route','');return;}}` +
   `var p='${DEFAULT_BOOT_PRIMARY}';` +
   `try{var c=JSON.parse(localStorage.getItem('${BOOT_COLORS_KEY}')||'null');` +

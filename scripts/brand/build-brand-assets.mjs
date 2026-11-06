@@ -43,20 +43,20 @@ const glyphInner = (name, color) => {
   return svg.slice(svg.indexOf('>') + 1, svg.lastIndexOf('</svg>'));
 };
 
-// Role apps: the mark moves to the upper left and shrinks, and the app's job sits in a white badge at the lower right.
-// (Centre 700, radius 225 keeps the badge inside the circle of the round launcher icon too.)
-const MARK = { origin: 130, cell: 175 };
-const BADGE = { cx: 700, cy: 700, r: 225, glyph: 310 };
-const roleMarkPoints = () => MARK_TRIANGLES.map(t => t.split(' ').map(p => p.split(',').map(Number).map(v => (MARK.origin + v * MARK.cell).toFixed(1)).join(',')).join(' '));
+// Role apps (v1.111.0): ONE big white symbol for the app's job in the middle, and the Digital Target mark small beneath it as a
+// signature. (Before, the mark sat large in the corner and a small badge held the job, so at launcher size neither read.)
+// The whole composition is centred on the canvas so the adaptive icon's 61 % safe zone and the round icon both keep all of it.
+const HERO = { cx: 512, cy: 452, glyph: 470, stroke: 2.1 };           // glyph box in 1024 units; stroke is in the glyph's own 24-unit grid
+const SIGN = { cx: 512, top: 748, size: 112 };                         // the small mark under the symbol
+const signPoints = () => MARK_TRIANGLES.map(t => t.split(' ').map(p => p.split(',').map(Number).map((v, i) => ((i === 0 ? SIGN.cx - SIGN.size / 2 : SIGN.top) + v * (SIGN.size / 2)).toFixed(1)).join(',')).join(' '));
 function roleGroup(app, { shadow, fill }) {
   const f = shadow ? ' filter="url(#lift)"' : '';
-  const glyph = glyphInner(app.glyph, app.accent.mid);
-  const k = BADGE.glyph / 24;
-  return `<g${f} fill="${fill}">${roleMarkPoints().map(p => `<polygon points="${p}"/>`).join('')}</g>
-  <g${f}><circle cx="${BADGE.cx}" cy="${BADGE.cy}" r="${BADGE.r}" fill="#ffffff"/></g>
-  <g transform="translate(${BADGE.cx - BADGE.glyph / 2} ${BADGE.cy - BADGE.glyph / 2}) scale(${k})" fill="none" stroke="${app.accent.mid}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${glyph}</g>`;
+  const glyph = glyphInner(app.glyph, '#ffffff');
+  const k = HERO.glyph / 24;
+  return `<g${f}><g transform="translate(${HERO.cx - HERO.glyph / 2} ${HERO.cy - HERO.glyph / 2}) scale(${k})" fill="none" stroke="${fill}" stroke-width="${HERO.stroke}" stroke-linecap="round" stroke-linejoin="round">${glyph}</g></g>
+  <g fill="${fill}" opacity="0.92">${signPoints().map(p => `<polygon points="${p}"/>`).join('')}</g>`;
 }
-const iconSvg = (app) => app.glyph ? baseSvg(app).replace(MARK_GROUP, () => roleGroup(app, { shadow: true, fill: 'url(#mark)' })) : baseSvg(app);
+const iconSvg = (app) => app.glyph ? baseSvg(app).replace(MARK_GROUP, () => roleGroup(app, { shadow: true, fill: '#ffffff' })) : baseSvg(app);
 const squareSvg = (app) => iconSvg(app).replace(/rx="23[0-9]"|rx="229"/g, 'rx="0"');
 const roundSvg = (app) => iconSvg(app).replace(/rx="232"/, 'rx="512"').replace(/rx="229"/, 'rx="509"');
 
@@ -64,9 +64,10 @@ const roundSvg = (app) => iconSvg(app).replace(/rx="232"/, 'rx="512"').replace(/
 function foregroundSvg(app) {
   const defs = `<defs><linearGradient id="m" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="${app.accent.tint}"/></linearGradient></defs>`;
   if (app.glyph) {
-    const mid = MARK.origin + MARK.cell, ext = (MARK.origin + (BADGE.cx + BADGE.r)) / 2;   // centre of the composition's bounding box
+    // bounding box of the composition: symbol on top, small mark below → centre it and scale it into the safe zone
+    const top = HERO.cy - HERO.glyph / 2, bottom = SIGN.top + SIGN.size, midY = (top + bottom) / 2;
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${G.size} ${G.size}" width="${G.size}" height="${G.size}">${defs}
-  <g transform="translate(512 512) scale(0.66) translate(${-ext} ${-ext})">${roleGroup(app, { shadow: false, fill: 'url(#m)' })}</g></svg>`;
+  <g transform="translate(512 512) scale(0.92) translate(-512 ${-midY})">${roleGroup(app, { shadow: false, fill: '#ffffff' })}</g></svg>`;
   }
   const side = G.size * G.adaptiveMarkRatio, o = (G.size - side) / 2, c = side / 2;
   const pts = MARK_TRIANGLES.map(t => t.split(' ').map(p => p.split(',').map((v) => (o + Number(v) * c).toFixed(1)).join(',')).join(' '));
@@ -87,14 +88,22 @@ async function shotHtml(html, w, h, transparent = true) {
 const png = (svg, s) => shotHtml(`<img src="data:image/svg+xml;base64,${b64(svg)}" width="${s}" height="${s}" style="display:block">`, s, s);
 
 function splashHtml(app, w, h) {
+  // v1.111.0 — the same artwork the app draws itself while it opens (components/AppSplash.tsx), so the hand-over from Android's own
+  // splash to the app's is one picture: the app's colour, its symbol on a soft tile, its name, and the small mark at the bottom.
   const m = Math.min(w, h), a = app.accent;
-  const mark = `<svg width="${m * 0.26}" height="${m * 0.26}" viewBox="0 0 2 2" fill="#fff">${MARK_TRIANGLES.map(p => `<polygon points="${p}"/>`).join('')}</svg>`;
+  const glyph = app.glyph ? glyphInner(app.glyph, '#ffffff') : '';
+  const tile = m * 0.34;
+  const hero = app.glyph
+    ? `<div style="width:${tile}px;height:${tile}px;border-radius:${tile * 0.28}px;background:rgba(255,255,255,0.16);display:flex;align-items:center;justify-content:center;box-shadow:0 ${m * 0.012}px ${m * 0.04}px rgba(0,0,0,0.22), inset 0 0 0 ${Math.max(1, m * 0.004)}px rgba(255,255,255,0.18)">
+         <svg width="${tile * 0.62}" height="${tile * 0.62}" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${glyph}</svg></div>`
+    : `<svg width="${m * 0.26}" height="${m * 0.26}" viewBox="0 0 2 2" fill="#fff">${MARK_TRIANGLES.map(p => `<polygon points="${p}"/>`).join('')}</svg>`;
+  const small = `<svg width="${m * 0.045}" height="${m * 0.045}" viewBox="0 0 2 2" fill="#fff">${MARK_TRIANGLES.map(p => `<polygon points="${p}"/>`).join('')}</svg>`;
   return `<div style="width:${w}px;height:${h}px;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;
-    background:${a.mid};
+    background:linear-gradient(160deg, ${a.light} 0%, ${a.mid} 55%, ${a.dark} 100%);
     font-family:Inter,system-ui,sans-serif;color:#fff">
-    ${mark}
-    <div style="margin-top:${m * 0.05}px;font-size:${m * 0.072}px;font-weight:600;letter-spacing:${m * 0.002}px">${app.label}</div>
-    <div style="position:absolute;bottom:${m * 0.06}px;font-size:${m * 0.034}px;font-weight:500">${BRAND.poweredBy}</div></div>`;
+    ${hero}
+    <div style="margin-top:${m * 0.055}px;font-size:${m * 0.072}px;font-weight:700;letter-spacing:${m * 0.001}px">${app.label}</div>
+    <div style="position:absolute;bottom:${m * 0.06}px;display:flex;align-items:center;gap:${m * 0.016}px;font-size:${m * 0.032}px;font-weight:500;opacity:0.9">${small}${BRAND.poweredBy}</div></div>`;
 }
 
 const files = [];

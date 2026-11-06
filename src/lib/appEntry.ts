@@ -133,3 +133,18 @@ export function displayWindowHash(hash?: string): boolean {
   const h = hash ?? (typeof window !== 'undefined' ? window.location.hash : '');
   return /^#?\/customer-display(\/|$|\?)/.test(h);
 }
+
+/**
+ * v1.111.0 — which of the three phone apps is this load, for the app's own start screen. The packaged app says so with `?app=`
+ * (the one marker that survives a restored WebView); a browser visit to the app's route counts too. null for the website and the till.
+ */
+export type AppSplashKind = 'owner' | 'rider' | 'order-taker';
+export function appSplashKind(hash?: string, search?: string): AppSplashKind | null {
+  const q = portalAppFromQuery(search);
+  if (q === 'owner' || q === 'rider' || q === 'order-taker') return q;
+  const h = hash ?? (typeof window !== 'undefined' ? window.location.hash : '');
+  if (/^#?\/owner-app(\/|$|\?)/.test(h)) return 'owner';
+  if (/^#?\/rider-portal(\/|$|\?)/.test(h)) return 'rider';
+  if (/^#?\/order-taker(\/|$|\?)/.test(h)) return 'order-taker';
+  return null;
+}

@@ -24,7 +24,8 @@ vi.mock('@/lib/deferredSync', async (orig) => ({
   requeueDeadLetter: (id: string) => { dead.count = Math.max(0, dead.count - 1); return dead.requeue(id); },
 }));
 vi.mock('@/pages/POSScreen', () => ({ default: () => <div data-testid="pos-screen">POS screen</div> }));
-vi.mock('@/pages/TablesPage', () => ({ default: () => <div data-testid="tables-screen">Tables screen</div> }));
+// v1.111.0 — the Tables tab is the order taker's own screen (components/otk/OrderTakerTables); the cashier's TablesPage is not used here.
+vi.mock('@/components/otk/OrderTakerTables', () => ({ default: () => <div data-testid="tables-screen">Tables screen</div> }));
 // v1.92.0 — the Bills tab is the order taker's own screen now (components/OrderTakerBills); the cashier's page is not used here.
 vi.mock('@/components/OrderTakerBills', () => ({ default: () => <div data-testid="bills-screen">Bills screen</div> }));
 vi.mock('@/components/AutoKotPrinter', () => ({ default: () => <div data-testid="kot-printer" /> }));

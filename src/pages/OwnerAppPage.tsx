@@ -9,17 +9,17 @@
 // The DT Android "Owner" app opens this route (capacitor.owner.config.json).
 // ============================================================
 import { useEffect, useMemo, useState, type ReactElement } from 'react';
-import { BarChart3, LayoutGrid, Menu as MenuIcon, ReceiptText, UtensilsCrossed } from 'lucide-react';
+import { BarChart3, Crown, LayoutGrid, Menu as MenuIcon, ReceiptText, UtensilsCrossed } from 'lucide-react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from '@/lib/hash-router';
 import { ownerAppAccess } from '@/lib/ownerAccess';
 import { cn } from '@/lib/utils';
-import DtMark from '@/components/DtMark';
 import { OWNER_BASE } from '@/components/owner/ownerHooks';
 import { OwnerBranch, OwnerOverview } from '@/components/owner/OwnerOverview';
 import { OwnerOrderDetail, OwnerOrders } from '@/components/owner/OwnerOrders';
 import { OwnerReports } from '@/components/owner/OwnerReports';
 import { OwnerMenu } from '@/components/owner/OwnerMenu';
 import { OwnerExpenses, OwnerMore, OwnerStock } from '@/components/owner/OwnerMore';
+import { OwnerInventory, OwnerPurchases, OwnerSuppliers } from '@/components/owner/OwnerPurchasing';
 import { OwnerCompare, OwnerTransfers } from '@/components/owner/OwnerBranches';
 import { OwnerApprovals, OwnerCustomers, OwnerDelivery, OwnerKitchen, OwnerProfile, OwnerStaff } from '@/components/owner/OwnerOps';
 import { OwnerDevices, OwnerProfit, OwnerSwitches } from '@/components/owner/OwnerAdmin';
@@ -32,7 +32,7 @@ const TABS = [
   { key: 'orders', label: 'Orders', icon: ReceiptText, to: `${OWNER_BASE}/orders`, match: (p: string) => p.startsWith(`${OWNER_BASE}/orders`) },
   { key: 'menu', label: 'Menu', icon: UtensilsCrossed, to: `${OWNER_BASE}/menu`, match: (p: string) => p.startsWith(`${OWNER_BASE}/menu`) },
   { key: 'reports', label: 'Reports', icon: BarChart3, to: `${OWNER_BASE}/reports`, match: (p: string) => p.startsWith(`${OWNER_BASE}/reports`) },
-  { key: 'more', label: 'More', icon: MenuIcon, to: `${OWNER_BASE}/more`, match: (p: string) => /^\/owner-app\/(more|stock|expenses|transfers|approvals|kitchen|delivery|customers|staff|profile|profit|switches|devices)/.test(p) },
+  { key: 'more', label: 'More', icon: MenuIcon, to: `${OWNER_BASE}/more`, match: (p: string) => /^\/owner-app\/(more|stock|inventory|purchases|suppliers|expenses|transfers|approvals|kitchen|delivery|customers|staff|profile|profit|switches|devices)/.test(p) },
 ] as const;
 
 export default function OwnerAppPage({ onLogout }: { onLogout: () => void }) {
@@ -60,7 +60,7 @@ export default function OwnerAppPage({ onLogout }: { onLogout: () => void }) {
     return (
       <div className="dt-owner flex min-h-screen items-center justify-center p-6" data-testid="owner-app-blocked" data-theme={dark ? 'dark' : 'light'}>
         <div className="max-w-sm space-y-4 text-center">
-          <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-primary p-3 text-primary-foreground"><DtMark size={36} title={null} /></div>
+          <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-primary p-3 text-primary-foreground"><Crown className="h-8 w-8" aria-hidden /></div>
           <h1 className="text-[22px] font-extrabold">DT Owner</h1>
           <p className="text-[15px] text-muted-foreground">
             {user && (user.role === 'admin' || user.role === 'manager')
@@ -68,8 +68,7 @@ export default function OwnerAppPage({ onLogout }: { onLogout: () => void }) {
               : 'The Owner app is for the owner and managers. Sign in with an owner or manager account.'}
           </p>
           <div className="flex flex-col gap-2">
-            <button type="button" onClick={() => navigate('/')} className="rounded-2xl bg-primary py-3 text-[15px] font-bold text-primary-foreground">Open the software</button>
-            <button type="button" onClick={onLogout} className="rounded-2xl border bg-card py-3 text-[15px] font-semibold">Sign out</button>
+            <button type="button" onClick={onLogout} className="rounded-2xl bg-primary py-3 text-[15px] font-bold text-primary-foreground">Sign out</button>
           </div>
         </div>
       </div>
@@ -79,7 +78,7 @@ export default function OwnerAppPage({ onLogout }: { onLogout: () => void }) {
   const nav = (
     <nav aria-label="Owner app" className="fixed inset-x-0 bottom-0 z-40 border-t bg-card pb-[env(safe-area-inset-bottom)] min-[820px]:inset-y-0 min-[820px]:left-0 min-[820px]:right-auto min-[820px]:w-[96px] min-[820px]:border-r min-[820px]:border-t-0 min-[820px]:pb-0">
       <div className="hidden items-center justify-center py-5 min-[820px]:flex">
-        <div className="grid h-11 w-11 place-items-center rounded-xl bg-primary p-2 text-primary-foreground"><DtMark size={26} title={null} /></div>
+        <div className="grid h-11 w-11 place-items-center rounded-xl bg-primary p-2 text-primary-foreground"><Crown className="h-6 w-6" aria-hidden /></div>
       </div>
       <ul className="mx-auto flex max-w-[560px] min-[820px]:flex-col min-[820px]:gap-1">
         {tabs.map(t => {
@@ -113,6 +112,10 @@ export default function OwnerAppPage({ onLogout }: { onLogout: () => void }) {
           <Route path="/menu" element={guard(can('menu'), 'Menu', <OwnerMenu />)} />
           <Route path="/more" element={<OwnerMore caps={{ can, userName: user?.name || '', role: user?.role || '', onLogout, multiBranch: multi }} />} />
           <Route path="/stock" element={guard(can('inventory'), 'Inventory', <OwnerStock />)} />
+          {/* v1.111.0 — the buying side, inside the app: all stock (count / waste), purchases, suppliers */}
+          <Route path="/inventory" element={guard(can('inventory'), 'Inventory', <OwnerInventory userName={user?.name || ''} />)} />
+          <Route path="/purchases" element={guard(can('receiving') || can('inventory'), 'Purchases', <OwnerPurchases userName={user?.name || ''} />)} />
+          <Route path="/suppliers" element={guard(can('parties') || can('receiving') || can('inventory'), 'Suppliers', <OwnerSuppliers />)} />
           <Route path="/expenses" element={guard(can('accounts'), 'Expenses', <OwnerExpenses userName={user?.name || ''} />)} />
           {/* v1.90.0 — the operations screens (OWN-08/09/10/16/17/22), each behind its module's permission */}
           <Route path="/approvals" element={guard(can('online-approval'), 'Online approvals', <OwnerApprovals by={{ userId: user?.id, userName: user?.name }} />)} />

@@ -101,7 +101,7 @@ export default function TableSeatPanel({ table, guests, onGuests, onSeat }: Prop
             {total > 12 && <p className="mt-1 text-center text-[11px] text-muted-foreground">Use + for more than 12.</p>}
           </div>
 
-          <Button onClick={() => onSeat(g, due && g === Math.min(total, due.guests) ? due.id : undefined)} className="w-full bg-status-running font-bold text-white hover:bg-status-running/90">
+          <Button onClick={() => onSeat(g, due && g === Math.min(total, due.guests) ? due.id : undefined)} className="w-full bg-primary font-bold text-primary-foreground hover:bg-primary/90">
             ✓ Seat {g} guest{g > 1 ? 's' : ''} &amp; start order
           </Button>
         </>
