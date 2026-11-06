@@ -148,8 +148,8 @@ function WorkersTab({ workers }: { workers: Worker[] }) {
                   <TableCell>
                     {canManageWorkers() && (
                       <div className="flex gap-1">
-                        <Button size="icon" variant="ghost" onClick={() => { setEditing(w); setOpen(true); }}><Edit3 className="h-4 w-4" /></Button>
-                        <Button size="icon" variant="ghost" onClick={() => {
+                        <Button aria-label="Edit" size="icon" variant="ghost" onClick={() => { setEditing(w); setOpen(true); }}><Edit3 className="h-4 w-4" /></Button>
+                        <Button aria-label="Delete" size="icon" variant="ghost" onClick={() => {
                           if (!confirm('Delete worker? Ledger entries will remain.')) return;
                           deleteWorker(w.id); toast.success('Worker deleted');
                         }}><Trash2 className="h-4 w-4 text-destructive" /></Button>
@@ -288,8 +288,8 @@ function EntriesTab({ workers, entries, branches }: { workers: Worker[]; entries
                 <TableCell>
                   {canEditEntries() && (
                     <div className="flex gap-1">
-                      <Button size="icon" variant="ghost" onClick={() => { setEditing(e); setOpen(true); }}><Edit3 className="h-4 w-4" /></Button>
-                      <Button size="icon" variant="ghost" onClick={() => {
+                      <Button aria-label="Edit" size="icon" variant="ghost" onClick={() => { setEditing(e); setOpen(true); }}><Edit3 className="h-4 w-4" /></Button>
+                      <Button aria-label="Delete" size="icon" variant="ghost" onClick={() => {
                         if (!confirm('Delete entry? Linked Accounts expense will remain — adjust manually.')) return;
                         deleteWageEntry(e.id); toast.success('Entry deleted');
                       }}><Trash2 className="h-4 w-4 text-destructive" /></Button>
@@ -448,7 +448,7 @@ function PaymentsTab({ workers, payments }: { workers: Worker[]; payments: WageP
                 <TableCell className="text-right font-bold">{fmt(p.amount)}</TableCell>
                 <TableCell>
                   {canEditEntries() && (
-                    <Button size="icon" variant="ghost" onClick={() => {
+                    <Button aria-label="Delete" size="icon" variant="ghost" onClick={() => {
                       if (!confirm('Delete payment? Linked Accounts expense will remain.')) return;
                       deleteWagePayment(p.id); toast.success('Payment deleted');
                     }}><Trash2 className="h-4 w-4 text-destructive" /></Button>

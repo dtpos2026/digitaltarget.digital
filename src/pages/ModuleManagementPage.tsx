@@ -81,9 +81,9 @@ export default function ModuleManagementPage() {
     <div className="p-4 lg:p-6 space-y-4 max-w-5xl">
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-lg font-bold flex items-center gap-2">
+          <h1 className="text-lg font-bold flex items-center gap-2">
             <LayoutGrid className="h-5 w-5" /> Module Management
-          </h2>
+          </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
             Every module is switched on/off here — it takes effect at once, no app update needed.
           </p>

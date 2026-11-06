@@ -75,9 +75,9 @@ export default function WastagePage() {
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-bold flex items-center gap-2">
+        <h1 className="text-lg font-bold flex items-center gap-2">
           <Trash2 className="h-5 w-5 text-destructive" /> Wastage Management
-        </h2>
+        </h1>
         <Button size="sm" onClick={() => setOpen(true)}>
           <Plus className="h-4 w-4 mr-1" /> Log Wastage
         </Button>

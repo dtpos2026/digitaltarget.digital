@@ -114,7 +114,7 @@ export default function FeatureControlDialog({ tenantId, restaurantName, planId,
               {overrideCount > 0 && <span className="text-amber-600 font-semibold"> · {overrideCount} override(s)</span>}
             </p>
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose}><X className="h-5 w-5" /></Button>
+          <Button aria-label="Close" variant="ghost" size="icon" onClick={onClose}><X className="h-5 w-5" /></Button>
         </div>
 
         {/* Help banner */}

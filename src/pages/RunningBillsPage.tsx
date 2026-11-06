@@ -208,7 +208,7 @@ export default function RunningBillsPage() {
           />
         </Suspense>
       )}
-      <h2 className="text-lg font-bold mb-2 flex items-center gap-2">
+      <h1 className="text-lg font-bold mb-2 flex items-center gap-2">
         <Clock className="h-5 w-5 text-status-warning" /> Running / Hold Bills
         {scope.restrict && (
           <span className="ml-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/30">
@@ -220,7 +220,7 @@ export default function RunningBillsPage() {
             🛡️ Admin — All cashiers
           </span>
         )}
-      </h2>
+      </h1>
       {orders.length === 0 ? (
         <p className="text-muted-foreground text-sm">No running or hold bills</p>
       ) : (

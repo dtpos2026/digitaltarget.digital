@@ -154,9 +154,9 @@ export default function ReceivingPage() {
   return (
     <div className="p-4 lg:p-6">
       <div className="flex items-center gap-3 mb-4 flex-wrap">
-        <h2 className="text-lg font-bold flex items-center gap-2">
+        <h1 className="text-lg font-bold flex items-center gap-2">
           <Package className="h-5 w-5 text-status-teal" /> Goods Receiving (GRN)
-        </h2>
+        </h1>
         <Button size="sm" onClick={() => { setForm(emptyForm()); setShowDialog(true); }}>
           <Plus className="h-3 w-3 mr-1" /> New Entry
         </Button>

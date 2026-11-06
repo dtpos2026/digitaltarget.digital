@@ -56,9 +56,9 @@ export default function PendingPaymentsPage() {
   return (
     <div className="p-4 lg:p-6 space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h2 className="text-lg font-bold flex items-center gap-2">
+        <h1 className="text-lg font-bold flex items-center gap-2">
           <Wallet className="h-5 w-5 text-amber-600" /> Pending Payments — Partial Bills
-        </h2>
+        </h1>
         <Input
           placeholder="Search bill #, customer, table…"
           value={search}

@@ -141,7 +141,7 @@ export default function CostingReportsPage() {
       <div className="p-6">
         <div className="max-w-md mx-auto bg-card border rounded-xl p-6 text-center space-y-3">
           <TrendingUp className="h-10 w-10 mx-auto text-muted-foreground" />
-          <h2 className="text-lg font-bold">Cost Reports Disabled</h2>
+          <h1 className="text-lg font-bold">Cost Reports Disabled</h1>
           <p className="text-sm text-muted-foreground">
             Food cost, profit & inventory valuation reports show only when "Food Cost & Profit Tracking" is enabled in Settings.
           </p>

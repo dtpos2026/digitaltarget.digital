@@ -303,7 +303,7 @@ function NudgeField({ label, v, onChange, onNudge }: {
     <div>
       <Label className="text-xs">{label}</Label>
       <div className="flex items-center gap-1 mt-1">
-        <Button type="button" size="icon" variant="outline" className="h-8 w-8 shrink-0" onClick={() => onNudge(-0.5)}>
+        <Button aria-label="Decrease" type="button" size="icon" variant="outline" className="h-8 w-8 shrink-0" onClick={() => onNudge(-0.5)}>
           <Minus className="h-3.5 w-3.5" />
         </Button>
         <Input
@@ -311,7 +311,7 @@ function NudgeField({ label, v, onChange, onNudge }: {
           onChange={(e) => onChange(parseFloat(e.target.value))}
           className="h-8 text-center"
         />
-        <Button type="button" size="icon" variant="outline" className="h-8 w-8 shrink-0" onClick={() => onNudge(0.5)}>
+        <Button aria-label="Increase" type="button" size="icon" variant="outline" className="h-8 w-8 shrink-0" onClick={() => onNudge(0.5)}>
           <Plus className="h-3.5 w-3.5" />
         </Button>
       </div>

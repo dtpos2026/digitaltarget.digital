@@ -122,12 +122,11 @@ html[data-ui="modern"][data-ui-theme="dt-refined"] select:not([data-slot]) {
  * Pages choose their own outer padding (16 here, 24 there), so the same screen starts at a different edge on every module.
  * The page's outer wrapper gets one gutter: 24 on a desktop window, 16 below it. Full-bleed screens (POS, maps, TV boards) do not
  * ask for padding and are untouched. */
-html[data-ui="modern"][data-ui-theme="dt-refined"] [data-ui-shell="content"] > :is([class~="p-4"], [class~="p-6"], [class~="lg:p-6"], [class~="md:p-6"], [class~="sm:p-6"]) { padding: 16px; }
+html[data-ui="modern"][data-ui-theme="dt-refined"] [data-ui-shell="content"] > :is([class~="p-4"], [class~="p-6"], [class~="lg:p-6"], [class~="md:p-6"], [class~="sm:p-6"]) { padding: var(--page-gutter, 16px); }
 @media (min-width: 1024px) {
-  html[data-ui="modern"][data-ui-theme="dt-refined"] [data-ui-shell="content"] > :is([class~="p-4"], [class~="p-6"], [class~="lg:p-6"], [class~="md:p-6"], [class~="sm:p-6"]) { padding: 24px; }
+  html[data-ui="modern"][data-ui-theme="dt-refined"] [data-ui-shell="content"] > :is([class~="p-4"], [class~="p-6"], [class~="lg:p-6"], [class~="md:p-6"], [class~="sm:p-6"]) { padding: var(--page-gutter, 24px); }
 }
-/* Older screens draw their own <table> with bare cells, so an amount and the date beside it ran together. They get the Table
- * component's horizontal room and quiet header; their own row heights (py-*) are left alone. */
+
 html[data-ui="modern"][data-ui-theme="dt-refined"] [data-ui-shell="content"] table:not([data-slot]) :is(th, td) { padding-inline: 12px; }
 html[data-ui="modern"][data-ui-theme="dt-refined"] [data-ui-shell="content"] table:not([data-slot]) thead th {
   font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: hsl(var(--muted-foreground));

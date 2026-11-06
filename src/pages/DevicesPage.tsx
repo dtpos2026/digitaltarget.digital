@@ -332,8 +332,8 @@ export default function DevicesPage() {
   const pct = limit === Infinity ? 0 : Math.min(100, Math.round((used / limit) * 100));
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto">
+      <div className="flex items-center justify-between flex-wrap gap-3 mb-6">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-lg bg-gradient-gold flex items-center justify-center shadow-gold">
             <Smartphone className="h-5 w-5 text-primary" />
@@ -343,7 +343,7 @@ export default function DevicesPage() {
             <p className="text-xs text-muted-foreground">Your restaurant's devices are approved automatically up to the plan limit</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button size="sm" variant="outline" onClick={load}><RefreshCw className="h-4 w-4 mr-1" />Refresh</Button>
           <Button size="sm" variant="secondary" disabled={testing} onClick={runEndToEndTest}>
             {testing ? 'Testing…' : 'Run Sync Test'}
@@ -504,8 +504,8 @@ function DeviceRowView({ d, current, children }: { d: DeviceRow; current: boolea
   const location = [d.city, d.region, d.country].filter(Boolean).join(', ');
   return (
     <div className={`bg-card border rounded-lg p-3 ${current ? 'border-gold' : 'border-border'}`}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex items-start gap-3 flex-1">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-[14rem] flex items-start gap-3 flex-1">
           <Monitor className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
           <div className="min-w-0 flex-1">
             <div className="font-semibold truncate flex items-center gap-2">
@@ -543,7 +543,7 @@ function DeviceRowView({ d, current, children }: { d: DeviceRow; current: boolea
             </div>
           </div>
         </div>
-        <div className="flex gap-2 shrink-0">{children}</div>
+        <div className="flex flex-wrap gap-2 shrink-0">{children}</div>
       </div>
     </div>
   );

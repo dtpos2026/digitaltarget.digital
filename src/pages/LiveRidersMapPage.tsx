@@ -213,7 +213,7 @@ export default function LiveRidersMapPage() {
   return (
     <div className="p-4 lg:p-6 space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h2 className="text-lg font-bold flex items-center gap-2"><Bike className="h-5 w-5 text-primary" /> Live Rider Tracking</h2>
+        <h1 className="text-lg font-bold flex items-center gap-2"><Bike className="h-5 w-5 text-primary" /> Live Rider Tracking</h1>
         <Button size="sm" variant="outline" onClick={() => { setOrders(getOrders()); setTick(x => x + 1); }}>
           <RefreshCw className="h-4 w-4 mr-1" /> Refresh
         </Button>

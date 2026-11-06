@@ -161,7 +161,7 @@ export default function ReportsCenterPage() {
     <div className="p-4 lg:p-6 space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <BarChart3 className="h-5 w-5 text-primary" />
-        <h2 className="text-lg font-bold">Reports Center</h2>
+        <h1 className="text-lg font-bold">Reports Center</h1>
         {allBranches.length > 0 && (
           <div className="flex items-center gap-1.5 rounded-md px-2 py-1 border bg-primary/10 border-primary/40">
             <Building2 className="h-3.5 w-3.5 text-primary" />

@@ -30,26 +30,26 @@ export default function HeaderClock({ variant = 'classic' }: { variant?: 'classi
     const t = stackedClockText(now);
     return (
       <div data-clock="stacked" className="hidden shrink-0 flex-col items-end whitespace-nowrap px-1 leading-tight lg:flex" title={now.toLocaleString()}>
-        <span className="text-[15px] font-bold tabular-nums text-foreground">{t.time}</span>
-        <span className="text-[12.5px] text-muted-foreground">{t.date}</span>
+        <span dir="ltr" className="text-[15px] font-bold tabular-nums text-foreground">{t.time}</span>
+        <span dir="ltr" className="text-[12.5px] text-muted-foreground">{t.date}</span>
       </div>
     );
   }
   if (variant === 'modern') {
     return (
       <div className="hidden shrink-0 items-center gap-2 whitespace-nowrap rounded-[10px] border bg-card px-3 py-1.5 lg:flex" title={now.toLocaleString()}>
-        <span className="font-mono text-[12.5px] font-bold tabular-nums text-foreground">{time}</span>
+        <span dir="ltr" className="font-mono text-[12.5px] font-bold tabular-nums text-foreground">{time}</span>
         <span className="h-3 w-px bg-border" />
-        <span className="text-[12px] font-semibold text-muted-foreground">{date}</span>
+        <span dir="ltr" className="text-[12px] font-semibold text-muted-foreground">{date}</span>
       </div>
     );
   }
   return (
     <div className="hidden md:flex items-center gap-2 whitespace-nowrap bg-sidebar-foreground/10 border border-sidebar-foreground/20 rounded-md px-2.5 py-1 shadow-inner" title={now.toLocaleString()}>
-      <span className="text-[11px] font-bold font-mono text-sidebar-foreground tabular-nums tracking-wider">{time}</span>
+      <span dir="ltr" className="text-[11px] font-bold font-mono text-sidebar-foreground tabular-nums tracking-wider">{time}</span>
       {/* On a small screen the date gives way rather than wrapping the header onto three lines. */}
       <span className="hidden lg:block h-3 w-px bg-sidebar-foreground/30" />
-      <span className="hidden lg:inline text-[10px] font-semibold text-sidebar-foreground/85 tracking-wide">{date}</span>
+      <span dir="ltr" className="hidden lg:inline text-[10px] font-semibold text-sidebar-foreground/85 tracking-wide">{date}</span>
     </div>
   );
 }

@@ -129,7 +129,7 @@ export default function WhatsAppPage() {
       <div className="lg:w-[340px] border-r border-border bg-card/40 p-4 space-y-4 overflow-y-auto">
         <div className="flex items-center gap-2">
           <MessageCircle className="h-5 w-5 text-[#25D366]" />
-          <h2 className="text-base font-bold">WhatsApp</h2>
+          <h1 className="text-base font-bold">WhatsApp</h1>
           <Badge variant={online ? 'default' : 'destructive'} className="ml-auto gap-1">
             {online ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
             {online ? 'Online' : 'Offline'}

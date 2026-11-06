@@ -62,7 +62,7 @@ export default function VoidBillsPage() {
     <div className="p-4 lg:p-6 space-y-4">
       <div className="flex items-center gap-3 flex-wrap">
         <Ban className="h-5 w-5 text-destructive" />
-        <h2 className="text-lg font-bold">Void / Complimentary / Cancelled Bills</h2>
+        <h1 className="text-lg font-bold">Void / Complimentary / Cancelled Bills</h1>
         <Badge variant="secondary" className="ml-auto">{voids.length + comps.length + cancels.length} bills</Badge>
       </div>
 

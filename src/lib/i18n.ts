@@ -27,6 +27,8 @@
 // coverage percentage so nobody is misled.
 // ============================================================
 
+import { NAV_EN, NAV_UR, NAV_AR, AR_BASE } from '@/lib/i18nNav';
+
 export type LanguageCode = 'en' | 'ur' | 'ur-roman' | 'ms' | 'zh' | 'ar';
 
 export interface LanguageDef {
@@ -478,6 +480,12 @@ const urRoman: Dictionary = {
   'barcode.printLabels': 'Labels print karein', 'barcode.notFound': 'Item nahi mila',
 };
 
+// v1.109.0 — every navigation title in English, Urdu and Arabic, and Arabic for the whole base dictionary (see i18nNav.ts).
+Object.assign(en, NAV_EN);
+Object.assign(ur, NAV_UR);
+Object.assign(ar, NAV_AR);
+for (const [k, v] of Object.entries(AR_BASE)) if (!(k in ar)) ar[k] = v;
+
 const DICTIONARIES: Record<LanguageCode, Dictionary> = { en, ur, 'ur-roman': urRoman, ms, zh, ar };
 
 // ---------- country gating ----------
@@ -489,6 +497,7 @@ const COUNTRY_LANGUAGES: Record<string, LanguageCode[]> = {
   malaysia: ['en', 'ms'],
   china: ['en', 'zh'],
   'saudi arabia': ['en', 'ar'],
+  qatar: ['en', 'ar'], kuwait: ['en', 'ar'], bahrain: ['en', 'ar'], oman: ['en', 'ar'], egypt: ['en', 'ar'], jordan: ['en', 'ar'],
   'united arab emirates': ['en', 'ar'],
   uae: ['en', 'ar'],
 };

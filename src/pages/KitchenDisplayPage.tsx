@@ -236,7 +236,7 @@ export default function KitchenDisplayPage() {
 
       <div className="flex items-center gap-3 mb-4">
         <ChefHat className="h-6 w-6 text-primary" />
-        <h2 className="text-lg font-bold">Kitchen Display</h2>
+        <h1 className="text-lg font-bold">Kitchen Display</h1>
         <Badge variant="secondary" className="ml-auto">{visibleOrders.length} active</Badge>
         {stats.delayed > 0 && (
           <Badge className="bg-status-danger text-status-danger-foreground animate-pulse">

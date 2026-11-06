@@ -145,11 +145,11 @@ function Sidebar({
 
   return (
     <aside className={cn(
-      "fixed inset-y-0 left-0 z-50 bg-gradient-sidebar flex flex-col transition-all duration-200",
+      "fixed inset-y-0 start-0 z-50 bg-gradient-sidebar flex flex-col transition-all duration-200",
       "lg:relative lg:translate-x-0 shadow-elegant",
       collapsed ? "lg:w-[64px]" : "lg:w-[230px]",
       "w-[230px]",
-      mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+      mobileOpen ? 'translate-x-0' : '-translate-x-full rtl:translate-x-full lg:translate-x-0 lg:rtl:translate-x-0'
     )}>
       {/* Brand */}
       <div className={cn(

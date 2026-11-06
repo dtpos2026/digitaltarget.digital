@@ -100,7 +100,7 @@ export default function ProfitabilityPage() {
   return (
     <div className="p-4 lg:p-6 space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h2 className="text-lg font-bold flex items-center gap-2"><TrendingUp className="h-5 w-5" /> Profitability Dashboard</h2>
+        <h1 className="text-lg font-bold flex items-center gap-2"><TrendingUp className="h-5 w-5" /> Profitability Dashboard</h1>
         <DateTimeRangeFilter value={range} onChange={setRange} />
       </div>
 
@@ -147,9 +147,9 @@ export default function ProfitabilityPage() {
 
       <div className="grid lg:grid-cols-2 gap-4">
         {/* Top by revenue */}
-        <Card className="p-3">
+        <Card className="p-3 min-w-0">
           <div className="text-sm font-semibold mb-2 flex items-center gap-2"><Award className="h-4 w-4" /> Top Items by Revenue</div>
-          <table className="w-full text-xs">
+          <div className="overflow-x-auto"><table className="w-full text-xs">
             <thead className="text-muted-foreground border-b">
               <tr><th className="text-left py-1">Item</th><th className="text-right">Qty</th><th className="text-right">Revenue</th><th className="text-right">Margin</th></tr>
             </thead>
@@ -164,13 +164,13 @@ export default function ProfitabilityPage() {
               ))}
               {topByRevenue.length === 0 && <tr><td colSpan={4} className="text-center py-4 text-muted-foreground">No data</td></tr>}
             </tbody>
-          </table>
+          </table></div>
         </Card>
 
         {/* Top by margin */}
-        <Card className="p-3">
+        <Card className="p-3 min-w-0">
           <div className="text-sm font-semibold mb-2 flex items-center gap-2 text-emerald-700"><TrendingUp className="h-4 w-4" /> Best Margin Items</div>
-          <table className="w-full text-xs">
+          <div className="overflow-x-auto"><table className="w-full text-xs">
             <thead className="text-muted-foreground border-b">
               <tr><th className="text-left py-1">Item</th><th className="text-right">Revenue</th><th className="text-right">Profit</th><th className="text-right">Margin</th></tr>
             </thead>
@@ -185,7 +185,7 @@ export default function ProfitabilityPage() {
               ))}
               {topByMargin.length === 0 && <tr><td colSpan={4} className="text-center py-4 text-muted-foreground">Add recipes to see margins</td></tr>}
             </tbody>
-          </table>
+          </table></div>
         </Card>
 
         {/* Worst margin alert */}

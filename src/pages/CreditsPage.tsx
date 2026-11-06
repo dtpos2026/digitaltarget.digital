@@ -98,7 +98,7 @@ export default function CreditsPage() {
     <div className="p-4 lg:p-6 space-y-4">
       <div className="flex items-center gap-3 flex-wrap">
         <Receipt className="h-6 w-6 text-primary" />
-        <h2 className="text-lg font-bold">Credits / Udhaar</h2>
+        <h1 className="text-lg font-bold">Credits / Udhaar</h1>
         <Badge variant="secondary" className="ml-auto">{enriched.length} customers</Badge>
       </div>
 

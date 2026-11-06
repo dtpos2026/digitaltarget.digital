@@ -37,3 +37,30 @@ This page is the rule set and an honest status per surface. What is not done is 
 
 ## Next slices
 Windows POS shell → owner portal pages → Super Admin shell → web-order site (header, drawer, hero) → the phone apps' in-app screens (UI/UX) → Customer-app splash → receipt/KOT headers.
+
+---
+
+## Brand kit — the one-page sheet (v1.109.0)
+
+**The mark.** Four triangles in a square (`DtMark`). One colour at a time: white on a brand colour, the brand purple on white. Never outlined, never recoloured per screen, never inside a raster tile.
+
+| | Rule |
+|---|---|
+| Clear space | Half the mark's height on every side (the height of one triangle). Nothing else — text, edge, another logo — enters it. |
+| Minimum size | Mark alone 16 px on screen / 6 mm in print. Lockup (mark + DIGITAL / TARGET) 96 px wide / 25 mm. Below that, use the mark alone. |
+| Backgrounds | Brand purple, white, or any theme's primary colour whose pair is ≥ 4.5 : 1 (tested for all 9 Refined schemes). Never on a photograph without a solid panel. |
+| Don't | stretch · rotate · add a shadow or outline · use two colours · put the mark on a red/green pair · replace the mark by the restaurant's logo on a Digital Target screen. |
+| Language | The product is "DT POS Enterprise"; the company is "Digital Target". The footer line is always *Powered by Digital Target*. |
+| Amounts | `Rs 1,450` — a space after the symbol, no full stop. The currency symbol follows the restaurant's currency (29 supported). |
+
+**App icons (one squircle, one mark, a colour per app).**
+
+| App / surface | Colour | Source |
+|---|---|---|
+| Web + Windows POS, installer, PWA | brand purple | `branding/dt-pos-icon.svg`, `public/pwa-icon-*.png` |
+| Owner app | brand purple, owner badge | `dtpos.apk` → `Owner/` (built by the CI workflow) |
+| Rider app | orange, motorbike badge | `dtpos.apk` → `Rider/` |
+| Order Taker app | teal, order-pad badge | `dtpos.apk` → `OrderTaker/` |
+| Customer app | the **restaurant's** own icon and name (built per restaurant by `tools/brand.mjs`) | — |
+
+**Store listing checklist (Google Play).** App icon 512 × 512 PNG (no transparency) · feature graphic 1024 × 500 · 2–8 phone screenshots (16:9 or 9:16, min 320 px) · short description ≤ 80 characters · full description ≤ 4000 · privacy-policy URL (customer-data export / erase is in Settings → General → Privacy) · content rating questionnaire · release signing key (the four `ANDROID_*` secrets in the `dtpos.apk` repository). **Not done:** the store-listing artwork itself (feature graphic, screenshots) and the privacy-policy page — they need the owner's wording and the final release build.

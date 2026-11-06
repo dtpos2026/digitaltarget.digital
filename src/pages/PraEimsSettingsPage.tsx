@@ -90,9 +90,9 @@ export default function PraEimsSettingsPage() {
     return (
       <div className="p-4 lg:p-6">
         <Card className="p-6 max-w-xl">
-          <h2 className="text-lg font-bold flex items-center gap-2">
+          <h1 className="text-lg font-bold flex items-center gap-2">
             <ShieldCheck className="h-5 w-5" /> PRA EIMS
-          </h2>
+          </h1>
           <p className="text-sm text-muted-foreground mt-2">
             Ye module abhi OFF hai. Settings → Advanced → Features me
             <b> "🧾 PRA EIMS (Punjab Revenue Authority)"</b> turn ON.

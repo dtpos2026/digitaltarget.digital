@@ -170,9 +170,9 @@ export default function BarcodeManagerPage() {
     return (
       <div className="p-4 lg:p-6">
         <Card className="p-6 max-w-xl">
-          <h2 className="text-lg font-bold flex items-center gap-2">
+          <h1 className="text-lg font-bold flex items-center gap-2">
             <ScanLine className="h-5 w-5" /> Barcode & Labels
-          </h2>
+          </h1>
           <p className="text-sm text-muted-foreground mt-2">
             Ye module abhi OFF hai. <b>Module Management</b> me
             turn "🏷️ Barcode / SKU" ON.

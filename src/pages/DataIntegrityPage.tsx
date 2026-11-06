@@ -80,9 +80,9 @@ export default function DataIntegrityPage() {
     <div className="p-4 lg:p-6 space-y-4 max-w-3xl">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h2 className="text-lg font-bold flex items-center gap-2">
+          <h1 className="text-lg font-bold flex items-center gap-2">
             <ShieldCheck className="h-5 w-5" /> Data Integrity
-          </h2>
+          </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
             Check duplicate records, missing IDs and ordering problems here.
           </p>

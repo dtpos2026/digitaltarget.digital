@@ -110,9 +110,9 @@ export default function PickupOrdersPage() {
       <ReadyNotificationBus />
       <ReadyOrderPoller types={['takeaway']} />
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h2 className="text-lg font-bold flex items-center gap-2">
+        <h1 className="text-lg font-bold flex items-center gap-2">
           <Package className="h-5 w-5 text-primary" /> Pickup Orders
-        </h2>
+        </h1>
         <Button size="sm" variant="outline" onClick={async () => { await refreshOrdersFromCloud(); setOrders(scopeToBranch(getOrders())); }}>
           <RefreshCw className="h-4 w-4 mr-1" /> Refresh
         </Button>

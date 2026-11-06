@@ -76,7 +76,7 @@ function Kpi({ id, label, value, icon: Icon, children, spark }: { id: string; la
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-primary/10 text-primary"><Icon className="h-[18px] w-[18px]" /></span>
       </div>
       <div className="mt-1 truncate text-[28px] font-extrabold leading-tight tracking-tight tabular-nums" data-testid={`sw02-kpi-${id}-value`}>{value}</div>
-      <div className="mt-1.5 truncate text-[12.5px] font-bold" data-testid={`sw02-kpi-${id}-note`}>{children}</div>
+      <div className="mt-1.5 line-clamp-2 text-[12.5px] font-bold" data-testid={`sw02-kpi-${id}-note`}>{children}</div>
       {spark && spark.length > 1 && <div className="-mx-5 -mb-5 mt-3 h-11" data-testid={`sw02-kpi-${id}-spark`}><Sparkline values={spark} /></div>}
     </div>
   );

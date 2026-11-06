@@ -267,9 +267,9 @@ export default function BillEditorPage() {
     <div className="p-3 lg:p-4 space-y-3">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h2 className="text-lg font-bold flex items-center gap-2">
+          <h1 className="text-lg font-bold flex items-center gap-2">
             <Edit3 className="h-5 w-5 text-primary" /> Bill Editor — Manager / Admin
-          </h2>
+          </h1>
           <p className="text-xs text-muted-foreground">
             Any change after a bill / KOT is created — every action goes into the permanent audit log.
           </p>

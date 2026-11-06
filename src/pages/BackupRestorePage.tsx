@@ -286,7 +286,7 @@ export default function BackupRestorePage() {
 
   return (
     <div className="p-4 lg:p-6 max-w-lg space-y-6">
-      <h2 className="text-lg font-bold">Backup & Restore</h2>
+      <h1 className="text-lg font-bold">Backup & Restore</h1>
 
       <div className="bg-card border rounded-xl p-4 mb-4 flex items-center gap-3">
         <Database className="h-5 w-5 text-primary" />

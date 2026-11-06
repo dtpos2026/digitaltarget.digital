@@ -1,0 +1,74 @@
+/* ============================================================================================================
+ * SCREEN PROFILE (v1.109.0) — how every page adapts to the screen it is on (master plan WP-3 + the page frame, WP-2).
+ *
+ * src/lib/screenProfile.ts measures the window once and writes it on <html>:
+ *   data-screen  phone | tablet | desktop | tv      data-density  compact | comfortable      data-pointer  fine | coarse
+ *   --page-gutter  --grid-min-card  --tap-min
+ * Everything below only READS those. It changes sizes and arrangement, never colours, so a theme still changes colour only.
+ * ============================================================================================================ */
+
+/* ---------- density: the same controls, a little tighter on a short desktop window (a 1366×768 till) ---------- */
+html[data-ui="modern"][data-ui-theme="dt-refined"][data-density="compact"] {
+  --btn-h: 2.25rem;      /* 36 */
+  --btn-h-sm: 1.875rem;  /* 30 */
+  --field-h: 2.25rem;    /* 36 */
+  --th-h: 2.25rem;       /* 36 */
+  --td-py: 0.5rem;       /* 40 row */
+  --card-pad: 0.875rem;  /* 14 */
+}
+html[data-ui="modern"][data-ui-theme="dt-refined"][data-density="comfortable"][data-screen="tv"] {
+  --btn-h: 3rem;  --btn-h-sm: 2.5rem;  --field-h: 3rem;  --th-h: 3rem;  --td-py: 1rem;  --card-pad: 1.25rem;
+}
+
+/* ---------- a finger needs 44 px, a mouse 32–40 (--tap-min is 0 on a mouse, so nothing changes there) ---------- */
+html[data-pointer="coarse"] :is([data-slot="button"], [data-slot="input"], [data-slot="select-trigger"], [data-slot="tabs-trigger"], [role="tab"], [role="menuitem"], select) {
+  min-height: var(--tap-min, 0px);
+}
+html[data-pointer="coarse"] :is([data-slot="button"]):not([data-size="icon"]) { min-width: var(--tap-min, 0px); }
+html[data-pointer="coarse"] [data-slot="button"][data-size="icon"] { min-width: var(--tap-min, 0px); }
+
+/* ---------- the frame every page shares ---------- */
+[data-page-header] {
+  display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between;
+  gap: 0.75rem 1rem; margin-bottom: var(--page-gutter, 16px);
+}
+[data-page-header] [data-page-heading] { min-width: 0; flex: 1 1 16rem; }
+[data-page-header] [data-page-actions] { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+[data-filter-bar] {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem;
+  margin-bottom: calc(var(--page-gutter, 16px) * 0.75);
+}
+[data-filter-bar] > [data-filter-grow] { flex: 1 1 14rem; min-width: 0; }
+/* a grid of cards never makes a card narrower than the profile's minimum */
+[data-card-grid] {
+  display: grid; gap: calc(var(--page-gutter, 16px) * 0.75);
+  grid-template-columns: repeat(auto-fill, minmax(var(--grid-min-card, 200px), 1fr));
+}
+
+/* ---------- one page title ----------
+ * 45 pages wrote their own title (text-2xl here, text-xl there, a flex row with an icon elsewhere), so the same kind of screen
+ * opened with a different size. In DT Refined every title inside the page area is the same: 22 px on a phone, 24 above it. */
+html[data-ui="modern"][data-ui-theme="dt-refined"] [data-ui-shell="content"] :is(h1, [data-page-title]):not([data-no-frame], [data-hero] h1, [role="dialog"] h1) {
+  font-size: 1.375rem; line-height: 1.2; font-weight: 800; letter-spacing: -0.01em;
+}
+@media (min-width: 640px) {
+  html[data-ui="modern"][data-ui-theme="dt-refined"] [data-ui-shell="content"] :is(h1, [data-page-title]):not([data-no-frame], [data-hero] h1, [role="dialog"] h1) { font-size: 1.5rem; }
+}
+[data-page-subtitle] { font-size: 0.8125rem; line-height: 1.4; color: hsl(var(--muted-foreground)); margin-top: 0.125rem; }
+
+/* ---------- phone: dialogs become bottom sheets, wide things scroll inside their own box ---------- */
+html[data-screen="phone"] [data-slot="dialog-content"] {
+  left: 0; right: 0; bottom: 0; top: auto; transform: none; translate: none;
+  width: 100%; max-width: 100%; max-height: 92dvh; overflow-y: auto;
+  border-radius: 1.25rem 1.25rem 0 0;
+}
+html[data-screen="phone"] [data-ui-shell="content"] [data-slot="table-wrap"] { max-width: 100%; }
+html[data-screen="phone"] [data-ui-shell="content"] { overflow-x: hidden; }
+
+/* ---------- reduced motion (WCAG 2.2, 2.3.3): nothing slides, pulses or spins for someone who asked for less ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important; animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important; scroll-behavior: auto !important;
+  }
+}

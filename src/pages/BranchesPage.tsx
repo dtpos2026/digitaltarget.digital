@@ -15,9 +15,10 @@ import LeafletMap from '@/components/LeafletMap';
 import { geocodeAddress, reverseGeocode, getBrowserLocation } from '@/lib/geo';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import BranchInvoicePreview from '@/components/BranchInvoicePreview';
+import { checkTaxId, countryForCurrency, taxRuleFor } from '@/lib/taxRegistration';
 
 /** Inline validation for the branch form. Returns field -> message (only invalid fields). */
-function validateBranch(b: Branch): Record<string, string> {
+function validateBranch(b: Branch, country?: string): Record<string, string> {
   const e: Record<string, string> = {};
   if (!b.name?.trim()) e.name = 'Branch name is required.';
   else if (b.name.trim().length > 60) e.name = 'Keep the name under 60 characters so it fits on the receipt.';
@@ -32,7 +33,15 @@ function validateBranch(b: Branch): Record<string, string> {
   if (code && !/^[A-Za-z0-9-]{2,10}$/.test(code)) e.branchCode = '2-10 letters/numbers, e.g. BWL or BWL-01';
 
   const tax = (b.taxNumber || '').trim();
-  if (tax && !/^[A-Za-z0-9\-/]{5,25}$/.test(tax)) e.taxNumber = '5-25 characters: letters, numbers, - or / only';
+  if (tax) {
+    // v1.109.0 — the number is checked against the shape of the restaurant's own country (NTN, TRN, GSTIN …);
+    // with no known country the old loose rule stays.
+    const rule = taxRuleFor(country);
+    if (rule.pattern) {
+      const c = checkTaxId(country, tax);
+      if (!c.ok) e.taxNumber = c.reason;
+    } else if (!/^[A-Za-z0-9\-/]{5,25}$/.test(tax)) e.taxNumber = '5-25 characters: letters, numbers, - or / only';
+  }
 
   const reg = (b.registrationNumber || '').trim();
   if (reg && !/^[A-Za-z0-9\-/]{3,30}$/.test(reg)) e.registrationNumber = '3-30 characters: letters, numbers, - or / only';
@@ -61,9 +70,10 @@ export default function BranchesPage() {
   const transactions = useMemo(() => getTransactions(), []);
   const enabledCities = useMemo(() => getSettings().enabledCities || [], [editing]);
   const settings = useMemo(() => getSettings(), [editing]);
+  const taxCountry = settings.countryCode || countryForCurrency(settings.currencyCode);
   const [isNew, setIsNew] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
-  const errors = useMemo(() => (editing ? validateBranch(editing) : {}), [editing]);
+  const errors = useMemo(() => (editing ? validateBranch(editing, taxCountry) : {}), [editing, taxCountry]);
 
   const refresh = () => setBranches(getBranches());
 
@@ -93,7 +103,7 @@ export default function BranchesPage() {
   };
 
   const handleSave = (b: Branch) => {
-    const errs = validateBranch(b);
+    const errs = validateBranch(b, taxCountry);
     if (Object.keys(errs).length > 0) {
       setShowErrors(true);
       toast.error('Please fix the highlighted fields.');
@@ -124,7 +134,7 @@ export default function BranchesPage() {
   return (
     <div className="p-4 lg:p-6 space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h2 className="text-lg font-bold flex items-center gap-2"><Building2 className="h-5 w-5" /> Branches</h2>
+        <h1 className="text-lg font-bold flex items-center gap-2"><Building2 className="h-5 w-5" /> Branches</h1>
         <Button onClick={newBranch}><Plus className="h-4 w-4 mr-1" /> Add Branch</Button>
       </div>
 
@@ -376,8 +386,9 @@ export default function BranchesPage() {
                   {showErrors && <FieldError msg={errors.registrationNumber} />}
                 </div>
                 <div>
-                  <label className="text-xs font-medium">Tax No. (NTN / STRN / VAT)</label>
-                  <Input className={showErrors && errors.taxNumber ? 'border-destructive' : ''} value={editing.taxNumber || ''} onChange={e => setEditing({ ...editing, taxNumber: e.target.value })} placeholder="Optional" />
+                  <label className="text-xs font-medium">Tax No. ({taxRuleFor(taxCountry).idLabel})</label>
+                  <Input className={showErrors && errors.taxNumber ? 'border-destructive' : ''} value={editing.taxNumber || ''} onChange={e => setEditing({ ...editing, taxNumber: e.target.value })} placeholder={taxRuleFor(taxCountry).example || 'Optional'} />
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{taxRuleFor(taxCountry).hint}</p>
                   {showErrors && <FieldError msg={errors.taxNumber} />}
                 </div>
                 <div>

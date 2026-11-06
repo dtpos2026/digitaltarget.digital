@@ -579,9 +579,9 @@ export default function TablesPage() {
       <div className="bg-card rounded-2xl border shadow-card p-5">
         <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
           <div>
-            <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
+            <h1 className="text-xl font-bold tracking-tight flex items-center gap-2">
               <Utensils className="h-5 w-5 text-gold" /> Dining Tables
-            </h2>
+            </h1>
             <p className="text-xs text-muted-foreground mt-0.5">Real-time table occupancy, dine time & floor map</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
@@ -945,13 +945,13 @@ export default function TablesPage() {
                           })}
                         </div>
                         <div className="flex items-center justify-center gap-2">
-                          <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => setSeatPickerGuests(Math.max(1, g - 1))}>
+                          <Button aria-label="Decrease" size="icon" variant="outline" className="h-8 w-8" onClick={() => setSeatPickerGuests(Math.max(1, g - 1))}>
                             <Minus className="h-3.5 w-3.5" />
                           </Button>
                           <div className="px-4 py-1.5 rounded-lg bg-muted font-bold text-lg min-w-[60px] text-center">
                             {g} <span className="text-xs font-normal text-muted-foreground">/ {total}</span>
                           </div>
-                          <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => setSeatPickerGuests(Math.min(total, g + 1))}>
+                          <Button aria-label="Increase" size="icon" variant="outline" className="h-8 w-8" onClick={() => setSeatPickerGuests(Math.min(total, g + 1))}>
                             <Plus className="h-3.5 w-3.5" />
                           </Button>
                         </div>

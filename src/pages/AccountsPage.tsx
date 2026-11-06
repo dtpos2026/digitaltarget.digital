@@ -377,7 +377,7 @@ function TxnTab({ type }: { type: 'income' | 'expense' }) {
               <TableCell>{t.description}</TableCell><TableCell>{t.partyName || '—'}</TableCell>
               <TableCell><Badge variant="outline">{t.paymentMethod}</Badge></TableCell>
               <TableCell className="text-right font-medium">{money(t.amount)}</TableCell>
-              <TableCell><Button size="icon" variant="ghost" onClick={() => { if (confirm('Delete?')) { deleteTransaction(t.id); refresh(); } }}><Trash2 className="h-3 w-3 text-destructive" /></Button></TableCell>
+              <TableCell><Button aria-label="Delete" size="icon" variant="ghost" onClick={() => { if (confirm('Delete?')) { deleteTransaction(t.id); refresh(); } }}><Trash2 className="h-3 w-3 text-destructive" /></Button></TableCell>
             </TableRow>
           ))}
           {list.length === 0 && <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">No entries</TableCell></TableRow>}
@@ -455,7 +455,7 @@ function PartiesTab() {
               <TableCell>{p.phone}</TableCell>
               <TableCell>{money(p.openingBalance)}</TableCell>
               <TableCell>{p.isActive ? <Badge>Active</Badge> : <Badge variant="secondary">Inactive</Badge>}</TableCell>
-              <TableCell><Button size="icon" variant="ghost" onClick={() => { if (confirm('Delete?')) { deleteParty(p.id); refresh(); } }}><Trash2 className="h-3 w-3 text-destructive" /></Button></TableCell>
+              <TableCell><Button aria-label="Delete" size="icon" variant="ghost" onClick={() => { if (confirm('Delete?')) { deleteParty(p.id); refresh(); } }}><Trash2 className="h-3 w-3 text-destructive" /></Button></TableCell>
             </TableRow>
           ))}
           {parties.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">No parties</TableCell></TableRow>}
@@ -696,10 +696,10 @@ function PaymentAccountsTab() {
               </TableCell>
               <TableCell>{a.isActive ? <Badge>Active</Badge> : <Badge variant="secondary">Inactive</Badge>}</TableCell>
               <TableCell>
-                <Button size="icon" variant="ghost" onClick={() => { setForm(a); setOpen(true); }}>
+                <Button aria-label="Edit" size="icon" variant="ghost" onClick={() => { setForm(a); setOpen(true); }}>
                   ✎
                 </Button>
-                <Button size="icon" variant="ghost" onClick={() => { if (confirm('Delete this account?')) { deletePaymentAccount(a.id); refresh(); } }}>
+                <Button aria-label="Delete" size="icon" variant="ghost" onClick={() => { if (confirm('Delete this account?')) { deletePaymentAccount(a.id); refresh(); } }}>
                   <Trash2 className="h-3 w-3 text-destructive" />
                 </Button>
               </TableCell>

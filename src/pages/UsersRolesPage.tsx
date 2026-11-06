@@ -236,7 +236,7 @@ export default function UsersRolesPage() {
           <ShieldCheck className="h-5 w-5 text-primary" />
         </div>
         <div>
-          <h2 className="text-lg font-extrabold tracking-tight">Users & Access</h2>
+          <h1 className="text-lg font-extrabold tracking-tight">Users & Access</h1>
           <p className="text-[11px] text-muted-foreground">Manage logins and what each user can see</p>
         </div>
         <Button size="sm" className="ml-auto bg-gradient-gold text-primary shadow-gold font-bold" onClick={openNew}>

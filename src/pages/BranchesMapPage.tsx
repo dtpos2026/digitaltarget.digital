@@ -61,7 +61,7 @@ export default function BranchesMapPage() {
     <div className="p-4 lg:p-6 space-y-4">
       <div className="flex items-center gap-2">
         <MapPin className="h-5 w-5 text-primary" />
-        <h2 className="text-lg font-bold">Branches Map — Pakistan</h2>
+        <h1 className="text-lg font-bold">Branches Map — Pakistan</h1>
         <Badge variant="secondary" className="ml-auto">{mapped.length} mapped / {branches.length} total</Badge>
       </div>
 

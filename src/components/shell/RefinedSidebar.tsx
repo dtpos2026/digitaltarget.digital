@@ -18,7 +18,7 @@ import { visiblePagesForUser, type PageDef } from '@/lib/permissions';
 import { resolveNav, useNavPrefs } from '@/lib/navPrefs';
 import { cn } from '@/lib/utils';
 import { navIcon } from '@/components/shell/navIcons';
-import { navTitle } from '@/components/shell/navLabels';
+import { navTitle, navGroupTitle } from '@/components/shell/navLabels';
 import PoweredByBrand from '@/components/PoweredByBrand';
 import DtMark from '@/components/DtMark';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -107,10 +107,10 @@ export default function RefinedSidebar({ userRole, onLogout, mobileOpen, setMobi
       data-ui-shell="sidebar"
       data-refined-sidebar
       className={cn(
-        'fixed inset-y-0 left-0 z-50 flex w-[var(--ui-sidebar-w)] flex-col border-r border-sidebar-border bg-sidebar transition-[width,transform] duration-200',
+        'fixed inset-y-0 start-0 z-50 flex w-[var(--ui-sidebar-w)] flex-col border-e border-sidebar-border bg-sidebar transition-[width,transform] duration-200',
         'lg:relative lg:translate-x-0',
         collapsed && 'lg:w-[var(--ui-sidebar-w-collapsed)]',
-        mobileOpen ? 'translate-x-0 shadow-[var(--ui-shadow-pop)]' : '-translate-x-full lg:translate-x-0',
+        mobileOpen ? 'translate-x-0 shadow-[var(--ui-shadow-pop)]' : '-translate-x-full rtl:translate-x-full lg:translate-x-0 lg:rtl:translate-x-0',
       )}
     >
       {/* Brand: the restaurant first, the product under it */}
@@ -143,14 +143,14 @@ export default function RefinedSidebar({ userRole, onLogout, mobileOpen, setMobi
               {!collapsed && (isOpen ? (
                 // An open group: a small label over its modules (design: "REPORTS ^")
                 <button type="button" onClick={() => toggle(g.group)} aria-expanded className="flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left hover:bg-accent">
-                  <span data-refined-group-head className="flex-1">{g.group}</span>
+                  <span data-refined-group-head className="flex-1">{navGroupTitle(g.group)}</span>
                   <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
                 </button>
               ) : (
                 // A closed group reads like a module row: icon, name, how many modules it holds, chevron
                 <button type="button" onClick={() => toggle(g.group)} aria-expanded={false} data-refined-nav-item className="flex w-full items-center gap-3 px-3 text-left">
                   <GroupIcon className="h-[18px] w-[18px] shrink-0 text-muted-foreground" />
-                  <span className="flex-1 truncate">{g.group}</span>
+                  <span className="flex-1 truncate">{navGroupTitle(g.group)}</span>
                   <span data-refined-count>{g.items.length}</span>
                   <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
                 </button>

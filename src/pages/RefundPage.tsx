@@ -89,9 +89,9 @@ export default function RefundPage() {
 
   return (
     <div className="p-4 lg:p-6 space-y-4 max-w-3xl">
-      <h2 className="text-lg font-bold flex items-center gap-2">
+      <h1 className="text-lg font-bold flex items-center gap-2">
         <Undo2 className="h-5 w-5" /> Refund
-      </h2>
+      </h1>
 
       <Card className="p-3">
         <div className="relative">

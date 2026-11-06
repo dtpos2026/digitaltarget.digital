@@ -178,9 +178,9 @@ export default function LiveMapPage() {
     <div className="p-4 lg:p-6 space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h2 className="text-lg font-bold flex items-center gap-2">
+          <h1 className="text-lg font-bold flex items-center gap-2">
             <Activity className="h-5 w-5 text-primary" /> Live Map — {tenantName}
-          </h2>
+          </h1>
           <p className="text-xs text-muted-foreground">Branches and devices on one live map. Auto-refresh every 60s.</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">

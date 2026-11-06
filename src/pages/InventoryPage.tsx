@@ -212,9 +212,9 @@ export default function InventoryPage() {
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-bold flex items-center gap-2">
+        <h1 className="text-lg font-bold flex items-center gap-2">
           <Package className="h-5 w-5 text-primary" /> Inventory Management
-        </h2>
+        </h1>
         <Button onClick={openAdd} size="sm">
           <Plus className="h-4 w-4 mr-1" /> Add Item
         </Button>

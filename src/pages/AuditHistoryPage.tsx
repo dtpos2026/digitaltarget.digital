@@ -285,9 +285,9 @@ export default function AuditHistoryPage() {
     <div className="p-4 lg:p-6 space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h2 className="text-lg font-bold flex items-center gap-2">
+          <h1 className="text-lg font-bold flex items-center gap-2">
             <History className="h-5 w-5 text-primary" /> Unified Audit History
-          </h2>
+          </h1>
           <p className="text-xs text-muted-foreground">
             Orders, approvals, rejections, prints, customer & location blocks — sab ka permanent timeline.
           </p>
@@ -322,7 +322,7 @@ export default function AuditHistoryPage() {
 
       {/* Filters */}
       <Card className="p-3">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
+        <div className="grid grid-cols-1 md:grid-cols-4 xl:grid-cols-6 gap-2">
           <div className="relative md:col-span-2">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
@@ -346,10 +346,10 @@ export default function AuditHistoryPage() {
               {allUsers.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}
             </SelectContent>
           </Select>
-          <div className="flex items-center gap-1">
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-            <Input type="date" className="h-9 text-xs" value={fromDate} onChange={e => setFromDate(e.target.value)} />
-            <Input type="date" className="h-9 text-xs" value={toDate} onChange={e => setToDate(e.target.value)} />
+          <div className="flex items-center gap-1 min-w-0 md:col-span-2">
+            <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+            <Input type="date" className="h-9 text-xs min-w-0" value={fromDate} onChange={e => setFromDate(e.target.value)} />
+            <Input type="date" className="h-9 text-xs min-w-0" value={toDate} onChange={e => setToDate(e.target.value)} />
           </div>
         </div>
       </Card>

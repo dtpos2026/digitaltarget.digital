@@ -36,7 +36,7 @@ import {
   query as fsQuery, limit as fsLimit, where as fsWhere,
 } from 'firebase/firestore';
 import { toast } from 'sonner';
-import { archiveOrders } from './orderArchive';
+import { archiveOrders, getArchivedOrders as getArchivedOrdersSafe } from './orderArchive';
 
 const STORAGE_KEY_BASE = 'desi-pos-data';
 // Per-tenant cache key — different restaurants must NEVER share local cache,
@@ -4151,6 +4151,47 @@ import { normalizePhone } from './whatsapp';
 export function getCustomers(): CustomerProfile[] { return loadData().customers || []; }
 export function saveCustomer(c: CustomerProfile) { saveEntity('customers', c); }
 export function deleteCustomer(id: string) { deleteEntity('customers', id); }
+
+// ============ Privacy (v1.109.0) — "show me my data" / "forget me" ============
+// The rules (who is the same person, what is removed, what stays) live in lib/privacy.ts and are tested there. These
+// two functions only gather and write. Erase does NOT go through saveOrder(): that would re-run the fiscal queue and
+// could recreate the customer profile from the order — it writes the redacted order straight through the entity path.
+import { buildCustomerExport, orderBelongsTo, phoneKey, redactOrderPii } from './privacy';
+
+export function exportCustomerPrivacyData(phone: string) {
+  const profile = findCustomerByPhone(phone);
+  return buildCustomerExport({
+    phone, profile, orders: getAllHistoricalOrdersForPrivacy(),
+  });
+}
+
+function getAllHistoricalOrdersForPrivacy(): Order[] {
+  const archived = (() => { try { return getArchivedOrdersSafe(); } catch { return [] as Order[]; } })();
+  const byId = new Map<string, Order>();
+  for (const o of archived) byId.set(o.id, o);
+  for (const o of loadData().orders) byId.set(o.id, o);
+  return Array.from(byId.values());
+}
+
+export function eraseCustomerPrivacyData(phone: string): { profileDeleted: boolean; liveOrders: number; archivedOrders: number } {
+  const key = phoneKey(phone);
+  if (!key) return { profileDeleted: false, liveOrders: 0, archivedOrders: 0 };
+  const profile = findCustomerByPhone(phone);
+  if (profile) deleteEntity('customers', profile.id);
+
+  let liveOrders = 0;
+  for (const o of loadData().orders.filter(x => orderBelongsTo(x, key))) {
+    saveEntity('orders', redactOrderPii(o));
+    liveOrders++;
+  }
+
+  let archivedOrders = 0;
+  try {
+    const mine = getArchivedOrdersSafe().filter(o => orderBelongsTo(o, key));
+    if (mine.length) { archiveOrders(mine.map(redactOrderPii)); archivedOrders = mine.length; }
+  } catch (e) { console.warn('[privacy] archive redaction skipped', e); }
+  return { profileDeleted: !!profile, liveOrders, archivedOrders };
+}
 
 export function findCustomerByPhone(phone?: string): CustomerProfile | undefined {
   if (!phone) return;

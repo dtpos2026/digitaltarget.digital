@@ -11,7 +11,7 @@ import { GROUP_ORDER, visiblePagesForUser, type PageDef, type PageGroup } from '
 import { resolveNav, toggleFavorite, useNavPrefs, writeNavPrefs } from '@/lib/navPrefs';
 import { cn } from '@/lib/utils';
 import { navIcon } from '@/components/shell/navIcons';
-import { navTitle } from '@/components/shell/navLabels';
+import { navTitle, navGroupTitle } from '@/components/shell/navLabels';
 
 interface Props {
   open: boolean;
@@ -84,8 +84,8 @@ export default function ModuleLauncher({ open, onOpenChange }: Props) {
           ) : (
             <div className="space-y-5">
               {groups.map(g => (
-                <section key={g.group} aria-label={g.group}>
-                  <h3 className="mb-2 text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">{g.group}</h3>
+                <section key={g.group} aria-label={navGroupTitle(g.group)}>
+                  <h3 className="mb-2 text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">{navGroupTitle(g.group)}</h3>
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                     {g.items.map(item => {
                       const Icon = navIcon(item.key);

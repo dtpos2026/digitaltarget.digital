@@ -414,7 +414,7 @@ export default function MenuManagerPage() {
         </div>
       )}
       <div className="flex items-center gap-2 mb-4 flex-wrap">
-        <h2 className="text-lg font-bold">Menu Manager</h2>
+        <h1 className="text-lg font-bold">Menu Manager</h1>
         <Button size="sm" variant="outline" onClick={() => setShowCatDialog(true)}><Plus className="h-3 w-3 mr-1" /> Category</Button>
         <Button size="sm" onClick={openNewItem}><Plus className="h-3 w-3 mr-1" /> Item</Button>
         <Button size="sm" variant="secondary" onClick={() => setExcelOpen(true)}>

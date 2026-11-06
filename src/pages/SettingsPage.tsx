@@ -34,6 +34,9 @@ import { isElectron, getPrinters, getAutoStart, setAutoStart } from '@/lib/elect
 import { Slider } from '@/components/ui/slider';
 import { PREMIUM_THEME_IDS } from '@/lib/premiumTheme';
 import InterfaceStyleCard from '@/components/settings/InterfaceStyleCard';
+import ScreenProfileCard from '@/components/settings/ScreenProfileCard';
+import PrivacyCard from '@/components/settings/PrivacyCard';
+import { countryForCurrency, taxRuleFor } from '@/lib/taxRegistration';
 import ModuleManagementCard from '@/components/settings/ModuleManagementCard';
 import { PageHeader } from '@/components/ui-kit';
 import { useUiStyle } from '@/lib/uiStyle';
@@ -849,7 +852,18 @@ export default function SettingsPage() {
             <p className="text-[11px] text-amber-600">
               ⚠️ Changing the currency does not convert the <strong>numbers</strong> on old bills — only the symbol changes. Set this before you start trading.
             </p>
+            {(() => {
+              const rule = taxRuleFor(settings.countryCode || countryForCurrency(settings.currencyCode));
+              return (
+                <p className="text-[11px] text-muted-foreground" data-testid="tax-rule-hint">
+                  Tax invoice for this country: <strong>{rule.invoiceTitle}</strong> · tax <strong>{rule.taxName}</strong>
+                  {rule.suggestedRate !== undefined && <> (usual rate {rule.suggestedRate}%)</>} · registration number <strong>{rule.idLabel}</strong>.
+                  {' '}{rule.hint}
+                </p>
+              );
+            })()}
           </div>
+          <PrivacyCard />
           <div>
             <label className="text-xs font-medium text-muted-foreground">Website URL (optional)</label>
             <Input
@@ -1586,6 +1600,7 @@ export default function SettingsPage() {
         {/* Theme Manager */}
         <TabsContent value="theme" className="space-y-4">
           <InterfaceStyleCard />
+          <ScreenProfileCard />
           {/* The colour themes and Premium Polish belong to the Classic (DT Enterprise) style; Modern has its own
               theme manager above. */}
           {!modern && (<>

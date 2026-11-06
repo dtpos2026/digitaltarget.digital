@@ -113,6 +113,7 @@ import { isFirebaseConfigured, fbAuth } from '@/lib/firebase';
 import { getTenantId, clearTenant } from '@/lib/tenant';
 import { isPublicTenantRoute, applyPublicTenantFromUrl, packagedTenantId, parsePublicTenantId, looksLikeSlug, cachedSlugTenant, resolveSlugTenant } from '@/lib/publicTenant';
 import { applyAppEntry, isOwnerAppRoute, displayWindowHash } from '@/lib/appEntry';
+import { installScreenProfile } from '@/lib/screenProfile';
 
 // ===== v1.47.0 — a portal APK must never open somebody else's screen =====
 //
@@ -127,6 +128,8 @@ import { applyAppEntry, isOwnerAppRoute, displayWindowHash } from '@/lib/appEntr
 // app carries on every load, remembers it, and puts the app back on its own
 // route. A plain website visit carries no marker and is never redirected.
 applyAppEntry();
+// v1.109.0 — every page reads one screen profile (data-screen / data-density / data-pointer on <html>), measured here.
+installScreenProfile();
 import { verifyStartupAuth } from '@/lib/startupVerify';
 import { forceLogoutAndWipe } from '@/lib/sessionIsolation';
 // v1.18.0 — auth now goes through the backend-agnostic adapter.

@@ -154,7 +154,7 @@ export default function DeliveryBoardPage() {
   return (
     <div className="p-3 lg:p-4 h-[calc(100vh-3rem)]">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-lg font-bold">Delivery Board</h2>
+        <h1 className="text-lg font-bold">Delivery Board</h1>
         <div className="text-[10px] text-muted-foreground flex gap-2">
           <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-status-success" /> Website</span>
           <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-status-warning" /> Order Taker</span>

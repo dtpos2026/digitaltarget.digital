@@ -90,8 +90,8 @@ function EmployeesTab() {
               <TableCell>{money(e.basicSalary)}</TableCell>
               <TableCell><Badge variant={e.status === 'active' ? 'default' : 'secondary'}>{e.status}</Badge></TableCell>
               <TableCell className="flex gap-1">
-                <Button size="icon" variant="ghost" onClick={() => { setEditing(e); setOpen(true); }}><Pencil className="h-3 w-3" /></Button>
-                <Button size="icon" variant="ghost" onClick={() => handleDelete(e.id)}><Trash2 className="h-3 w-3 text-destructive" /></Button>
+                <Button aria-label="Edit" size="icon" variant="ghost" onClick={() => { setEditing(e); setOpen(true); }}><Pencil className="h-3 w-3" /></Button>
+                <Button aria-label="Delete" size="icon" variant="ghost" onClick={() => handleDelete(e.id)}><Trash2 className="h-3 w-3 text-destructive" /></Button>
               </TableCell>
             </TableRow>
           ))}
@@ -235,7 +235,7 @@ function LeavesTab() {
                     <Button size="sm" onClick={() => updateStatus(l, 'approved')}>✓</Button>
                     <Button size="sm" variant="destructive" onClick={() => updateStatus(l, 'rejected')}>✗</Button>
                   </>}
-                  <Button size="icon" variant="ghost" onClick={() => { deleteLeave(l.id); refresh(); }}><Trash2 className="h-3 w-3 text-destructive" /></Button>
+                  <Button aria-label="Delete" size="icon" variant="ghost" onClick={() => { deleteLeave(l.id); refresh(); }}><Trash2 className="h-3 w-3 text-destructive" /></Button>
                 </TableCell>
               </TableRow>
             );
@@ -369,8 +369,8 @@ function PayslipsTab() {
                 <Card key={p.id} className="p-2 flex justify-between items-center">
                   <div><div className="font-medium text-sm">{emp?.name}</div><div className="text-xs text-muted-foreground">Net: {money(p.netSalary)}</div></div>
                   <div className="flex gap-1">
-                    <Button size="icon" variant="ghost" onClick={() => printPayslip(p)}><Printer className="h-4 w-4" /></Button>
-                    <Button size="icon" variant="ghost" onClick={() => { deletePayslip(p.id); refresh(); }}><Trash2 className="h-3 w-3 text-destructive" /></Button>
+                    <Button aria-label="Print" size="icon" variant="ghost" onClick={() => printPayslip(p)}><Printer className="h-4 w-4" /></Button>
+                    <Button aria-label="Delete" size="icon" variant="ghost" onClick={() => { deletePayslip(p.id); refresh(); }}><Trash2 className="h-3 w-3 text-destructive" /></Button>
                   </div>
                 </Card>
               );
@@ -441,7 +441,7 @@ function AdvancesTab() {
                 <TableCell><Badge variant={a.recovered ? 'default' : 'secondary'}>{a.recovered ? 'Recovered' : 'Pending'}</Badge></TableCell>
                 <TableCell className="flex gap-1">
                   {!a.recovered && <Button size="sm" onClick={() => { saveAdvance({ ...a, recovered: true }); refresh(); }}>Mark Recovered</Button>}
-                  <Button size="icon" variant="ghost" onClick={() => { deleteAdvance(a.id); refresh(); }}><Trash2 className="h-3 w-3 text-destructive" /></Button>
+                  <Button aria-label="Delete" size="icon" variant="ghost" onClick={() => { deleteAdvance(a.id); refresh(); }}><Trash2 className="h-3 w-3 text-destructive" /></Button>
                 </TableCell>
               </TableRow>
             );

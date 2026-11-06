@@ -94,9 +94,9 @@ export default function ShiftPage() {
 
   return (
     <div className="p-4 lg:p-6 space-y-4 max-w-3xl">
-      <h2 className="text-lg font-bold flex items-center gap-2">
+      <h1 className="text-lg font-bold flex items-center gap-2">
         <Wallet className="h-5 w-5" /> Shift &amp; Cash Drawer
-      </h2>
+      </h1>
 
       {!shift ? (
         <Card className="p-4 space-y-3">

@@ -86,10 +86,10 @@ export default function ModernSidebar({ userRole, onLogout, mobileOpen, setMobil
     <aside
       data-ui-shell="sidebar"
       className={cn(
-        'fixed inset-y-0 left-0 z-50 flex w-[var(--ui-sidebar-w)] flex-col border-r border-sidebar-border bg-sidebar transition-[width,transform] duration-200',
+        'fixed inset-y-0 start-0 z-50 flex w-[var(--ui-sidebar-w)] flex-col border-e border-sidebar-border bg-sidebar transition-[width,transform] duration-200',
         'lg:relative lg:translate-x-0',
         collapsed && 'lg:w-[var(--ui-sidebar-w-collapsed)]',
-        mobileOpen ? 'translate-x-0 shadow-[var(--ui-shadow-pop)]' : '-translate-x-full lg:translate-x-0',
+        mobileOpen ? 'translate-x-0 shadow-[var(--ui-shadow-pop)]' : '-translate-x-full rtl:translate-x-full lg:translate-x-0 lg:rtl:translate-x-0',
       )}
     >
       {/* Brand: the restaurant first */}
