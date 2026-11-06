@@ -11,7 +11,14 @@ const fns = vi.hoisted(() => ({
   revokeCustomSiteKey: vi.fn(),
   testCustomSiteConnection: vi.fn(),
 }));
-vi.mock('@/lib/customSite.functions', () => fns);
+// v1.108.0 — everything but the check is a database function (customSiteApi); only the check needs the server.
+vi.mock('@/lib/customSiteApi', () => ({
+  getCustomSiteStatus: fns.getCustomSiteStatus,
+  saveCustomSiteSettings: fns.saveCustomSiteSettings,
+  rotateCustomSiteKey: fns.rotateCustomSiteKey,
+  revokeCustomSiteKey: fns.revokeCustomSiteKey,
+}));
+vi.mock('@/lib/customSite.functions', () => ({ testCustomSiteConnection: fns.testCustomSiteConnection }));
 vi.mock('@/lib/tenant', () => ({ getTenantId: () => '64434fd6-3ea7-4ae2-9c05-6da25a41ad41', getTenantName: () => 'R' }));
 
 import CustomWebsiteCard from '@/components/settings/CustomWebsiteCard';
@@ -34,10 +41,20 @@ describe('My own website card', () => {
     expect(screen.queryByTestId('custom-site-intake')).toBeNull();
   });
 
-  it('says plainly that it needs the online server when the server cannot be reached', async () => {
-    fns.getCustomSiteStatus.mockRejectedValue(new Error('no server'));
+  it('says plainly what is needed when the database cannot be reached or the user is not the owner', async () => {
+    fns.getCustomSiteStatus.mockRejectedValue(new Error('only the owner or an admin can use this'));
     render(<CustomWebsiteCard />);
-    expect(await screen.findByText(/needs the online server/i)).toBeTruthy();
+    expect(await screen.findByText(/signed-in owner or admin/i)).toBeTruthy();
+  });
+
+  it('works without a web server: only the connection check asks for one, and says so', async () => {
+    fns.getCustomSiteStatus.mockResolvedValue(status({ mode: 'own', hasKey: true, keyHint: '…abcd' }));
+    fns.testCustomSiteConnection.mockRejectedValue(new Error('server functions are not served here'));
+    render(<CustomWebsiteCard />);
+    fireEvent.click(await screen.findByRole('button', { name: /check connection/i }));
+    expect((await screen.findByTestId('custom-site-check')).textContent).toMatch(/needs the online server/i);
+    // the rest of the card is still usable
+    expect(screen.getByRole('button', { name: /replace key/i }).hasAttribute('disabled')).toBe(false);
   });
 
   it('own website: shows the address to post to, with the restaurant id, and no secret yet', async () => {
@@ -100,7 +117,7 @@ describe('My own website card', () => {
     fireEvent.click(await screen.findByTestId('custom-site-mode-own'));
     fireEvent.change(screen.getByLabelText(/site address/i), { target: { value: 'https://mine.example' } });
     fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
-    await waitFor(() => expect(fns.saveCustomSiteSettings).toHaveBeenCalledWith({ data: { mode: 'own', siteUrl: 'https://mine.example', adminUrl: null } }));
+    await waitFor(() => expect(fns.saveCustomSiteSettings).toHaveBeenCalledWith({ mode: 'own', siteUrl: 'https://mine.example', adminUrl: null }));
   });
 });
 
@@ -124,20 +141,22 @@ describe('the intake route and its server functions', () => {
     expect(read('src/lib/customSiteIntake.server.ts')).not.toMatch(/console\.\w+/);
   });
 
-  it('every owner function needs a signed-in session and resolves the restaurant from it, never from the request', () => {
-    const fnCount = (owner.match(/createServerFn\(/g) || []).length;
-    expect(fnCount).toBe(5);
-    expect((owner.match(/\.middleware\(\[requireSupabaseAuth\]\)/g) || []).length).toBe(fnCount);
+  it('the one server function left needs a signed-in session and resolves the restaurant from it, never from the request', () => {
+    expect((owner.match(/createServerFn\(/g) || []).length).toBe(1);
+    expect(owner).toContain('.middleware([requireSupabaseAuth])');
     expect(owner).toContain("rpc('auth_tenant_id')");
     expect(owner).toMatch(/owner.*admin|admin.*owner/);
-    // no tenant id is accepted as input
     expect(owner).not.toMatch(/tenantId:\s*z\./);
+    // it never returns the secret
+    expect(owner).not.toMatch(/return\s*{\s*secret/);
   });
 
-  it('the secret is returned by one function only', () => {
-    const returnsSecret = owner.split('export const ').filter(chunk => /return\s*{\s*secret/.test(chunk));
-    expect(returnsSecret).toHaveLength(1);
-    expect(returnsSecret[0]).toContain('rotateCustomSiteKey');
+  it('the card talks to the database functions, which check the caller themselves', () => {
+    const api = read('src/lib/customSiteApi.ts');
+    for (const fn of ['custom_site_status', 'custom_site_save', 'custom_site_rotate_key', 'custom_site_revoke_key', 'sa_custom_site_overview']) {
+      expect(api).toContain(`'${fn}'`);
+    }
+    expect(api).not.toMatch(/\.from\(/);   // never touches the closed tables directly
   });
 });
 

@@ -20,7 +20,7 @@ import {
 } from '@/lib/customSite';
 import { money } from '@/lib/currency';
 
-type Fns = typeof import('@/lib/customSite.functions');
+type Api = typeof import('@/lib/customSiteApi');
 
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString() : '—');
 
@@ -38,16 +38,16 @@ export default function CustomWebsiteCard() {
   const [offline, setOffline] = useState(false);
   const [check, setCheck] = useState<{ ok: boolean; message: string } | null>(null);
 
-  const fns = useCallback(async (): Promise<Fns> => import('@/lib/customSite.functions'), []);
+  const api = useCallback(async (): Promise<Api> => import('@/lib/customSiteApi'), []);
 
   const load = useCallback(async () => {
     try {
-      const s = await (await fns()).getCustomSiteStatus();
+      const s = await (await api()).getCustomSiteStatus();
       setStatus(s); setMode(s.mode); setSiteUrl(s.siteUrl ?? ''); setAdminUrl(s.adminUrl ?? ''); setOffline(false);
     } catch {
       setOffline(true);
     }
-  }, [fns]);
+  }, [api]);
   useEffect(() => { void load(); }, [load]);
 
   const run = async (name: string, job: () => Promise<void>) => {
@@ -56,25 +56,30 @@ export default function CustomWebsiteCard() {
   };
 
   const save = () => run('save', async () => {
-    await (await fns()).saveCustomSiteSettings({ data: { mode, siteUrl: siteUrl.trim() || null, adminUrl: adminUrl.trim() || null } });
+    await (await api()).saveCustomSiteSettings({ mode, siteUrl: siteUrl.trim() || null, adminUrl: adminUrl.trim() || null });
     toast.success('Saved');
     await load();
   });
   const makeKey = () => run('key', async () => {
-    const r = await (await fns()).rotateCustomSiteKey();
+    const r = await (await api()).rotateCustomSiteKey();
     setSecret(r.secret);
     await load();
   });
   const revoke = () => run('revoke', async () => {
     if (!window.confirm('Revoke the key? The website stops delivering orders until you create a new key.')) return;
-    await (await fns()).revokeCustomSiteKey();
+    await (await api()).revokeCustomSiteKey();
     setSecret(null);
     toast.success('Key revoked');
     await load();
   });
   const test = () => run('test', async () => {
-    const r = await (await fns()).testCustomSiteConnection();
-    setCheck({ ok: r.ok, message: r.message });
+    // The check runs the real intake rules on the server, so it needs the online server — everything else here does not.
+    try {
+      const r = await (await import('@/lib/customSite.functions')).testCustomSiteConnection();
+      setCheck({ ok: r.ok, message: r.message });
+    } catch {
+      setCheck({ ok: false, message: 'The connection check needs the online server. Open the software from your web address to run it. Your settings and key are saved either way.' });
+    }
     await load();
   });
 
@@ -99,7 +104,7 @@ export default function CustomWebsiteCard() {
       {offline && (
         <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-[11px]" role="status">
           <TriangleAlert className="w-3.5 h-3.5 mt-0.5 shrink-0" aria-hidden />
-          <span>This needs the online server. Open the software from your web address (signed in as the owner) to set it up.</span>
+          <span>This needs a signed-in owner or admin with a cloud connection. Sign in as the owner and check the internet connection.</span>
         </div>
       )}
 

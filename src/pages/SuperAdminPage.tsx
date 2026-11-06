@@ -17,6 +17,7 @@ import AdminDashboard from '@/components/superadmin/AdminDashboard';
 import { toMs } from '@/lib/superAdminOverview';
 import ReleaseManagerPage from '@/pages/ReleaseManagerPage';
 import SuperAdminMonitoringPanel from '@/components/SuperAdminMonitoringPanel';
+import SuperAdminOwnSites from '@/components/SuperAdminOwnSites';
 import dtLogo from '@/assets/digital-target-logo.png';
 import PoweredByBrand from '@/components/PoweredByBrand';
 import LeafletMap, { type MapMarker } from '@/components/LeafletMap';
@@ -1430,7 +1431,10 @@ export default function SuperAdminPage({ onLogout }: Props) {
         ) : tab === 'releases' ? (
           <ReleaseManagerPage />
         ) : tab === 'monitor' ? (
-          <SuperAdminMonitoringPanel devices={devices} restaurants={approved} />
+          <>
+            <SuperAdminMonitoringPanel devices={devices} restaurants={approved} />
+            <SuperAdminOwnSites />
+          </>
         ) : tab === 'cleanup' ? (
           <SuperAdminCleanupPanel />
         ) : (

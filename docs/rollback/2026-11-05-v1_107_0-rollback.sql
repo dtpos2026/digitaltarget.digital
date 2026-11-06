@@ -29,3 +29,10 @@ drop table if exists public.public_track_attempts;
 
 -- 3b) custom_website — remove the function as well (run with the drops above)
 -- drop function if exists public.custom_site_place_order(uuid, uuid, jsonb);
+
+-- 3c) v1.108.0 custom_site_rpcs — remove the five functions
+-- drop function if exists public.custom_site_status();
+-- drop function if exists public.custom_site_save(text, text, text);
+-- drop function if exists public.custom_site_rotate_key();
+-- drop function if exists public.custom_site_revoke_key();
+-- drop function if exists public.sa_custom_site_overview();
