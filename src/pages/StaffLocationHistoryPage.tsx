@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { MapPin, RefreshCw, Route } from 'lucide-react';
 import { fetchLocationHistory, type StaffPoint } from '@/lib/staffLocation';
+import { PageTitle } from '@/components/layout/PageFrame';
 
 function isoDay(d: Date) { return d.toISOString().slice(0, 10); }
 
@@ -79,12 +80,7 @@ export default function StaffLocationHistoryPage() {
     <div className="p-4 space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex-1 min-w-[220px]">
-          <h1 className="text-xl font-extrabold flex items-center gap-2">
-            <MapPin className="h-5 w-5 text-primary" /> Staff — Location History
-          </h1>
-          <p className="text-xs text-muted-foreground">
-            Consent-based GPS trail for Order Takers and Riders. Only staff who turned sharing ON appear here.
-          </p>
+          <PageTitle icon={MapPin} subtitle="Consent-based GPS trail for Order Takers and Riders. Only staff who turned sharing ON appear here.">Staff — Location History</PageTitle>
         </div>
         <Input type="date" value={day} onChange={e => setDay(e.target.value)} className="h-9 w-[160px]" />
         <Button size="sm" variant="outline" onClick={() => void load()} disabled={loading}>

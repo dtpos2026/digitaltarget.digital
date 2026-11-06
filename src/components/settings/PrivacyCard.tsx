@@ -7,7 +7,8 @@ import { Download, ShieldCheck, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { eraseCustomerPrivacyData, exportCustomerPrivacyData } from '@/lib/store';
+import { exportCustomerPrivacyData } from '@/lib/store';
+import { eraseEverywhere } from '@/lib/privacyErasures';
 import { customerExportCsv, erasureConfirmed, phoneKey } from '@/lib/privacy';
 
 function download(name: string, mime: string, text: string) {
@@ -40,10 +41,10 @@ export default function PrivacyCard() {
     toast.success('File ready');
   };
 
-  const erase = () => {
+  const erase = async () => {
     if (!erasureConfirmed(typed, phone)) { toast.error('Type the same phone number again to confirm'); return; }
-    const r = eraseCustomerPrivacyData(phone);
-    toast.success(`Erased: profile ${r.profileDeleted ? 'deleted' : 'not found'}, ${r.liveOrders + r.archivedOrders} order(s) made anonymous`);
+    const r = await eraseEverywhere(phone);
+    toast.success(`Erased: profile ${r.profileDeleted ? 'deleted' : 'not found'}, ${r.liveOrders + r.archivedOrders} order(s) made anonymous${r.marked ? ' · other devices will do the same when they next open' : ''}`);
     setFound(null); setTyped(''); setPhone('');
   };
 
@@ -60,6 +61,10 @@ export default function PrivacyCard() {
           </p>
         </div>
       </div>
+
+      <a href="#/privacy" target="_blank" rel="noopener noreferrer" className="text-[11px] font-semibold text-primary underline" data-testid="privacy-policy-link">
+        Open the privacy policy page (the link to give a customer)
+      </a>
 
       <div className="flex flex-wrap items-end gap-2">
         <div className="flex-1 min-w-[12rem]">

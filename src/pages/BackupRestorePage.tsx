@@ -13,6 +13,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
+import { PageTitle } from '@/components/layout/PageFrame';
+import { Database as TitleIcon } from 'lucide-react';
 
 // Group collections for friendlier UI
 const GROUPS: { title: string; items: { key: ResettableCollection; label: string }[] }[] = [
@@ -286,7 +288,7 @@ export default function BackupRestorePage() {
 
   return (
     <div className="p-4 lg:p-6 max-w-lg space-y-6">
-      <h1 className="text-lg font-bold">Backup & Restore</h1>
+      <PageTitle icon={TitleIcon} subtitle="Save everything to a file, or restore from one">Backup & Restore</PageTitle>
 
       <div className="bg-card border rounded-xl p-4 mb-4 flex items-center gap-3">
         <Database className="h-5 w-5 text-primary" />

@@ -13,6 +13,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog as ConfirmDialog, DialogContent as ConfirmContent, DialogHeader as ConfirmHeader, DialogTitle as ConfirmTitle, DialogFooter as ConfirmFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { BASE_UNITS, PURCHASE_UNITS, getBaseUnit } from '@/lib/units';
+import { PageTitle } from '@/components/layout/PageFrame';
 
 const UNITS = ['pcs', 'kg', 'g', 'l', 'ml']; // legacy alias list (kept for backward compat)
 
@@ -212,9 +213,7 @@ export default function InventoryPage() {
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-lg font-bold flex items-center gap-2">
-          <Package className="h-5 w-5 text-primary" /> Inventory Management
-        </h1>
+        <PageTitle icon={Package} subtitle="Stock on hand, what is low, and what it is worth">Inventory Management</PageTitle>
         <Button onClick={openAdd} size="sm">
           <Plus className="h-4 w-4 mr-1" /> Add Item
         </Button>

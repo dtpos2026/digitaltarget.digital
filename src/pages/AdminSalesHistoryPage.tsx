@@ -11,6 +11,8 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import DateTimeRangeFilter, { DateTimeRange } from '@/components/DateTimeRangeFilter';
 import { getCurrentBusinessDay } from '@/lib/businessDay';
+import { PageTitle } from '@/components/layout/PageFrame';
+import { BarChart3 as TitleIcon } from 'lucide-react';
 
 function fmtMoney(n: number) {
   return 'Rs. ' + (n || 0).toLocaleString('en-PK', { maximumFractionDigits: 0 });
@@ -263,8 +265,7 @@ export default function AdminSalesHistoryPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4 no-print">
         <div>
-          <h1 className="text-2xl font-bold">📊 Admin Sales History</h1>
-          <p className="text-sm text-muted-foreground">Day Close کے بعد بھی محفوظ — صرف Admin دیکھ سکتا ہے</p>
+          <PageTitle icon={TitleIcon} subtitle="Day Close کے بعد بھی محفوظ — صرف Admin دیکھ سکتا ہے">Admin Sales History</PageTitle>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={exportCsv}><FileDown className="h-4 w-4 mr-2" />CSV</Button>

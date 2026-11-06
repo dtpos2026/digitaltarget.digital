@@ -17,6 +17,7 @@ import ReceivePaymentButton from '@/components/ReceivePaymentButton';
 import { balanceDue } from '@/lib/sales';
 import { scopeOrders, getCurrentScope } from '@/lib/cashierScope';
 import { startVisiblePoll } from '@/lib/visiblePoll';
+import { PageTitle } from '@/components/layout/PageFrame';
 
 export default function RunningBillsPage() {
   const scope = getCurrentScope();
@@ -208,8 +209,7 @@ export default function RunningBillsPage() {
           />
         </Suspense>
       )}
-      <h1 className="text-lg font-bold mb-2 flex items-center gap-2">
-        <Clock className="h-5 w-5 text-status-warning" /> Running / Hold Bills
+      <PageTitle icon={Clock} subtitle="Bills that are open or on hold">Running / Hold Bills
         {scope.restrict && (
           <span className="ml-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/30">
             👤 {scope.name} — Sirf apne bills
@@ -219,8 +219,7 @@ export default function RunningBillsPage() {
           <span className="ml-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-gold/15 text-gold border border-gold/30">
             🛡️ Admin — All cashiers
           </span>
-        )}
-      </h1>
+        )}</PageTitle>
       {orders.length === 0 ? (
         <p className="text-muted-foreground text-sm">No running or hold bills</p>
       ) : (

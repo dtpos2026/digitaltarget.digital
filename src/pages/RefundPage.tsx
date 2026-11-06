@@ -18,6 +18,7 @@ import { getOrders, getRefundsForOrder, createRefund, getSettings } from '@/lib/
 import { buildRefund, refundableQty, maxRefundable } from '@/lib/refunds';
 import { money } from '@/lib/currency';
 import type { Order } from '@/lib/types';
+import { PageTitle } from '@/components/layout/PageFrame';
 
 export default function RefundPage() {
   const [query, setQuery] = useState('');
@@ -89,9 +90,7 @@ export default function RefundPage() {
 
   return (
     <div className="p-4 lg:p-6 space-y-4 max-w-3xl">
-      <h1 className="text-lg font-bold flex items-center gap-2">
-        <Undo2 className="h-5 w-5" /> Refund
-      </h1>
+      <PageTitle icon={Undo2} subtitle="Give money back on a paid bill">Refund</PageTitle>
 
       <Card className="p-3">
         <div className="relative">

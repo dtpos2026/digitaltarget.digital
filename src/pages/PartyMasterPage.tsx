@@ -17,6 +17,7 @@ import {
   getLedger, getReceivingEntries, getTransactions, genId,
 } from '@/lib/store';
 import type { Party, LedgerType } from '@/lib/types';
+import { PageTitle } from '@/components/layout/PageFrame';
 
 type Filter = 'all' | LedgerType;
 
@@ -95,9 +96,7 @@ export default function PartyMasterPage() {
   return (
     <div className="p-4 lg:p-6 space-y-4">
       <div className="flex items-center gap-3 flex-wrap">
-        <h1 className="text-lg font-bold flex items-center gap-2">
-          <Users2 className="h-5 w-5 text-primary" /> Party Master
-        </h1>
+        <PageTitle icon={Users2} subtitle="Suppliers and other parties you trade with">Party Master</PageTitle>
         <Badge variant="outline" className="text-[10px]">Central database — used by Accounts, Inventory, Receiving, Expenses & Ledger</Badge>
         <Button size="sm" className="ml-auto" onClick={() => { setForm(empty()); setOpen(true); }}>
           <Plus className="h-3 w-3 mr-1" /> New Party

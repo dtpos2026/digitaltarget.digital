@@ -20,14 +20,14 @@ import {
 import { Employee, Leave, Payslip, Advance, AttendanceStatus } from '@/lib/types';
 import { Plus, Pencil, Trash2, Printer, Users, CalendarCheck, Wallet, FileText, Receipt } from 'lucide-react';
 import { toast } from 'sonner';
+import { PageTitle } from '@/components/layout/PageFrame';
 
 export default function HRPage() {
   const [tab, setTab] = useState('employees');
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center gap-3">
-        <Users className="h-6 w-6 text-primary" />
-        <h1 className="text-2xl font-bold">HR Management</h1>
+        <PageTitle icon={Users} subtitle="Employees, attendance and payroll">HR Management</PageTitle>
       </div>
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="grid w-full grid-cols-5">

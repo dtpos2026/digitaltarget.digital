@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { getBlockedLocations, blockLocation, unblockLocation, onBlocklistChange, type BlockedLocation } from '@/lib/blocklist';
 import { MapPin, Plus, RotateCcw, Search, Clock } from 'lucide-react';
 import { toast } from 'sonner';
+import { PageTitle } from '@/components/layout/PageFrame';
 
 function fmt(iso?: string) { if (!iso) return '—'; try { return new Date(iso).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }); } catch { return iso; } }
 
@@ -48,8 +49,7 @@ export default function BlockedLocationsPage() {
     <div className="p-4 max-w-6xl mx-auto space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2"><MapPin className="w-6 h-6 text-status-danger" /> Blocked Locations</h1>
-          <p className="text-sm text-muted-foreground">Areas and GPS zones you do not accept orders from</p>
+          <PageTitle icon={MapPin} subtitle="Areas and GPS zones you do not accept orders from">Blocked Locations</PageTitle>
         </div>
         <button onClick={() => setShowAdd(true)} className="bg-status-danger text-white px-4 py-2 rounded font-semibold text-sm flex items-center gap-1"><Plus className="w-4 h-4" /> Block New Location</button>
       </div>

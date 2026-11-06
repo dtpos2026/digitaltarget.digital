@@ -12,6 +12,7 @@ import {
 import { inspectDatabase, repairDatabase, type InspectionResult } from '@/lib/syncRepair';
 import { getInstalledVersion } from '@/lib/version';
 import { toast } from 'sonner';
+import { PageTitle } from '@/components/layout/PageFrame';
 
 function ago(ts?: number | null) {
   if (!ts) return 'Never';
@@ -94,13 +95,7 @@ export default function UpdateSafetyPage() {
   return (
     <div className="p-6 space-y-6 max-w-5xl mx-auto">
       <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <ShieldCheck className="h-6 w-6 text-green-600" />
-          Update Safety — Zero Data Loss
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Backup, inspect, and repair your data. Every update creates an automatic snapshot.
-        </p>
+        <PageTitle icon={ShieldCheck} subtitle="Backup, inspect, and repair your data. Every update creates an automatic snapshot.">Update Safety — Zero Data Loss</PageTitle>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

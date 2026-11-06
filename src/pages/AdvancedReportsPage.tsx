@@ -8,6 +8,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { BarChart3, Download, Filter as FilterIcon } from 'lucide-react';
 import DateTimeRangeFilter, { DateTimeRange } from '@/components/DateTimeRangeFilter';
 import { getCurrentBusinessDay, getBusinessDayRange } from '@/lib/businessDay';
+import { PageTitle } from '@/components/layout/PageFrame';
+import { BarChart3 as TitleIcon } from 'lucide-react';
 
 type GroupKey = 'item' | 'variant' | 'category' | 'subcategory';
 type SourceFilter = 'all' | 'pos' | 'website' | 'foodpanda' | 'delivery' | 'takeaway' | 'dining';
@@ -100,8 +102,7 @@ export default function AdvancedReportsPage() {
           <BarChart3 className="h-5 w-5" />
         </div>
         <div className="flex-1 min-w-0">
-          <h1 className="text-xl font-extrabold tracking-tight">Advanced Item / Variant Reports</h1>
-          <p className="text-[11px] text-muted-foreground">Pizza → Small / Medium / Large alag alag dikhega. POS + Web + Foodpanda sab cover.</p>
+          <PageTitle icon={TitleIcon} subtitle="Pizza → Small / Medium / Large alag alag dikhega. POS + Web + Foodpanda sab cover.">Advanced Item / Variant Reports</PageTitle>
         </div>
         <Button size="sm" variant="outline" onClick={exportCsv}>
           <Download className="h-3.5 w-3.5 mr-1" /> Export CSV

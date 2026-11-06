@@ -13,6 +13,7 @@ import { isPaidSale, isCreditOrder } from '@/lib/sales';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { drawPdfHeader, drawPdfFooter, getThemePrimaryRgb } from '@/lib/pdfBrand';
+import { PageTitle } from '@/components/layout/PageFrame';
 
 /**
  * Phase 8 — Reports split
@@ -160,8 +161,7 @@ export default function ReportsCenterPage() {
   return (
     <div className="p-4 lg:p-6 space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <BarChart3 className="h-5 w-5 text-primary" />
-        <h1 className="text-lg font-bold">Reports Center</h1>
+        <PageTitle icon={BarChart3} subtitle="Sales, items, payments and staff — pick a report">Reports Center</PageTitle>
         {allBranches.length > 0 && (
           <div className="flex items-center gap-1.5 rounded-md px-2 py-1 border bg-primary/10 border-primary/40">
             <Building2 className="h-3.5 w-3.5 text-primary" />

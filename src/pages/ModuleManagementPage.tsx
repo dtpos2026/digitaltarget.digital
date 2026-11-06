@@ -28,6 +28,7 @@ import {
 } from '@/lib/optionalModules';
 import { BUSINESS_TYPES, getBusinessTypeDef } from '@/lib/businessTypes';
 import type { RestaurantSettings } from '@/lib/types';
+import { PageTitle } from '@/components/layout/PageFrame';
 
 const CATEGORY_META: Record<FeatureCategory, { label: string; icon: string }> = {
   Module: { label: 'Modules', icon: '🧩' },
@@ -81,12 +82,7 @@ export default function ModuleManagementPage() {
     <div className="p-4 lg:p-6 space-y-4 max-w-5xl">
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-lg font-bold flex items-center gap-2">
-            <LayoutGrid className="h-5 w-5" /> Module Management
-          </h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Every module is switched on/off here — it takes effect at once, no app update needed.
-          </p>
+          <PageTitle icon={LayoutGrid} subtitle="Every module is switched on/off here — it takes effect at once, no app update needed.">Module Management</PageTitle>
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="secondary" className="text-xs">

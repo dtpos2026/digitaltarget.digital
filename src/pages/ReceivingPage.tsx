@@ -13,6 +13,7 @@ import {
 } from '@/lib/store';
 import type { ReceivingEntry, InventoryItem, Party } from '@/lib/types';
 import { getBaseUnit, toBaseQty, PURCHASE_UNITS } from '@/lib/units';
+import { PageTitle } from '@/components/layout/PageFrame';
 
 type FormState = {
   supplierName: string;
@@ -154,9 +155,7 @@ export default function ReceivingPage() {
   return (
     <div className="p-4 lg:p-6">
       <div className="flex items-center gap-3 mb-4 flex-wrap">
-        <h1 className="text-lg font-bold flex items-center gap-2">
-          <Package className="h-5 w-5 text-status-teal" /> Goods Receiving (GRN)
-        </h1>
+        <PageTitle icon={Package} subtitle="Record stock that arrives from suppliers">Goods Receiving (GRN)</PageTitle>
         <Button size="sm" onClick={() => { setForm(emptyForm()); setShowDialog(true); }}>
           <Plus className="h-3 w-3 mr-1" /> New Entry
         </Button>

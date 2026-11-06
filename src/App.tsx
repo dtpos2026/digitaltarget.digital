@@ -80,6 +80,7 @@ const ResetPasswordPage = lazy(() => import('@/pages/ResetPasswordPage'));
 const OnlineOrderPage = lazy(() => import("@/pages/OnlineOrderPage"));
 const TrackOrderPage = lazy(() => import("@/pages/TrackOrderPage"));
 const VerifyInvoicePage = lazy(() => import("@/pages/VerifyInvoicePage"));
+const PrivacyPolicyPage = lazy(() => import("@/pages/PrivacyPolicyPage"));
 const OnlinePortalPage = lazy(() => import("@/pages/OnlinePortalPage"));
 const OrderTakerPortalPage = lazy(() => import("@/pages/OrderTakerPortalPage"));
 const OwnerAppPage = lazy(() => import("@/pages/OwnerAppPage"));
@@ -114,6 +115,8 @@ import { getTenantId, clearTenant } from '@/lib/tenant';
 import { isPublicTenantRoute, applyPublicTenantFromUrl, packagedTenantId, parsePublicTenantId, looksLikeSlug, cachedSlugTenant, resolveSlugTenant } from '@/lib/publicTenant';
 import { applyAppEntry, isOwnerAppRoute, displayWindowHash } from '@/lib/appEntry';
 import { installScreenProfile } from '@/lib/screenProfile';
+import { applyPendingErasures } from '@/lib/privacyErasures';
+import { onDataChange } from '@/lib/store';
 
 // ===== v1.47.0 — a portal APK must never open somebody else's screen =====
 //
@@ -130,6 +133,8 @@ import { installScreenProfile } from '@/lib/screenProfile';
 applyAppEntry();
 // v1.109.0 — every page reads one screen profile (data-screen / data-density / data-pointer on <html>), measured here.
 installScreenProfile();
+// v1.110.0 — an erase made on another device reaches this one: now, and whenever the shared settings change
+if (typeof window !== 'undefined') { setTimeout(() => { void applyPendingErasures().catch(() => {}); }, 4000); onDataChange(col => { if (col === 'settings') void applyPendingErasures().catch(() => {}); }); }
 import { verifyStartupAuth } from '@/lib/startupVerify';
 import { forceLogoutAndWipe } from '@/lib/sessionIsolation';
 // v1.18.0 — auth now goes through the backend-agnostic adapter.
@@ -652,6 +657,8 @@ const App = () => {
                 <Route path="/order/:tenantId" element={<OnlineOrderPage />} />
                 {/* v1.83.0 — public invoice verification (QR / link printed on every Digital Target invoice) */}
                 <Route path="/verify/:invoiceId" element={<VerifyInvoicePage />} />
+                {/* v1.110.0 — the privacy policy, readable without signing in */}
+                <Route path="/privacy" element={<PrivacyPolicyPage />} />
                 <Route path="/track" element={<TrackOrderPage />} />
                 <Route path="/track/:tenantId" element={<TrackOrderPage />} />
                 <Route path="/rider-portal" element={<RiderAppPage />} />

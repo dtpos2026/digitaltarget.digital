@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { getBlockedCustomers, blockCustomer, unblockCustomer, onBlocklistChange, type BlockedCustomer } from '@/lib/blocklist';
 import { UserX, Plus, RotateCcw, Search, Clock } from 'lucide-react';
 import { toast } from 'sonner';
+import { PageTitle } from '@/components/layout/PageFrame';
 
 function fmt(iso?: string) { if (!iso) return '—'; try { return new Date(iso).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }); } catch { return iso; } }
 
@@ -36,8 +37,7 @@ export default function BlockedCustomersPage() {
     <div className="p-4 max-w-6xl mx-auto space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2"><UserX className="w-6 h-6 text-status-danger" /> Blocked Customers</h1>
-          <p className="text-sm text-muted-foreground">Customers who have been blocked from ordering</p>
+          <PageTitle icon={UserX} subtitle="Customers who have been blocked from ordering">Blocked Customers</PageTitle>
         </div>
         <button onClick={() => setShowAdd(true)} className="bg-status-danger text-white px-4 py-2 rounded font-semibold text-sm flex items-center gap-1"><Plus className="w-4 h-4" /> Block New Customer</button>
       </div>

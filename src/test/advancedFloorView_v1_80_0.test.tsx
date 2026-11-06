@@ -56,12 +56,14 @@ beforeEach(() => {
 });
 
 describe('the existing views are untouched', () => {
-  it('opens on the Grid, with the Floor Map beside the new Advanced button', () => {
+  it('v1.110.0: opens on the Live floor; the Grid and the Floor Map are still one tap away and unchanged', () => {
     seedRestaurant();
     mount();
     expect(screen.getByRole('button', { name: /^Grid$/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Floor Map/ })).toBeInTheDocument();
-    expect(screen.getByTestId('tables-view-advanced')).toBeInTheDocument();
+    expect(screen.getByTestId('tables-view-advanced').textContent).toMatch(/Live floor/);
+    expect(screen.getByTestId('advanced-floor')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /^Grid$/ }));
     expect(screen.queryByTestId('advanced-floor')).toBeNull();
     // the Grid's own cards are rendered
     expect(screen.getAllByText(/chairs|persons/).length).toBeGreaterThan(0);
@@ -74,14 +76,16 @@ describe('the existing views are untouched', () => {
     expect(screen.getByText(/Drag tables to arrange your floor map/)).toBeInTheDocument();
   });
 
-  it('remembers the last view on this device, and the default for a new device is still the Grid', () => {
+  it('remembers the last view on this device (the default for a new device is the Live floor)', () => {
     seedRestaurant();
     const first = mount();
-    openAdvanced();
-    expect(localStorage.getItem('dtpos-tables-view')).toBe('advanced');
+    fireEvent.click(screen.getByRole('button', { name: /^Grid$/ }));
+    expect(localStorage.getItem('dtpos-tables-view')).toBe('grid');
     first.unmount();
     mount();
-    expect(screen.getByTestId('advanced-floor')).toBeInTheDocument();
+    expect(screen.queryByTestId('advanced-floor')).toBeNull();
+    openAdvanced();
+    expect(localStorage.getItem('dtpos-tables-view')).toBe('advanced');
   });
 });
 

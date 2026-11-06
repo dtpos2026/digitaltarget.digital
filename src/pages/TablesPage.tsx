@@ -6,7 +6,7 @@ import { sortTablesForGrid } from '@/lib/tableOrder';
 import {
   getTables, getOrders, saveTable, saveOrder, getFloors, refreshOrdersFromCloud, onDataChange, genId, getNextOrderNumber, getNextOrderNumberAsync } from '@/lib/store';
 import { DiningTable, Order, TableStatus, CartItem, TableSession, PaymentEntry } from '@/lib/types';
-import { Users, Utensils, Clock, ArrowRightLeft, Combine, Split, Grid3x3, Map as MapIcon, History, QrCode, Plus, Minus, LayoutDashboard } from 'lucide-react';
+import { Users, Utensils, Clock, ArrowRightLeft, Combine, Split, Grid3x3, Map as MapIcon, History, QrCode, Plus, Minus, LayoutDashboard, Pencil, CreditCard, ShoppingCart, X as XIcon, Pause, Timer } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -16,9 +16,12 @@ import { enqueueReceipt } from '@/lib/printQueue';
 const PaymentDialog = lazy(() => import('@/components/PaymentDialog'));
 import { useNavigate } from '@/lib/hash-router';
 import TableShapePreview from '@/components/TableShapePreview';
+import TableSeatPanel from '@/components/tables/TableSeatPanel';
+import { setReservationStatus } from '@/lib/tableReservations';
 import TableQR, { PublicOrderQR } from '@/components/TableQR';
 import { ENABLE_REDUNDANT_ORDER_POLL } from '@/lib/featureFlags';
 import AdvancedFloorView from '@/components/tables/AdvancedFloorView';
+import { PageTitle } from '@/components/layout/PageFrame';
 
 const statusConfig: Record<TableStatus, { label: string; emoji: string; border: string; bg: string; icon: string; badge: string; badgeText: string }> = {
   free: {
@@ -57,10 +60,10 @@ const statusConfig: Record<TableStatus, { label: string; emoji: string; border: 
 
 type BillAction = 'transfer' | 'merge' | 'split' | null;
 type ViewMode = 'grid' | 'layout' | 'advanced';
-// v1.80.0 — the last view the user picked is remembered on this device. The default is still the Grid.
+// v1.80.0 — the last view the user picked is remembered on this device. v1.110.0: the default is now the Live floor.
 const VIEW_KEY = 'dtpos-tables-view';
 const readView = (): ViewMode => {
-  try { const v = localStorage.getItem(VIEW_KEY); return v === 'layout' || v === 'advanced' ? v : 'grid'; } catch { return 'grid'; }
+  try { const v = localStorage.getItem(VIEW_KEY); return v === 'layout' || v === 'grid' || v === 'advanced' ? v : 'advanced'; } catch { return 'advanced'; }
 };
 
 function fmtDuration(mins: number) {
@@ -374,9 +377,10 @@ export default function TablesPage() {
     setSelectedTable(t);
   };
 
-  const seatAndStart = (t: DiningTable, guests: number) => {
+  const seatAndStart = (t: DiningTable, guests: number, reservationId?: string) => {
     const g = Math.max(1, Math.min(t.seats, guests || 1));
     saveTable({ ...t, status: 'running', seatedAt: new Date().toISOString(), seatedGuests: g });
+    if (reservationId) setReservationStatus(reservationId, 'seated');
     refresh();
     toast.success(`${t.name} seated · ${g} guest${g > 1 ? 's' : ''}`);
     setSelectedTable(null);
@@ -577,12 +581,9 @@ export default function TablesPage() {
   return (
     <div className="p-4 lg:p-6 space-y-5">
       <div className="bg-card rounded-2xl border shadow-card p-5">
-        <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+        <div className={`flex items-center justify-between flex-wrap gap-3 ${viewMode === 'advanced' ? '' : 'mb-4'}`}>
           <div>
-            <h1 className="text-xl font-bold tracking-tight flex items-center gap-2">
-              <Utensils className="h-5 w-5 text-gold" /> Dining Tables
-            </h1>
-            <p className="text-xs text-muted-foreground mt-0.5">Real-time table occupancy, dine time & floor map</p>
+            <PageTitle icon={Utensils} subtitle="Real-time table occupancy, dine time & floor map">Dining Tables</PageTitle>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <div className="flex gap-1 p-1 rounded-lg bg-muted">
@@ -593,7 +594,7 @@ export default function TablesPage() {
                 <MapIcon className="h-3.5 w-3.5" /> Floor Map
               </button>
               <button onClick={() => setViewMode('advanced')} className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1 ${viewMode === 'advanced' ? 'bg-background shadow' : 'text-muted-foreground'}`} data-testid="tables-view-advanced">
-                <LayoutDashboard className="h-3.5 w-3.5" /> Advanced
+                <LayoutDashboard className="h-3.5 w-3.5" /> Live floor
               </button>
             </div>
             <Button size="sm" variant="outline" onClick={() => setBulkQrOpen(true)} className="gap-1">
@@ -634,7 +635,7 @@ export default function TablesPage() {
         )}
 
         {viewMode !== 'advanced' && <div className="flex items-center gap-4 flex-wrap">{legend}
-          {viewMode === 'layout' && <span className="text-[10px] text-muted-foreground italic">💡 Drag tables to arrange your floor map — positions save automatically.</span>}
+          {viewMode === 'layout' && <span className="text-[10px] text-muted-foreground italic">Drag tables to arrange your floor map — positions save automatically.</span>}
         </div>}
       </div>
 
@@ -806,10 +807,12 @@ export default function TablesPage() {
             const seated = getSeatedTime(selectedTable);
             return (
               <div className="space-y-3">
-                <div className="flex justify-center"><TableShapePreview shape={selectedTable.shape} seats={selectedTable.seats} status={selectedTable.status} size={140} /></div>
-                <p className="text-sm">Status: <Badge className={cfg.badge}>{cfg.badgeText}</Badge></p>
-                <p className="text-sm">Chairs: {selectedTable.seats} · Shape: {selectedTable.shape || 'square'}</p>
-                {seated && <p className="text-sm">⏱ Sitting since: <span className="font-mono font-bold">{seated}</span></p>}
+                {/* a free table shows itself in the seat panel below, with its guests on the chairs */}
+                {selectedTable.status !== 'free' && (
+                  <div className="flex justify-center"><TableShapePreview shape={selectedTable.shape} seats={selectedTable.seats} status={selectedTable.status} size={140} /></div>
+                )}
+                <p className="text-sm">Status: <Badge className={cfg.badge}>{cfg.badgeText}</Badge> <span className="text-muted-foreground">· {selectedTable.seats} chairs · {selectedTable.shape || 'square'}</span></p>
+                {seated && <p className="text-sm inline-flex items-center gap-1"><Timer className="h-3.5 w-3.5" aria-hidden /> Sitting since: <span className="font-mono font-bold">{seated}</span></p>}
                 {order && (
                   <p className="text-sm">Order: <span className="font-bold">#{order.orderNumber}</span> · {order.items.length} item(s) · <span className="text-gold font-bold">{money(order.grandTotal)}</span></p>
                 )}
@@ -821,7 +824,7 @@ export default function TablesPage() {
                     onClick={() => { setSelectedTable(null); navigate('/?retrieve=' + order.id); }}
                     className="w-full"
                   >
-                    ✏️ Edit / Add Items
+                    <Pencil className="h-4 w-4 mr-1.5" aria-hidden /> Edit / Add Items
                   </Button>
                 )}
 
@@ -845,7 +848,7 @@ export default function TablesPage() {
                     </div>
                     {order.status === 'hold' && (
                       <p className="text-[11px] text-amber-700 font-semibold text-center">
-                        ⏸ This bill is on HOLD — bill actions still work
+                        <Pause className="inline h-3 w-3 mr-1" aria-hidden />This bill is on HOLD — bill actions still work
                       </p>
                     )}
                     <Button onClick={() => { markPendingPayment(selectedTable); setSelectedTable(null); }}
@@ -854,7 +857,7 @@ export default function TablesPage() {
                     </Button>
                     <Button onClick={() => requestPayment(selectedTable)}
                       className="w-full bg-status-success text-status-success-foreground">
-                      💳 Payment &amp; Free Table
+                      <CreditCard className="h-4 w-4 mr-1.5" aria-hidden /> Payment &amp; Free Table
                     </Button>
                   </>
                 )}
@@ -862,7 +865,7 @@ export default function TablesPage() {
                   <>
                     <Button onClick={() => requestPayment(selectedTable)}
                       className="w-full bg-status-success text-status-success-foreground">
-                      💳 Receive Payment — Free Table
+                      <CreditCard className="h-4 w-4 mr-1.5" aria-hidden /> Receive Payment — Free Table
                     </Button>
                     <Button onClick={() => { markClosed(selectedTable); setSelectedTable(null); }}
                       className="w-full bg-status-closed text-status-closed-foreground">
@@ -906,68 +909,31 @@ export default function TablesPage() {
                         navigate(`/?table=${encodeURIComponent(selectedTable.id)}&guests=${g}`);
                       }}
                     >
-                      🛒 Open order screen / add items
+                      <ShoppingCart className="h-4 w-4 mr-1.5" aria-hidden /> Open order screen / add items
                     </Button>
                     <Button
                       variant="outline"
                       className="w-full"
                       onClick={() => { cancelEmptyTable(selectedTable); setSelectedTable(null); }}
                     >
-                      ✖ Cancel — free the table
+                      <XIcon className="h-4 w-4 mr-1.5" aria-hidden /> Cancel — free the table
                     </Button>
                   </div>
                 )}
 
-                {selectedTable.status === 'free' && (() => {
-                  const total = selectedTable.seats;
-                  const g = Math.max(1, Math.min(total, seatPickerGuests || 1));
-                  return (
-                    <div className="space-y-3 pt-2 border-t">
-                      <div>
-                        <div className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-2">
-                          How many people are seated?
-                        </div>
-                        <div className="flex flex-wrap justify-center gap-1.5 mb-3">
-                          {Array.from({ length: total }).map((_, i) => {
-                            const n = i + 1;
-                            const active = n <= g;
-                            return (
-                              <button
-                                key={n}
-                                type="button"
-                                onClick={() => setSeatPickerGuests(n)}
-                                className={`w-9 h-9 rounded-full border-2 text-xs font-bold transition-all flex items-center justify-center ${active ? 'bg-status-running text-white border-status-running shadow-md scale-105' : 'bg-muted text-muted-foreground border-border hover:border-status-running'}`}
-                                title={`Chair ${n}`}
-                              >
-                                {n}
-                              </button>
-                            );
-                          })}
-                        </div>
-                        <div className="flex items-center justify-center gap-2">
-                          <Button aria-label="Decrease" size="icon" variant="outline" className="h-8 w-8" onClick={() => setSeatPickerGuests(Math.max(1, g - 1))}>
-                            <Minus className="h-3.5 w-3.5" />
-                          </Button>
-                          <div className="px-4 py-1.5 rounded-lg bg-muted font-bold text-lg min-w-[60px] text-center">
-                            {g} <span className="text-xs font-normal text-muted-foreground">/ {total}</span>
-                          </div>
-                          <Button aria-label="Increase" size="icon" variant="outline" className="h-8 w-8" onClick={() => setSeatPickerGuests(Math.min(total, g + 1))}>
-                            <Plus className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </div>
-                      <Button
-                        onClick={() => seatAndStart(selectedTable, g)}
-                        className="w-full bg-status-running text-white hover:bg-status-running/90 font-bold"
-                      >
-                        ✓ Seat {g} Guest{g > 1 ? 's' : ''} & Start Order
-                      </Button>
-                      <Button variant="outline" size="sm" className="w-full" onClick={() => { setQrTable(selectedTable); setSelectedTable(null); }}>
-                        <QrCode className="h-3.5 w-3.5 mr-1" /> Show Table QR
-                      </Button>
-                    </div>
-                  );
-                })()}
+                {selectedTable.status === 'free' && (
+                  <>
+                    <TableSeatPanel
+                      table={selectedTable}
+                      guests={seatPickerGuests}
+                      onGuests={setSeatPickerGuests}
+                      onSeat={(n, reservationId) => seatAndStart(selectedTable, n, reservationId)}
+                    />
+                    <Button variant="outline" size="sm" className="w-full" onClick={() => { setQrTable(selectedTable); setSelectedTable(null); }}>
+                      <QrCode className="h-3.5 w-3.5 mr-1" /> Show Table QR
+                    </Button>
+                  </>
+                )}
                 <Button variant="ghost" size="sm" className="w-full" onClick={() => { setHistoryTable(selectedTable); }}>
                   <History className="h-3.5 w-3.5 mr-1" /> View Dine History
                 </Button>

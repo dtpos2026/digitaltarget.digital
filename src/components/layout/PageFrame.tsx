@@ -5,7 +5,7 @@
 //   <EmptyState> <LoadingState> <ErrorState>   one look for "nothing here", "loading" and "could not load"
 // Styles live in src/styles/ui-screen.css and read the screen profile (src/lib/screenProfile.ts).
 // ============================================================
-import type { ReactNode } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 import { ArrowLeft, Inbox, Loader2, TriangleAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -30,6 +30,29 @@ export function PageHeader({ title, subtitle, icon, actions, onBack, backLabel =
       </div>
       {actions && <div data-page-actions>{actions}</div>}
     </header>
+  );
+}
+
+/**
+ * v1.110.0 — the title block of a page, in the design package's header style: an icon tile, the title (the page's one <h1>)
+ * and a one-line subtitle. It is only the left half of a header: the page keeps its own row for the actions, so it drops in
+ * where a bare <h1> was without moving anything else.
+ */
+export function PageTitle({ icon: Icon, children, subtitle }: {
+  icon?: ComponentType<{ className?: string; 'aria-hidden'?: boolean }>; children: ReactNode; subtitle?: ReactNode;
+}) {
+  return (
+    <div data-page-heading className="flex min-w-0 items-center gap-3">
+      {Icon && (
+        <span data-page-icon className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-primary/10 text-primary">
+          <Icon className="h-[18px] w-[18px]" aria-hidden />
+        </span>
+      )}
+      <div className="min-w-0">
+        <h1 data-page-title className="flex flex-wrap items-center gap-x-2 text-xl font-extrabold leading-tight tracking-tight sm:text-2xl">{children}</h1>
+        {subtitle && <p data-page-subtitle>{subtitle}</p>}
+      </div>
+    </div>
   );
 }
 

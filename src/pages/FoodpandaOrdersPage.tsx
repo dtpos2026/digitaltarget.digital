@@ -9,6 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Bike, Power, Search, ArrowRight, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { PageTitle } from '@/components/layout/PageFrame';
+import { Bike as TitleIcon } from 'lucide-react';
 
 const PIPELINE: FoodpandaStatus[] = ['new', 'preparing', 'ready', 'picked', 'cancelled'];
 const NEXT: Record<FoodpandaStatus, FoodpandaStatus | null> = {
@@ -73,8 +75,7 @@ export default function FoodpandaOrdersPage() {
           <Bike className="h-5 w-5" />
         </div>
         <div className="flex-1 min-w-0">
-          <h1 className="text-xl font-extrabold tracking-tight">Foodpanda Orders</h1>
-          <p className="text-[11px] text-muted-foreground">A separate dashboard for Foodpanda orders — manage the status pipeline here.</p>
+          <PageTitle icon={TitleIcon} subtitle="A separate dashboard for Foodpanda orders — manage the status pipeline here.">Foodpanda Orders</PageTitle>
         </div>
         <Button
           variant={enabled ? 'default' : 'outline'}

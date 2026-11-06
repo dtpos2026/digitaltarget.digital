@@ -32,6 +32,7 @@ import {
   Activity, Plug, AlertTriangle, CheckCircle2, XCircle, RefreshCw, Wifi, Printer,
   FileText, Download, Wrench, ListChecks, FlaskConical, Server, Trash2, Settings2,
 } from 'lucide-react';
+import { PageTitle } from '@/components/layout/PageFrame';
 
 function StatusDot({ status }: { status: CheckResult['status'] }) {
   const map: Record<CheckResult['status'], string> = {
@@ -232,12 +233,7 @@ export default function PrinterDiagnosticsPage() {
     <div className="container max-w-6xl mx-auto p-4 md:p-6 space-y-6">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold mb-1 flex items-center gap-2">
-            <Wrench className="w-6 h-6" /> Printer Management & Diagnostic Center
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Auto-detect, configure, test and troubleshoot every printer — USB, LAN, Shared, Windows or ESC/POS thermal.
-          </p>
+          <PageTitle icon={Wrench} subtitle="Auto-detect, configure, test and troubleshoot every printer — USB, LAN, Shared, Windows or ESC/POS thermal.">Printer Management & Diagnostic Center</PageTitle>
         </div>
         <div className="flex gap-2">
           <Button onClick={refreshAll} disabled={running} variant="outline">

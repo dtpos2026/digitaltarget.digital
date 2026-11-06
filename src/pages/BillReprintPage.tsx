@@ -16,6 +16,8 @@ import { logReprint, getReprintLog, fetchCloudReprintLog, ReprintAuditEntry } fr
 import { scopeToBranch } from '@/lib/cashierScope';
 import ManagerAuthDialog from '@/components/ManagerAuthDialog';
 import { CreditCard } from 'lucide-react';
+import { PageTitle } from '@/components/layout/PageFrame';
+import { Printer as TitleIcon } from 'lucide-react';
 
 type Filter = 'all' | 'paid' | 'partial' | 'running' | 'void' | 'cancelled' | 'foodpanda';
 
@@ -85,7 +87,7 @@ export default function BillReprintPage() {
           <Receipt className="h-5 w-5" />
         </div>
         <div className="flex-1 min-w-0">
-          <h1 className="text-xl font-extrabold tracking-tight">Bill Reprint</h1>
+          <PageTitle icon={TitleIcon}>Bill Reprint</PageTitle>
           <p className="text-[11px] text-muted-foreground flex items-center gap-1">
             <Lock className="h-3 w-3" /> Read-only. A cashier cannot <b>edit</b> an old bill — only reprint it.
           </p>

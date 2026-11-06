@@ -15,6 +15,7 @@ import { normalizePhone, openWhatsApp } from '@/lib/whatsapp';
 import CustomerIntelligenceCard from '@/components/CustomerIntelligenceCard';
 import { gradeColor, birthdaysWithin, daysUntilBirthday, ageOnNextBirthday } from '@/lib/customers';
 import { primaryAddress } from '@/lib/customerAddress';
+import { PageTitle } from '@/components/layout/PageFrame';
 
 function diffMinutes(a?: string, b?: string): number | null {
   if (!a || !b) return null;
@@ -150,7 +151,7 @@ export default function CustomersPage() {
   return (
     <div className="p-4 lg:p-6 space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-lg font-bold flex items-center gap-2"><Users className="h-5 w-5" /> Customer Database</h1>
+        <PageTitle icon={Users} subtitle="Everyone who has ordered, with their history">Customer Database</PageTitle>
         <div className="flex gap-2 items-center flex-wrap">
           <Badge variant="secondary">Total: {customers.length}</Badge>
           <Badge variant="secondary">Lifetime: {money(customers.reduce((s, c) => s + c.totalSpent, 0))}</Badge>

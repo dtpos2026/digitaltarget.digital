@@ -22,6 +22,7 @@ import {
 } from '@/lib/dailyWages';
 import { getBranches, getCurrentUser } from '@/lib/store';
 import { Plus, Trash2, Edit3, Wallet, Users2, FileText, History, Banknote, HandCoins } from 'lucide-react';
+import { PageTitle } from '@/components/layout/PageFrame';
 
 function fmt(n: number) { return 'Rs. ' + Math.round(n || 0).toLocaleString(); }
 function todayISO() { return new Date().toISOString().slice(0, 10); }
@@ -50,8 +51,7 @@ export default function DailyWagesPage() {
     <div className="p-4 md:p-6 space-y-4 max-w-[1400px] mx-auto">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2"><HandCoins className="h-6 w-6 text-primary" />Daily Wages Management</h1>
-          <p className="text-sm text-muted-foreground">Workers, daily entries, payments, advances & ledger — auto-posted to Accounts</p>
+          <PageTitle icon={HandCoins} subtitle="Workers, daily entries, payments, advances & ledger — auto-posted to Accounts">Daily Wages Management</PageTitle>
         </div>
       </div>
 

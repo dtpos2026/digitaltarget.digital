@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Plus, Edit3, Trash2, Tag, Percent, Banknote } from 'lucide-react';
 import { toast } from 'sonner';
+import { PageTitle } from '@/components/layout/PageFrame';
 
 function emptyPromo(): PromoCode {
   return {
@@ -53,9 +54,7 @@ export default function PromoCodesPage() {
   return (
     <div className="p-4 lg:p-6 space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold flex items-center gap-2">
-          <Tag className="h-5 w-5 text-primary" /> Promo Codes
-        </h1>
+        <PageTitle icon={Tag} subtitle="Discount codes customers can use">Promo Codes</PageTitle>
         <Button onClick={onNew} size="sm"><Plus className="h-4 w-4 mr-1" /> New Promo</Button>
       </div>
 

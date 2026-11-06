@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Ban, Gift, XCircle, Printer, Search } from 'lucide-react';
 import { getOrders, getSettings } from '@/lib/store';
 import { Order } from '@/lib/types';
+import { PageTitle } from '@/components/layout/PageFrame';
 
 /**
  * Phase 3 — Void / Complimentary / Cancelled bills viewer.
@@ -61,8 +62,7 @@ export default function VoidBillsPage() {
   return (
     <div className="p-4 lg:p-6 space-y-4">
       <div className="flex items-center gap-3 flex-wrap">
-        <Ban className="h-5 w-5 text-destructive" />
-        <h1 className="text-lg font-bold">Void / Complimentary / Cancelled Bills</h1>
+        <PageTitle icon={Ban} subtitle="Voided, complimentary and cancelled bills">Void / Complimentary / Cancelled Bills</PageTitle>
         <Badge variant="secondary" className="ml-auto">{voids.length + comps.length + cancels.length} bills</Badge>
       </div>
 

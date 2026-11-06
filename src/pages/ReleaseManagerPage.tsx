@@ -17,6 +17,7 @@ import { fbAuth, fbDb } from '@/lib/firebase';
 import { collection, getDocs } from 'firebase/firestore';
 import { APP_VERSION } from '@/lib/version';
 import VersionDistributionPanel from '@/components/VersionDistributionPanel';
+import { PageTitle } from '@/components/layout/PageFrame';
 
 type FormState = {
   version: string;
@@ -175,10 +176,7 @@ export default function ReleaseManagerPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-lg font-extrabold flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary" />Release Manager
-          </h1>
-          <p className="text-xs text-muted-foreground">Release versions for Web and Desktop. Restaurants are notified of updates automatically.</p>
+          <PageTitle icon={Sparkles} subtitle="Release versions for Web and Desktop. Restaurants are notified of updates automatically.">Release Manager</PageTitle>
         </div>
         <Button onClick={openNew} className="bg-primary text-primary-foreground">
           <Plus className="h-4 w-4 mr-1" />New Release

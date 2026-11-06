@@ -24,6 +24,7 @@ import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { drawPdfHeader, drawPdfFooter, getThemePrimaryRgb } from '@/lib/pdfBrand';
+import { PageTitle } from '@/components/layout/PageFrame';
 
 function fmt(n: number) { return 'Rs. ' + Math.round(n || 0).toLocaleString(); }
 
@@ -247,8 +248,7 @@ export default function AccountsPage() {
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center gap-3 flex-wrap">
-        <Wallet className="h-6 w-6 text-primary" />
-        <h1 className="text-2xl font-bold">Accounts</h1>
+        <PageTitle icon={Wallet} subtitle="Money in, money out and the accounts they belong to">Accounts</PageTitle>
         <div className="ml-auto flex gap-2">
           <Button size="sm" variant="outline" onClick={() => { try { buildAccountsPdfA4(); toast.success('PDF report generated'); } catch (e: any) { toast.error(e?.message || 'PDF failed'); } }}>
             <FileDown className="h-4 w-4 mr-1" /> Full Report (A4)

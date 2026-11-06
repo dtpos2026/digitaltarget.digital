@@ -12,6 +12,7 @@ import {
   getDeals, saveDeal, deleteDeal, genId, onDataChange,
 } from '@/lib/store';
 import { Category, MenuItem, Deal } from '@/lib/types';
+import { PageTitle } from '@/components/layout/PageFrame';
 
 const DEALS_CATEGORY_ID = 'cat-deals';
 
@@ -135,7 +136,7 @@ export default function VariationsDealsPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2"><Package className="h-6 w-6 text-primary" /> Deals / Combos</h1>
+          <PageTitle icon={Package}>Deals / Combos</PageTitle>
           <p className="text-sm text-muted-foreground">Combo deals banayein — automatic Menu → <b>Deals</b> category me add ho jayengi aur POS se bill ho sakegi.</p>
         </div>
         <Button onClick={() => { setEditD(blankDeal()); setDOpen(true); }}><Plus className="h-4 w-4 mr-1" /> Add Deal</Button>

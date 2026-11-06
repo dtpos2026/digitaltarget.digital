@@ -19,8 +19,13 @@ import {
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { money } from '@/lib/currency';
-import { deleteTable, genId, getCurrentUser, saveFloor, saveTable } from '@/lib/store';
-import type { DiningTable, Floor, Order, TableShape } from '@/lib/types';
+import { deleteTable, genId, getCurrentUser, onDataChange, saveFloor, saveTable } from '@/lib/store';
+import { fetchServiceCalls, type ServiceCall } from '@/lib/serviceCalls';
+import { getFixtures, getReservations, saveFixtures } from '@/lib/tableReservations';
+import {
+  FIXTURE_KINDS, bookingLabel, bookingTiming, callMatchesTable, clampFixture, fixturesExtent, fixturesOnFloor, newFixture, nextBookingFor,
+} from '@/lib/liveFloor';
+import type { DiningTable, Floor, FloorFixture, FloorFixtureKind, Order, TableShape } from '@/lib/types';
 import {
   FLOOR_STATES, FLOOR_STATE_HINT, FLOOR_STATE_LABEL, autoArrange, buildTableViews, canvasSizeFor, clampToCanvas, countStates,
   fmtMinutes, loadFloorSettings, nextTableName, placeTables, readableText, saveFloorSettings, snapTo, stateColour, summarise, tileSizeOf,
@@ -28,6 +33,7 @@ import {
 } from '@/lib/floorAdvanced';
 import { cn } from '@/lib/utils';
 import FloorTile from './FloorTile';
+import FloorFixtureBlock from './FloorFixtureBlock';
 import FloorSettingsSheet from './FloorSettingsSheet';
 
 export type FloorBillAction = 'transfer' | 'merge' | 'split';
@@ -79,6 +85,22 @@ export default function AdvancedFloorView({ tables, orders, floors, onOpenTable,
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [focus, setFocus] = useState<FloorState | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // ---- counters / doors / zones, bookings and waiter calls: all live in the shared settings, so every till sees the same floor
+  const [fixtures, setFixtures] = useState<FloorFixture[]>(() => getFixtures());
+  const [bookings, setBookings] = useState(() => getReservations());
+  useEffect(() => onDataChange(col => { if (col === 'settings') { setFixtures(getFixtures()); setBookings(getReservations()); } }), []);
+  const [calls, setCalls] = useState<ServiceCall[]>([]);
+  useEffect(() => {
+    let alive = true;
+    const load = () => { if (typeof document !== 'undefined' && document.hidden) return; fetchServiceCalls().then(list => { if (alive) setCalls((list || []).filter(c => !c.acked)); }).catch(() => { /* no calls feed here */ }); };
+    load();
+    const id = setInterval(load, 45000);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
+  const [selectedFixtureId, setSelectedFixtureId] = useState<string | null>(null);
+  /** Save the fixtures and show them at once (the settings change event arrives a moment later). */
+  const commitFixtures = (next: FloorFixture[]) => { setFixtures(next); saveFixtures(next); };
   const editable = useMemo(canEditLayout, []);
   const editing = mode === 'edit' && editable;
 
@@ -101,7 +123,13 @@ export default function AdvancedFloorView({ tables, orders, floors, onOpenTable,
   // ---- canvas
   const baseCanvasW = 960;
   const placed = useMemo(() => placeTables(floorTables, settings.tileSize, baseCanvasW), [floorTables, settings.tileSize]);
-  const canvas = useMemo(() => canvasSizeFor(placed as any, settings.tileSize), [placed, settings.tileSize]);
+  const baseCanvas = useMemo(() => canvasSizeFor(placed as any, settings.tileSize), [placed, settings.tileSize]);
+  const floorIdForFixtures = effectiveKey !== 'flat' && effectiveKey !== 'overview' && effectiveKey !== 'none' ? effectiveKey : undefined;
+  const floorFixtures = useMemo(() => fixturesOnFloor(fixtures, floorIdForFixtures), [fixtures, floorIdForFixtures]);
+  const canvas = useMemo(() => {
+    const ext = fixturesExtent(floorFixtures);
+    return { width: Math.max(baseCanvas.width, ext.width), height: Math.max(baseCanvas.height, ext.height) };
+  }, [baseCanvas, floorFixtures]);
   const viewById = useMemo(() => new Map(views.map(v => [v.table.id, v] as const)), [views]);
 
   const stageRef = useRef<HTMLDivElement>(null);
@@ -121,6 +149,8 @@ export default function AdvancedFloorView({ tables, orders, floors, onOpenTable,
   }, [effectiveKey]);
   const [drag, setDrag] = useState<{ id: string; x: number; y: number } | null>(null);
   const dragRef = useRef<{ id: string; offX: number; offY: number; moved: boolean } | null>(null);
+  const [fxDrag, setFxDrag] = useState<{ id: string; x: number; y: number } | null>(null);
+  const fxRef = useRef<{ id: string; offX: number; offY: number; moved: boolean } | null>(null);
 
   const selected = selectedId ? tables.find(t => t.id === selectedId) || null : null;
   const selectedView = selected ? viewById.get(selected.id) || allViews.find(v => v.table.id === selected.id) : undefined;
@@ -138,7 +168,26 @@ export default function AdvancedFloorView({ tables, orders, floors, onOpenTable,
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     setSelectedId(t.id);
   };
+  const onFixturePointerDown = (e: PointerEvent<HTMLDivElement>, f: FloorFixture) => {
+    if (!editing || e.button !== 0) return;
+    const rect = stageRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    fxRef.current = { id: f.id, offX: (e.clientX - rect.left) / zoom - f.x, offY: (e.clientY - rect.top) / zoom - f.y, moved: false };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    setSelectedFixtureId(f.id); setSelectedId(null);
+  };
   const onStagePointerMove = (e: PointerEvent<HTMLDivElement>) => {
+    const fx = fxRef.current;
+    const box = stageRef.current?.getBoundingClientRect();
+    if (fx && box) {
+      const f = floorFixtures.find(x => x.id === fx.id);
+      if (f) {
+        const c = clampFixture({ ...f, x: snapTo((e.clientX - box.left) / zoom - fx.offX, settings.gridSize, settings.snap), y: snapTo((e.clientY - box.top) / zoom - fx.offY, settings.gridSize, settings.snap) }, { width: Math.max(canvas.width, f.x + f.w + 200), height: Math.max(canvas.height, f.y + f.h + 200) });
+        fx.moved = true;
+        setFxDrag({ id: fx.id, x: c.x, y: c.y });
+      }
+      return;
+    }
     const d = dragRef.current;
     const rect = stageRef.current?.getBoundingClientRect();
     if (!d || !rect) return;
@@ -152,6 +201,13 @@ export default function AdvancedFloorView({ tables, orders, floors, onOpenTable,
     setDrag({ id: d.id, ...p });
   };
   const onStagePointerUp = () => {
+    const fx = fxRef.current;
+    if (fx) {
+      fxRef.current = null;
+      if (fx.moved && fxDrag && fxDrag.id === fx.id) commitFixtures(fixtures.map(f => (f.id === fx.id ? { ...f, x: fxDrag.x, y: fxDrag.y } : f)));
+      setFxDrag(null);
+      return;
+    }
     const d = dragRef.current;
     dragRef.current = null;
     if (!d || !d.moved) { setDrag(null); return; }
@@ -208,6 +264,24 @@ export default function AdvancedFloorView({ tables, orders, floors, onOpenTable,
     setSelectedId(null);
     onChanged();
     toast.success(`${t.name} deleted`);
+  };
+
+  const [fxKind, setFxKind] = useState<FloorFixtureKind>('counter');
+  const addFixture = () => {
+    const f = newFixture(fxKind, floorIdForFixtures, { x: 40, y: Math.max(40, canvas.height - 120) }, genId());
+    commitFixtures([...fixtures, f]);
+    setSelectedFixtureId(f.id); setSelectedId(null);
+    toast.success(`${f.label} added — drag it into place`);
+  };
+  const selectedFixture = selectedFixtureId ? floorFixtures.find(f => f.id === selectedFixtureId) || null : null;
+  const patchFixture = (patch: Partial<FloorFixture>) => {
+    if (!selectedFixture) return;
+    commitFixtures(fixtures.map(f => (f.id === selectedFixture.id ? clampFixture({ ...f, ...patch }, { width: Math.max(canvas.width, 1200), height: Math.max(canvas.height, 900) }) : f)));
+  };
+  const removeFixture = () => {
+    if (!selectedFixture) return;
+    commitFixtures(fixtures.filter(f => f.id !== selectedFixture.id));
+    setSelectedFixtureId(null);
   };
 
   // ---- table properties draft (edit mode)
@@ -351,7 +425,7 @@ export default function AdvancedFloorView({ tables, orders, floors, onOpenTable,
                 onPointerMove={onStagePointerMove}
                 onPointerUp={onStagePointerUp}
                 onPointerCancel={onStagePointerUp}
-                onClick={e => { if (e.target === e.currentTarget) setSelectedId(null); }}
+                onClick={e => { if (e.target === e.currentTarget) { setSelectedId(null); setSelectedFixtureId(null); } }}
                 className="relative origin-top-left"
                 style={{
                   width: canvas.width, height: canvas.height, transform: `scale(${zoom})`,
@@ -366,14 +440,35 @@ export default function AdvancedFloorView({ tables, orders, floors, onOpenTable,
                     {editing && <Button size="sm" onClick={addTable}><Plus className="mr-1 h-4 w-4" />Add the first table</Button>}
                   </div>
                 )}
+                {[...floorFixtures].sort((a, b) => (a.kind === 'zone' ? 0 : 1) - (b.kind === 'zone' ? 0 : 1)).map(f => {
+                  const pos = fxDrag && fxDrag.id === f.id ? fxDrag : f;
+                  return (
+                    <FloorFixtureBlock
+                      key={f.id}
+                      fixture={f}
+                      x={pos.x}
+                      y={pos.y}
+                      selected={selectedFixtureId === f.id}
+                      editing={editing}
+                      onPointerDown={e => onFixturePointerDown(e, f)}
+                      onClick={() => { if (editing && !fxRef.current?.moved) { setSelectedFixtureId(f.id); setSelectedId(null); } }}
+                    />
+                  );
+                })}
                 {placed.map(t => {
                   const v = viewById.get(t.id);
                   if (!v) return null;
                   const pos = drag && drag.id === t.id ? drag : t;
+                  const booking = nextBookingFor(t.id, bookings, nowMs);
+                  const needsWaiter = calls.some(c => callMatchesTable(c.tableLabel, t.name));
                   return (
                     <FloorTile
                       key={t.id}
-                      data={{ id: t.id, name: t.name, seats: t.seats, shape: t.shape, state: v.state, minutes: v.minutes, guests: v.guests, orderNumber: v.order?.orderNumber, amount: v.amount }}
+                      data={{
+                        id: t.id, name: t.name, seats: t.seats, shape: t.shape, state: v.state, minutes: v.minutes, guests: v.guests, orderNumber: v.order?.orderNumber, amount: v.amount,
+                        needsWaiter,
+                        booking: booking ? { label: bookingLabel(booking), timing: bookingTiming(booking, nowMs), name: booking.name } : undefined,
+                      }}
                       settings={settings}
                       x={pos.x}
                       y={pos.y}
@@ -381,7 +476,7 @@ export default function AdvancedFloorView({ tables, orders, floors, onOpenTable,
                       dimmed={!!focus && v.state !== focus}
                       editing={editing}
                       onPointerDown={e => onTilePointerDown(e, t)}
-                      onClick={() => { if (!dragRef.current?.moved) setSelectedId(t.id); }}
+                      onClick={() => { if (!dragRef.current?.moved) { setSelectedId(t.id); setSelectedFixtureId(null); } }}
                       onDoubleClick={() => { if (!editing) onOpenTable(t); }}
                       onKeyDown={e => nudge(e, t)}
                     />
@@ -461,6 +556,31 @@ export default function AdvancedFloorView({ tables, orders, floors, onOpenTable,
                   <section className="grid grid-cols-2 gap-2">
                     <ActionButton icon={Plus} label="Add table" onClick={addTable} />
                     <ActionButton icon={Wand2} label="Tidy up" disabled={!floorTables.length} onClick={arrange} />
+                  </section>
+                  <section className="space-y-2" data-testid="floor-fixtures-tools">
+                    <h4 className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Counters, doors &amp; zones</h4>
+                    <div className="flex gap-2">
+                      <select aria-label="Fixture type" className="h-9 min-w-0 flex-1 rounded-lg border bg-background px-2 text-[13px]" value={fxKind} onChange={e => setFxKind(e.target.value as FloorFixtureKind)}>
+                        {FIXTURE_KINDS.map(k => <option key={k.kind} value={k.kind}>{k.label}</option>)}
+                      </select>
+                      <Button size="sm" onClick={addFixture}><Plus className="mr-1 h-4 w-4" />Add</Button>
+                    </div>
+                    {selectedFixture && (
+                      <div className="space-y-2 rounded-xl border p-3" data-testid="floor-fixture-props">
+                        <label className="block text-[12px] font-semibold">Label
+                          <input className="mt-1 h-9 w-full rounded-lg border bg-background px-3 text-[13px]" value={selectedFixture.label} onChange={e => patchFixture({ label: e.target.value.slice(0, 40) })} />
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <label className="block text-[12px] font-semibold">Width
+                            <input type="number" min={30} max={600} className="mt-1 h-9 w-full rounded-lg border bg-background px-2 text-[13px]" value={selectedFixture.w} onChange={e => patchFixture({ w: Number(e.target.value) })} />
+                          </label>
+                          <label className="block text-[12px] font-semibold">Height
+                            <input type="number" min={30} max={400} className="mt-1 h-9 w-full rounded-lg border bg-background px-2 text-[13px]" value={selectedFixture.h} onChange={e => patchFixture({ h: Number(e.target.value) })} />
+                          </label>
+                        </div>
+                        <Button variant="outline" size="sm" className="w-full" onClick={removeFixture}><Trash2 className="mr-1 h-4 w-4 text-destructive" />Remove {selectedFixture.label}</Button>
+                      </div>
+                    )}
                   </section>
                   {selected && draft && (
                     <section className="space-y-3" data-testid="floor-properties">

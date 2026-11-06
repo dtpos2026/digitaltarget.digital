@@ -16,6 +16,7 @@ import { geocodeAddress, reverseGeocode, getBrowserLocation } from '@/lib/geo';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import BranchInvoicePreview from '@/components/BranchInvoicePreview';
 import { checkTaxId, countryForCurrency, taxRuleFor } from '@/lib/taxRegistration';
+import { PageTitle } from '@/components/layout/PageFrame';
 
 /** Inline validation for the branch form. Returns field -> message (only invalid fields). */
 function validateBranch(b: Branch, country?: string): Record<string, string> {
@@ -134,7 +135,7 @@ export default function BranchesPage() {
   return (
     <div className="p-4 lg:p-6 space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-lg font-bold flex items-center gap-2"><Building2 className="h-5 w-5" /> Branches</h1>
+        <PageTitle icon={Building2} subtitle="Each branch’s details, invoice identity and delivery area">Branches</PageTitle>
         <Button onClick={newBranch}><Plus className="h-4 w-4 mr-1" /> Add Branch</Button>
       </div>
 

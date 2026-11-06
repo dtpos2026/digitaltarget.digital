@@ -3,6 +3,8 @@ import { getOrders } from '@/lib/store';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { TrendingUp, ShoppingBag, DollarSign, Calendar } from 'lucide-react';
 import { money } from '@/lib/currency';
+import { PageTitle } from '@/components/layout/PageFrame';
+import { TrendingUp as TitleIcon } from 'lucide-react';
 
 export default function AnalyticsPage() {
   const orders = useMemo(() => getOrders(), []);
@@ -55,7 +57,7 @@ export default function AnalyticsPage() {
 
   return (
     <div className="p-4 lg:p-6 space-y-6">
-      <h1 className="text-lg font-bold">Sales Analytics</h1>
+      <PageTitle icon={TitleIcon} subtitle="Sales over time, by hour, day and item">Sales Analytics</PageTitle>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">

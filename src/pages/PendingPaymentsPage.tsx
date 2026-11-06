@@ -15,6 +15,7 @@ import { enqueueReceipt } from '@/lib/printQueue';
 import { startVisiblePoll } from '@/lib/visiblePoll';
 import { scopeToBranch } from '@/lib/cashierScope';
 import { toast } from 'sonner';
+import { PageTitle } from '@/components/layout/PageFrame';
 
 export default function PendingPaymentsPage() {
   const settings = getSettings();
@@ -56,9 +57,7 @@ export default function PendingPaymentsPage() {
   return (
     <div className="p-4 lg:p-6 space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h1 className="text-lg font-bold flex items-center gap-2">
-          <Wallet className="h-5 w-5 text-amber-600" /> Pending Payments — Partial Bills
-        </h1>
+        <PageTitle icon={Wallet} subtitle="Bills that are partly paid">Pending Payments — Partial Bills</PageTitle>
         <Input
           placeholder="Search bill #, customer, table…"
           value={search}

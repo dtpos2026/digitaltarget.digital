@@ -13,6 +13,7 @@ import SearchableSelect from '@/components/SearchableSelect';
 import { BookOpen, Plus, Trash2, Edit, Search, Calculator } from 'lucide-react';
 import { toast } from 'sonner';
 import { RECIPE_UNITS, getBaseUnit, toBaseQty, isCompatible } from '@/lib/units';
+import { PageTitle } from '@/components/layout/PageFrame';
 
 // Build list of variant options for a menu item (size + inch). Returns [{key, label, price}].
 type VariantOpt = { key: string; label: string; price: number };
@@ -110,9 +111,7 @@ export default function RecipesPage() {
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-lg font-bold flex items-center gap-2">
-          <BookOpen className="h-5 w-5 text-primary" /> Recipes & Food Cost
-        </h1>
+        <PageTitle icon={BookOpen} subtitle="What goes into each dish and what it costs">Recipes & Food Cost</PageTitle>
         <div className="text-xs text-muted-foreground">
           {recipes.length} of {menuItems.length} items have recipes
         </div>

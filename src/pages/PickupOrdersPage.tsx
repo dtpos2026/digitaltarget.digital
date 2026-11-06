@@ -18,6 +18,7 @@ import { scopeToBranch } from '@/lib/cashierScope';
 import ReceiptPreview from '@/components/ReceiptPreview';
 import ReadyNotificationBus from '@/components/ReadyNotificationBus';
 import ReadyOrderPoller from '@/components/ReadyOrderPoller';
+import { PageTitle } from '@/components/layout/PageFrame';
 
 /** A pickup order is a Self-Pickup / takeaway order placed from website or POS. */
 function isPickupOrder(o: Order): boolean {
@@ -110,9 +111,7 @@ export default function PickupOrdersPage() {
       <ReadyNotificationBus />
       <ReadyOrderPoller types={['takeaway']} />
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-lg font-bold flex items-center gap-2">
-          <Package className="h-5 w-5 text-primary" /> Pickup Orders
-        </h1>
+        <PageTitle icon={Package} subtitle="Orders customers will collect">Pickup Orders</PageTitle>
         <Button size="sm" variant="outline" onClick={async () => { await refreshOrdersFromCloud(); setOrders(scopeToBranch(getOrders())); }}>
           <RefreshCw className="h-4 w-4 mr-1" /> Refresh
         </Button>

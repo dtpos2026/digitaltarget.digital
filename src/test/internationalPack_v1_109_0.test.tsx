@@ -1,7 +1,7 @@
 // v1.109.0 — International pack: locale-aware numbers and dates, a tax-registration rule per country, and the two privacy
 // requests (export / erase) — the pure rules, then the real store and the real Settings card.
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, cleanup, within } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, within, waitFor } from '@testing-library/react';
 import { Toaster } from 'sonner';
 import { formatDate, formatNumber, isRtlLocale, localeFor } from '@/lib/locale';
 import { TAX_RULES, checkTaxId, countryForCurrency, splitInclusive, taxRuleFor } from '@/lib/taxRegistration';
@@ -214,7 +214,7 @@ describe('privacy — the Settings card', () => {
   });
   afterEach(cleanup);
 
-  it('finds a person, keeps Erase disabled until the number is retyped, then erases', () => {
+  it('finds a person, keeps Erase disabled until the number is retyped, then erases', async () => {
     saveOrder(order({ id: 'card1', orderNumber: 21 }));
     render(<><Toaster /><PrivacyCard /></>);
     fireEvent.change(screen.getByLabelText('Customer phone'), { target: { value: '03001234567' } });
@@ -232,9 +232,9 @@ describe('privacy — the Settings card', () => {
     expect(erase.disabled).toBe(false);
 
     fireEvent.click(erase);
+    await waitFor(() => expect(screen.queryByTestId('privacy-found')).toBeNull());   // v1.110.0: the erase also leaves its marker for other devices, so it is asynchronous
     expect(findCustomerByPhone('03001234567')).toBeUndefined();
     expect(getOrders().find(o => o.id === 'card1')?.customer?.name).toBe(ERASED_NAME);
-    expect(screen.queryByTestId('privacy-found')).toBeNull();
   });
 
   it('says there is nothing to erase for an unknown number', () => {

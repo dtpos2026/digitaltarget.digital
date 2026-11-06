@@ -550,6 +550,32 @@ export interface Floor {
   branchId?: string;
 }
 
+/** v1.110.0 — things that stand on a floor besides tables: the counter, the cashier, the kitchen pass, the door … */
+export type FloorFixtureKind = 'zone' | 'counter' | 'cashier' | 'kitchen' | 'entrance' | 'washroom' | 'bar' | 'plant' | 'stairs';
+export interface FloorFixture {
+  id: string;
+  /** Which floor it stands on; none = the flat (single-floor) layout. */
+  floorId?: string;
+  kind: FloorFixtureKind;
+  label: string;
+  x: number; y: number; w: number; h: number;
+}
+
+/** v1.110.0 — a table booked for later. Kept in the settings document (shared by every till), not on the table row. */
+export interface TableReservation {
+  id: string;
+  tableId: string;
+  name: string;
+  phone?: string;
+  guests: number;
+  /** When the guests are expected (ISO). */
+  at: string;
+  note?: string;
+  status: 'booked' | 'seated' | 'cancelled' | 'no_show';
+  createdAt: string;
+  createdBy?: string;
+}
+
 
 export interface Waiter {
   id: string;
@@ -1179,6 +1205,14 @@ export interface RestaurantSettings {
   countryTaxRate?: number;
   /** Tax label ("VAT", "GST", "Sales Tax") — shown on receipts. */
   countryTaxLabel?: string;
+
+  // ============ v1.110.0 — Tables ============
+  /** Counters, cashier, kitchen pass, doors … drawn on the live floor. */
+  floorFixtures?: FloorFixture[];
+  /** Tables booked for later. */
+  tableReservations?: TableReservation[];
+  /** v1.110.0 — erase requests, shared with every device: a one-way hash of the phone key (never the number) and when it was made. */
+  privacyErasures?: { h: string; at: string }[];
 }
 
 // ============ CREDIT / UDHAAR PAYMENTS ============

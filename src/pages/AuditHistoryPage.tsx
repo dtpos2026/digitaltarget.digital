@@ -19,6 +19,7 @@ import {
 import { getOrders } from '@/lib/store';
 import { getBlockedCustomers, getBlockedLocations, onBlocklistChange } from '@/lib/blocklist';
 import type { Order, OrderEditLog, OrderEditAction } from '@/lib/types';
+import { PageTitle } from '@/components/layout/PageFrame';
 
 type ExtendedAction =
   | OrderEditAction
@@ -285,12 +286,7 @@ export default function AuditHistoryPage() {
     <div className="p-4 lg:p-6 space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h1 className="text-lg font-bold flex items-center gap-2">
-            <History className="h-5 w-5 text-primary" /> Unified Audit History
-          </h1>
-          <p className="text-xs text-muted-foreground">
-            Orders, approvals, rejections, prints, customer & location blocks — sab ka permanent timeline.
-          </p>
+          <PageTitle icon={History} subtitle="Orders, approvals, rejections, prints, customer & location blocks — sab ka permanent timeline.">Unified Audit History</PageTitle>
         </div>
         <Button size="sm" variant="outline" onClick={exportCSV}>
           <Download className="h-4 w-4 mr-1" /> Export CSV

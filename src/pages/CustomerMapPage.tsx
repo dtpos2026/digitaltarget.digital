@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { MapPin, Users, TrendingUp, Award, Filter, Search, Phone, Plus } from 'lucide-react';
 import { primaryAddress } from '@/lib/customerAddress';
+import { PageTitle } from '@/components/layout/PageFrame';
 
 type Range = 'today' | 'week' | 'month' | 'year' | 'all';
 
@@ -246,7 +247,7 @@ export default function CustomerMapPage() {
   return (
     <div className="p-4 lg:p-6 space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-xl font-bold flex items-center gap-2"><MapPin className="h-5 w-5 text-primary" /> Customer Map Analytics</h1>
+        <PageTitle icon={MapPin} subtitle="Where your customers order from">Customer Map Analytics</PageTitle>
         <Badge variant="secondary" className="text-xs">{markers.length} pins · {customers.length} customers</Badge>
       </div>
 

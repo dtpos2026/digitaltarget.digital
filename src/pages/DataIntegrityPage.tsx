@@ -10,7 +10,7 @@
 // rewriting a restaurant's menu is not something software should do on
 // its own.
 // ============================================================
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -20,10 +20,19 @@ import {
   getMenuItems, getCategories, getOrders, getTables, saveMenuItem, saveCategory,
 } from '@/lib/store';
 import { inspectCollection, dedupeById, type IntegrityReport } from '@/lib/dataIntegrity';
+import { PageTitle } from '@/components/layout/PageFrame';
+import { getSetAside, releaseSetAside } from '@/lib/setAside';
 
 export default function DataIntegrityPage() {
   const [tick, setTick] = useState(0);
   const [repairing, setRepairing] = useState(false);
+  // v1.110.0 — records that belong to another restaurant's data are kept here, never uploaded, never retried
+  const [aside, setAside] = useState(() => getSetAside());
+  useEffect(() => {
+    const on = () => setAside(getSetAside());
+    window.addEventListener('dt-set-aside', on);
+    return () => window.removeEventListener('dt-set-aside', on);
+  }, []);
 
   const reports: IntegrityReport[] = useMemo(() => {
     // Read through the normal accessors so this reflects exactly what the
@@ -80,12 +89,7 @@ export default function DataIntegrityPage() {
     <div className="p-4 lg:p-6 space-y-4 max-w-3xl">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-lg font-bold flex items-center gap-2">
-            <ShieldCheck className="h-5 w-5" /> Data Integrity
-          </h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Check duplicate records, missing IDs and ordering problems here.
-          </p>
+          <PageTitle icon={ShieldCheck} subtitle="Check duplicate records, missing IDs and ordering problems here.">Data Integrity</PageTitle>
         </div>
         <div className="flex gap-2">
           <Button size="sm" variant="outline" onClick={() => setTick(t => t + 1)}>
@@ -96,6 +100,25 @@ export default function DataIntegrityPage() {
           </Button>
         </div>
       </div>
+
+      {aside.length > 0 && (
+        <Card className="p-4 border-amber-400/60 bg-amber-50/40 space-y-2" data-testid="set-aside-card">
+          <p className="text-sm font-bold text-amber-900 flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4" /> {aside.length} record{aside.length > 1 ? 's' : ''} set aside
+          </p>
+          <p className="text-[11px] text-amber-900/80">
+            These records carry an identity that belongs to another restaurant's data (usually data left in this browser from a different
+            sign-in). Nothing was changed in either restaurant. They are kept here, are not uploaded and are not retried, so the
+            "Cloud sync issue" message no longer repeats for them.
+          </p>
+          <ul className="text-[11px] text-amber-900/80 max-h-28 overflow-auto font-mono">
+            {Object.entries(aside.reduce<Record<string, number>>((m, r) => ({ ...m, [r.col]: (m[r.col] || 0) + 1 }), {})).map(([col, n]) => <li key={col}>{col}: {n}</li>)}
+          </ul>
+          <Button size="sm" variant="outline" onClick={() => { releaseSetAside(); setAside([]); toast.success('They will be tried again the next time they change'); }}>
+            Try again
+          </Button>
+        </Card>
+      )}
 
       {problems.length === 0 ? (
         <Card className="p-4 border-green-400/50 bg-green-50/40">

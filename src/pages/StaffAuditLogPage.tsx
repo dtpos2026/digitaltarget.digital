@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, ShieldCheck, Download } from 'lucide-react';
 import { fetchAuditLog, flushAuditQueue, AUDIT_ACTION_TITLES, type StaffAuditEntry, type AuditAction } from '@/lib/staffAudit';
+import { PageTitle } from '@/components/layout/PageFrame';
 
 const ACTIONS: Array<AuditAction | 'all'> = ['all', ...(Object.keys(AUDIT_ACTION_TITLES) as AuditAction[])];
 
@@ -56,12 +57,7 @@ export default function StaffAuditLogPage() {
     <div className="p-4 space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex-1 min-w-[220px]">
-          <h1 className="text-xl font-extrabold flex items-center gap-2">
-            <ShieldCheck className="h-5 w-5 text-primary" /> Staff — Action Audit Log
-          </h1>
-          <p className="text-xs text-muted-foreground">
-            Every sensitive action with user, time, order, table and device. Records are append-only.
-          </p>
+          <PageTitle icon={ShieldCheck} subtitle="Every sensitive action with user, time, order, table and device. Records are append-only.">Staff — Action Audit Log</PageTitle>
         </div>
         <Input type="date" value={day} onChange={e => setDay(e.target.value)} className="h-9 w-[160px]" />
         <Input placeholder="Search staff…" value={staff} onChange={e => setStaff(e.target.value)} className="h-9 w-[170px]" />

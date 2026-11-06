@@ -1,11 +1,15 @@
-// One table on the Advanced floor: the table body in its state colour, chairs around it, a time pill
-// and the open amount underneath. Presentational — the parent decides where it stands.
+// One table on the live floor (v1.110.0, in the look of the owner's reference video): a clean table with a thin ring in its
+// state colour, its name and one word for what is happening ("Free", "Ordering", "Ready", "Bill"), small white chairs round it,
+// and — when guests are seated — each guest drawn from above (coloured shoulders, a dark head) sitting on a chair, arriving
+// with a short walk-in animation. A pill above the table says when somebody is needed (waiter, food ready, bill, booking).
+// Presentational — the parent decides where it stands.
 import { memo, type CSSProperties, type KeyboardEvent, type PointerEvent } from 'react';
-import { Users } from 'lucide-react';
+import { CalendarClock, ConciergeBell, Receipt, Soup, Users } from 'lucide-react';
 import {
   FLOOR_STATE_HINT, FLOOR_STATE_LABEL, chairLayout, fmtMinutes, readableText, stateColour, tileSizeOf,
   type FloorSettings, type FloorState,
 } from '@/lib/floorAdvanced';
+import { guestColour, occupiedChairs, type BookingTiming } from '@/lib/liveFloor';
 import type { TableShape } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -19,6 +23,10 @@ export interface FloorTileData {
   guests: number | null;
   orderNumber?: number;
   amount: number | null;
+  /** A guest asked for the waiter from the table's QR code. */
+  needsWaiter?: boolean;
+  /** The next booking on this table, if one is near. */
+  booking?: { label: string; timing: BookingTiming; name: string };
 }
 
 interface Props {
@@ -38,20 +46,68 @@ interface Props {
 }
 
 const rs = (n: number) => `Rs ${Math.round(n).toLocaleString('en-PK')}`;
-const ATTENTION: FloorState[] = ['overtime', 'ready', 'unsent', 'pending-payment'];
+const CHAIR_SCALE = 1.3;
+
+/** The one word shown under the table's name. */
+export const FLOOR_STATE_SHORT: Record<FloorState, string> = {
+  available: 'Free', seated: 'Seated', ordered: 'Ordering', unsent: 'Not sent', ready: 'Ready', hold: 'On hold',
+  overtime: 'Over time', 'pending-payment': 'Bill', closed: 'Closed',
+};
+
+/** What the pill above the table says, if anything. The most urgent thing wins. */
+function pillOf(d: FloorTileData): { text: string; tone: string; icon: typeof Users; pulse: boolean } | null {
+  if (d.needsWaiter) return { text: 'Needs waiter', tone: '#ef6f3c', icon: ConciergeBell, pulse: true };
+  if (d.state === 'pending-payment') return { text: 'Bill', tone: '#8b5cf6', icon: Receipt, pulse: true };
+  if (d.state === 'ready') return { text: 'Ready', tone: '#16a34a', icon: Soup, pulse: true };
+  if (d.booking && d.state === 'available') {
+    return { text: d.booking.label, tone: d.booking.timing === 'late' ? '#dc2626' : '#6366f1', icon: CalendarClock, pulse: d.booking.timing !== 'upcoming' };
+  }
+  return null;
+}
+
+/** One guest, seen from above: shoulders and a head, turned to face the table. */
+function Guest({ chair, index, colour }: { chair: { x: number; y: number; w: number; h: number; rot: number }; index: number; colour: string }) {
+  const bw = Math.round(chair.w * 1.15);
+  const bh = Math.round(chair.h * 1.9);
+  const head = Math.round(chair.h * 1.15);
+  const rad = (chair.rot * Math.PI) / 180;
+  // "outside" is the way the chair's back faces; the guest walks in from there
+  const ox = Math.round(Math.sin(rad) * 30), oy = Math.round(-Math.cos(rad) * 30);
+  const style = {
+    left: chair.x - bw / 2, top: chair.y - bh / 2, width: bw, height: bh, transform: `rotate(${chair.rot}deg)`,
+    '--i': index, '--ox': `${ox}px`, '--oy': `${oy}px`,
+  } as CSSProperties;
+  return (
+    <span aria-hidden data-guest className="dt-guest pointer-events-none absolute" style={style}>
+      <span
+        className="dt-guest-body absolute inset-0 block"
+        style={{ '--i': index, '--bx': '0px', '--by': '1.5px' } as CSSProperties}
+      >
+        <span className="absolute inset-0 rounded-full shadow-[0_2px_5px_-1px_rgba(15,23,42,0.45)]" style={{ background: colour }} />
+        <span
+          className="absolute left-1/2 rounded-full"
+          style={{ width: head, height: head, top: `calc(50% - ${head / 2 - 1}px)`, marginLeft: -head / 2, background: '#2b211c', boxShadow: 'inset 0 -1px 0 rgba(255,255,255,0.18)' }}
+        />
+      </span>
+    </span>
+  );
+}
 
 function FloorTileImpl({ data, settings, x = 0, y = 0, selected, dimmed, editing, inline, onPointerDown, onClick, onDoubleClick, onKeyDown }: Props) {
   const { w, h } = tileSizeOf(data.shape, settings.tileSize);
   const colour = stateColour(data.state, settings);
   const outlined = settings.tileStyle !== 'filled';
   const ink = outlined ? 'hsl(var(--foreground))' : readableText(colour);
-  const tint = `color-mix(in srgb, ${colour} 11%, hsl(var(--card)))`;
   const scale = settings.tileSize / 96;
-  const chairs = settings.showChairs ? chairLayout(data.shape, data.seats, w, h) : [];
-  const inset = settings.showChairs ? Math.round(Math.min(w, h) * 0.17 * 0.45) + 7 : 4;
+  const chairs = settings.showChairs ? chairLayout(data.shape, data.seats, w, h, CHAIR_SCALE) : [];
+  const chairThick = chairs[0]?.h ?? 0;
+  const inset = settings.showChairs ? Math.round(chairThick) + 5 : 4;
   const round = data.shape === 'round';
   const showTimer = settings.showTimer && data.minutes !== null;
-  const showGuests = settings.showGuests && data.state !== 'available' && data.state !== 'closed' && data.guests !== null;
+  const seatedNow = data.state !== 'available' && data.state !== 'closed';
+  const showGuests = settings.showGuests && seatedNow && data.guests !== null;
+  const taken = new Set(settings.showChairs && seatedNow && data.guests ? occupiedChairs(data.seats, data.guests) : []);
+  const pill = pillOf(data);
   const caption = settings.showAmount && data.amount !== null && data.amount > 0
     ? `${data.orderNumber !== undefined ? `#${data.orderNumber} · ` : ''}${rs(data.amount)}`
     : '';
@@ -83,55 +139,68 @@ function FloorTileImpl({ data, settings, x = 0, y = 0, selected, dimmed, editing
       style={style}
     >
       <div className="relative" style={{ width: w, height: h }}>
-        {/* selection / attention ring */}
-        {(selected || (ATTENTION.includes(data.state) && !editing)) && (
+        {/* selection ring */}
+        {selected && (
           <span
             aria-hidden
-            className={cn('pointer-events-none absolute -inset-1 rounded-[22px] border-2', !selected && 'animate-pulse')}
-            style={{ borderColor: selected ? 'hsl(var(--primary))' : colour, opacity: selected ? 1 : 0.55, borderRadius: round ? 9999 : 18 }}
+            className="pointer-events-none absolute -inset-1.5 border-2"
+            style={{ borderColor: 'hsl(var(--primary))', borderRadius: round ? 9999 : 22 }}
           />
         )}
         {editing && !selected && (
-          <span aria-hidden className="pointer-events-none absolute -inset-1 border border-dashed border-muted-foreground/50" style={{ borderRadius: round ? 9999 : 16 }} />
+          <span aria-hidden className="pointer-events-none absolute -inset-1.5 border border-dashed border-muted-foreground/50" style={{ borderRadius: round ? 9999 : 20 }} />
         )}
+
+        {/* chairs: small white stubs; an empty one stays plain */}
         {chairs.map((c, i) => (
           <span
             key={i}
             aria-hidden
-            className="absolute rounded-[3px]"
+            data-chair
+            data-taken={taken.has(i) ? '' : undefined}
+            className="absolute rounded-[5px] border bg-card shadow-[0_1px_2px_rgba(15,23,42,0.12)]"
             style={{
-              left: c.x - c.w / 2, top: c.y - c.h / 2, width: c.w, height: c.h,
-              transform: `rotate(${c.rot}deg)`, background: colour, opacity: 0.55,
+              left: c.x - c.w / 2, top: c.y - c.h / 2, width: c.w, height: c.h, transform: `rotate(${c.rot}deg)`,
+              borderColor: `color-mix(in srgb, ${colour} 28%, hsl(var(--border)))`,
             }}
           />
         ))}
+
+        {/* the table */}
         <div
-          className="absolute flex flex-col items-center justify-center text-center shadow-[0_6px_16px_-8px_rgba(15,23,42,0.55)] ring-1 ring-black/10"
+          className={cn('absolute flex flex-col items-center justify-center text-center shadow-[0_8px_18px_-10px_rgba(15,23,42,0.5)]', seatedNow && 'dt-table-pop')}
+          key={seatedNow ? 'seated' : 'free'}
           style={{
-            inset, color: ink, borderRadius: round ? 9999 : Math.round(14 * scale),
-            background: outlined ? tint : colour,
-            ...(outlined ? { border: `${Math.max(2, Math.round(3 * scale))}px solid ${colour}`, boxShadow: 'none' } : {}),
+            inset, color: ink, borderRadius: round ? 9999 : Math.round(16 * scale),
+            background: outlined ? `color-mix(in srgb, ${colour} 3%, hsl(var(--card)))` : colour,
+            border: `${Math.max(2, Math.round(2.5 * scale))}px solid ${colour}`,
           }}
         >
-          <span className="max-w-full truncate px-1 font-extrabold leading-none tracking-tight" style={{ fontSize: Math.round(15 * scale) }}>{data.name}</span>
-          {showGuests ? (
-            <span className="mt-1 inline-flex items-center gap-0.5 font-semibold leading-none opacity-90" style={{ fontSize: Math.round(10 * scale) }}>
-              <Users style={{ width: Math.round(10 * scale), height: Math.round(10 * scale) }} />{data.guests}/{data.seats}
-            </span>
-          ) : (
-            <span className="mt-1 leading-none opacity-80" style={{ fontSize: Math.round(10 * scale) }}>{data.seats} seats</span>
-          )}
+          <span className="max-w-full truncate px-1 font-extrabold leading-none tracking-tight" style={{ fontSize: Math.round(16 * scale) }}>{data.name}</span>
+          <span className="mt-1.5 inline-flex items-center gap-1 font-bold leading-none" style={{ fontSize: Math.round(10 * scale), color: outlined ? colour : ink }}>
+            <span aria-hidden className="inline-block rounded-full" style={{ width: Math.round(6 * scale), height: Math.round(6 * scale), background: outlined ? colour : ink }} />
+            {FLOOR_STATE_SHORT[data.state]}
+          </span>
+          <span className="mt-1 inline-flex items-center gap-1 font-semibold leading-none opacity-70" style={{ fontSize: Math.round(9 * scale) }}>
+            {showGuests ? (<><Users style={{ width: Math.round(9 * scale), height: Math.round(9 * scale) }} />{data.guests}/{data.seats}</>) : <>{data.seats} seats</>}
+            {showTimer && <><span aria-hidden>·</span><span className="font-mono tabular-nums">{fmtMinutes(data.minutes)}</span></>}
+          </span>
         </div>
-        {showTimer && (
+
+        {/* guests, drawn last so they sit on top of the chairs */}
+        {chairs.map((c, i) => (taken.has(i)
+          ? <Guest key={`g${i}`} chair={c} index={Array.from(taken).indexOf(i)} colour={guestColour(data.id, i)} />
+          : null))}
+
+        {/* what this table needs */}
+        {pill && !editing && (
           <span
-            className="absolute left-1/2 -translate-x-1/2 rounded-full px-1.5 py-[1px] font-mono font-bold leading-4 shadow"
-            style={{
-              top: -7, fontSize: Math.round(10 * scale),
-              background: outlined ? `color-mix(in srgb, ${colour} 20%, hsl(var(--card)))` : (data.state === 'overtime' ? '#b91c1c' : '#0f172a'),
-              color: outlined ? 'hsl(var(--foreground))' : '#fff', border: outlined ? `1px solid ${colour}` : undefined,
-            }}
+            className="dt-pill absolute left-1/2 z-10 inline-flex -translate-x-1/2 items-center gap-1 whitespace-nowrap rounded-full border bg-card px-2 py-[3px] text-[10.5px] font-bold leading-none shadow-md"
+            style={{ top: -27, color: pill.tone, borderColor: `color-mix(in srgb, ${pill.tone} 45%, hsl(var(--border)))`, '--ring': `${pill.tone}66` } as CSSProperties}
+            data-pulse={pill.pulse ? '' : undefined}
+            data-pill={pill.text}
           >
-            {fmtMinutes(data.minutes)}
+            <pill.icon className="h-3 w-3" aria-hidden />{pill.text}
           </span>
         )}
       </div>

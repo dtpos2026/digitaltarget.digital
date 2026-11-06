@@ -11,6 +11,7 @@ import KitchenDisplaySettingsCard from '@/components/KitchenDisplaySettingsCard'
 import { scopeToBranch } from '@/lib/cashierScope';
 import { useThemeId, useUiStyle } from '@/lib/uiStyle';
 import { isRefinedTheme } from '@/lib/uiThemes';
+import { PageTitle } from '@/components/layout/PageFrame';
 
 /** v1.102.0 — the order card's timer ring (the reference's Active Order card): minutes in the middle, the ring fills to the delayed mark. */
 function TimerRing({ mins, progress, state }: { mins: number; progress: number; state: 'ok' | 'warn' | 'late' }) {
@@ -235,8 +236,7 @@ export default function KitchenDisplayPage() {
       )}
 
       <div className="flex items-center gap-3 mb-4">
-        <ChefHat className="h-6 w-6 text-primary" />
-        <h1 className="text-lg font-bold">Kitchen Display</h1>
+        <PageTitle icon={ChefHat} subtitle="Orders in the kitchen, oldest first">Kitchen Display</PageTitle>
         <Badge variant="secondary" className="ml-auto">{visibleOrders.length} active</Badge>
         {stats.delayed > 0 && (
           <Badge className="bg-status-danger text-status-danger-foreground animate-pulse">

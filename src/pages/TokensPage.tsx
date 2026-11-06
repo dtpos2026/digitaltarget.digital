@@ -24,6 +24,7 @@ import {
   markTokenReprinted, tokenRevenueVisible, isSameDay,
 } from '@/lib/tokens';
 import TokenSlip from '@/components/TokenSlip';
+import { PageTitle } from '@/components/layout/PageFrame';
 
 type Tab = 'today' | 'pending' | 'completed' | 'cancelled' | 'history';
 
@@ -145,9 +146,7 @@ function TokensPageInner() {
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between gap-2">
-        <h1 className="text-xl font-black flex items-center gap-2">
-          <Ticket className="h-5 w-5" /> Token Management
-        </h1>
+        <PageTitle icon={Ticket} subtitle="Token numbers for the counter">Token Management</PageTitle>
         <Button size="sm" variant="outline" onClick={refresh}>
           <RefreshCw className="h-4 w-4 mr-1" /> Refresh
         </Button>

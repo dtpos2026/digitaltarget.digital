@@ -13,6 +13,8 @@ import { toast } from 'sonner';
 import { uploadTenantImage } from '@/lib/storage';
 import { scopeToBranch } from '@/lib/cashierScope';
 import { Globe, Copy, ExternalLink, ShoppingBag, MapPin, Bike, Users, Power, Truck, Package, Settings as SettingsIcon, RefreshCw, Phone, Search, Palette, Image as ImageIcon, Upload } from 'lucide-react';
+import { PageTitle } from '@/components/layout/PageFrame';
+import { Globe as TitleIcon } from 'lucide-react';
 
 /**
  * Customer Portal / Online Website module — single dashboard from where
@@ -160,7 +162,7 @@ export default function OnlinePortalPage() {
           <Globe className="h-5 w-5" />
         </div>
         <div className="flex-1 min-w-0">
-          <h1 className="text-xl font-extrabold tracking-tight">Customer Portal / Online Website</h1>
+          <PageTitle icon={TitleIcon}>Customer Portal / Online Website</PageTitle>
           <p className="text-[11px] text-muted-foreground">
             <b>{getTenantName() || 'Restaurant'}</b> ka online ordering control center — links, live orders, customers, settings sab yahin se.
           </p>

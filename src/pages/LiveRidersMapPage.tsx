@@ -9,6 +9,7 @@ import { getOrders, getRiders, getBranches, getSettings, onDataChange } from '@/
 import { Order } from '@/lib/types';
 import { DELIVERY_STAGE_LABEL } from '@/lib/delivery';
 import { ENABLE_REDUNDANT_ORDER_POLL } from '@/lib/featureFlags';
+import { PageTitle } from '@/components/layout/PageFrame';
 
 const STAGE_COLOR: Record<string, string> = {
   pending: '#94a3b8',
@@ -213,7 +214,7 @@ export default function LiveRidersMapPage() {
   return (
     <div className="p-4 lg:p-6 space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-lg font-bold flex items-center gap-2"><Bike className="h-5 w-5 text-primary" /> Live Rider Tracking</h1>
+        <PageTitle icon={Bike} subtitle="Where each rider is right now">Live Rider Tracking</PageTitle>
         <Button size="sm" variant="outline" onClick={() => { setOrders(getOrders()); setTick(x => x + 1); }}>
           <RefreshCw className="h-4 w-4 mr-1" /> Refresh
         </Button>

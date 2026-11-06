@@ -16,6 +16,7 @@ import { Rider, Order } from '@/lib/types';
 import { DELIVERY_STAGE_LABEL } from '@/lib/delivery';
 import { isOnline as isRiderOnline, tsToMs } from '@/lib/geo';
 import { toast } from 'sonner';
+import { PageTitle } from '@/components/layout/PageFrame';
 
 const ONLINE_MS = 3 * 60 * 1000;   // <3 min ping = online (rider heartbeat is 60s)
 const OFFLINE_ALERT_MS = 5 * 60 * 1000;
@@ -71,9 +72,7 @@ export default function RidersListPage() {
   return (
     <div className="p-4 lg:p-6 space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-xl font-bold flex items-center gap-2">
-          <Bike className="h-5 w-5 text-primary" /> Riders
-        </h1>
+        <PageTitle icon={Bike} subtitle="Your riders and their deliveries">Riders</PageTitle>
         <div className="flex items-center gap-2">
           <Badge variant="secondary" className="text-xs">
             <Circle className="h-2 w-2 mr-1 fill-green-500 text-green-500" /> {onlineCount} online

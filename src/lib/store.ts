@@ -37,6 +37,7 @@ import {
 } from 'firebase/firestore';
 import { toast } from 'sonner';
 import { archiveOrders, getArchivedOrders as getArchivedOrdersSafe } from './orderArchive';
+import { isForeignRecordError, isSetAside, parseSaveLabel, setAside } from './setAside';
 
 const STORAGE_KEY_BASE = 'desi-pos-data';
 // Per-tenant cache key — different restaurants must NEVER share local cache,
@@ -651,6 +652,16 @@ function reportCloudError(label: string, e: any) {
   // now read differently.
   const msg = String(e?.message || '');
   const code = String(e?.code || '');
+
+  // ===== v1.110.0 — a record from another restaurant is set aside, quietly =====
+  // It can never be saved here, so a toast only alarms the cashier and a retry only repeats the refusal (live logs: ten 403s every
+  // ~25 min). Keep the record, forget the retries, and let Admin → Data Integrity list it.
+  if (isForeignRecordError(e)) {
+    const target = parseSaveLabel(label);
+    if (target && setAside(target.col, target.id, msg)) console.info(`[cloud] ${target.col}/${target.id} belongs to another restaurant — set aside`);
+    emitSync();
+    return;
+  }
   const permanent = isPermanentSyncError(e);
 
   const now = Date.now();
@@ -690,10 +701,17 @@ registerDeferredFlusher(async (col, id, op) => {
   if (useSupabaseBackend()) {
     const { sbDeleteItem, sbSaveItem } = await import('./supabaseStore');
     if (op === 'delete') { await sbDeleteItem(col, id); return; }
+    if (isSetAside(col, id)) return;             // v1.110.0 — the queue forgets a record that belongs to another restaurant
     const d = loadData();
     const arr = (d as any)[col] as any[] | undefined;
     const item = arr?.find(x => x.id === id);
-    if (item) await sbSaveItem(col, id, item);
+    if (item) {
+      try { await sbSaveItem(col, id, item); }
+      catch (e) {
+        if (isForeignRecordError(e)) { setAside(col, id, String((e as Error)?.message || e)); return; }
+        throw e;
+      }
+    }
     return;
   }
   if (op === 'delete') { await cloudDeleteItem(col as ArrayKey, id); return; }
@@ -817,13 +835,14 @@ async function cloudSaveItem(col: ArrayKey, id: string, data: any) {
   // switching backends here moves the whole data layer without touching the
   // 214 individual call sites and without altering any POS workflow.
   if (useSupabaseBackend()) {
+    if (isSetAside(col, id)) return;             // v1.110.0 — belongs to another restaurant; never uploaded
     try {
       const { sbSaveItem } = await import('./supabaseStore');
       await sbSaveItem(col, id, data);
     } catch (e) {
       // Online does not mean the write reached the database. Preserve every
-      // failed mutation in the durable retry queue before reporting it.
-      enqueueDeferredOp(col, id, 'set');
+      // failed mutation in the durable retry queue before reporting it — except a record that can never be saved here.
+      if (!isForeignRecordError(e)) enqueueDeferredOp(col, id, 'set');
       reportCloudError(`save ${col}/${id}`, e);
     }
     return;
@@ -4173,24 +4192,45 @@ function getAllHistoricalOrdersForPrivacy(): Order[] {
   return Array.from(byId.values());
 }
 
-export function eraseCustomerPrivacyData(phone: string): { profileDeleted: boolean; liveOrders: number; archivedOrders: number } {
-  const key = phoneKey(phone);
+/**
+ * Remove one person from this device. `cutoffIso` limits it to what existed up to that moment — a person who ordered again after
+ * being erased is a new customer and is left alone (used when an erase made on another device arrives here later).
+ */
+/** Every phone key this device holds a customer under: profiles, live orders and the day-close archive. */
+export function getAllCustomerKeysForPrivacy(): string[] {
+  const keys = new Set<string>();
+  for (const c of loadData().customers || []) { const k = phoneKey(c.phone); if (k) keys.add(k); }
+  for (const o of getAllHistoricalOrdersForPrivacy()) {
+    for (const p of [o.customer?.phone, o.creditCustomerPhone]) { const k = phoneKey(p); if (k) keys.add(k); }
+  }
+  return Array.from(keys);
+}
+
+export function redactLocalByKey(key: string, cutoffIso?: string): { profileDeleted: boolean; liveOrders: number; archivedOrders: number } {
   if (!key) return { profileDeleted: false, liveOrders: 0, archivedOrders: 0 };
-  const profile = findCustomerByPhone(phone);
-  if (profile) deleteEntity('customers', profile.id);
+  const cutoff = cutoffIso ? new Date(cutoffIso).getTime() : Infinity;
+  const old = (o: Order) => !Number.isFinite(cutoff) || cutoff === Infinity || new Date(o.createdAt).getTime() <= cutoff;
+  const profile = (loadData().customers || []).find(c => c.id === key || phoneKey(c.phone) === key);
+  const newerOrders = loadData().orders.some(o => orderBelongsTo(o, key) && !old(o));
+  let profileDeleted = false;
+  if (profile && !newerOrders) { deleteEntity('customers', profile.id); profileDeleted = true; }
 
   let liveOrders = 0;
-  for (const o of loadData().orders.filter(x => orderBelongsTo(x, key))) {
+  for (const o of loadData().orders.filter(x => orderBelongsTo(x, key) && old(x))) {
     saveEntity('orders', redactOrderPii(o));
     liveOrders++;
   }
 
   let archivedOrders = 0;
   try {
-    const mine = getArchivedOrdersSafe().filter(o => orderBelongsTo(o, key));
+    const mine = getArchivedOrdersSafe().filter(o => orderBelongsTo(o, key) && old(o));
     if (mine.length) { archiveOrders(mine.map(redactOrderPii)); archivedOrders = mine.length; }
   } catch (e) { console.warn('[privacy] archive redaction skipped', e); }
-  return { profileDeleted: !!profile, liveOrders, archivedOrders };
+  return { profileDeleted, liveOrders, archivedOrders };
+}
+
+export function eraseCustomerPrivacyData(phone: string): { profileDeleted: boolean; liveOrders: number; archivedOrders: number } {
+  return redactLocalByKey(phoneKey(phone));
 }
 
 export function findCustomerByPhone(phone?: string): CustomerProfile | undefined {

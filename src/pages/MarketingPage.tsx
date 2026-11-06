@@ -15,6 +15,8 @@ import {
   getMarketingTemplate, saveMarketingTemplate,
 } from '@/lib/store';
 import { openWhatsApp, normalizePhone } from '@/lib/whatsapp';
+import { PageTitle } from '@/components/layout/PageFrame';
+import { Megaphone as TitleIcon } from 'lucide-react';
 
 interface Contact {
   no: string;       // phone number
@@ -185,8 +187,7 @@ export default function MarketingPage() {
       <div className="flex items-center gap-3">
         <Megaphone className="h-6 w-6 text-[#25D366]" />
         <div>
-          <h1 className="text-xl font-bold">Marketing — Bulk WhatsApp</h1>
-          <p className="text-xs text-muted-foreground">Customer list + Excel import + auto-generated messages</p>
+          <PageTitle icon={TitleIcon} subtitle="Customer list + Excel import + auto-generated messages">Marketing — Bulk WhatsApp</PageTitle>
         </div>
         <div className="ml-auto flex gap-2">
           <Badge variant="secondary">{allContacts.length} contacts</Badge>

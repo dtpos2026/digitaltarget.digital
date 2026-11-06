@@ -13,6 +13,7 @@ import {
 import { Order, PaymentMethod } from '@/lib/types';
 import ReceiptPreview from '@/components/ReceiptPreview';
 import { money } from '@/lib/currency';
+import { PageTitle } from '@/components/layout/PageFrame';
 
 type FilterT = 'all' | 'unpaid' | 'partial' | 'paid';
 
@@ -97,8 +98,7 @@ export default function CreditsPage() {
   return (
     <div className="p-4 lg:p-6 space-y-4">
       <div className="flex items-center gap-3 flex-wrap">
-        <Receipt className="h-6 w-6 text-primary" />
-        <h1 className="text-lg font-bold">Credits / Udhaar</h1>
+        <PageTitle icon={Receipt} subtitle="Money customers owe you (udhaar) and what they paid back">Credits / Udhaar</PageTitle>
         <Badge variant="secondary" className="ml-auto">{enriched.length} customers</Badge>
       </div>
 

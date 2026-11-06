@@ -1,0 +1,39 @@
+/* ============================================================
+   LIVE FLOOR (v1.110.0) — the motion of the Tables floor: guests walk to their chair and sit, sway a little, and a table that
+   needs somebody shows a pill with a ring that breathes. Everything stops for people who ask for less motion.
+   Individual transform properties (translate / scale / rotate) are used so they combine with the inline rotate() that
+   turns each guest to face their table.
+   ============================================================ */
+@keyframes dt-guest-in {
+  0%   { translate: var(--ox, 0px) var(--oy, 0px); scale: 0.5; opacity: 0; }
+  50%  { opacity: 1; }
+  78%  { scale: 1.12; }
+  100% { translate: 0 0; scale: 1; opacity: 1; }
+}
+@keyframes dt-guest-bob {
+  0%, 100% { translate: 0 0; }
+  50%      { translate: var(--bx, 0px) var(--by, 0px); }
+}
+@keyframes dt-pill-in {
+  from { translate: 0 6px; scale: 0.92; opacity: 0; }
+  to   { translate: 0 0; scale: 1; opacity: 1; }
+}
+@keyframes dt-pill-ring {
+  0%   { box-shadow: 0 0 0 0 var(--ring, rgba(239, 111, 60, 0.45)); }
+  100% { box-shadow: 0 0 0 11px rgba(0, 0, 0, 0); }
+}
+@keyframes dt-table-pop {
+  0%   { scale: 0.96; }
+  60%  { scale: 1.025; }
+  100% { scale: 1; }
+}
+
+.dt-guest      { animation: dt-guest-in 0.75s cubic-bezier(0.2, 0.8, 0.2, 1) both; animation-delay: calc(var(--i, 0) * 150ms); }
+.dt-guest-body { animation: dt-guest-bob 3.6s ease-in-out infinite; animation-delay: calc(var(--i, 0) * 450ms + 800ms); }
+.dt-pill       { animation: dt-pill-in 0.3s ease-out both; }
+.dt-pill[data-pulse] { animation: dt-pill-in 0.3s ease-out both, dt-pill-ring 1.9s ease-out 0.3s infinite; }
+.dt-table-pop  { animation: dt-table-pop 0.45s ease-out both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .dt-guest, .dt-guest-body, .dt-pill, .dt-pill[data-pulse], .dt-table-pop { animation: none !important; }
+}

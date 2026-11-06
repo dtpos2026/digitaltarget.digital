@@ -398,10 +398,10 @@ export interface Chair { x: number; y: number; w: number; h: number; rot: number
  * Round tables spread chairs evenly on a circle; square and rectangle tables spread them over the four
  * sides, longer sides first.
  */
-export function chairLayout(shape: TableShape | undefined, seats: number, w: number, h: number): Chair[] {
+export function chairLayout(shape: TableShape | undefined, seats: number, w: number, h: number, chairScale = 1): Chair[] {
   const n = clamp(Math.round(seats) || 1, 1, 20);
   const cx = w / 2, cy = h / 2;
-  const cw = Math.max(9, Math.round(Math.min(w, h) * 0.17));
+  const cw = Math.max(9, Math.round(Math.min(w, h) * 0.17 * chairScale));
   const ch = Math.max(5, Math.round(cw * 0.45));
   const out: Chair[] = [];
   if (shape === 'round') {

@@ -18,7 +18,7 @@
 // what branch scoping exists to prevent. So the till is TOLD instead, and
 // offered the switch. Nothing is hidden; nothing leaks.
 // ============================================================================
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { AlertTriangle, ArrowRight, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getCurrentBranchId, setCurrentBranchId } from '@/lib/store';
@@ -45,13 +45,20 @@ function howLong(iso: string | null): string {
 export default function OrdersWaitingElsewhere() {
   const [rows, setRows] = useState<WaitingBranch[]>([]);
   const [busy, setBusy] = useState(false);
+  const denied = useRef(false);
 
   const look = async () => {
+    if (denied.current) return;
     try {
       const { sb, isSupabaseConfigured } = await import('@/lib/supabase');
       if (!isSupabaseConfigured()) return;
       const { data, error } = await sb().rpc('orders_waiting_by_branch' as never, {} as never);
-      if (error) return;                       // staff PIN session, offline — stay quiet
+      if (error) {                             // staff PIN session, signed out, offline — stay quiet
+        // v1.110.0 — "permission denied" will not change by asking again every minute (live logs: one 401 a minute, all day).
+        const e = error as { code?: string; status?: number; message?: string };
+        if (e.code === '42501' || e.status === 401 || /permission denied|jwt/i.test(e.message || '')) denied.current = true;
+        return;
+      }
       const res = data as { ok?: boolean; branches?: WaitingBranch[] } | null;
       if (!res?.ok || !Array.isArray(res.branches)) return;
 

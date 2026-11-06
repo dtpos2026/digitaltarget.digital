@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Building2, MapPin, ExternalLink, Phone } from 'lucide-react';
 import { Branch } from '@/lib/types';
 import LeafletMap, { type MapMarker, type MapCircle } from '@/components/LeafletMap';
+import { PageTitle } from '@/components/layout/PageFrame';
 
 /**
  * Phase 7 — Branches Map
@@ -60,8 +61,7 @@ export default function BranchesMapPage() {
   return (
     <div className="p-4 lg:p-6 space-y-4">
       <div className="flex items-center gap-2">
-        <MapPin className="h-5 w-5 text-primary" />
-        <h1 className="text-lg font-bold">Branches Map — Pakistan</h1>
+        <PageTitle icon={MapPin} subtitle="Where each branch is">Branches Map — Pakistan</PageTitle>
         <Badge variant="secondary" className="ml-auto">{mapped.length} mapped / {branches.length} total</Badge>
       </div>
 

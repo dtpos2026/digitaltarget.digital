@@ -16,6 +16,8 @@ import { uploadTenantImage } from '@/lib/storage';
 import BulkImageUpload from '@/components/BulkImageUpload';
 import ExcelImportDialog from '@/components/ExcelImportDialog';
 import { money } from '@/lib/currency';
+import { PageTitle } from '@/components/layout/PageFrame';
+import { UtensilsCrossed as TitleIcon } from 'lucide-react';
 
 async function pickAndUpload(file: File, prefix: string, setUrl: (u: string) => void) {
   const tId = toast.loading('Uploading image…');
@@ -414,7 +416,7 @@ export default function MenuManagerPage() {
         </div>
       )}
       <div className="flex items-center gap-2 mb-4 flex-wrap">
-        <h1 className="text-lg font-bold">Menu Manager</h1>
+        <PageTitle icon={TitleIcon} subtitle="Items, prices, sizes and what is on the website">Menu Manager</PageTitle>
         <Button size="sm" variant="outline" onClick={() => setShowCatDialog(true)}><Plus className="h-3 w-3 mr-1" /> Category</Button>
         <Button size="sm" onClick={openNewItem}><Plus className="h-3 w-3 mr-1" /> Item</Button>
         <Button size="sm" variant="secondary" onClick={() => setExcelOpen(true)}>

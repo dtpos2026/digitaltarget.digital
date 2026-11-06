@@ -22,6 +22,7 @@ import {
 import { getAllHistoricalOrders } from '@/lib/orderArchive';
 import { buildCashDrawerReport, formatShiftDuration, ordersInShift, type Shift } from '@/lib/shifts';
 import { money } from '@/lib/currency';
+import { PageTitle } from '@/components/layout/PageFrame';
 
 export default function ShiftPage() {
   const [tick, setTick] = useState(0);
@@ -94,9 +95,7 @@ export default function ShiftPage() {
 
   return (
     <div className="p-4 lg:p-6 space-y-4 max-w-3xl">
-      <h1 className="text-lg font-bold flex items-center gap-2">
-        <Wallet className="h-5 w-5" /> Shift &amp; Cash Drawer
-      </h1>
+      <PageTitle icon={Wallet} subtitle="Open and close your shift and the cash drawer">Shift &amp; Cash Drawer</PageTitle>
 
       {!shift ? (
         <Card className="p-4 space-y-3">

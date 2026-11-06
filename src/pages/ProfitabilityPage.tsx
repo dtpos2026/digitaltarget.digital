@@ -9,6 +9,7 @@ import DateTimeRangeFilter, { DateTimeRange } from '@/components/DateTimeRangeFi
 import { getCurrentBusinessDay, getBusinessDayRange } from '@/lib/businessDay';
 
 import { toBaseQty } from '@/lib/units';
+import { PageTitle } from '@/components/layout/PageFrame';
 
 function lineFoodCost(line: CartItem, recipes: Recipe[], inv: InventoryItem[]): number {
   const recipe = recipes.find(r => r.menuItemId === line.menuItemId);
@@ -100,7 +101,7 @@ export default function ProfitabilityPage() {
   return (
     <div className="p-4 lg:p-6 space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-lg font-bold flex items-center gap-2"><TrendingUp className="h-5 w-5" /> Profitability Dashboard</h1>
+        <PageTitle icon={TrendingUp} subtitle="Revenue, food cost, wastage and profit">Profitability Dashboard</PageTitle>
         <DateTimeRangeFilter value={range} onChange={setRange} />
       </div>
 

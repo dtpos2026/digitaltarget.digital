@@ -5,6 +5,7 @@ import { Users, ShoppingBag, TrendingUp, Repeat } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { getCustomers, getOrders, getBranches } from '@/lib/store';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { PageTitle } from '@/components/layout/PageFrame';
 
 // ===== v1.57.0 — "customer tu CRM module click karein to atak jata hai" =====
 //
@@ -74,8 +75,7 @@ export default function CrmInsightsPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-end justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2"><Users className="h-6 w-6 text-primary" /> CRM Insights</h1>
-          <p className="text-sm text-muted-foreground">Customer analytics, retention & order frequency</p>
+          <PageTitle icon={Users} subtitle="Customer analytics, retention & order frequency">CRM Insights</PageTitle>
         </div>
         {branches.length > 0 && (
           <div className="min-w-[200px]">

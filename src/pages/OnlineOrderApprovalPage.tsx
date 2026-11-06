@@ -11,6 +11,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Phone, MessageCircle, Check, X, Clock, Globe, QrCode, ClipboardList, Truck, ShoppingBag, AlertCircle, UserX } from 'lucide-react';
 import { blockCustomer } from '@/lib/blocklist';
 import { toast } from 'sonner';
+import { PageTitle } from '@/components/layout/PageFrame';
 
 const SOURCE_TABS: { key: OnlineSourceKey; label: string; Icon: typeof Globe }[] = [
   { key: 'website', label: 'Website', Icon: Globe },
@@ -97,8 +98,7 @@ export default function OnlineOrderApprovalPage() {
     <div className="p-4 space-y-4 max-w-7xl mx-auto">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2"><AlertCircle className="w-6 h-6 text-primary" /> Online Order Approval</h1>
-          <p className="text-sm text-muted-foreground">Review &amp; approve incoming orders before they reach the kitchen</p>
+          <PageTitle icon={AlertCircle} subtitle="Review &amp; approve incoming orders before they reach the kitchen">Online Order Approval</PageTitle>
         </div>
         <button onClick={() => setShowHistory(h => !h)} className="text-xs border rounded px-3 py-1.5 hover:bg-muted">
           {showHistory ? 'Show Pending' : 'Show History'}

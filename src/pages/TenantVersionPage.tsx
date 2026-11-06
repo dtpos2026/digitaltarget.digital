@@ -10,6 +10,7 @@ import { subscribeLatestRelease, isUpdateAvailable, type SystemRelease } from '@
 import { subscribeTenantAudit, type VersionAuditEntry } from '@/lib/versionAudit';
 import { getTenantId } from '@/lib/tenant';
 import { RefreshCw, Download, CheckCircle2, AlertTriangle, History, Rocket, FileText } from 'lucide-react';
+import { PageTitle } from '@/components/layout/PageFrame';
 
 function tsMs(v: any): number {
   if (!v) return 0;
@@ -62,10 +63,7 @@ export default function TenantVersionPage() {
   return (
     <div className="p-4 space-y-4 max-w-[1100px] mx-auto">
       <div>
-        <h1 className="text-2xl font-extrabold flex items-center gap-2">
-          <Rocket className="h-6 w-6 text-primary" /> Software Version
-        </h1>
-        <p className="text-xs text-muted-foreground">Check your installed version and new updates here.</p>
+        <PageTitle icon={Rocket} subtitle="Check your installed version and new updates here.">Software Version</PageTitle>
       </div>
 
       {/* Version cards */}
