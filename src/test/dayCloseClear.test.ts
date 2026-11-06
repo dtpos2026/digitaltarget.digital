@@ -153,6 +153,9 @@ describe('Day Close end-to-end: a closed day really is empty', () => {
 
     expect(res.deleted).toBe(2);
     expect(store.getOrders().map(o => o.id)).toEqual(['c']); // only udhaar left
-    expect(store.peekNextOrderNumber()).toBe(1);
+    // v1.108.0 — numbering restarts, but never onto a number a bill that stayed already holds (the database refuses a
+    // duplicate and the new bill would be renumbered after its receipt printed).
+    const kept = Number(store.getOrders()[0].orderNumber) || 0;
+    expect(store.peekNextOrderNumber()).toBe(kept + 1);
   });
 });

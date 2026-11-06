@@ -531,6 +531,46 @@ function getSyncDeviceIdSafe(): string | null {
   try { return getSyncDeviceId(); } catch { return null; }
 }
 
+/**
+ * v1.108.0 — columns that are NOT NULL and have a database default, per table (read from the live schema).
+ *
+ * FOUND in the live logs: "null value in column "loyalty_points" of relation "customers" violates not-null constraint".
+ * A customer record whose points were never set (or came back as null) sent `loyalty_points: null`, which is not "use the
+ * default" but "store nothing" — refused as a permanent error, so the customer never reached the cloud. For these columns
+ * a null means "not known": the key is left out, so an insert takes the database default and an update keeps what the
+ * cloud already holds.
+ */
+export const NOT_NULL_WITH_DEFAULT: Record<string, ReadonlySet<string>> = {
+  branches: new Set(['is_active', 'sort_order', 'created_at', 'updated_at']),
+  customers: new Set(['loyalty_points', 'credit_balance', 'is_blocked', 'total_orders', 'total_spent', 'created_at', 'updated_at', 'addresses']),
+  deals: new Set(['items', 'is_active', 'updated_at', 'created_at']),
+  dining_tables: new Set(['seats', 'status', 'updated_at']),
+  floors: new Set(['sort_order', 'updated_at']),
+  inventory_categories: new Set(['sort_order', 'updated_at']),
+  kitchens: new Set(['is_active', 'updated_at']),
+  payment_accounts: new Set(['is_active', 'sort_order', 'updated_at']),
+  promo_codes: new Set(['used_count', 'is_active', 'usage_count', 'created_at', 'updated_at']),
+  shifts: new Set(['opened_at', 'starting_cash', 'status', 'updated_at']),
+};
+
+/**
+ * v1.108.0 — rows for ONE bulk upsert must all carry the same keys.
+ *
+ * PostgREST builds the column list from every key in the array and fills a missing key with NULL, so one customer without
+ * `loyalty_points` next to one with it made the whole chunk fail the NOT NULL rule — and, worse, on rows that DO exist
+ * it would overwrite a column the row never mentioned. Rows are therefore grouped by their exact key set; a group's
+ * absent columns are simply not in its statement, so an update leaves them alone and an insert uses the default.
+ */
+export function groupRowsByKeys<T extends Record<string, unknown>>(rows: ReadonlyArray<T>): T[][] {
+  const groups = new Map<string, T[]>();
+  for (const r of rows) {
+    const sig = Object.keys(r).sort().join('\u0001');
+    const g = groups.get(sig);
+    if (g) g.push(r); else groups.set(sig, [r]);
+  }
+  return [...groups.values()];
+}
+
 /** Map an app record onto the real columns of `table`, dropping the rest. */
 function allowListedRow(table: string | undefined, data: Record<string, any>): Record<string, any> {
   const out: Record<string, any> = {};
@@ -539,6 +579,8 @@ function allowListedRow(table: string | undefined, data: Record<string, any>): R
     if (v === undefined) continue;
     if (k.startsWith('_')) continue;            // local-only bookkeeping
     const column = toSnake(k);
+    if (v === null && table && NOT_NULL_WITH_DEFAULT[table]?.has(column)) continue;   // "not known", never "store nothing"
+
     // Columns the table does not have (e.g. dining_tables.sessions) must never
     // be sent: PostgREST rejects the whole row with
     // "Could not find the 'x' column ... in the schema cache" and the op
@@ -1356,7 +1398,7 @@ export async function sbSaveMany(
   if (!tenantId) throw new Error('Restaurant identity is not ready; cloud save will retry');
   const branch = BRANCH_SCOPED.has(table) ? authBranchId() : null;
 
-  const rows: any[] = [];
+  const mapped: any[] = [];
   for (const it of items) {
     try {
       const row = rowToDb(col, it.data);
@@ -1364,15 +1406,20 @@ export async function sbSaveMany(
       if (row.data && typeof row.data === 'object') (row.data as any).id = it.id;
       row.tenant_id = tenantId;
       if (branch && !row.branch_id) row.branch_id = branch;
-      rows.push(row);
+      mapped.push(row);
     } catch (e: any) {
       // A row that cannot even be mapped must not sink the chunk.
       failed.push({ id: it.id, error: e?.message || String(e) });
     }
   }
-  if (rows.length === 0) return { saved, failed };
+  if (mapped.length === 0) return { saved, failed };
 
-  const { error } = await sb().from(table).upsert(rows, { onConflict: 'id' });
+  // One statement per key set (see groupRowsByKeys); every group must go through for the batch to count as saved.
+  let error: { message: string } | null = null;
+  for (const rows of groupRowsByKeys(mapped)) {
+    const r = await sb().from(table).upsert(rows, { onConflict: 'id' });
+    if (r.error) { error = r.error; break; }
+  }
   if (!error) {
     for (const it of items) if (!failed.some(f => f.id === it.id)) saved.push(it.id);
     return { saved, failed };

@@ -2420,9 +2420,28 @@ export async function getOrderFromCloudByLookup(orderNo: string | number, phoneL
     return null;
   }
 }
+/**
+ * v1.108.0 — the highest bill number this device KNOWS for a branch, including bills other tills made and sync
+ * brought here.
+ *
+ * FOUND in the live logs (35 rejected bill inserts in 9 hours, 21 of 333 bills renumbered in two days): when the
+ * server's counter cannot answer in time (slow network, offline) a till numbers the bill from its OWN counter, and that
+ * counter only ever rose from this till's own bills. Another till's #5171, already on this screen, was invisible to it,
+ * so it issued #5171 again, the database refused the duplicate and the bill was renumbered after the receipt had
+ * printed. The fallback now starts above everything this device has seen for the branch.
+ */
+export function highestKnownOrderNumber(branchId: string | null = getCurrentBranchId()): number {
+  let max = 0;
+  for (const o of loadData().orders) {
+    if (branchId && o.branchId && o.branchId !== branchId) continue;
+    const n = Number(o.orderNumber);
+    if (Number.isFinite(n) && n > max) max = n;
+  }
+  return max;
+}
 export function getNextOrderNumber(): number {
   const d = loadData();
-  d.orderCounter += 1;
+  d.orderCounter = Math.max(d.orderCounter || 0, highestKnownOrderNumber()) + 1;
   saveLocal(d);
   if (useFirestore()) cloudSaveCounter(d.orderCounter);
   return d.orderCounter;
@@ -2430,7 +2449,7 @@ export function getNextOrderNumber(): number {
 /** Peek the next order number without incrementing (for previews). */
 export function peekNextOrderNumber(): number {
   const d = loadData();
-  return (d.orderCounter || 0) + 1;
+  return Math.max(d.orderCounter || 0, highestKnownOrderNumber()) + 1;
 }
 /**
  * Atomic order number — uses Firestore transaction so multiple devices/tabs
