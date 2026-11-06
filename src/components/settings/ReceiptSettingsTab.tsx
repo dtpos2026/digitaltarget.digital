@@ -10,6 +10,7 @@
 // prop list is the point: it is what made this safe to move at all, and what
 // keeps the settings screen from quietly growing another tangle.
 // ============================================================
+import { resolveReceiptDesign } from '@/lib/receiptDesign';
 import { uploadTenantImage } from '@/lib/storage';
 import React from 'react';
 import { toast } from 'sonner';
@@ -84,7 +85,7 @@ export default function ReceiptSettingsTab({ settings, setSettings, onSave, samp
                     key={d.id}
                     onClick={() => setSettings({ ...settings, receiptDesign: d.id })}
                     className={`p-3 rounded-lg border text-left transition-colors ${
-                      (settings.receiptDesign || 'classic') === d.id
+                      resolveReceiptDesign(settings.receiptDesign) === d.id
                         ? 'bg-primary text-primary-foreground border-primary'
                         : 'bg-card hover:bg-accent'
                     }`}
@@ -103,7 +104,7 @@ export default function ReceiptSettingsTab({ settings, setSettings, onSave, samp
               {/* Live Receipt Preview — shows currently selected design with sample data */}
               <div className="mt-4 border-t pt-3">
                 <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-xs font-bold">👁 Live Preview — <span className="text-primary">{settings.receiptDesign || 'classic'}</span></h4>
+                  <h4 className="text-xs font-bold">👁 Live Preview — <span className="text-primary">{resolveReceiptDesign(settings.receiptDesign)}</span></h4>
                   <span className="text-[10px] text-muted-foreground">Sample order — the actual print looks the same</span>
                 </div>
                 <div className="bg-muted/30 rounded-lg p-3 overflow-auto max-h-[520px] flex justify-center">

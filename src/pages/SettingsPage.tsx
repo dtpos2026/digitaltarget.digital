@@ -25,6 +25,7 @@ import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { PAKISTAN_AREAS } from '@/lib/pakistan-areas';
 import { toast } from 'sonner';
+import CustomWebsiteCard from '@/components/settings/CustomWebsiteCard';
 import { languagesForCountry, isLanguageAllowed, setLanguage, getLanguage, translationCoverage, totalKeys, type LanguageCode } from '@/lib/i18n';
 import { MAX_TOP_MARGIN_MM, clampTopMarginMm } from '@/lib/thermal-print';
 import { computeBillTotals } from '@/lib/taxEngine';
@@ -777,6 +778,7 @@ export default function SettingsPage() {
               💡 Tip: share the website link in your Facebook / Instagram / WhatsApp bio. Orders arrive automatically in your <b>Delivery Board</b> and <b>Kitchen Queue</b>.
             </div>
           </div>
+          <CustomWebsiteCard />
         </TabsContent>
 
         <TabsContent value="branches" className="space-y-3">

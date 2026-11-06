@@ -96,3 +96,33 @@ repo has no direct call. Still, confirm on a staging copy first — not executed
 2. Approve S-1/S-6/S-7 migration (grants only) after a backup.
 3. Approve S-2 + S-3 (RPC changes) with a backup — these two close the remaining real gaps.
 4. S-4/S-5 with the Customer-app hardening pass.
+
+## 6. Status after v1.107.0 (6 Nov 2026) — what was applied, what was not
+
+The owner instructed the work to be completed ("complete it now"). **No backup confirmation was given in words**, so the
+change was made the careful way: the exact grants and the full previous `public_track_order` body were read from the live
+database first and saved in `docs/rollback/` (a one-file undo for each step), every step was applied separately, each was
+checked against the live database straight after, and nothing that holds business data was touched.
+
+| ID | Applied? | What was done |
+|---|---|---|
+| S-1 | **Yes** | EXECUTE removed from `public` and `anon` on 12 signed-in-only functions (both `register_device` overloads included). Signed-in users and the server keep it. Every call site in `src/` runs after sign-in, and `pos_change_own_password` also checks `auth_tenant_id()` inside. |
+| S-6 | **Yes** | `sync_order_money_mirror()` (trigger) no longer executable by `public`, `anon`, `authenticated`. A trigger does not need the firing user to hold EXECUTE. |
+| S-7 | **Yes** | `sync_super_admins_from_allowlist()` no longer executable by `authenticated`. `sa_add_team_member` (SECURITY DEFINER) still calls it. |
+| S-2 | **Yes — as a throttle, not "uuid only"** | The website's tracking page really uses *order number + last 4 digits* (`store.ts`), so removing that path would have broken it. Instead: a lookup by the order's own uuid is unchanged; a guessable lookup that finds nothing counts as a miss for that restaurant, and after 60 misses in a 10-minute window the guessable path answers "not found" until the window ends (10,000 combinations would take about 28 hours). A found order never counts. Misses are only recorded for restaurants that exist; rows older than a day are removed. Verified on the live database: 65 wrong guesses → blocked at 60, uuid lookup still works, the test rows were deleted afterwards. One new closed table `public_track_attempts`. |
+| S-3 | **Corrected finding — no change made** | `public_place_order` is **not** callable by `anon` or `authenticated` (its grants are `postgres` and `service_role` only), so the "direct RPC call" in the original finding could not happen. It also does not trust the client's prices: it re-reads each item from `menu_items`. The owner's switches are enforced in `submitPublicOrder` (the only caller) and in the new own-website intake. What it still does not do is add the delivery fee to the stored total (the page shows it); moving the switch checks inside the RPC would add risk to the live order path without closing a reachable hole, so it was left. |
+| S-4 | No | Per-restaurant SMS cap + CAPTCHA — with the customer-app hardening pass. |
+| S-5 | No | 6-digit PIN / generic reply — same pass. |
+| — | No (owner, dashboard only) | *Auth → Passwords → Leaked password protection* is still off. |
+
+Advisor result after the change: anonymous-callable SECURITY DEFINER functions **45 → 32**, signed-in **80 → 78**; three new
+closed tables (`public_track_attempts`, `custom_site_intake`, `custom_site_orders`) show as INFO "RLS on, no policy" — intended,
+the same as the three session tables.
+
+### Custom Website (WP-8) as built
+Two closed tables and one server-only function (`custom_site_place_order`, `service_role` only). The intake is
+`POST /api/custom-site/order/<restaurant id>`: size cap → own-site mode on → HMAC-SHA256 over `<timestamp>.<body>` with
+±5 minutes → 60 orders a minute per restaurant → shape → the owner's switches → idempotency key → the database places the
+order. **Deviation from the design:** the secret is stored in clear text in a table that no API role can read (RLS on, no
+policy, no grants but `service_role`), not hashed — HMAC verification needs the key itself. It is shown to the owner once,
+only its last four characters afterwards, and is replaced or revoked in one click.

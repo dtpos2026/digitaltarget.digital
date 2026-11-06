@@ -10,33 +10,44 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiCustomSiteOrderTenantIdRouteImport } from './routes/api/custom-site/order.$tenantId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCustomSiteOrderTenantIdRoute =
+  ApiCustomSiteOrderTenantIdRouteImport.update({
+    id: '/api/custom-site/order/$tenantId',
+    path: '/api/custom-site/order/$tenantId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/custom-site/order/$tenantId': typeof ApiCustomSiteOrderTenantIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/custom-site/order/$tenantId': typeof ApiCustomSiteOrderTenantIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/custom-site/order/$tenantId': typeof ApiCustomSiteOrderTenantIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/api/custom-site/order/$tenantId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/api/custom-site/order/$tenantId'
+  id: '__root__' | '/' | '/api/custom-site/order/$tenantId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiCustomSiteOrderTenantIdRoute: typeof ApiCustomSiteOrderTenantIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +59,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/custom-site/order/$tenantId': {
+      id: '/api/custom-site/order/$tenantId'
+      path: '/api/custom-site/order/$tenantId'
+      fullPath: '/api/custom-site/order/$tenantId'
+      preLoaderRoute: typeof ApiCustomSiteOrderTenantIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiCustomSiteOrderTenantIdRoute: ApiCustomSiteOrderTenantIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

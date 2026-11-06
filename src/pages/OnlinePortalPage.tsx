@@ -396,7 +396,12 @@ export default function OnlinePortalPage() {
               <div key={o.id} className="flex items-center gap-2 p-2 rounded-md border hover:bg-muted/40">
                 <Badge variant="secondary" className="text-[10px] font-mono">#{o.orderNumber}</Badge>
                 <div className="flex-1 min-w-0 text-[12px]">
-                  <div className="font-semibold truncate">{o.customer?.name || '—'}</div>
+                  <div className="font-semibold truncate">
+                    {o.customer?.name || '—'}
+                    {(o as { ownWebsite?: boolean }).ownWebsite && (
+                      <Badge variant="outline" className="ml-1.5 text-[9px] align-middle" data-testid="own-website-badge">Own website</Badge>
+                    )}
+                  </div>
                   <div className="text-[10px] text-muted-foreground truncate">{o.customer?.phone || ''} · {o.items.length} items</div>
                 </div>
                 <Badge className="text-[10px]" variant="outline">{o.deliveryStatus || o.status}</Badge>

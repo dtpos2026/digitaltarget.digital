@@ -34,7 +34,7 @@ GoFood pink, Sweetco orange, TastyIgniter, Tst Food). It replaces nothing; it or
 | Phone apps (Rider 22, Order Taker 14, Owner 24 screens) | Built and working; they use the earlier purple phone kit — to be aligned to the single UI (WP-5) |
 | Customer website | Home (WEB-01) built; switches enforced; other pages still old (WP-6) |
 | Super Admin | Works; design pass pending (WP-7) |
-| Security | Reviewed; four hygiene items + two real gaps waiting for approval |
+| Security | Reviewed; hygiene items, the tracking throttle and the Custom Website intake applied in v1.107.0 (see the review's §6); S-4 / S-5 remain |
 
 ## 3. Work packages (in order)
 
@@ -49,8 +49,8 @@ GoFood pink, Sweetco orange, TastyIgniter, Tst Food). It replaces nothing; it or
 | **WP-5** | Phone apps on the single UI: same tokens, same component language, theme = colour only | — |
 | **WP-6** | Website: WEB-02/05–21 (product, cart, checkout, offers, tracking, account, contact …) on the same components; opening hours / banners / social links as fields of the settings document | choose "settings document" (no table) vs new table |
 | **WP-7** | Super Admin on the same system | — |
-| **WP-8** | **Custom Website** option (see §5) | approval + DB backup for any table / RPC change |
-| **WP-9** | Security items S-1…S-7 | approval + backup |
+| **WP-8 ✔ v1.107.0** | **Custom Website** option (see §5) — built: Settings → Online Order → "My own website", signed intake endpoint, "Needs matching" list. Still to do: Super Admin view of which restaurants use it | — |
+| **WP-9 ◐ v1.107.0** | Security items: S-1, S-2 (throttle), S-6, S-7 applied; S-3 corrected (no change needed); S-4, S-5 and leaked-password protection remain | S-4/S-5: customer-app pass; leaked-password switch: owner (dashboard) |
 | **WP-10** | International pack (see §6) | — |
 | **WP-11** | Multi-branch Phase 2, regional managers, ERP gaps (reservations, stock count, batch/expiry, accounting, rosters) | the five multi-branch answers |
 

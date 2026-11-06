@@ -1,3 +1,4 @@
+import { resolveReceiptDesign } from '@/lib/receiptDesign';
 import { useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Order, RestaurantSettings, ReceiptTextStyle } from '@/lib/types';
@@ -188,7 +189,7 @@ export default function ReceiptPreview({ order, settings, showPrintButton = true
   const paperWidth = settings.paperSize || '80mm';
   const scalePercent = getReceiptZoom(settings);
   const scaleFactor = scalePercent / 100;
-  const design = settings.receiptDesign || 'classic';
+  const design = resolveReceiptDesign(settings.receiptDesign);
   const margins = getEffectiveReceiptMargins(settings);
   const usePrinterDefaultPageSize = shouldUsePrinterDefaultPageSize(settings);
 
