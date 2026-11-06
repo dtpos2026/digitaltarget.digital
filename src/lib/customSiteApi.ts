@@ -37,6 +37,11 @@ export async function revokeCustomSiteKey(): Promise<{ ok: true }> {
   return call('custom_site_revoke_key');
 }
 
+/** "Check connection": is the own site on, is there a key, would the owner's own switches refuse orders. Places nothing. */
+export async function checkCustomSiteConnection(): Promise<{ ok: boolean; message: string }> {
+  return call('custom_site_check');
+}
+
 /** Super Admin: every restaurant that connects its own website. */
 export interface OwnSiteRow {
   tenantId: string; name: string; mode: CustomSiteMode; siteUrl: string | null; adminUrl: string | null;

@@ -1,5 +1,5 @@
 // v1.107.0 — the "My own website" card, the intake route and the migrations behind it.
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EMPTY_STATUS, type CustomSiteStatus } from '@/lib/customSite';
@@ -11,14 +11,14 @@ const fns = vi.hoisted(() => ({
   revokeCustomSiteKey: vi.fn(),
   testCustomSiteConnection: vi.fn(),
 }));
-// v1.108.0 — everything but the check is a database function (customSiteApi); only the check needs the server.
+// v1.108.1 — every call is a database function (customSiteApi); there is no server function behind the card any more.
 vi.mock('@/lib/customSiteApi', () => ({
   getCustomSiteStatus: fns.getCustomSiteStatus,
   saveCustomSiteSettings: fns.saveCustomSiteSettings,
   rotateCustomSiteKey: fns.rotateCustomSiteKey,
   revokeCustomSiteKey: fns.revokeCustomSiteKey,
+  checkCustomSiteConnection: fns.testCustomSiteConnection,
 }));
-vi.mock('@/lib/customSite.functions', () => ({ testCustomSiteConnection: fns.testCustomSiteConnection }));
 vi.mock('@/lib/tenant', () => ({ getTenantId: () => '64434fd6-3ea7-4ae2-9c05-6da25a41ad41', getTenantName: () => 'R' }));
 
 import CustomWebsiteCard from '@/components/settings/CustomWebsiteCard';
@@ -45,16 +45,6 @@ describe('My own website card', () => {
     fns.getCustomSiteStatus.mockRejectedValue(new Error('only the owner or an admin can use this'));
     render(<CustomWebsiteCard />);
     expect(await screen.findByText(/signed-in owner or admin/i)).toBeTruthy();
-  });
-
-  it('works without a web server: only the connection check asks for one, and says so', async () => {
-    fns.getCustomSiteStatus.mockResolvedValue(status({ mode: 'own', hasKey: true, keyHint: '…abcd' }));
-    fns.testCustomSiteConnection.mockRejectedValue(new Error('server functions are not served here'));
-    render(<CustomWebsiteCard />);
-    fireEvent.click(await screen.findByRole('button', { name: /check connection/i }));
-    expect((await screen.findByTestId('custom-site-check')).textContent).toMatch(/needs the online server/i);
-    // the rest of the card is still usable
-    expect(screen.getByRole('button', { name: /replace key/i }).hasAttribute('disabled')).toBe(false);
   });
 
   it('own website: shows the address to post to, with the restaurant id, and no secret yet', async () => {
@@ -123,17 +113,31 @@ describe('My own website card', () => {
 
 const read = (p: string) => readFileSync(p, 'utf8');
 
-describe('the intake route and its server functions', () => {
+describe('the intake route', () => {
   const route = read('src/routes/api/custom-site/order.$tenantId.ts');
-  const owner = read('src/lib/customSite.functions.ts');
 
   it('is a POST-only server route that checks the id is a uuid and caps the body', () => {
     expect(route).toContain("createFileRoute('/api/custom-site/order/$tenantId')");
     expect(route).toMatch(/handlers:\s*{\s*POST:/);
     expect(route).not.toMatch(/\bGET:|\bPUT:|\bDELETE:/);
-    expect(route).toContain('z.string().uuid()');
+    expect(route).toContain('UUID.test(params.tenantId)');
     expect(route).toContain('MAX_BODY_BYTES');
     expect(route).toContain("'cache-control': 'no-store'");
+    expect(route).toContain("x-dt-dry-run");
+  });
+
+  it('imports nothing of ours at the top: the production worker must start (v1.108.1)', () => {
+    // v1.107.0 put a server function file next to this route and the worker stopped booting. The route loads every module
+    // of ours inside its handler, so the server entry's chunk graph does not change.
+    const staticImports = [...route.matchAll(/^import\s.*from\s+'([^']+)'/gm)].map(m => m[1]);
+    expect(staticImports).toEqual(['@tanstack/react-router']);
+  });
+
+  it('there is no server-function file for the Custom Website (it broke the worker once)', () => {
+    expect(existsSync('src/lib/customSite.functions.ts')).toBe(false);
+    for (const f of ['src/components/settings/CustomWebsiteCard.tsx', 'src/lib/customSiteApi.ts']) {
+      expect(read(f)).not.toMatch(/createServerFn|customSite\.functions/);
+    }
   });
 
   it('never logs the body or the secret', () => {
@@ -141,19 +145,9 @@ describe('the intake route and its server functions', () => {
     expect(read('src/lib/customSiteIntake.server.ts')).not.toMatch(/console\.\w+/);
   });
 
-  it('the one server function left needs a signed-in session and resolves the restaurant from it, never from the request', () => {
-    expect((owner.match(/createServerFn\(/g) || []).length).toBe(1);
-    expect(owner).toContain('.middleware([requireSupabaseAuth])');
-    expect(owner).toContain("rpc('auth_tenant_id')");
-    expect(owner).toMatch(/owner.*admin|admin.*owner/);
-    expect(owner).not.toMatch(/tenantId:\s*z\./);
-    // it never returns the secret
-    expect(owner).not.toMatch(/return\s*{\s*secret/);
-  });
-
   it('the card talks to the database functions, which check the caller themselves', () => {
     const api = read('src/lib/customSiteApi.ts');
-    for (const fn of ['custom_site_status', 'custom_site_save', 'custom_site_rotate_key', 'custom_site_revoke_key', 'sa_custom_site_overview']) {
+    for (const fn of ['custom_site_status', 'custom_site_save', 'custom_site_rotate_key', 'custom_site_revoke_key', 'custom_site_check', 'sa_custom_site_overview']) {
       expect(api).toContain(`'${fn}'`);
     }
     expect(api).not.toMatch(/\.from\(/);   // never touches the closed tables directly

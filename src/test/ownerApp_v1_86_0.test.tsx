@@ -578,7 +578,8 @@ describe('wiring', () => {
   it('the DT Owner Android app opens it', () => {
     const cfg = JSON.parse(read('capacitor.owner.config.json'));
     expect(cfg).toMatchObject({ appId: 'com.digitaltarget.dtowner', appName: 'DT Owner', android: { path: 'android/Owner' } });
-    expect(cfg.server.url).toBe('https://digitaltarget.digital/#/owner-app');
+    // v1.109.0 — the address carries ?app=owner, so a restored WebView cannot land on the full POS (see appEntry.ts).
+    expect(cfg.server.url).toBe('https://digitaltarget.digital/?app=owner#/owner-app');
   });
   it('a bill and the sales report become real PDF files to share', async () => {
     const { orderPdf, salesReportPdf } = await import('@/lib/ownerPdf');

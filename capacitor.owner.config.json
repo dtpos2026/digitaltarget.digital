@@ -7,7 +7,7 @@
   },
   "server": {
     "androidScheme": "https",
-    "url": "https://digitaltarget.digital/#/owner-app",
+    "url": "https://digitaltarget.digital/?app=owner#/owner-app",
     "cleartext": false
   },
   "plugins": {

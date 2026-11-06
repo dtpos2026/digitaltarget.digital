@@ -11,6 +11,7 @@
 //
 //     https://digitaltarget.digital/#/rider-portal
 //     https://digitaltarget.digital/#/order-taker
+//     https://digitaltarget.digital/#/owner-app        (the DT Owner APK, from v1.109.0)
 //
 // A fragment is the most fragile part of a URL. Android drops it on a WebView
 // restore after the process is killed, and any reload that does not carry it
@@ -33,7 +34,7 @@
 // all. See the guard in applyAppEntry().
 // ============================================================================
 
-export type PortalApp = 'rider' | 'order-taker' | 'customer';
+export type PortalApp = 'rider' | 'order-taker' | 'customer' | 'owner';
 
 const KEY = 'dt-portal-app';
 
@@ -42,10 +43,13 @@ const HOME: Record<PortalApp, string> = {
   rider: '#/rider-portal',
   'order-taker': '#/order-taker',
   customer: '#/order',
+  // v1.109.0 — the DT Owner APK is a WebView like the other two and was open to the same fault: a restored WebView drops the
+  // #/owner-app fragment and lands on "/", the full POS and its email login. It now declares itself with ?app=owner.
+  owner: '#/owner-app',
 };
 
 function isPortalApp(v: unknown): v is PortalApp {
-  return v === 'rider' || v === 'order-taker' || v === 'customer';
+  return v === 'rider' || v === 'order-taker' || v === 'customer' || v === 'owner';
 }
 
 /** `?app=order-taker` — the marker the packaged app carries on every load. */

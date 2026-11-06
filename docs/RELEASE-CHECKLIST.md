@@ -38,11 +38,15 @@ cd digitaltarget.digital
 npm install
 npm run deploy
 ```
-`deploy` builds and pushes `dist` to Cloudflare Pages (`dt-pos`). Open the site and hard-refresh (Ctrl+F5); the version
+`deploy` builds, **starts the built worker and checks it answers** (`npm run smoke:worker`, added in v1.108.1 after v1.107.0 shipped a worker that could not start and every page said "This page didn't load"), and only then pushes `dist` to Cloudflare Pages (`dt-pos`). If the smoke step fails, nothing is deployed. Open the site and hard-refresh (Ctrl+F5); the version
 shown must read **1.70.1**.
 
 **Database state — nothing to run.** All 8 migrations in `supabase/migrations` are already applied to production
 (checked against the migration list on 2026-10-30; the last two are `v1_65_0_orders_delta_index` and `v1_70_0_hide_pin_hashes_from_staff`).
+
+### 2b. If a deployed site ever shows "This page didn't load"
+Fastest, no code: Cloudflare dashboard → **Workers & Pages → dt-pos → Deployments** → open the last deployment that worked → **Rollback to this deployment**. (The database is backward compatible; the older website runs on it.)
+Then fix, run `npm run build && npm run smoke:worker`, and deploy again.
 
 ### 3. Smoke test the website — 10 minutes, one real restaurant account
 | Step | Expect |

@@ -73,13 +73,8 @@ export default function CustomWebsiteCard() {
     await load();
   });
   const test = () => run('test', async () => {
-    // The check runs the real intake rules on the server, so it needs the online server — everything else here does not.
-    try {
-      const r = await (await import('@/lib/customSite.functions')).testCustomSiteConnection();
-      setCheck({ ok: r.ok, message: r.message });
-    } catch {
-      setCheck({ ok: false, message: 'The connection check needs the online server. Open the software from your web address to run it. Your settings and key are saved either way.' });
-    }
+    const r = await (await api()).checkCustomSiteConnection();
+    setCheck({ ok: r.ok, message: r.message });
     await load();
   });
 
@@ -190,7 +185,7 @@ export default function CustomWebsiteCard() {
                 <span>{check.message}</span>
               </div>
             )}
-            <p className="text-[11px] text-muted-foreground">Checking sends a signed sample order through every rule but places nothing.</p>
+            <p className="text-[11px] text-muted-foreground">The check reads your settings and key and says what would be refused. To test the whole path, send an order from your website with the header x-dt-dry-run: 1 — nothing is placed.</p>
           </div>
 
           <div className="grid grid-cols-3 gap-2 text-center" data-testid="custom-site-health">
