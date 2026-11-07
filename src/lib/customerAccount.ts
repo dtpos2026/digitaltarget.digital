@@ -389,6 +389,52 @@ export async function customerOrders(tenantId?: string | null, limit = 30): Prom
 }
 
 
+/** One offer the restaurant sent to its customers (a campaign: title, words, picture, dates). */
+export interface CustomerPromotion {
+  id: string;
+  title: string;
+  body: string;
+  imageUrl: string | null;
+  deepLink: string | null;
+  startsAt: string;
+  endsAt: string | null;
+}
+
+/**
+ * v1.112.0 — the offers the restaurant is running for its customers right now (public_customer_promotions: only this customer's
+ * own restaurant, only active and in date). An account is how they reach the person, so the profile shows them.
+ */
+export async function customerPromotions(tenantId?: string | null, limit = 10): Promise<CustomerPromotion[]> {
+  const token = getCustomerToken(tenantId);
+  if (!token) return [];
+  try {
+    const raw = await call('public_customer_promotions', { p_token: token, p_limit: limit });
+    if (!raw?.ok) {
+      if (raw?.reason === 'no_session') signOutLocal(tenantId);
+      return [];
+    }
+    return (Array.isArray(raw.promotions) ? raw.promotions : []).map((x: any) => ({
+      id: String(x.id),
+      title: String(x.title ?? '').trim(),
+      body: String(x.body ?? '').trim(),
+      imageUrl: typeof x.imageUrl === 'string' && /^https:\/\//.test(x.imageUrl) ? x.imageUrl : null,
+      deepLink: typeof x.deepLink === 'string' ? x.deepLink : null,
+      startsAt: String(x.startsAt ?? ''),
+      endsAt: x.endsAt ? String(x.endsAt) : null,
+    })).filter((x: CustomerPromotion) => x.id && x.title);
+  } catch {
+    return [];
+  }
+}
+
+/** A restaurant promo code written in an offer's words (CODE in capitals, 4–14 letters or digits): the ones that really exist and are active. */
+export function codesInOffer(text: string, activeCodes: string[]): string[] {
+  const have = new Set(activeCodes.map(c => c.trim().toUpperCase()).filter(Boolean));
+  const found = new Set<string>();
+  for (const m of text.toUpperCase().matchAll(/\b[A-Z0-9]{4,14}\b/g)) if (have.has(m[0])) found.add(m[0]);
+  return [...found];
+}
+
 /** Forget this device's session locally, without waiting for the server. */
 export function signOutLocal(tenantId?: string | null): void {
   setCustomerToken(null, tenantId);

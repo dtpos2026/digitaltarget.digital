@@ -21,6 +21,7 @@ import { resolveRestaurantIdentity } from '@/lib/restaurantIdentity';
 import { cn } from '@/lib/utils';
 import { Badge, Bar, Card, Empty, Label, ScreenHeader } from './ownerUi';
 import { OWNER_BASE, rs, useLiveTick } from './ownerHooks';
+import AppLanguageSwitch from '@/components/AppLanguageSwitch';
 
 export interface MoreCaps { can: (pageKey: string) => boolean; userName: string; role: string; onLogout: () => void; multiBranch?: boolean }
 
@@ -88,6 +89,7 @@ export function OwnerMore({ caps }: { caps: MoreCaps }) {
       {ops.length > 0 && <div><Label>Operations</Label><Card className="py-1">{ops}</Card></div>}
       {money.length > 0 && <div><Label>People and money</Label><Card className="py-1">{money}</Card></div>}
       <div><Label>Admin</Label><Card className="py-1">{admin}</Card></div>
+      <Card className="py-1"><AppLanguageSwitch row /></Card>
       <button type="button" onClick={caps.onLogout} className="flex w-full items-center justify-center gap-2 rounded-2xl border bg-card py-3.5 text-[15px] font-semibold text-[hsl(var(--own-bad))]">
         <LogOut className="h-4 w-4" /> Sign out
       </button>

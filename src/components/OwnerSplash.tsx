@@ -6,6 +6,7 @@ import DtMark from '@/components/DtMark';
 import { BRAND } from '@/lib/brand';
 import { APP_VERSION } from '@/lib/version';
 import { AppSplashArt } from '@/components/AppSplash';
+import AppLanguageSwitch from '@/components/AppLanguageSwitch';
 
 const PURPLE = 'linear-gradient(160deg, #6d28d9 0%, #5b21b6 55%, #3c096c 100%)';
 
@@ -40,6 +41,7 @@ export function OwnerLoginFrame({ children }: { children: ReactNode }) {
           <h1 className="text-[26px] font-extrabold tracking-tight">DT Owner</h1>
           <p className="text-[14px] opacity-85">Your restaurants, from anywhere</p>
         </div>
+        <AppLanguageSwitch onDark />
       </header>
       <main className="-mt-8 mx-auto w-full max-w-[440px] flex-1 px-4 pb-6">{children}</main>
       <footer className="px-6 pb-5 text-center text-[12px] text-muted-foreground">{BRAND.poweredBy} · v{APP_VERSION}</footer>

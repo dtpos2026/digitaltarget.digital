@@ -14,9 +14,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import {
-  ArrowLeft, LogOut, MapPin, Plus, Trash2, Star, Save, Home, Crosshair, User, BellRing, Camera,
+  ArrowLeft, LogOut, MapPin, Plus, Trash2, Star, Save, Home, Crosshair, User, BellRing, Camera, Gift, Copy,
 } from 'lucide-react';
-import { customerUpdate, type CustomerProfile, type SavedAddress } from '@/lib/customerAccount';
+import { codesInOffer, customerPromotions, customerUpdate, type CustomerProfile, type CustomerPromotion, type SavedAddress } from '@/lib/customerAccount';
+import { getPromoCodes } from '@/lib/store';
 
 function newId() {
   try {
@@ -81,6 +82,8 @@ export default function CustomerProfilePanel({
   const [draft, setDraft] = useState<SavedAddress | null>(null);
   const [busy, setBusy] = useState(false);
   const [locating, setLocating] = useState(false);
+  // v1.112.0 — the offers the restaurant is running for its customers
+  const [offers, setOffers] = useState<CustomerPromotion[]>([]);
   // Only meaningful inside the packaged app; the website has no FCM token.
 
   // Reload the form whenever the panel opens, so an edit abandoned last time
@@ -111,6 +114,14 @@ export default function CustomerProfilePanel({
   useEffect(() => {
     if (!open || !profile) return;
   }, [open, profile]);
+
+  // The offers are read each time the panel opens (they change as the restaurant starts and ends campaigns).
+  useEffect(() => {
+    if (!open || !profile) { setOffers([]); return; }
+    let off = false;
+    void customerPromotions(tenantId).then(list => { if (!off) setOffers(list); });
+    return () => { off = true; };
+  }, [open, profile, tenantId]);
 
   if (!open || !profile) return null;
 
@@ -278,6 +289,35 @@ export default function CustomerProfilePanel({
               <div className="text-[10px] text-muted-foreground">Addresses</div>
             </div>
           </div>
+
+          {/* v1.112.0 — Offers for you: what the restaurant is running for its customers, and any promo code in it */}
+          {offers.length > 0 && (
+            <section className="space-y-2" data-profile-offers>
+              <h3 className="text-xs font-extrabold flex items-center gap-1.5">
+                <Gift className="h-3.5 w-3.5 text-primary" /> Offers for you
+              </h3>
+              {offers.map(o => {
+                const codes = codesInOffer(`${o.title} ${o.body}`, getPromoCodes().filter(c => c.isActive).map(c => c.code));
+                return (
+                  <article key={o.id} data-profile-offer={o.id} className="overflow-hidden rounded-xl border bg-card">
+                    {o.imageUrl && <img src={o.imageUrl} alt="" className="h-28 w-full object-cover" loading="lazy" />}
+                    <div className="space-y-1.5 p-3">
+                      <div className="text-sm font-extrabold">{o.title}</div>
+                      {o.body && <p className="text-xs text-muted-foreground whitespace-pre-line">{o.body}</p>}
+                      {o.endsAt && <p className="text-[10px] text-muted-foreground">Until {new Date(o.endsAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</p>}
+                      {codes.map(code => (
+                        <button key={code} type="button" data-offer-code={code}
+                          className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-dashed border-primary/60 bg-primary/5 px-2.5 text-xs font-extrabold text-primary"
+                          onClick={() => { void navigator.clipboard?.writeText(code).then(() => toast.success(`Code ${code} copied — paste it at checkout`)).catch(() => toast(`Your code: ${code}`)); }}>
+                          <Copy className="h-3.5 w-3.5" aria-hidden /> {code}
+                        </button>
+                      ))}
+                    </div>
+                  </article>
+                );
+              })}
+            </section>
+          )}
 
           {/* Details */}
           <section className="space-y-2">

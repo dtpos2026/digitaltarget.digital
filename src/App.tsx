@@ -115,6 +115,7 @@ import { getTenantId, clearTenant } from '@/lib/tenant';
 import { isPublicTenantRoute, applyPublicTenantFromUrl, packagedTenantId, parsePublicTenantId, looksLikeSlug, cachedSlugTenant, resolveSlugTenant } from '@/lib/publicTenant';
 import { applyAppEntry, isOwnerAppRoute, displayWindowHash, appSplashKind } from '@/lib/appEntry';
 import AppSplash, { AppSplashArt } from '@/components/AppSplash';
+import { startAppLanguage } from '@/lib/appLanguage';
 import { installScreenProfile } from '@/lib/screenProfile';
 import { applyPendingErasures } from '@/lib/privacyErasures';
 import { onDataChange } from '@/lib/store';
@@ -287,6 +288,8 @@ const App = () => {
   });
   // The page was painted in the restaurant's colour until now (see lib/bootTheme); the app draws its own from here on.
   useEffect(() => { releaseBootBackground(); }, []);
+  // v1.112.0 — Urdu inside the Owner, Rider and Order Taker apps (the phrase layer runs only on their routes, and only when Urdu is chosen).
+  useEffect(() => startAppLanguage(), []);
   const [hashTick, setHashTick] = useState(0);
   useEffect(() => {
     const onHash = () => setHashTick(t => t + 1);

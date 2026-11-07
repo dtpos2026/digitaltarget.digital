@@ -121,6 +121,20 @@ export function collectFor(o: Order): Collect {
   return { amount: total, label, mustConfirm: total > 0 };
 }
 
+/**
+ * v1.112.0 — what the rider is going to take from customers on the orders still in their hands (the sum of "collect" on every
+ * active order). Orders that are paid, on account, complimentary, delivered or cancelled add nothing.
+ */
+export function cashToCollect(orders: Order[]): { amount: number; count: number } {
+  let amount = 0, count = 0;
+  for (const o of orders) {
+    if (o.deliveryStatus === 'delivered' || o.deliveryStatus === 'cancelled') continue;
+    const a = collectFor(o).amount;
+    if (a > 0) { amount += a; count++; }
+  }
+  return { amount, count };
+}
+
 // ------------------------------------------------------------------ the bag (RID-10)
 /** One line per item to tick off before leaving the kitchen: "2 × Zinger Burger (Large)", with its note. */
 export function bagChecklist(o: Pick<Order, 'items'>): { key: string; text: string; note?: string; lineTotal: number }[] {

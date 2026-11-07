@@ -54,6 +54,7 @@ function distanceText(o: Order): string | null {
 /** RID-04 — one delivery on the Home and Mine lists; the one in progress is tinted. */
 export function OrderCard({ order, onOpen, active }: { order: Order; onOpen: () => void; active?: boolean }) {
   const dist = distanceText(order);
+  const collect = collectFor(order);
   return (
     <button type="button" onClick={onOpen} className="block w-full text-left" data-rider-order={order.id}>
       <RCard active={active} className="space-y-2">
@@ -73,6 +74,8 @@ export function OrderCard({ order, onOpen, active }: { order: Order; onOpen: () 
           <span className="text-[16px] font-extrabold text-primary">{money(order.grandTotal)}</span>
           {dist && <span className="text-[13px] text-muted-foreground">{dist}</span>}
         </div>
+        {/* v1.112.0 — what to take at the door (or that there is nothing to take), without opening the order */}
+        <div data-rider-collect-chip><RBadge tone={collect.amount > 0 ? 'warn' : 'ok'}>{collect.amount > 0 ? `Collect ${money(collect.amount)}` : collect.label}</RBadge></div>
       </RCard>
     </button>
   );

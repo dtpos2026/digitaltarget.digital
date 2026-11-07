@@ -55,7 +55,7 @@ export default function OrderTakerCart(p: OrderTakerCartProps) {
       <div className="flex items-center gap-2" data-otk-cart-head>
         <h2 className="text-[19px] font-extrabold">{p.editing ? 'Update the order' : 'Your order'}</h2>
         <RBadge tone="accent">{p.where}</RBadge>
-        <span className="ml-auto text-[13px] text-muted-foreground" data-otk-cart-count>{count} item{count === 1 ? '' : 's'}</span>
+        <span className="ml-auto text-[13px] text-muted-foreground" data-otk-cart-count>{`${count} item${count === 1 ? '' : 's'}`}</span>
         <button type="button" aria-label="Close the order" onClick={p.onClose} className="grid h-9 w-9 place-items-center rounded-full border bg-card"><X className="h-4 w-4" /></button>
       </div>
 

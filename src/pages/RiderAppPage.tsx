@@ -4,7 +4,7 @@ import { money } from '@/lib/currency';
 import { getOrders, saveOrder, getUsers, getRiders, saveRider, getSettings, getBranches, refreshOrdersFromCloud, onDataChange } from '@/lib/store';
 import { Order, DeliveryStatus, Rider } from '@/lib/types';
 import { Card } from '@/components/ui/card';
-import { AlertTriangle, Bike, ChevronRight, LifeBuoy, LogOut, MapPin, Moon, Radio, User as UserIcon } from 'lucide-react';
+import { AlertTriangle, Bike, ChevronRight, LifeBuoy, LogOut, MapPin, Moon, Radio, User as UserIcon, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import { normalizePhone, openWhatsApp } from '@/lib/whatsapp';
 import { shouldSendPing, appendRoutePoint, type PingPoint } from '@/lib/riderPing';
@@ -18,8 +18,9 @@ import StaffProfileCard from '@/components/StaffProfileCard';
 import { useRestaurantIdentity } from '@/hooks/useRestaurantIdentity';
 import { APP_VERSION } from '@/lib/version';
 import { cn } from '@/lib/utils';
+import AppLanguageSwitch from '@/components/AppLanguageSwitch';
 import {
-  historyRows, initials, localHistory, nextAction, periodSummary, problemMessage, type DeliveryRecord,
+  cashToCollect, historyRows, initials, localHistory, nextAction, periodSummary, problemMessage, type DeliveryRecord,
 } from '@/lib/riderApp';
 import { Banner, RButton, RCard, RLabel, Toggle } from '@/components/rider/riderUi';
 import {
@@ -335,6 +336,9 @@ export default function RiderAppPage() {
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [orders, rider, tick]);
 
+  // v1.112.0 — what is still to be taken from customers on the orders in hand
+  const cashDue = useMemo(() => cashToCollect(myOrders), [myOrders]);
+
   const unassigned = useMemo(() =>
     orders.filter(o => o.orderType === 'delivery' && o.deliveryStatus && !o.riderId &&
       ['ready', 'cooking', 'pending', 'accepted'].includes(o.deliveryStatus!))
@@ -590,6 +594,7 @@ export default function RiderAppPage() {
               <h1 className="text-[26px] font-extrabold tracking-tight">DT Rider</h1>
               <p className="text-[14px] text-muted-foreground">Sign in with the account your restaurant created</p>
             </div>
+            <AppLanguageSwitch />
           </div>
           {loginError && <Banner tone="bad" icon={AlertTriangle}>{loginError}</Banner>}
           <form className="space-y-3" onSubmit={e => { e.preventDefault(); void doLogin(); }}>
@@ -754,6 +759,18 @@ export default function RiderAppPage() {
           </RCard>
         </div>
 
+        {/* v1.112.0 — the money still to be taken from customers on the orders in hand */}
+        {cashDue.amount > 0 && (
+          <RCard data-rider-cash-due className="flex items-center gap-3 border-transparent bg-[hsl(var(--rd-warn-bg))] text-[hsl(var(--rd-warn))] shadow-none">
+            <Wallet className="h-5 w-5 shrink-0" aria-hidden />
+            <div className="min-w-0 flex-1">
+              <div className="text-[13px] font-bold">To collect from customers</div>
+              <div className="text-[12px] opacity-90">{`${cashDue.count} order${cashDue.count === 1 ? '' : 's'}`}</div>
+            </div>
+            <b className="shrink-0 text-[18px]">{money(cashDue.amount)}</b>
+          </RCard>
+        )}
+
         <RLabel>My active orders ({myOrders.length})</RLabel>
         {myOrders.length === 0
           ? <RCard className="py-6 text-center text-[14px] text-muted-foreground">No active orders. New ones appear here automatically.</RCard>
@@ -819,6 +836,7 @@ export default function RiderAppPage() {
             <span className="flex-1 text-[15px]">Dark theme (night shift)</span>
             <Toggle checked={dark} onChange={setTheme} label="Dark theme" />
           </div>
+          <AppLanguageSwitch row />
           <button type="button" className="flex w-full items-center gap-3 py-3 text-left" onClick={() => setView({ kind: 'help' })}>
             <LifeBuoy className="h-5 w-5 text-muted-foreground" />
             <span className="flex-1 text-[15px]">Help and support</span>

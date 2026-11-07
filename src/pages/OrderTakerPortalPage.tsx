@@ -32,6 +32,7 @@ import { APP_VERSION } from '@/lib/version';
 import { cn } from '@/lib/utils';
 // v1.89.0 — the phone-app kit shared with DT Rider (cards, toggles, banners, buttons).
 import { Banner, RButton, RCard, Toggle } from '@/components/rider/riderUi';
+import AppLanguageSwitch from '@/components/AppLanguageSwitch';
 
 // ===== v1.89.0 — the order-taker screens of the design package (design-project/05b-order-taker-app) =====
 //
@@ -278,6 +279,7 @@ export default function OrderTakerPortalPage() {
               <h1 className="text-[26px] font-extrabold tracking-tight">DT Order Taker</h1>
               <p className="text-[14px] text-muted-foreground">{getTenantName() || 'Sign in with the account your restaurant admin created.'}</p>
             </div>
+            <AppLanguageSwitch />
           </div>
           {loginError && <Banner tone="bad" icon={AlertTriangle}>{loginError}</Banner>}
           <form className="space-y-3" onSubmit={e => { e.preventDefault(); void handleLogin(); }}>
@@ -513,6 +515,7 @@ function OrderTakerMe({ shareLocation, onToggleLocation, dark, onDark, onLogout 
           <span className="flex-1 text-[15px]">Dark theme</span>
           <Toggle checked={dark} onChange={onDark} label="Dark theme" />
         </div>
+        <AppLanguageSwitch row />
       </RCard>
       <RButton className="w-full" icon={LogOut} onClick={onLogout}>Log out</RButton>
       <p className="text-center text-[12px] text-muted-foreground">DT Order Taker v{APP_VERSION}</p>
