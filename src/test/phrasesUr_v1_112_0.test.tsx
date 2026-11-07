@@ -199,16 +199,16 @@ describe('the dictionary', () => {
   const sources = [
     'src/pages/RiderAppPage.tsx', 'src/components/rider/RiderTabs.tsx', 'src/components/rider/RiderDelivery.tsx', 'src/components/rider/riderUi.tsx', 'src/lib/riderApp.ts',
     'src/pages/OrderTakerPortalPage.tsx', 'src/components/OrderTakerBills.tsx', 'src/components/otk/OrderTakerTables.tsx', 'src/components/pos/OrderTakerCart.tsx',
-    'src/components/StaffProfileCard.tsx', 'src/components/PortalRestaurantBadge.tsx', 'src/lib/staffPortalAuth.ts', 'src/pages/POSScreen.tsx',
+    'src/components/StaffProfileCard.tsx', 'src/components/PortalRestaurantBadge.tsx', 'src/lib/staffPortalAuth.ts', 'src/pages/POSScreen.tsx', 'src/lib/ownerAccess.ts',
     'src/pages/OwnerAppPage.tsx', 'src/pages/OwnerLoginPage.tsx', 'src/components/OwnerSplash.tsx', 'src/components/AppLanguageSwitch.tsx',
     ...['OwnerAdmin', 'OwnerBranches', 'OwnerMenu', 'OwnerMore', 'OwnerOps', 'OwnerOrders', 'OwnerOverview', 'OwnerPurchasing', 'OwnerReports', 'ownerUi'].map(n => `src/components/owner/${n}.tsx`),
   ];
   const all = sources.map(read).join('\n').replace(/&amp;/g, '&').replace(/&apos;|&#39;/g, "'").replace(/\s+/g, ' ');
   it('has Urdu for the three apps, and nothing is empty or left in English', () => {
-    expect(Object.keys(PHRASES_UR).length).toBeGreaterThanOrEqual(370);
+    expect(Object.keys(PHRASES_UR).length).toBeGreaterThanOrEqual(520);
     expect(PHRASE_COUNTS.rider).toBeGreaterThan(100);
     expect(PHRASE_COUNTS.orderTaker).toBeGreaterThan(50);
-    expect(PHRASE_COUNTS.owner).toBeGreaterThan(150);
+    expect(PHRASE_COUNTS.owner).toBeGreaterThan(240);
     for (const [k, v] of Object.entries(PHRASES_UR)) {
       expect(v.trim(), k).not.toBe('');
       if (/^[A-Za-z]/.test(k) && !/^(POS|WhatsApp)$/.test(k)) expect(v, `${k} is not translated`).toMatch(/[؀-ۿ]/);   // Arabic-script (Urdu) letters

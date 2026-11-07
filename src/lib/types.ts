@@ -1582,6 +1582,8 @@ export interface PromoCode {
   usageLimit?: number;       // total uses allowed (optional)
   usageCount: number;        // how many times redeemed
   minOrderAmount?: number;   // optional minimum cart
+  /** v1.113.0 — only a customer who is signed in on the ordering site can use it (the till is not affected). */
+  accountsOnly?: boolean;
   isActive: boolean;
   createdAt: string;
   notes?: string;

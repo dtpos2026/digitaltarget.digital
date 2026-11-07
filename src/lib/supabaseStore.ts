@@ -306,7 +306,9 @@ export const ALLOWED_COLUMNS: Record<string, Set<string>> = {
     // The app tracks usageCount -> usage_count while the table had used_count.
     // Different names, so redemption counts never synced and a max-uses limit
     // could not be enforced across devices. A DB trigger keeps the pair in step.
-    'usage_count', 'created_at']),
+    'usage_count', 'created_at',
+    // v1.113.0 — the conditions a code carries
+    'min_order_amount', 'accounts_only', 'notes']),
   shifts: new Set(['id', 'tenant_id', 'branch_id', 'device_id', 'opened_by', 'opened_by_name',
     'opened_at', 'starting_cash', 'closed_by', 'closed_by_name', 'closed_at', 'ending_cash',
     'expected_cash', 'variance', 'status']),
@@ -448,6 +450,23 @@ export function rowToDb(col: string, data: Record<string, any>): Record<string, 
     typed.data = { ...data, id: data.id };
     return typed;
   }
+  if (col === 'promoCodes') {
+    // ===== v1.113.0 — a promo code's conditions never reached the cloud =====
+    // The app says discountType 'pkr', usageLimit, startDate, endDate and minOrderAmount; the table says discount_type
+    // 'fixed', max_uses, valid_from, valid_until — and had no column for the minimum order. The allow-list dropped every
+    // name that did not match, so a code arrived without its limit, its dates and its minimum, and a flat-amount code
+    // ('pkr') was refused by the table's own check. (No restaurant had a code in the cloud: the table was empty.)
+    const typed = allowListedRow('promo_codes', data);
+    typed.discount_type = data.discountType === 'percent' ? 'percent' : 'fixed';
+    typed.max_uses = Number(data.usageLimit) > 0 ? Math.floor(Number(data.usageLimit)) : null;
+    typed.valid_from = data.startDate ? new Date(data.startDate).toISOString() : null;
+    typed.valid_until = data.endDate ? new Date(data.endDate).toISOString() : null;
+    typed.min_order_amount = Number(data.minOrderAmount) > 0 ? Number(data.minOrderAmount) : null;
+    typed.accounts_only = data.accountsOnly === true;
+    typed.notes = data.notes ? String(data.notes) : null;
+    typed.deleted_at = data.deletedAt ? new Date(data.deletedAt).toISOString() : null;
+    return typed;
+  }
   const table = TABLE_FOR[col];
   if (table && DOC_TABLES.has(table)) {
     return {
@@ -549,7 +568,7 @@ export const NOT_NULL_WITH_DEFAULT: Record<string, ReadonlySet<string>> = {
   inventory_categories: new Set(['sort_order', 'updated_at']),
   kitchens: new Set(['is_active', 'updated_at']),
   payment_accounts: new Set(['is_active', 'sort_order', 'updated_at']),
-  promo_codes: new Set(['used_count', 'is_active', 'usage_count', 'created_at', 'updated_at']),
+  promo_codes: new Set(['used_count', 'is_active', 'usage_count', 'created_at', 'updated_at', 'accounts_only']),
   shifts: new Set(['opened_at', 'starting_cash', 'status', 'updated_at']),
 };
 
@@ -679,6 +698,20 @@ export function rowFromDb(row: Record<string, any>, table?: string): Record<stri
     return payload;
   }
   const out = columnsFromDb(row);
+  if (table === 'promo_codes') {
+    // v1.113.0 — the table's names back into the app's (see rowToDb): fixed -> pkr, max_uses -> usageLimit, valid_from / valid_until -> dates
+    out.discountType = row.discount_type === 'percent' ? 'percent' : 'pkr';
+    out.discountValue = Number(row.discount_value) || 0;
+    out.usageLimit = row.max_uses != null ? Number(row.max_uses) : undefined;
+    out.usageCount = Number(row.usage_count ?? row.used_count) || 0;
+    out.startDate = row.valid_from ? String(row.valid_from).slice(0, 10) : undefined;
+    out.endDate = row.valid_until ? String(row.valid_until).slice(0, 10) : undefined;
+    out.minOrderAmount = row.min_order_amount != null ? Number(row.min_order_amount) : undefined;
+    out.accountsOnly = row.accounts_only === true;
+    out.notes = row.notes ?? undefined;
+    out.isActive = row.is_active !== false;
+    return out;
+  }
   // Defensive defaults for legacy/partially migrated order rows. UI modules
   // can safely render them while newer writes repair their full payload.
   if ('order_number' in row || 'total' in row) {

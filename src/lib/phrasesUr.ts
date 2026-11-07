@@ -3,6 +3,7 @@
 // stays English. `phrasesUr_v1_112_0.test.tsx` checks that every key is still a phrase in the source, so a reworded screen cannot silently
 // leave a dead translation behind.
 import type { PhraseDictionary } from '@/lib/phraseTranslate';
+import { OWNER_MORE } from './phrasesUrOwnerMore.ts';
 
 /** Words every one of the three apps uses. */
 const COMMON: PhraseDictionary = {
@@ -310,6 +311,7 @@ const ORDER_TAKER: PhraseDictionary = {
 
 /** DT Owner — the screens and words an owner meets most; the long explanations stay English. */
 const OWNER: PhraseDictionary = {
+  ...OWNER_MORE,
   'Overview': 'جائزہ',
   'Reports': 'رپورٹس',
   'Menu': 'مینیو',
@@ -469,6 +471,9 @@ const OWNER: PhraseDictionary = {
   'Read-only on the phone. Void, refund and edit stay in the POS, where the permission checks and the audit trail live.': 'فون پر صرف دیکھنے کے لیے۔ کینسل، ریفنڈ اور ترمیم POS میں رہتے ہیں جہاں اجازتوں کی جانچ اور آڈٹ ریکارڈ ہوتا ہے۔',
   "Salaries and payroll are not shown on the phone. Staff accounts and roles are managed by the restaurant's administrator.": 'تنخواہیں اور پے رول فون پر نہیں دکھائے جاتے۔ اسٹاف اکاؤنٹس اور کردار ریسٹورنٹ کا ایڈمنسٹریٹر سنبھالتا ہے۔',
 };
+
+/** The four parts, for the proofreading sheet. */
+export const PHRASE_SECTIONS = { 'All three apps': COMMON, 'DT Rider': RIDER, 'DT Order Taker': ORDER_TAKER, 'DT Owner': OWNER } as const;
 
 export const PHRASES_UR: PhraseDictionary = { ...OWNER, ...ORDER_TAKER, ...RIDER, ...COMMON };
 

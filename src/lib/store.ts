@@ -4434,12 +4434,17 @@ export function savePromoCode(p: PromoCode) {
 export function deletePromoCode(id: string) { deleteEntity('promoCodes', id); }
 
 /** Validate a promo code against the current cart subtotal. Returns null if invalid. */
-export function validatePromoCode(code: string, cartSubtotal: number): { promo: PromoCode; discount: number } | { error: string } {
+/**
+ * `ctx.signedIn` is for the ordering site: it says whether this customer has signed in to their account. A code made for account
+ * holders only (v1.113.0) is refused when it is `false`; the till passes nothing, and a till is never refused.
+ */
+export function validatePromoCode(code: string, cartSubtotal: number, ctx?: { signedIn?: boolean }): { promo: PromoCode; discount: number } | { error: string } {
   const norm = (code || '').trim().toUpperCase();
   if (!norm) return { error: 'Enter a promo code' };
   const promo = getPromoCodes().find(p => p.code === norm);
   if (!promo) return { error: 'Invalid promo code' };
   if (!promo.isActive) return { error: 'Promo code inactive' };
+  if (promo.accountsOnly && ctx?.signedIn === false) return { error: 'Sign in to your account to use this code' };
   const now = Date.now();
   if (promo.startDate && new Date(promo.startDate).getTime() > now) return { error: 'Promo not started yet' };
   if (promo.endDate && new Date(promo.endDate).getTime() + 86400000 < now) return { error: 'Promo expired' };

@@ -619,7 +619,7 @@ export default function OnlineOrderPage() {
 
   const applyPromo = () => {
     if (!promoInput.trim()) return;
-    const r = validatePromoCode(promoInput.trim(), subtotal);
+    const r = validatePromoCode(promoInput.trim(), subtotal, { signedIn: !!account });
     if ('error' in r) { toast.error(r.error); return; }
     setPromoApplied({ code: r.promo.code, discount: r.discount });
     toast.success(`Promo applied: -${money(r.discount)}`);
