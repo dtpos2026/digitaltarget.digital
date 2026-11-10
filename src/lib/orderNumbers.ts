@@ -20,18 +20,30 @@ import { authTenantId, authBranchId } from './authProvider';
 /** How long billing is willing to wait for the authoritative number. */
 const ALLOCATE_TIMEOUT_MS = 1500;
 
-/** True when a server-side counter is reachable right now. */
-export function canAllocateFromServer(): boolean {
-  if (!isSupabaseConfigured()) return false;
-  if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
-  return !!authTenantId() && !!authBranchId();
+/**
+ * v1.114.0 — which branch's sequence a new bill belongs to: the branch the till is working in (the one the bill will be
+ * stamped with — store.saveOrder uses the same), else the one this account is tied to. They used to be asked in the other
+ * order, so a till working in branch B whose account is tied to branch A drew its number from A's counter and stamped the
+ * bill B: two sequences for one branch, and the database refused the repeat ("duplicate key … order_number", ~45 a day
+ * in the live logs, every one renumbered after its receipt had printed).
+ */
+export function branchForNumbering(working?: string | null): string | null {
+  const w = (working ?? '').trim();
+  return w || authBranchId() || null;
 }
 
-/** Ask the server for the next number. Returns null if unavailable/slow. */
-export async function allocateServerOrderNumber(): Promise<number | null> {
-  if (!canAllocateFromServer()) return null;
+/** True when a server-side counter is reachable right now. */
+export function canAllocateFromServer(working?: string | null): boolean {
+  if (!isSupabaseConfigured()) return false;
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
+  return !!authTenantId() && !!branchForNumbering(working);
+}
+
+/** Ask the server for the next number. Returns null if unavailable/slow. `working` = the branch the till is working in. */
+export async function allocateServerOrderNumber(working?: string | null): Promise<number | null> {
+  if (!canAllocateFromServer(working)) return null;
   const tenant = authTenantId();
-  const branch = authBranchId();
+  const branch = branchForNumbering(working);
 
   const call = (async (): Promise<number | null> => {
     try {

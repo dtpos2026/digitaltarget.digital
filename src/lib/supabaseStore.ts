@@ -1347,7 +1347,8 @@ export async function sbSaveItem(col: string, id: string, data: any): Promise<vo
     // either, so the server hands out a fresh number and the local copy is
     // corrected to match — no gap, no duplicate, no lost revenue.
     if (table === 'orders' && isOrderNumberCollision(error)) {
-      const fresh = await allocateServerOrderNumber();
+      // v1.114.0 — the fresh number must come from the sequence of the branch the bill carries, not the account's own branch
+      const fresh = await allocateServerOrderNumber(typeof row.branch_id === 'string' ? row.branch_id : null);
       if (fresh) {
         const old = Number(row.order_number) || undefined;
         row.order_number = fresh;

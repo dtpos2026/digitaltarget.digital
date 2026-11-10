@@ -36,6 +36,18 @@ export interface RestaurantIdentity {
 }
 
 const CACHE_KEY = 'dt-restaurant-identity';
+
+/** True once the server has refused get_workspace_code for this page's session: asking again cannot change the answer. */
+let workspaceRpcRefused = false;
+/** Is a Supabase user signed in? A portal or staff-PIN session is not one. Never throws. */
+async function hasCloudUser(): Promise<boolean> {
+  try {
+    const { data } = await supabase.auth.getSession();
+    return !!data?.session?.user;
+  } catch { return false; }
+}
+/** For tests, and for a sign-in: forget a refusal. */
+export function resetWorkspaceRpcRefusal() { workspaceRpcRefused = false; }
 /** The Rider badge shipped in v1.43.0 with its own key; keep reading it. */
 const LEGACY_PORTAL_KEY = 'dt-portal-restaurant';
 
@@ -172,9 +184,16 @@ export async function resolveRestaurantIdentity(): Promise<RestaurantIdentity> {
     } catch { /* the tenants name stands */ }
 
     // --- 3. Same session, different route: SECURITY DEFINER, same guard. ---
-    if (!id.workspaceCode) {
+    // v1.114.0 — the function is granted to signed-in users only. A rider or order taker (portal session) and a staff PIN login have no
+    // Supabase user, so every ask was refused with a 401 (live logs: 15 in one hour, "permission denied for function get_workspace_code")
+    // and the answer can never change within a session. Ask only when someone is signed in, and never again after a refusal.
+    if (!id.workspaceCode && !workspaceRpcRefused && (await hasCloudUser())) {
       try {
-        const { data } = await supabase.rpc('get_workspace_code', { _tenant_id: tid });
+        const { data, error } = await supabase.rpc('get_workspace_code', { _tenant_id: tid });
+        if (error) {
+          const e = error as { code?: string; status?: number; message?: string };
+          if (e.code === '42501' || e.status === 401 || /permission denied|jwt/i.test(e.message || '')) workspaceRpcRefused = true;
+        }
         const wc = str(data);
         if (wc) id = merge(id, { workspaceCode: wc, source: 'cloud' });
       } catch { /* ignore */ }

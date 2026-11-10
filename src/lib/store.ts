@@ -2483,7 +2483,7 @@ export async function getNextOrderNumberAsync(): Promise<number> {
   if (useSupabaseBackend()) {
     try {
       const { allocateServerOrderNumber } = await import('./orderNumbers');
-      const n = await allocateServerOrderNumber();
+      const n = await allocateServerOrderNumber(getCurrentBranchId());
       if (n) {
         const d = loadData();
         d.orderCounter = Math.max(d.orderCounter || 0, n);

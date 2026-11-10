@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { readFileSync } from 'node:fs';
 import { useState } from 'react';
-import { disablePhraseLayer, enablePhraseLayer, isPhraseLayerOn, normalizePhrase, translatePhrase } from '@/lib/phraseTranslate';
+import { disablePhraseLayer, enablePhraseLayer, isPhraseLayerOn, isolateLatinRuns, normalizePhrase, translatePhrase } from '@/lib/phraseTranslate';
 import { PHRASES_UR, PHRASE_COUNTS } from '@/lib/phrasesUr';
 import { appLanguage, setAppLanguage, startAppLanguage, syncPhraseLayer } from '@/lib/appLanguage';
 import { getLanguage, setLanguage } from '@/lib/i18n';
@@ -28,6 +28,22 @@ describe('translatePhrase', () => {
     expect(translatePhrase('constructor', DICT)).toBeNull();           // no prototype leaks
     expect(translatePhrase('toString', DICT)).toBeNull();
     expect(normalizePhrase('  a \n b  ')).toBe('a b');
+  });
+});
+
+describe('English words inside an Urdu line (v1.114.0)', () => {
+  it('a run of two or more English words is isolated so right-to-left cannot pull it apart; a single word or a number is left alone', () => {
+    expect(isolateLatinRuns('(Users & Access → Order Taker)')).toBe('(\u2066Users & Access → Order Taker\u2069)');
+    expect(isolateLatinRuns('Digital Target سے رابطہ کریں')).toBe('\u2066Digital Target\u2069 سے رابطہ کریں');
+    expect(isolateLatinRuns('ایک DT Rider ایپ')).toBe('ایک \u2066DT Rider\u2069 ایپ');
+    expect(isolateLatinRuns('بل Rs')).toBe('بل Rs');
+    expect(isolateLatinRuns('JPG، PNG یا WEBP')).toBe('JPG، PNG یا WEBP');
+    expect(isolateLatinRuns('آرڈر #{n} لیں')).toBe('آرڈر #{n} لیں');
+  });
+  it('the dictionary\'s words are isolated, a name or number the screen supplies is not', () => {
+    const D = { 'Ask the admin (Users & Access)': 'ایڈمن سے پوچھیں (Users & Access)', 'Welcome {}!': 'خوش آمدید {}!' };
+    expect(translatePhrase('Ask the admin (Users & Access)', D)).toBe('ایڈمن سے پوچھیں (\u2066Users & Access\u2069)');
+    expect(translatePhrase('Welcome Ali Raza!', D)).toBe('خوش آمدید Ali Raza!');
   });
 });
 

@@ -44,16 +44,29 @@ function templatesOf(dict: PhraseDictionary): Template[] {
   return t;
 }
 
+/**
+ * A run of English words inside an Urdu sentence ("Users & Access → Order Taker", "Digital Target") is wrapped in a
+ * left-to-right isolate, so the right-to-left line cannot pull its brackets and words apart. Only runs of two or more
+ * words are wrapped — a single word or number already sits where it should. (v1.114.0: seen on the Order Taker sign-in,
+ * where "(Users & Access → Order Taker)" came out as "Users) … (& Access → Order Taker".)
+ */
+const LRI = '\u2066', PDI = '\u2069';
+const LATIN_RUN = /[A-Za-z][A-Za-z0-9.'’]*(?:[ ]+(?:[&→/+-]|[A-Za-z0-9][A-Za-z0-9.'’]*))+/g;
+export function isolateLatinRuns(value: string): string {
+  return value.replace(LATIN_RUN, run => (/\s/.test(run) ? LRI + run + PDI : run));
+}
+
 /** The translation of one piece of text, keeping the white space around it; null when the phrase is not known. */
 export function translatePhrase(raw: string, dict: PhraseDictionary): string | null {
   if (!raw) return null;
   const key = normalizePhrase(raw);
   if (!key) return null;
-  let hit: string | undefined = Object.prototype.hasOwnProperty.call(dict, key) ? dict[key] : undefined;
+  // the isolation is applied to the dictionary's own words, before a template is filled: a name typed by the restaurant is left exactly as written
+  let hit: string | undefined = Object.prototype.hasOwnProperty.call(dict, key) ? isolateLatinRuns(dict[key]) : undefined;
   if (hit === undefined) {
     for (const t of templatesOf(dict)) {
       const m = t.re.exec(key);
-      if (m) { let i = 0; hit = t.out.replace(/\{n?\}/g, () => m[++i] ?? ''); break; }
+      if (m) { let i = 0; hit = isolateLatinRuns(t.out).replace(/\{n?\}/g, () => m[++i] ?? ''); break; }
     }
   }
   if (hit === undefined) return null;
