@@ -71,7 +71,6 @@ export default function TokenSettingsCard() {
     nashta:       { label: 'Nashta Point',      patch: { kotEnabled: false, tokenPrintEnabled: false, noReceiptOnPay: false } },
     shawarma:     { label: 'Shawarma / Sajji',  patch: { kotEnabled: false, tokenPrintEnabled: false, noReceiptOnPay: false } },
     khokha:       { label: 'Khokha / Stall',    patch: { kotEnabled: false, tokenPrintEnabled: false, noReceiptOnPay: true  } },
-    minimart:     { label: 'Minimart / Grocery', patch: { kotEnabled: false, tokenPrintEnabled: false, noReceiptOnPay: false, minimartMode: true } },
   };
 
   return (
@@ -152,11 +151,11 @@ export default function TokenSettingsCard() {
         </div>
       </div>
 
-      {/* ===== MINIMART / RETAIL MODE ===== */}
+      {/* ===== COUNTER / PACKAGED-GOODS MODE (bakery & café counters: barcode scanner + weight-scale labels) ===== */}
       <label className="flex items-center justify-between gap-2 bg-muted/40 px-3 py-2 rounded-lg cursor-pointer border-t pt-3">
         <div>
-          <span className="text-xs font-semibold block">🛒 Minimart / Retail Mode</span>
-          <span className="text-[11px] text-muted-foreground">Barcode scanning + weight scale (sabzi/phal)</span>
+          <span className="text-xs font-semibold block">🛒 Counter mode — packaged goods</span>
+          <span className="text-[11px] text-muted-foreground">Barcode scanning and weight-scale labels for packaged items (biscuits, cakes by weight, drinks)</span>
         </div>
         <Toggle on={!!s.minimartMode} onClick={() => save({ minimartMode: !s.minimartMode })} />
       </label>

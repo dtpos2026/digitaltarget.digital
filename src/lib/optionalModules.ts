@@ -68,7 +68,7 @@ export const OPTIONAL_FEATURES: OptionalFeature[] = [
     description:
       'Adds a barcode/SKU field to every item, and the POS search also finds items '
       + 'by barcode — a USB barcode scanner (which types like a keyboard) '
-      + 'works straight away. Intended for minimart and retail. On restaurant-only setups '
+      + 'works straight away. Intended for counters that sell packaged goods or weighed items (bakery, sweets, drinks). On restaurant-only setups '
       + 'leave it off to keep the item form clean.',
     category: 'Module',
     defaultValue: false,

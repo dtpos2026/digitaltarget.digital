@@ -449,7 +449,7 @@ const ARRAY_COLLECTIONS = [
   'categories', 'menuItems', 'orders', 'tables', 'floors', 'kitchens', 'waiters', 'riders', 'users',
   'inventory', 'stockLogs', 'employees', 'attendance', 'leaves', 'payslips', 'advances',
   'accountCategories', 'transactions', 'parties', 'ledger', 'dailyCashCloses',
-  'receivingEntries', 'purchaseOrders', 'stockTransfers', 'branchTargets', 'marketingContacts', 'recipes', 'wastages', 'customers', 'branches',
+  'receivingEntries', 'purchaseOrders', 'stockTransfers', 'branchTargets', 'productionSheets', 'marketingContacts', 'recipes', 'wastages', 'customers', 'branches',
   'creditPayments', 'promoCodes', 'paymentAccounts', 'deals', 'shifts', 'refunds',
 ] as const;
 
@@ -1392,6 +1392,7 @@ export function startSupabaseRealtime() {
           scheduleReload('purchaseOrders');
           scheduleReload('stockTransfers');
           scheduleReload('branchTargets');
+          scheduleReload('productionSheets');
         });
       if (generation !== sbRealtimeGeneration) {
         try { sb().removeChannel(channel); } catch {}
@@ -3901,6 +3902,7 @@ export function deletePaymentAccount(id: string) { deleteEntity('paymentAccounts
 
 // ============ Receiving (GRN) ============
 import type { ReceivingEntry, MarketingContact, PurchaseOrder, StockTransfer, BranchTarget } from './types';
+import type { ProductionSheet } from './productionSheet';
 import { toBaseQty, getBaseUnit } from './units';
 
 export function getReceivingEntries(): ReceivingEntry[] { return loadData().receivingEntries || []; }
@@ -3995,6 +3997,9 @@ export function deletePurchaseOrder(id: string) { deleteEntity('purchaseOrders',
 // through adjustStock (lib/stockTransfers.ts), so every change is a ledger movement.
 export function getStockTransfers(): StockTransfer[] { return loadData().stockTransfers || []; }
 export function saveStockTransfer(t: StockTransfer) { saveEntity('stockTransfers', t); }
+// v1.115.1 — the bakery's day sheets (planned / made / left over) are synced documents too: same store, no new table.
+export function getProductionSheets(): ProductionSheet[] { return loadData().productionSheets || []; }
+export function saveProductionSheet(s: ProductionSheet) { saveEntity('productionSheets', s); }
 export function getBranchTargets(): BranchTarget[] { return loadData().branchTargets || []; }
 export function saveBranchTarget(t: BranchTarget) { saveEntity('branchTargets', t); }
 

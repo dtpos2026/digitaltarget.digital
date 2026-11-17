@@ -1,3 +1,4 @@
+import type { ProductionSheet } from './productionSheet';
 export type PricingType = 'fixed' | 'weight' | 'manual' | 'size' | 'inch' | 'both';
 
 /** A single size / inch variant of a menu item (e.g. Small=450, Medium=850). */
@@ -1544,6 +1545,8 @@ export interface AppData {
   stockTransfers: StockTransfer[];
   /** v1.87.0 — daily / monthly sales targets per branch (module_documents kind 'branchTargets'). */
   branchTargets: BranchTarget[];
+  /** v1.115.1 — the bakery's day sheet per branch and day: planned, made, left over (module_documents kind 'productionSheets'). */
+  productionSheets: ProductionSheet[];
   marketingContacts: MarketingContact[];
   // Recipes & Wastage (Phase 4)
   recipes: Recipe[];

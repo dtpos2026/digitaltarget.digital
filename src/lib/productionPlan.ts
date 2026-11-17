@@ -141,3 +141,25 @@ export function planAsCsv(columnLabels: string[], rows: { name: string; perColum
   const head = ['Item', ...columnLabels, ...(columnLabels.length > 1 ? ['Total'] : [])].map(q).join(',');
   return [head, ...rows.map(r => [q(r.name), ...r.perColumn, ...(columnLabels.length > 1 ? [r.total] : [])].join(','))].join('\n');
 }
+
+/**
+ * Pieces sold of each item on one local day (the day sheet's "Sold" column): the same bills the plan counts, optionally one branch.
+ * Weighed items are left out, as in the plan.
+ */
+export function soldOn(orders: Order[], items: PlanItemInput[], day: string, branchId?: string): Map<string, number> {
+  const itemMap = new Map(items.map(i => [i.id, i]));
+  const out = new Map<string, number>();
+  for (const order of orders) {
+    if (!COUNTED.has(order.status)) continue;
+    if (branchId && order.branchId !== branchId) continue;
+    const created = order.createdAt ? new Date(order.createdAt) : null;
+    if (!created || Number.isNaN(created.getTime()) || localDay(created) !== day) continue;
+    for (const line of order.items || []) {
+      const it = itemMap.get(line.menuItemId);
+      const qty = toNum(line.quantity);
+      if (!it || it.pricingType === 'weight' || !qty) continue;
+      out.set(it.id, (out.get(it.id) ?? 0) + qty);
+    }
+  }
+  return out;
+}

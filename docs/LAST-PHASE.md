@@ -17,3 +17,5 @@ Everything the owner asked to be done in “phase 1” was done or is listed her
 | 3 | **Product descriptions and extra add-on groups with prices** on the website | The menu has no such fields; needs new columns and screens in the menu manager |
 | 4 | **Part-payment cash from a rider** | Needs the delivery function to record what the rider took, not only what was due |
 | 5 | **Online card payment** on the website | Needs a payment provider chosen by the owner (and a merchant account) |
+| 6 | **Bakery depth the production module still lacks:** sub-recipes / semi-finished items (dough → rolls), ingredient lot and expiry tracking, production from raw materials into a finished-goods stock (today sales consume ingredients through the recipe, so the day sheet tracks pieces, not ingredients), custom cake orders with an advance | They change how stock is consumed — a design decision, not a screen; the web search could not find Technosys's own module to copy from |
+| 7 | **Master-detail for the remaining 32 desktop screens** (Inventory next) | one at a time, see 1 |
