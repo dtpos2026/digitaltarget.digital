@@ -71,7 +71,7 @@ export const ROLE_PRESETS: RolePreset[] = [
   {
     id: 'kitchen-head', name: 'Kitchen Head', level: 'department', department: 'kitchen', role: 'manager', acrossBranches: true,
     summary: 'Kitchen display, recipes, wastage, the menu and kitchen slips.',
-    pages: ['kitchen', 'recipes', 'wastage', 'menu', 'variations', 'printing-center', 'itemSalesReport'],
+    pages: ['kitchen', 'recipes', 'wastage', 'production-plan', 'menu', 'variations', 'printing-center', 'itemSalesReport'],
     features: ['feat.bill.cancel-kot', 'feat.inv.wastage'],
   },
   {

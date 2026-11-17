@@ -260,7 +260,7 @@ export default function VariationsDealsPage() {
           <DialogHeader><DialogTitle>{variantPickItem?.name} — Select Variant</DialogTitle></DialogHeader>
           {variantPickItem && (
             <div className="space-y-2">
-              <p className="text-xs text-muted-foreground">Jo variants deal me chahiye unhe select karein. Qty bhi yahin set kar sakte hain.</p>
+              <p className="text-xs text-muted-foreground">Select the variants the deal needs. You can set the quantity here too.</p>
               <div className="space-y-1 max-h-80 overflow-y-auto">
                 {itemVariants(variantPickItem).map(v => {
                   const existing = findRow(variantPickItem.id, v.name);

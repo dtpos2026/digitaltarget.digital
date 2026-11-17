@@ -450,7 +450,7 @@ export default function DevicesPage() {
       ) : (
         <>
           <Section title={`Pending Approval (${pending.length})`} accent="text-amber-500">
-            {pending.length === 0 && <Empty>Koi pending device nahi</Empty>}
+            {pending.length === 0 && <Empty>No devices waiting for approval</Empty>}
             {pending.map(d => (
               <DeviceRowView key={d.deviceId} d={d} current={d.deviceId === currentDeviceId}>
                 <span className="text-[11px] font-bold text-amber-600 bg-amber-500/10 border border-amber-500/30 px-2 py-1 rounded">
@@ -461,7 +461,7 @@ export default function DevicesPage() {
           </Section>
 
           <Section title={`Approved Devices (${approved.length})`} accent="text-green-600">
-            {approved.length === 0 && <Empty>Abhi koi approved device nahi</Empty>}
+            {approved.length === 0 && <Empty>No approved devices yet</Empty>}
             {approved.map(d => (
               <DeviceRowView key={d.deviceId} d={d} current={d.deviceId === currentDeviceId}>
                 <KdsAssign d={d} onAssign={assignKds} onClear={clearKds} />

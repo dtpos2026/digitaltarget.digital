@@ -63,3 +63,30 @@ describe('Customers (SW-19)', () => {
     expect(page).not.toContain('<DialogTitle>Customer Intelligence</DialogTitle>');
   });
 });
+
+describe('Orders (SW-06) and Parties (SW-18) use it too', () => {
+  it('Running / Hold bills and Bill Reprint open the selected bill in the panel beside the list, with the old dialog gone', () => {
+    for (const f of ['src/pages/RunningBillsPage.tsx', 'src/pages/BillReprintPage.tsx']) {
+      const src = read(f);
+      expect(src, f).toContain('<MasterDetail');
+      expect(src, f).toContain('data-bill-panel=');
+      expect(src, f).toContain("ring-2 ring-primary");
+    }
+    expect(read('src/pages/RunningBillsPage.tsx')).not.toContain('<Dialog open={!!viewOrder}');
+    expect(read('src/pages/BillReprintPage.tsx')).not.toContain('<Dialog open={!!view} onOpenChange');
+    // the panel carries the actions the design shows: Pay and Edit on running bills, Reprint on a paid one
+    expect(read('src/pages/RunningBillsPage.tsx')).toMatch(/data-bill-panel[\s\S]*Edit[\s\S]*Pay/);
+    expect(read('src/pages/BillReprintPage.tsx')).toMatch(/data-bill-panel[\s\S]*Reprint Customer Receipt/);
+  });
+  it('Party Master: a row selects the party; its panel shows what is owed, the counts and the latest ledger lines; the row buttons do not also select', () => {
+    const src = read('src/pages/PartyMasterPage.tsx');
+    expect(src).toContain('<MasterDetail');
+    expect(src).toContain('data-party-panel=');
+    expect(src).toContain('data-party-balance');
+    expect(src).toContain('onClick={() => setSelectedId(p.id)}');
+    expect(src).toContain('e.stopPropagation(); setForm(p); setOpen(true);');
+    expect(src).toContain('e.stopPropagation(); onDelete(p);');
+    // the secondary columns step aside only while the panel is on screen (1280–1699 px)
+    expect(src.match(/min-\[1280px\]:max-\[1699px\]:hidden/g)?.length).toBe(8);
+  });
+});

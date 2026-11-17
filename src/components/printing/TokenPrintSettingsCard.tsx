@@ -32,7 +32,7 @@ export default function TokenPrintSettingsCard() {
       <div className="flex items-center justify-between gap-3">
         <div>
           <div className="text-sm font-semibold">Token Printing Module</div>
-          <div className="text-xs text-muted-foreground">Tandoor / counter token slips ke liye</div>
+          <div className="text-xs text-muted-foreground">For tandoor / counter token slips</div>
         </div>
         <Switch checked={on} onCheckedChange={(v) => patch({ tokenModuleEnabled: v })} />
       </div>

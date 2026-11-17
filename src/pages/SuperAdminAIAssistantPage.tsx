@@ -215,7 +215,7 @@ export default function SuperAdminAIAssistantPage() {
                 </tr>
               ))}
               {byRestaurant.length === 0 && (
-                <tr><td colSpan={6} className="text-center py-6 text-muted-foreground text-xs">Koi support message nahi.</td></tr>
+                <tr><td colSpan={6} className="text-center py-6 text-muted-foreground text-xs">No support messages.</td></tr>
               )}
             </tbody>
           </table>
@@ -256,7 +256,7 @@ function IssueColumn({ title, items, onOpen, accent }:
     <Card className={`p-3 ${cls}`}>
       <div className="font-semibold text-sm mb-2">{title} ({items.length})</div>
       <div className="space-y-1.5 max-h-[300px] overflow-y-auto">
-        {items.length === 0 && <div className="text-xs text-muted-foreground text-center py-6">Koi item nahi.</div>}
+        {items.length === 0 && <div className="text-xs text-muted-foreground text-center py-6">No items.</div>}
         {items.slice(0, 50).map(m => (
           <div key={m.id} className="border rounded p-2 text-xs bg-card">
             <div className="flex items-center gap-2 mb-1">

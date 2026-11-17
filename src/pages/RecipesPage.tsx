@@ -189,7 +189,7 @@ export default function RecipesPage() {
             <div className="bg-muted/30 rounded p-3 text-xs text-muted-foreground">
               When an order for this item is <strong>paid</strong>, the quantities below are deducted from inventory automatically.
               {editing?.variantKey && (
-                <> Yeh recipe sirf <strong>{editing.variantKey.split(':')[1]}</strong> variant ke liye apply hogi.</>
+                <> This recipe applies only to the <strong>{editing.variantKey.split(':')[1]}</strong> variant.</>
               )}
               {editing?.menuItem.pricingType === 'weight' && !editing?.variantKey && (
                 <> For a weight-based item, enter quantities <strong>per 1 kg</strong> of the menu item.</>

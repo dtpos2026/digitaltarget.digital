@@ -709,7 +709,7 @@ export default function SuperAdminPage({ onLogout }: Props) {
     const email = (prompt(`Owner email for ${r.restaurantName || tid}:`, r.email || '') || '').trim();
     if (!email) return;
     const password = (prompt('Set a password for the owner (min 6 characters):', '') || '').trim();
-    if (password.length < 6) { toast.error('Password kam se kam 6 characters ka hona chahiye'); return; }
+    if (password.length < 6) { toast.error('Password must be at least 6 characters'); return; }
     try {
       const { sb } = await import('@/lib/supabase');
       const { provisionRestaurantOwner } = await import('@/lib/platform.functions');
@@ -723,7 +723,7 @@ export default function SuperAdminPage({ onLogout }: Props) {
         await provisionRestaurantOwner(payload);
       }
       await sb().from('pending_owners').upsert({ tenant_id: tid, email }, { onConflict: 'tenant_id' });
-      toast.success(`✅ Owner login ready — ${email} ab sign in kar sakta hai`, { duration: 8000 });
+      toast.success(`✅ Owner login ready — ${email} can now sign in`, { duration: 8000 });
       load();
     } catch (e: any) {
       const raw = e?.message ?? String(e);
@@ -1271,7 +1271,7 @@ export default function SuperAdminPage({ onLogout }: Props) {
 
 
             <Section title={`Pending Approval (${pending.length})`} accent="text-amber-500">
-              {pending.length === 0 && <Empty>Koi pending request nahi</Empty>}
+              {pending.length === 0 && <Empty>No requests waiting for approval</Empty>}
               {pending.map(r => (
                 <RestaurantRow key={r.id} r={r}
                   selectable={bulkMode}
@@ -1289,7 +1289,7 @@ export default function SuperAdminPage({ onLogout }: Props) {
 
 
             <Section title={`Approved Restaurants (${approved.length})`} accent="text-green-600">
-              {approved.length === 0 && <Empty>Abhi koi approved restaurant nahi</Empty>}
+              {approved.length === 0 && <Empty>No approved restaurants yet</Empty>}
               {approved.map(r => {
                 const usedDevices = devices.filter(d => d.tenantId === r.id && d.approved && !d.blocked).length;
                 const limit = effectiveDeviceLimit(r.plan, r.customDeviceLimit);
@@ -1451,7 +1451,7 @@ export default function SuperAdminPage({ onLogout }: Props) {
             />
 
             <Section title={`Pending Devices (${pendingDev.length})`} accent="text-amber-500">
-              {pendingDev.length === 0 && <Empty>Koi pending device request nahi</Empty>}
+              {pendingDev.length === 0 && <Empty>No device requests waiting for approval</Empty>}
               {pendingDev.map(d => {
                 const k = `${d.tenantId}|${d.deviceId}`;
                 return (
@@ -1471,7 +1471,7 @@ export default function SuperAdminPage({ onLogout }: Props) {
             </Section>
 
             <Section title={`Approved Devices (${approvedDev.length})`} accent="text-green-600">
-              {approvedDev.length === 0 && <Empty>Abhi koi approved device nahi</Empty>}
+              {approvedDev.length === 0 && <Empty>No approved devices yet</Empty>}
               {approvedDev.map(d => {
                 const k = `${d.tenantId}|${d.deviceId}`;
                 return (
@@ -2691,7 +2691,7 @@ function SuperAdminCleanupPanel() {
 
       <div className="rounded-lg border bg-card p-4 space-y-3">
         <div className="text-sm font-medium">Confirm Wipe</div>
-        <p className="text-xs text-muted-foreground">Permanently delete karne ke liye neeche <b>DELETE</b> type karen, phir button daban.</p>
+        <p className="text-xs text-muted-foreground">To delete permanently, type <b>DELETE</b> below, then press the button.</p>
         <div className="flex gap-2 items-center">
           <Input
             placeholder="Type DELETE to confirm"

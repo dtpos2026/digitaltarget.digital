@@ -110,15 +110,11 @@ export default function PraEimsSettingsPage() {
 
       {/* How it works — operators consistently misunderstand this */}
       <Card className="p-3 bg-muted/40 text-[11px] leading-relaxed">
-        <b>Ye kaise kaam karta hai:</b> PRA ek <b>Software Fiscal Device</b> deta hai jo
-        isi Windows computer par install hota hai. POS har bill us local device ko bhejta
-        hai, device <b>Fiscal Invoice Number</b> wapas karta hai jo QR ke sath receipt par
-        chhapta hai. Device khud periodically PRA ke servers par data bhejta hai — wo
-        hamara kaam nahi. Pehle{' '}
+        <b>How it works:</b> the PRA gives you a <b>Software Fiscal Device</b> that is installed on this same Windows computer. The POS sends every bill to that local device; the device returns a <b>Fiscal Invoice Number</b>, which is printed on the receipt with a QR code. The device itself reports to the PRA servers from time to time — that is not our part. First{' '}
         <a className="underline text-primary" href="https://e.pra.punjab.gov.pk" target="_blank" rel="noreferrer">
           e.pra.punjab.gov.pk <ExternalLink className="h-3 w-3 inline" />
         </a>{' '}
-        par POS Client Registration kar ke <b>POS ID</b> lein, phir IMS Installer chalayein.
+        register your POS client there to get the <b>POS ID</b>, then run the IMS installer.
       </Card>
 
       {limitation && (
@@ -164,7 +160,7 @@ export default function PraEimsSettingsPage() {
             />
           </div>
           <div>
-            <Label className="text-xs">Branch label (sirf hamare logs ke liye)</Label>
+            <Label className="text-xs">Branch label (for our own logs only)</Label>
             <Input
               value={cfg.branchLabel || ''}
               placeholder="Main Branch"
@@ -333,7 +329,7 @@ export default function PraEimsSettingsPage() {
         </div>
         {showLogs && (
           logs.length === 0
-            ? <p className="text-xs text-muted-foreground italic">Koi log nahi.</p>
+            ? <p className="text-xs text-muted-foreground italic">No log entries.</p>
             : (
               <div className="max-h-80 overflow-auto space-y-1">
                 {logs.map(l => (

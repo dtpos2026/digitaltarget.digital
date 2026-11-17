@@ -65,6 +65,8 @@ export const PAGES: PageDef[] = [
   { key: 'inventory',  path: '/inventory',  title: 'Inventory',  group: 'Inventory',  defaultRoles: ['admin', 'manager'] },
   { key: 'recipes',    path: '/recipes',    title: 'Recipes',    group: 'Inventory',  defaultRoles: ['admin', 'manager'] },
   { key: 'wastage',    path: '/wastage',    title: 'Wastage',    group: 'Inventory',  defaultRoles: ['admin', 'manager'] },
+  // v1.115.0 — for bakery / café chains: what to make tomorrow, per branch, from the same weekday's sales
+  { key: 'production-plan', path: '/production-plan', title: 'Production Plan', group: 'Inventory', defaultRoles: ['admin', 'manager'] },
   { key: 'receiving',  path: '/receiving',  title: 'Receiving',  group: 'Inventory',  defaultRoles: ['admin', 'manager'] },
   { key: 'procurement', path: '/procurement', title: 'Procurement', group: 'Inventory', defaultRoles: ['admin', 'manager'] },
 

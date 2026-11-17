@@ -12,7 +12,7 @@ Everything the owner asked to be done in “phase 1” was done or is listed her
 ## Code, in order
 | # | Work | Why it is not in phase 1 |
 |---|---|---|
-| 1 | **Desktop screens in the design’s master-detail layout** — 36 of 38 remain. Suggested order by daily use: SW-06 Orders, SW-18 Parties, SW-16 Inventory, SW-22 Users, SW-13 Menu, SW-23 HR, SW-25 Accounts, SW-26/27 Reports, then the rest. The `MasterDetail` component and the page frame are ready; each screen is a re-arrangement of an existing 300–2,000-line page and needs its own check at 360 / 768 / 1366 px | Each screen is a separate change with its own risk to the till; they are done one at a time so a problem is one commit |
+| 1 | **Desktop screens in the design’s master-detail layout** — 33 of 38 remain (done: SW-06 Orders, SW-18 Parties, SW-19 Customers, SW-21 Riders, SW-02, SW-03). Suggested order by daily use: SW-16 Inventory, SW-22 Users, SW-13 Menu, SW-23 HR, SW-25 Accounts, SW-26/27 Reports, then the rest. The `MasterDetail` component and the page frame are ready; each screen is a re-arrangement of an existing 300–2,000-line page and needs its own check at 360 / 768 / 1366 px | Each screen is a separate change with its own risk to the till; they are done one at a time so a problem is one commit |
 | 2 | **Customer app** (multi-restaurant, Foodpanda-style) | Parked by the owner on 1 Nov; design kept in `design-project/10-future-customer-app/` |
 | 3 | **Product descriptions and extra add-on groups with prices** on the website | The menu has no such fields; needs new columns and screens in the menu manager |
 | 4 | **Part-payment cash from a rider** | Needs the delivery function to record what the rider took, not only what was due |

@@ -90,8 +90,8 @@ export default function FoodpandaOrdersPage() {
       {!enabled && (
         <Card className="p-4 border-amber-500/40 bg-amber-500/5">
           <p className="text-sm">
-            <b>Foodpanda mode OFF hai.</b> POS me sirf <b>Dine-In / Takeaway / Delivery</b> dikhega.
-            Enable karne ke liye upar wala button dabayein — phir POS me 4th order type "Foodpanda" aa jaye gi.
+            <b>Foodpanda mode is off.</b> The POS shows only <b>Dine-In / Takeaway / Delivery</b>.
+            Press the button above to switch it on — the POS then gets a fourth order type, "Foodpanda".
           </p>
         </Card>
       )}

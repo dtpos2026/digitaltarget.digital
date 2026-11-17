@@ -18,6 +18,7 @@ import {
 } from '@/lib/store';
 import type { Party, LedgerType } from '@/lib/types';
 import { PageTitle } from '@/components/layout/PageFrame';
+import MasterDetail from '@/components/layout/MasterDetail';
 
 type Filter = 'all' | LedgerType;
 
@@ -37,8 +38,11 @@ export default function PartyMasterPage() {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<Party>(empty());
+  // v1.115.0 — SW-18: the selected party's panel (balance, recent ledger lines) beside the table on a wide window, a dialog below it
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const refresh = () => setTick(t => t + 1);
+  const selected = useMemo(() => parties.find(p => p.id === selectedId) ?? null, [parties, selectedId]);
 
   const summary = (p: Party) => {
     const entries = ledger.filter(l => l.partyId === p.id);
@@ -124,6 +128,52 @@ export default function PartyMasterPage() {
         </div>
       </Card>
 
+      <MasterDetail
+        title={selected ? selected.name : 'Party'} open={!!selected} onClose={() => setSelectedId(null)}
+        emptyText="Select a supplier or customer to see what is owed and the latest ledger lines." dialogClassName="sm:max-w-lg max-h-[90vh] overflow-y-auto"
+        detail={selected ? (() => {
+          const s = summary(selected);
+          const lines = ledger.filter(l => l.partyId === selected.id).sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 8);
+          return (
+            <div className="space-y-3 text-sm" data-party-panel={selected.id}>
+              <div className="flex items-center gap-2">
+                <Badge variant={selected.type === 'supplier' ? 'secondary' : 'default'}>{selected.type}</Badge>
+                {selected.isActive === false && <Badge variant="secondary" className="text-[10px]">Inactive</Badge>}
+                <span className="ml-auto text-xs text-muted-foreground">{selected.phone || 'No phone'}</span>
+              </div>
+              {selected.address && <p className="text-xs text-muted-foreground">{selected.address}</p>}
+              <div className="rounded-xl border p-3 text-center">
+                <div className={`text-2xl font-extrabold ${s.balance > 0 ? 'text-status-success' : s.balance < 0 ? 'text-destructive' : ''}`} data-party-balance>
+                  {s.balance === 0 ? money(0) : money(Math.abs(Math.round(s.balance)))}
+                </div>
+                <div className="text-[11px] text-muted-foreground">{s.balance > 0 ? 'they owe us' : s.balance < 0 ? 'we owe them' : 'settled'}</div>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                <div className="rounded-lg border p-2"><div className="font-bold">{s.grnCount}</div>GRNs</div>
+                <div className="rounded-lg border p-2"><div className="font-bold">{s.txnCount}</div>Txns</div>
+                <div className="rounded-lg border p-2"><div className="font-bold">{s.ledgerCount}</div>Ledger</div>
+              </div>
+              <div>
+                <h4 className="mb-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Latest ledger lines</h4>
+                {lines.length === 0 ? <p className="text-xs text-muted-foreground">No ledger lines yet.</p> : (
+                  <ul className="divide-y text-xs">
+                    {lines.map(l => (
+                      <li key={l.id} className="flex items-center justify-between gap-2 py-1.5">
+                        <span className="min-w-0 truncate">{l.description || l.reference || 'Entry'}<span className="block text-[10px] text-muted-foreground">{l.date}</span></span>
+                        <span className={l.debit > 0 ? 'font-bold text-status-success' : 'font-bold text-destructive'}>{l.debit > 0 ? '+' : '−'}{money(l.debit > 0 ? l.debit : l.credit)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div className="flex gap-2 border-t pt-3">
+                <Button size="sm" variant="outline" className="flex-1" onClick={() => { setForm(selected); setOpen(true); }}><Pencil className="mr-1 h-3 w-3" /> Edit</Button>
+                <Button size="sm" variant="outline" className="flex-1 text-destructive" onClick={() => { onDelete(selected); setSelectedId(null); }}><Trash2 className="mr-1 h-3 w-3" /> Delete</Button>
+              </div>
+            </div>
+          );
+        })() : null}
+        list={
       <div className="bg-card border rounded-xl overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
@@ -131,10 +181,10 @@ export default function PartyMasterPage() {
               <th className="text-left px-3 py-2 font-bold">Name</th>
               <th className="text-left px-3 py-2 font-bold">Type</th>
               <th className="text-left px-3 py-2 font-bold">Phone</th>
-              <th className="text-left px-3 py-2 font-bold">Address</th>
-              <th className="text-right px-3 py-2 font-bold">GRNs</th>
-              <th className="text-right px-3 py-2 font-bold">Txns</th>
-              <th className="text-right px-3 py-2 font-bold">Ledger Lines</th>
+              <th className="text-left px-3 py-2 font-bold min-[1280px]:max-[1699px]:hidden">Address</th>
+              <th className="text-right px-3 py-2 font-bold min-[1280px]:max-[1699px]:hidden">GRNs</th>
+              <th className="text-right px-3 py-2 font-bold min-[1280px]:max-[1699px]:hidden">Txns</th>
+              <th className="text-right px-3 py-2 font-bold min-[1280px]:max-[1699px]:hidden">Ledger Lines</th>
               <th className="text-right px-3 py-2 font-bold">Balance</th>
               <th className="px-3 py-2" />
             </tr>
@@ -143,7 +193,7 @@ export default function PartyMasterPage() {
             {filtered.map(p => {
               const s = summary(p);
               return (
-                <tr key={p.id} className="border-b hover:bg-accent/30">
+                <tr key={p.id} data-party-row={p.id} onClick={() => setSelectedId(p.id)} className={`cursor-pointer border-b hover:bg-accent/30 ${selectedId === p.id ? 'bg-primary/5' : ''}`}>
                   <td className="px-3 py-2 font-bold">
                     {p.name}
                     {p.isActive === false && <Badge variant="secondary" className="ml-2 text-[10px]">Inactive</Badge>}
@@ -152,12 +202,12 @@ export default function PartyMasterPage() {
                     <Badge variant={p.type === 'supplier' ? 'secondary' : 'default'}>{p.type}</Badge>
                   </td>
                   <td className="px-3 py-2">{p.phone || '—'}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{p.address || '—'}</td>
-                  <td className="px-3 py-2 text-right">
+                  <td className="px-3 py-2 text-muted-foreground min-[1280px]:max-[1699px]:hidden">{p.address || '—'}</td>
+                  <td className="px-3 py-2 text-right min-[1280px]:max-[1699px]:hidden">
                     {s.grnCount > 0 ? <span className="inline-flex items-center gap-1"><Package className="h-3 w-3 text-status-teal" />{s.grnCount}</span> : '—'}
                   </td>
-                  <td className="px-3 py-2 text-right">{s.txnCount || '—'}</td>
-                  <td className="px-3 py-2 text-right">
+                  <td className="px-3 py-2 text-right min-[1280px]:max-[1699px]:hidden">{s.txnCount || '—'}</td>
+                  <td className="px-3 py-2 text-right min-[1280px]:max-[1699px]:hidden">
                     {s.ledgerCount > 0 ? <span className="inline-flex items-center gap-1"><BookOpen className="h-3 w-3 text-primary" />{s.ledgerCount}</span> : '—'}
                   </td>
                   <td className={`px-3 py-2 text-right font-bold ${s.balance > 0 ? 'text-status-success' : s.balance < 0 ? 'text-destructive' : ''}`}>
@@ -170,10 +220,10 @@ export default function PartyMasterPage() {
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex gap-1 justify-end">
-                      <Button variant="ghost" size="sm" onClick={() => { setForm(p); setOpen(true); }}>
+                      <Button variant="ghost" size="sm" onClick={e => { e.stopPropagation(); setForm(p); setOpen(true); }}>
                         <Pencil className="h-3 w-3" />
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => onDelete(p)}>
+                      <Button variant="ghost" size="sm" onClick={e => { e.stopPropagation(); onDelete(p); }}>
                         <Trash2 className="h-3 w-3 text-destructive" />
                       </Button>
                     </div>
@@ -189,6 +239,8 @@ export default function PartyMasterPage() {
           </tbody>
         </table>
       </div>
+        }
+      />
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md">

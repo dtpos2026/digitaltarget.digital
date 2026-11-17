@@ -1039,7 +1039,7 @@ export default function OnlineOrderPage() {
             <div className="flex justify-between"><span className="text-muted-foreground">Customer</span><span className="font-semibold">{placedOrder.customer?.name}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Phone</span><span className="font-semibold">{placedOrder.customer?.phone}</span></div>
           </div>
-          <p className="text-xs text-muted-foreground">Hum aap ko phone par confirmation ke liye contact karenge. Shukriya!</p>
+          <p className="text-xs text-muted-foreground">We will call you to confirm your order. Thank you!</p>
           <a
             href={(() => {
               const last4 = (placedOrder.customer?.phone || '').replace(/\D/g, '').slice(-4);

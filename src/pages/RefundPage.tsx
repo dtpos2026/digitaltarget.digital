@@ -182,7 +182,7 @@ export default function RefundPage() {
             </div>
 
             <div>
-              <Label className="text-xs">Paisa kis tareeqe se wapas hua</Label>
+              <Label className="text-xs">How was the money refunded?</Label>
               <div className="flex flex-wrap gap-1.5 mt-1">
                 {['cash', 'card', ...customTypes].map(m => (
                   <button

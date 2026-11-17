@@ -474,7 +474,7 @@ export default function SettingsPage() {
             </div>
 
             <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-300 rounded-lg p-3 text-[11px] text-amber-900 dark:text-amber-200">
-              <b>How it works:</b> Master ON → app start hone par browser se ek-baar location permission maangi jayegi. User Allow kare to tracking shuru. Block kare to system chalta rahega lekin location features off rahenge.
+              <b>How it works:</b> With the master switch on, the browser asks for location permission once when the app starts. If the user allows it, tracking starts. If they block it, the system keeps working but the location features stay off.
             </div>
 
             <Button onClick={handleSaveSettings} className="w-full">💾 Save Location Settings</Button>
@@ -1028,7 +1028,7 @@ export default function SettingsPage() {
                 </span>
               ))}
               {(settings.customPaymentTypes || []).length === 0 && (
-                <span className="text-xs text-muted-foreground italic">Koi custom type nahi</span>
+                <span className="text-xs text-muted-foreground italic">No custom types</span>
               )}
             </div>
             <div className="flex gap-2">
@@ -1051,7 +1051,7 @@ export default function SettingsPage() {
               <label className="text-xs font-medium text-muted-foreground">Tax Mode</label>
               <div className="grid grid-cols-3 gap-2 mt-1">
                 {([
-                  { v: 'none', label: 'Off', desc: 'Koi GST nahi' },
+                  { v: 'none', label: 'Off', desc: 'No GST' },
                   { v: 'exclusive', label: 'Exclusive', desc: 'GST will be added on top' },
                   { v: 'inclusive', label: 'Inclusive', desc: 'Included in the price' },
                 ] as const).map(m => {
@@ -1961,7 +1961,7 @@ export default function SettingsPage() {
           <div className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 rounded-lg p-4 space-y-3 border border-amber-200/50">
             <div>
               <h3 className="text-sm font-bold uppercase tracking-wider text-amber-900 dark:text-amber-200">🍕 Advanced Menu Flow</h3>
-              <p className="text-[11px] text-muted-foreground">Pizza-style items ke liye Flavor → Size/Inch selection. Simple items (Burger, Fries, Beverages) pe koi farq nahi.</p>
+              <p className="text-[11px] text-muted-foreground">For pizza-style items the customer picks a flavour, then a size or inch. Simple items (burger, fries, drinks) are not affected.</p>
             </div>
 
             <label className="flex items-start gap-2 cursor-pointer">

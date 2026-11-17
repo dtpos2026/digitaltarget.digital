@@ -126,7 +126,7 @@ function BillTable({ orders, reasonField, byField, atField, onPrint }: {
   atField: 'voidedAt' | 'complimentaryAt' | 'cancelledAt';
   onPrint: () => void;
 }) {
-  if (orders.length === 0) return <Card className="p-8 text-center text-xs text-muted-foreground">Koi bills nahi.</Card>;
+  if (orders.length === 0) return <Card className="p-8 text-center text-xs text-muted-foreground">No bills.</Card>;
   return (
     <Card className="p-3">
       <div className="flex justify-end mb-2">

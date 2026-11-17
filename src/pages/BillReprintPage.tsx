@@ -17,6 +17,7 @@ import { scopeToBranch } from '@/lib/cashierScope';
 import ManagerAuthDialog from '@/components/ManagerAuthDialog';
 import { CreditCard } from 'lucide-react';
 import { PageTitle } from '@/components/layout/PageFrame';
+import MasterDetail from '@/components/layout/MasterDetail';
 import { Printer as TitleIcon } from 'lucide-react';
 
 type Filter = 'all' | 'paid' | 'partial' | 'running' | 'void' | 'cancelled' | 'foodpanda';
@@ -122,12 +123,27 @@ export default function BillReprintPage() {
         </Tabs>
       </Card>
 
-      {filtered.length === 0 ? (
-        <p className="text-sm text-muted-foreground text-center py-12">No bills mile is filter par.</p>
+      {/* v1.115.0 — SW-06: the bill opens in a panel beside the list on a wide window (read-only, reprint in the panel), a dialog below it */}
+      <MasterDetail
+        title={view ? `Bill #${view.orderNumber} · read-only` : 'Bill'} open={!!view} onClose={() => setView(null)}
+        emptyText="Select a bill to see it as the customer's receipt." dialogClassName="sm:max-w-md max-h-[90vh] overflow-y-auto"
+        detail={view ? (
+          <div className="space-y-3" data-bill-panel={view.id}>
+            <ReceiptPreview order={view} settings={settings} />
+            <div className="flex gap-2 border-t pt-3">
+              <Button size="sm" className="flex-1" onClick={() => { reprint(view); }}>
+                <Printer className="mr-1 h-4 w-4" /> Reprint Customer Receipt
+              </Button>
+            </div>
+          </div>
+        ) : null}
+        list={
+      filtered.length === 0 ? (
+        <p className="text-sm text-muted-foreground text-center py-12">No bills match this filter.</p>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-2 min-[1700px]:grid-cols-3">
           {filtered.map(o => (
-            <Card key={o.id} className="p-3 space-y-1.5">
+            <Card key={o.id} data-bill-card={o.id} className={`p-3 space-y-1.5 ${view?.id === o.id ? 'ring-2 ring-primary' : ''}`}>
               <div className="flex items-center justify-between gap-2">
                 <span className="font-bold text-sm">#{o.orderNumber}</span>
                 <div className="flex gap-1 flex-wrap">
@@ -157,7 +173,9 @@ export default function BillReprintPage() {
             </Card>
           ))}
         </div>
-      )}
+      )
+        }
+      />
 
       {/* v1.6.0 — Payment correction: pehle manager auth, phir method select.
           The amount does not change — only the method/account; the audit trail stays on the order
@@ -225,25 +243,6 @@ export default function BillReprintPage() {
           </DialogContent>
         </Dialog>
       )}
-
-      <Dialog open={!!view} onOpenChange={() => setView(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              Bill #{view?.orderNumber}
-              <Badge variant="outline" className="text-[10px]"><Lock className="h-3 w-3 mr-1" /> Read-only</Badge>
-            </DialogTitle>
-          </DialogHeader>
-          {view && <ReceiptPreview order={view} settings={settings} />}
-          {view && (
-            <div className="flex gap-2 pt-2 border-t">
-              <Button size="sm" className="flex-1" onClick={() => { reprint(view); }}>
-                <Printer className="h-4 w-4 mr-1" /> Reprint Customer Receipt
-              </Button>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={showLog} onOpenChange={setShowLog}>
         <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">

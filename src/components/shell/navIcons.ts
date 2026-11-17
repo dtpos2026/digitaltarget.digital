@@ -5,7 +5,7 @@ import {
   Ban, Clock, Printer, Stethoscope, Ticket, BarChart3, TrendingUp, Users, UserCog, Wallet, Settings,
   Database, Smartphone, Building2, RefreshCw, MapPin, Globe, Bell, MessageCircle, Megaphone, Percent,
   Layers, BookOpen, Trash2, Package, UtensilsCrossed, Edit3, Moon, ReceiptText, FileText, History,
-  ShieldCheck, Gauge, Armchair, UserX, Warehouse, Coins, FileBarChart, Landmark, Handshake, Store,
+  ShieldCheck, Gauge, Armchair, UserX, Warehouse, Coins, FileBarChart, Landmark, Handshake, Store, Wheat,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -41,6 +41,7 @@ export const MODERN_NAV_ICONS: Record<string, LucideIcon> = {
   inventory: Warehouse,
   recipes: BookOpen,
   wastage: Trash2,
+  'production-plan': Wheat,
   receiving: Package,
   // Accounts & staff
   accounts: Landmark,

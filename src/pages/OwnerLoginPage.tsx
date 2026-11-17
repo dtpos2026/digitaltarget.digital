@@ -432,8 +432,8 @@ export default function OwnerLoginPage({ onSuccess }: Props) {
               </p>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Aap ka device <b className="text-foreground">{pendingDevice.deviceName}</b> Super Admin ki approval ka intezaar kar raha hai.
-                Approval hote hi ye screen <b className="text-foreground">khud b khud aage barhegi</b> — dobara login karne ki zaroorat nahi.
+                Your device <b className="text-foreground">{pendingDevice.deviceName}</b> is waiting for the Super Admin to approve it.
+                As soon as it is approved this screen <b className="text-foreground">moves on by itself</b> — you do not need to sign in again.
               </p>
             )}
             <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">

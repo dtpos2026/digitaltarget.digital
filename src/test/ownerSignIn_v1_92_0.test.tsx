@@ -87,7 +87,7 @@ describe('the logic is where it was', () => {
     expect(login).toContain('const ownerApp = isOwnerAppRoute();');
     expect(login).toMatch(/\{ownerApp && \(\s*<Button className="w-full" disabled=\{checking\}/);
     expect(login).toContain("{ownerApp ? 'Sign in with another account' : 'Cancel & Logout'}");
-    expect(login).toContain('Aap ka device');   // the till's wording is still there
+    expect(login).toContain('is waiting for the Super Admin to approve it');   // the till's wording is still there (English since v1.115.1)
   });
   it('the app shows the start screen for the Owner route while it loads', () => {
     const app = read('src/App.tsx');

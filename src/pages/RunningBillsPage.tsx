@@ -18,6 +18,7 @@ import { balanceDue } from '@/lib/sales';
 import { scopeOrders, getCurrentScope } from '@/lib/cashierScope';
 import { startVisiblePoll } from '@/lib/visiblePoll';
 import { PageTitle } from '@/components/layout/PageFrame';
+import MasterDetail from '@/components/layout/MasterDetail';
 
 export default function RunningBillsPage() {
   const scope = getCurrentScope();
@@ -220,17 +221,31 @@ export default function RunningBillsPage() {
             🛡️ Admin — All cashiers
           </span>
         )}</PageTitle>
-      {orders.length === 0 ? (
+      {/* v1.115.0 — SW-06: the selected bill opens in a panel beside the list on a wide window, and in a dialog below it */}
+      <MasterDetail
+        title={viewOrder ? `Bill #${viewOrder.orderNumber}` : 'Bill'} open={!!viewOrder} onClose={() => setViewOrder(null)}
+        emptyText="Select a bill to see its items and total." dialogClassName="sm:max-w-md max-h-[90vh] overflow-y-auto"
+        detail={viewOrder ? (
+          <div className="space-y-3" data-bill-panel={viewOrder.id}>
+            <ReceiptPreview order={viewOrder} settings={settings} />
+            <div className="flex flex-wrap gap-1.5 border-t pt-3">
+              <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => retrieveInPOS(viewOrder)}><RotateCcw className="mr-1 h-3 w-3" /> Edit</Button>
+              {!isOrderTaker && <Button size="sm" className="h-8 bg-status-success text-xs text-status-success-foreground hover:bg-status-success/90" onClick={() => payOrder(viewOrder)}><CreditCard className="mr-1 h-3 w-3" /> Pay</Button>}
+            </div>
+          </div>
+        ) : null}
+        list={
+      orders.length === 0 ? (
         <p className="text-muted-foreground text-sm">No running or hold bills</p>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-2 min-[1700px]:grid-cols-3">
           {orders.map(order => {
             const tables = getTables();
             const table = order.tableId ? tables.find(t => t.id === order.tableId) : null;
             const isRunning = order.status === 'running';
             const isUnpaid = (order.amountPaid || 0) <= 0 && order.status !== 'paid';
             return (
-              <div key={order.id} className={`rounded-xl border p-4 space-y-2 ${isRunning ? 'bg-status-success/5 border-status-success/20' : 'bg-status-warning/5 border-status-warning/20'}`}>
+              <div key={order.id} data-bill-card={order.id} className={`rounded-xl border p-4 space-y-2 ${viewOrder?.id === order.id ? 'ring-2 ring-primary ' : ''}${isRunning ? 'bg-status-success/5 border-status-success/20' : 'bg-status-warning/5 border-status-warning/20'}`}>
                 <div className="flex items-center justify-between">
                   <span className="font-semibold text-sm">#{order.orderNumber}</span>
                   <div className="flex items-center gap-1.5 flex-wrap justify-end">
@@ -308,14 +323,9 @@ export default function RunningBillsPage() {
             );
           })}
         </div>
-      )}
-
-      <Dialog open={!!viewOrder} onOpenChange={() => setViewOrder(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>Order #{viewOrder?.orderNumber}</DialogTitle></DialogHeader>
-          {viewOrder && <ReceiptPreview order={viewOrder} settings={settings} />}
-        </DialogContent>
-      </Dialog>
+      )
+        }
+      />
 
       <OrderDetailDialog order={historyOrder} onClose={() => setHistoryOrder(null)} />
     </div>
