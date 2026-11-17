@@ -98,6 +98,8 @@ const DailyWagesPage = lazy(() => import("@/pages/DailyWagesPage"));
 const BillReprintPage = lazy(() => import("@/pages/BillReprintPage"));
 const ProductionPlanPage = lazy(() => import("@/pages/ProductionPlanPage"));
 const StockCountPage = lazy(() => import("@/pages/StockCountPage"));
+const RecipeCostingPage = lazy(() => import("@/pages/RecipeCostingPage"));
+const RightsMatrixPage = lazy(() => import("@/pages/RightsMatrixPage"));
 const FoodpandaOrdersPage = lazy(() => import("@/pages/FoodpandaOrdersPage"));
 const AdvancedReportsPage = lazy(() => import("@/pages/AdvancedReportsPage"));
 const SuperAdminPortfolioPage = lazy(() => import("@/pages/SuperAdminPortfolioPage"));
@@ -982,6 +984,8 @@ const App = () => {
                 <Route path="/day-close" element={<DayClosePage />} />
                 <Route path="/production-plan" element={<ProductionPlanPage />} />
                 <Route path="/stock-count" element={<StockCountPage />} />
+                <Route path="/recipe-costing" element={<RecipeCostingPage />} />
+                <Route path="/rights-matrix" element={<RightsMatrixPage />} />
                 <Route path="/printing-center" element={<PrintingCenterPage />} />
                 {/* Legacy printing routes now redirect into the Printing Center */}
                 <Route path="/printer-settings" element={<Navigate to="/printing-center?tab=printers" replace />} />

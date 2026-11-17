@@ -87,6 +87,7 @@ vi.mock('@/lib/store', () => ({
   getBranches: () => [],
   adjustStock: (...a: unknown[]) => adjustStock(...a),
   genId: () => 'session-1',
+  getCurrentUser: () => ({ name: 'Owner', role: 'admin' }),
 }));
 vi.mock('@/lib/tenant', () => ({ getTenantId: () => 't1' }));
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));

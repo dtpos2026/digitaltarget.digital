@@ -1108,6 +1108,8 @@ export interface RestaurantSettings {
   // app hides all food-cost, margin, profitability and valuation features
   // and behaves as a simple billing + stock system.
   costTrackingEnabled?: boolean;
+  /** v1.116.0 — the food cost % the restaurant aims for (default 30); the Costing page rates every item against it. */
+  targetFoodCostPct?: number;
   // POS menu grid columns per row (3-6)
   menuGridColumns?: number;
   // POS category display: 'top' (horizontal ribbon) or 'side' (left vertical sidebar)
@@ -1244,6 +1246,8 @@ export interface RecipeComponent {
   inventoryItemId: string;
   quantity: number;      // amount consumed per 1 unit of menu item (for fixed) OR per 1 kg (for weight items)
   unit: string;          // display unit (g, ml, pcs)
+  /** v1.116.0 — waste allowance in percent (trim, peel, bake loss): costing divides the quantity by (1 − waste %). Costing only; stock moves by `quantity`. */
+  wastePct?: number;
 }
 
 export interface Recipe {
@@ -1253,6 +1257,8 @@ export interface Recipe {
   variantKey?: string;
   components: RecipeComponent[];
   notes?: string;
+  /** v1.116.0 — packaging per portion (box, cup, label), added to the production cost. */
+  packagingCost?: number;
 }
 
 // ============= WASTAGE =============

@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { EmptyState, FilterBar } from '@/components/layout/PageFrame';
 import { getBranches, getCurrentUser, getMenuItems, getOrders, getProductionSheets, saveProductionSheet } from '@/lib/store';
+import { userHasFeature } from '@/lib/permissions';
 import { scopeToBranch } from '@/lib/cashierScope';
 import { buildPlan, localDay, soldOn } from '@/lib/productionPlan';
 import { addItem, addMade, reconcile, setLine, sheetFromPlan, sheetId, totals, type ProductionSheet } from '@/lib/productionSheet';
@@ -34,6 +35,7 @@ export default function ProductionSheetPanel() {
   const sold = useMemo(() => soldOn(orders, planItems, day, branchId), [orders, planItems, day, branchId]);
   const rows = useMemo(() => (sheet ? reconcile(sheet.lines, sold) : []), [sheet, sold]);
   const tot = totals(rows);
+  const canEdit = userHasFeature(getCurrentUser(), 'feat.prod.edit');
   const dirty = !!sheet && !sameSheet(sheet, saved);
 
   const start = () => {
@@ -67,7 +69,7 @@ export default function ProductionSheetPanel() {
           </label>
         )}
         <div className="ml-auto flex items-end gap-2">
-          {sheet && <Button size="sm" onClick={save} disabled={!dirty} data-sheet-save>Save sheet</Button>}
+          {sheet && <Button size="sm" onClick={save} disabled={!dirty || !canEdit} title={canEdit ? undefined : 'Ask an admin for the right to edit the production sheet'} data-sheet-save>Save sheet</Button>}
         </div>
       </FilterBar>
 

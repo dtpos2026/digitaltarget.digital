@@ -31,7 +31,9 @@ export type AuditAction =
   | 'PO_APPROVED'
   | 'PO_SENT'
   | 'PO_RECEIVED'
-  | 'PO_CANCELLED';
+  | 'PO_CANCELLED'
+  // v1.116.0 — who changed whose rights
+  | 'RIGHTS_CHANGED';
 
 export interface StaffAuditEntry {
   id: string;
@@ -72,6 +74,7 @@ export const AUDIT_ACTION_TITLES: Record<AuditAction, string> = {
   PO_SENT: 'Purchase order sent to supplier',
   PO_RECEIVED: 'Goods received against a purchase order',
   PO_CANCELLED: 'Purchase order cancelled',
+  RIGHTS_CHANGED: 'Staff rights changed',
 };
 
 function readLocal(): StaffAuditEntry[] {

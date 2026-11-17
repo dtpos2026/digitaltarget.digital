@@ -17,12 +17,13 @@ import { PAGES, FEATURE_PERMISSIONS, defaultPermissionsForRole, defaultFeaturePe
 
 export type OrgLevel = 'head-office' | 'branch' | 'department' | 'floor';
 
-export type DepartmentId = 'kitchen' | 'store' | 'accounts' | 'hr' | 'marketing' | 'delivery';
+export type DepartmentId = 'kitchen' | 'production' | 'store' | 'accounts' | 'hr' | 'marketing' | 'delivery';
 
 export interface Department { id: DepartmentId; name: string; manages: string }
 
 export const DEPARTMENTS: Department[] = [
   { id: 'kitchen', name: 'Kitchen', manages: 'Kitchen display, recipes, wastage, the menu and its variations, kitchen slips.' },
+  { id: 'production', name: 'Production & Bakery', manages: 'The day’s baking plan and sheet, recipes and their cost, stock counts — bakery and central kitchen.' },
   { id: 'store', name: 'Store & Purchasing', manages: 'Inventory, receiving, purchase orders, suppliers, barcodes, stock wastage.' },
   { id: 'accounts', name: 'Accounts & Finance', manages: 'Accounts, ledgers, wages, shifts and cash drawers, day close, sales and profit reports.' },
   { id: 'hr', name: 'HR & Staff', manages: 'Employees and payroll, the staff audit log, staff locations, riders as staff.' },
@@ -71,8 +72,14 @@ export const ROLE_PRESETS: RolePreset[] = [
   {
     id: 'kitchen-head', name: 'Kitchen Head', level: 'department', department: 'kitchen', role: 'manager', acrossBranches: true,
     summary: 'Kitchen display, recipes, wastage, the menu and kitchen slips.',
-    pages: ['kitchen', 'recipes', 'wastage', 'production-plan', 'menu', 'variations', 'printing-center', 'itemSalesReport'],
+    pages: ['kitchen', 'recipes', 'wastage', 'production-plan', 'recipe-costing', 'menu', 'variations', 'printing-center', 'itemSalesReport'],
     features: ['feat.bill.cancel-kot', 'feat.inv.wastage'],
+  },
+  {
+    id: 'production-head', name: 'Head Baker / Production Head', level: 'department', department: 'production', role: 'manager', acrossBranches: true,
+    summary: 'Plans and records the day’s baking, keeps recipes and their cost, counts stock — bakery and central kitchen.',
+    pages: ['production-plan', 'recipes', 'recipe-costing', 'wastage', 'stock-count', 'inventory', 'kitchen', 'receiving', 'itemSalesReport'],
+    features: ['feat.inv.adjust', 'feat.inv.wastage', 'feat.inv.receive', 'feat.inv.count', 'feat.prod.edit', 'feat.recipe.edit', 'feat.inv.cost-view'],
   },
   {
     id: 'store-head', name: 'Store & Purchasing Head', level: 'department', department: 'store', role: 'manager', acrossBranches: true,

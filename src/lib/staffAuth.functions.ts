@@ -183,6 +183,43 @@ export const saveStaffUser = createServerFn({ method: 'POST' })
   });
 
 /**
+ * v1.116.0 — change what a staff member may open and do, without touching their password or login.
+ * The Rights page edits only the two permission lists; saveStaffUser() needs the password (it re-hashes it), which the browser
+ * never holds. This updates exactly those two columns, for a person of the caller's own restaurant, and only for an active owner
+ * or admin — the same bar as deleting a user. The owner's and admins' own rows are not editable here (they have every right).
+ */
+export const setStaffRights = createServerFn({ method: 'POST' })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => z.object({
+    username: z.string().trim().min(1).max(80),
+    permissions: z.array(z.string().max(80)).max(300),
+    featurePermissions: z.array(z.string().max(80)).max(300),
+  }).parse(data))
+  .handler(async ({ data, context }) => {
+    const { data: caller, error: callerError } = await context.supabase
+      .from('user_profiles')
+      .select('tenant_id, role, is_active')
+      .eq('user_id', context.userId)
+      .maybeSingle();
+    if (callerError) throw new Error(`Permission check: ${callerError.message}`);
+    if (!caller?.tenant_id || !caller.is_active || !['owner', 'admin'].includes(caller.role)) {
+      throw new Error('Only an active owner or admin can change staff rights');
+    }
+    const { getSupabaseAdmin } = await import('@/integrations/supabase/client.server');
+    const supabaseAdmin = await getSupabaseAdmin();
+    const target = await supabaseAdmin.from('user_profiles')
+      .select('user_id, role').eq('tenant_id', caller.tenant_id).eq('username', data.username.toLowerCase()).maybeSingle();
+    if (target.error) throw new Error(`Staff lookup: ${target.error.message}`);
+    if (!target.data) throw new Error('That staff member was not found in this restaurant');
+    if (['owner', 'admin'].includes(target.data.role)) throw new Error('An owner or admin always has every right');
+    const upd = await supabaseAdmin.from('user_profiles')
+      .update({ permissions: data.permissions, feature_permissions: data.featurePermissions })
+      .eq('user_id', target.data.user_id).eq('tenant_id', caller.tenant_id);
+    if (upd.error) throw new Error(`Rights step: ${upd.error.message}`);
+    return { ok: true };
+  });
+
+/**
  * Remove a POS staff user. The browser can only delete the LOCAL copy, so on
  * Supabase a deleted user kept coming back on the next refresh. This deletes
  * the profile row (and the shadow auth account) server-side.

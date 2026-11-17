@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { money } from '@/lib/currency';
 import { MenuItem, InventoryItem, Recipe, RecipeComponent } from '@/lib/types';
 import {
-  getMenuItems, getInventory, getRecipes, saveRecipe, deleteRecipe, genId,
+  getMenuItems, getInventory, getRecipes, saveRecipe, deleteRecipe, genId, getCurrentUser,
 } from '@/lib/store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +13,8 @@ import SearchableSelect from '@/components/SearchableSelect';
 import { BookOpen, Plus, Trash2, Edit, Search, Calculator } from 'lucide-react';
 import { toast } from 'sonner';
 import { RECIPE_UNITS, getBaseUnit, toBaseQty, isCompatible } from '@/lib/units';
+import { costItem, wasteShare } from '@/lib/recipeCosting';
+import { userHasFeature } from '@/lib/permissions';
 import { PageTitle } from '@/components/layout/PageFrame';
 
 // Build list of variant options for a menu item (size + inch). Returns [{key, label, price}].
@@ -34,6 +36,9 @@ export default function RecipesPage() {
   const [editing, setEditing] = useState<{ menuItem: MenuItem; variantKey: string; recipe: Recipe } | null>(null);
   const [components, setComponents] = useState<RecipeComponent[]>([]);
   const [notes, setNotes] = useState('');
+  // v1.116.0 — packaging per portion (box, cup, label), part of the production cost
+  const [packaging, setPackaging] = useState('');
+  const canEditRecipes = userHasFeature(getCurrentUser(), 'feat.recipe.edit');
 
   const refresh = () => setRecipes(getRecipes());
 
@@ -52,13 +57,8 @@ export default function RecipesPage() {
         : [{ key: '', label: '—', sale: m.pricingType === 'weight' ? m.ratePerKg : m.price }];
       for (const t of targets) {
         const r = recipes.find(x => x.menuItemId === m.id && (x.variantKey || '') === t.key);
-        const cost = r ? r.components.reduce((sum, c) => {
-          const inv = inventory.find(i => i.id === c.inventoryItemId);
-          if (!inv) return sum;
-          const perBase = toBaseQty(inv, c.quantity, c.unit);
-          const unitCost = inv.avgCostPrice ?? inv.costPrice ?? 0;
-          return sum + unitCost * perBase;
-        }, 0) : 0;
+        // the same engine the Costing page uses: waste allowance and packaging included
+        const cost = r ? costItem({ item: m, variantKey: t.key, price: t.sale, recipes, inventory }).productionCost : 0;
         const margin = t.sale > 0 ? ((t.sale - cost) / t.sale) * 100 : 0;
         out.push({ menuItem: m, variantKey: t.key, variantLabel: t.label, recipe: r, cost, sale: t.sale, margin });
       }
@@ -76,6 +76,7 @@ export default function RecipesPage() {
     });
     setComponents(r ? [...r.components] : []);
     setNotes(r?.notes || '');
+    setPackaging(r?.packagingCost ? String(r.packagingCost) : '');
     setOpen(true);
   };
 
@@ -93,7 +94,8 @@ export default function RecipesPage() {
       toast.success('Recipe cleared');
       setOpen(false); refresh(); return;
     }
-    const r: Recipe = { ...editing.recipe, components: cleaned, notes };
+    const pack = Number(packaging);
+    const r: Recipe = { ...editing.recipe, components: cleaned.map(c => (wasteShare(c.wastePct) > 0 ? c : { ...c, wastePct: undefined })), notes, packagingCost: pack > 0 ? pack : undefined };
     saveRecipe(r);
     toast.success('Recipe saved');
     setOpen(false);
@@ -103,10 +105,10 @@ export default function RecipesPage() {
   const currentCost = useMemo(() => components.reduce((sum, c) => {
     const inv = inventory.find(i => i.id === c.inventoryItemId);
     if (!inv) return sum;
-    const perBase = toBaseQty(inv, c.quantity, c.unit);
+    const perBase = toBaseQty(inv, c.quantity / (1 - wasteShare(c.wastePct)), c.unit);
     const unitCost = inv.avgCostPrice ?? inv.costPrice ?? 0;
     return sum + unitCost * perBase;
-  }, 0), [components, inventory]);
+  }, 0) + (Number(packaging) > 0 ? Number(packaging) : 0), [components, inventory, packaging]);
 
   return (
     <div className="p-4 space-y-4">
@@ -205,12 +207,12 @@ export default function RecipesPage() {
               )}
               {components.map((c, idx) => {
                 const inv = inventory.find(i => i.id === c.inventoryItemId);
-                const perBase = inv ? toBaseQty(inv, c.quantity, c.unit) : c.quantity;
+                const perBase = inv ? toBaseQty(inv, c.quantity / (1 - wasteShare(c.wastePct)), c.unit) : c.quantity;
                 const unitCost = inv ? (inv.avgCostPrice ?? inv.costPrice ?? 0) : 0;
                 const lineCost = unitCost * perBase;
                 return (
                   <div key={idx} className="grid grid-cols-12 gap-2 items-center bg-accent/20 rounded p-2">
-                    <div className="col-span-5">
+                    <div className="col-span-4">
                       <SearchableSelect
                         placeholder="Ingredient..."
                         searchPlaceholder="Search ingredient..."
@@ -230,7 +232,7 @@ export default function RecipesPage() {
                     <div className="col-span-2">
                       <Input type="number" step="0.01" value={c.quantity || ''} onChange={e => updateRow(idx, { quantity: parseFloat(e.target.value) || 0 })} placeholder="Qty" className="h-9" />
                     </div>
-                    <div className="col-span-3">
+                    <div className="col-span-2">
                       <Select value={c.unit || (inv ? getBaseUnit(inv) : 'g')} onValueChange={(v) => updateRow(idx, { unit: v })}>
                         <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                         <SelectContent>
@@ -243,6 +245,9 @@ export default function RecipesPage() {
                           ))}
                         </SelectContent>
                       </Select>
+                    </div>
+                    <div className="col-span-2">
+                      <Input type="number" step="1" min="0" max="95" value={c.wastePct || ''} onChange={e => updateRow(idx, { wastePct: parseFloat(e.target.value) || undefined })} placeholder="Waste %" aria-label="Waste percent" title="Waste allowance (trim, peel, bake loss) — costing only" className="h-9" data-recipe-waste />
                     </div>
                     <div className="col-span-1 text-xs text-right font-semibold">{money(lineCost.toFixed(0))}</div>
                     <div className="col-span-1 text-right">
@@ -259,14 +264,17 @@ export default function RecipesPage() {
               <Plus className="h-4 w-4 mr-1" /> Add Ingredient
             </Button>
 
-            <Input placeholder="Notes (optional)" value={notes} onChange={e => setNotes(e.target.value)} />
+            <div className="grid grid-cols-2 gap-2">
+              <Input placeholder="Notes (optional)" value={notes} onChange={e => setNotes(e.target.value)} />
+              <Input type="number" min="0" step="0.5" placeholder="Packaging per portion (box, cup, label)" value={packaging} onChange={e => setPackaging(e.target.value)} aria-label="Packaging cost per portion" data-recipe-packaging />
+            </div>
 
             <div className="flex items-center justify-between bg-primary/10 border border-primary/30 rounded p-3">
-              <span className="text-sm font-semibold flex items-center gap-2"><Calculator className="h-4 w-4" /> Food Cost</span>
+              <span className="text-sm font-semibold flex items-center gap-2"><Calculator className="h-4 w-4" /> Production cost <span className="text-[11px] font-normal text-muted-foreground">(ingredients + waste + packaging)</span></span>
               <span className="text-lg font-bold text-primary">{money(currentCost.toFixed(0))}</span>
             </div>
 
-            <Button className="w-full" onClick={save}>Save Recipe</Button>
+            <Button className="w-full" onClick={save} disabled={!canEditRecipes} title={canEditRecipes ? undefined : 'Ask an admin for the right to edit recipes'}>Save Recipe</Button>
           </div>
         </DialogContent>
       </Dialog>

@@ -70,7 +70,7 @@ vi.mock('@/lib/store', () => ({
   getOrders: () => orders,
   getMenuItems: () => [{ id: 'cr', name: 'Croissant', categoryId: 'bk', pricingType: 'fixed', isActive: true }, { id: 'br', name: 'Bun', categoryId: 'bk', pricingType: 'fixed', isActive: true }],
   getBranches: () => [{ id: 'b1', name: 'Main', isActive: true, sortOrder: 1 }],
-  getCurrentUser: () => ({ name: 'Sana' }),
+  getCurrentUser: () => ({ name: 'Sana', role: 'admin' }),
   getProductionSheets: () => [],
   saveProductionSheet: (s: unknown) => { saved.push(s); },
 }));

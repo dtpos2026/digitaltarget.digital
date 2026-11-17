@@ -69,6 +69,9 @@ export const PAGES: PageDef[] = [
   { key: 'production-plan', path: '/production-plan', title: 'Production', group: 'Inventory', defaultRoles: ['admin', 'manager'] },
   // v1.115.1 — a physical stock-take with the difference posted to the stock ledger
   { key: 'stock-count', path: '/stock-count', title: 'Stock Count', group: 'Inventory', defaultRoles: ['admin', 'manager'] },
+  // v1.116.0 — recipe → production cost → gross profit → menu engineering, per branch
+  { key: 'rights-matrix', path: '/rights-matrix', title: 'Rights', group: 'Staff', defaultRoles: ['admin'] },
+  { key: 'recipe-costing', path: '/recipe-costing', title: 'Costing', group: 'Inventory', defaultRoles: ['admin', 'manager'] },
   { key: 'receiving',  path: '/receiving',  title: 'Receiving',  group: 'Inventory',  defaultRoles: ['admin', 'manager'] },
   { key: 'procurement', path: '/procurement', title: 'Procurement', group: 'Inventory', defaultRoles: ['admin', 'manager'] },
 
@@ -154,6 +157,10 @@ export const FEATURE_PERMISSIONS: FeaturePermDef[] = [
   { key: 'feat.inv.wastage',       title: 'Record Wastage',      desc: 'Mark wastage entries',          group: 'Inventory', defaultRoles: ['admin', 'manager'] },
   { key: 'feat.inv.receive',       title: 'Receive Goods',       desc: 'Create receiving / GRN',        group: 'Inventory', defaultRoles: ['admin', 'manager'] },
   { key: 'feat.inv.cost-view',     title: 'View Cost Price',     desc: 'See product cost / margin',     group: 'Inventory', defaultRoles: ['admin', 'manager'] },
+  // v1.116.0 — the bakery / kitchen back office
+  { key: 'feat.inv.count',         title: 'Post Stock Count',    desc: 'Post a physical count to stock', group: 'Inventory', defaultRoles: ['admin', 'manager'] },
+  { key: 'feat.prod.edit',         title: 'Edit Production Sheet', desc: 'Save the day sheet (made, left over)', group: 'Inventory', defaultRoles: ['admin', 'manager'] },
+  { key: 'feat.recipe.edit',       title: 'Edit Recipes',        desc: 'Change ingredients, waste and packaging', group: 'Inventory', defaultRoles: ['admin', 'manager'] },
 
   // Reports
   { key: 'feat.report.sales',      title: 'Sales Reports',       desc: 'View sales reports',            group: 'Reports',   defaultRoles: ['admin', 'manager'] },

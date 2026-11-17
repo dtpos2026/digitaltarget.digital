@@ -11,7 +11,8 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { EmptyState, FilterBar, PageHeader } from '@/components/layout/PageFrame';
-import { adjustStock, genId, getBranches, getCategories, getInventory } from '@/lib/store';
+import { adjustStock, genId, getBranches, getCategories, getCurrentUser, getInventory } from '@/lib/store';
+import { userHasFeature } from '@/lib/permissions';
 import { getTenantId } from '@/lib/tenant';
 import { countLines, loadDraft, postCount, saveDraft, summarize, type Adjust } from '@/lib/stockCount';
 import { cn } from '@/lib/utils';
@@ -32,6 +33,8 @@ export default function StockCountPage() {
   const [counts, setCounts] = useState<Record<string, string>>(() => loadDraft(scope));
   const [confirm, setConfirm] = useState(false);
   const [sessionId, setSessionId] = useState(genId);
+  // posting moves stock, so it is a right of its own (Rights → Actions → Post Stock Count)
+  const canPost = userHasFeature(getCurrentUser(), 'feat.inv.count');
 
   useEffect(() => { setCounts(loadDraft(scope)); }, [scope]);
   useEffect(() => { saveDraft(scope, counts); }, [scope, counts]);
@@ -50,6 +53,7 @@ export default function StockCountPage() {
   const label = new Date().toISOString().slice(0, 10);
 
   const post = () => {
+    if (!canPost) { toast.error('You do not have the right to post a stock count'); return; }
     const live = new Map(getInventory().map(i => [i.id, Number(i.quantity) || 0]));
     const r = postCount(allLines, sessionId, label, id => (live.has(id) ? (live.get(id) as number) : null), adjustStock as unknown as Adjust);
     toast.success(`${r.applied} correction${r.applied === 1 ? '' : 's'} posted${r.duplicates ? ` · ${r.duplicates} already posted` : ''}`);
@@ -63,7 +67,7 @@ export default function StockCountPage() {
     <div className="space-y-4 p-4 lg:p-6" data-stock-count>
       <PageHeader
         icon={<ClipboardCheck />} title="Stock Count" subtitle="Count the shelves, see what differs, post the difference to stock"
-        actions={<Button size="sm" disabled={sum.withDifference === 0} onClick={() => setConfirm(true)} data-count-post>Post to stock{sum.withDifference ? ` (${sum.withDifference})` : ''}</Button>}
+        actions={<Button size="sm" disabled={sum.withDifference === 0 || !canPost} title={canPost ? undefined : 'Ask an admin for the right to post a stock count'} onClick={() => setConfirm(true)} data-count-post>Post to stock{sum.withDifference ? ` (${sum.withDifference})` : ''}</Button>}
       />
 
       <FilterBar label="Count filters">
