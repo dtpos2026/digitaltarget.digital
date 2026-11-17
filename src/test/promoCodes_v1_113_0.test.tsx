@@ -11,7 +11,7 @@ const code = (over: Partial<PromoCode> = {}): PromoCode => ({
 
 describe('to the cloud', () => {
   it('maps the app\'s words onto the table\'s columns, so nothing is dropped and a flat code is no longer refused', () => {
-    const r = rowToDb('promoCodes', code({ discountType: 'pkr', discountValue: 300, usageLimit: 50, startDate: '2026-11-10', endDate: '2026-11-30', minOrderAmount: 1500, accountsOnly: true, notes: 'Eid week' }));
+    const r = rowToDb('promoCodes', code({ discountType: 'pkr', discountValue: 300, usageLimit: 50, startDate: '2026-11-10', endDate: '2026-11-30', minOrderAmount: 1500, accountsOnly: true, showOnWebsite: true, notes: 'Eid week' }));
     expect(r.discount_type).toBe('fixed');                         // the table's check allows 'fixed' / 'percent', not 'pkr'
     expect(r.discount_value).toBe(300);
     expect(r.max_uses).toBe(50);
@@ -19,6 +19,7 @@ describe('to the cloud', () => {
     expect(String(r.valid_until).startsWith('2026-11-30')).toBe(true);
     expect(r.min_order_amount).toBe(1500);
     expect(r.accounts_only).toBe(true);
+    expect(r.show_on_website).toBe(true);
     expect(r.notes).toBe('Eid week');
     expect(r.code).toBe('EID25');
     expect(r.usage_count).toBe(3);
@@ -32,6 +33,7 @@ describe('to the cloud', () => {
     expect(r.valid_until).toBeNull();
     expect(r.min_order_amount).toBeNull();
     expect(r.accounts_only).toBe(false);
+    expect(r.show_on_website).toBe(false);
     expect(Object.keys(r).every(k => !/[A-Z]/.test(k))).toBe(true);   // snake_case only
   });
 });
@@ -81,7 +83,8 @@ describe('validatePromoCode', () => {
 
 describe('the screens and the database', () => {
   it('the ordering page tells the rule whether the customer is signed in; the form has the switch', () => {
-    expect(readFileSync('src/pages/OnlineOrderPage.tsx', 'utf8')).toContain('validatePromoCode(promoInput.trim(), subtotal, { signedIn: !!account })');
+    // v1.115.0 — the server decides first; the page's own rule (with the signed-in flag) is the fallback when the server cannot be reached
+    expect(readFileSync('src/pages/OnlineOrderPage.tsx', 'utf8')).toContain('validatePromoCode(code, subtotal, { signedIn: !!account })');
     const form = readFileSync('src/pages/PromoCodesPage.tsx', 'utf8');
     expect(form).toContain('data-promo-accounts-only');
     expect(form).toContain('accountsOnly: v');

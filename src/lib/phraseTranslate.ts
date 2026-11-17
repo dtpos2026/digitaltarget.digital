@@ -57,16 +57,17 @@ export function isolateLatinRuns(value: string): string {
 }
 
 /** The translation of one piece of text, keeping the white space around it; null when the phrase is not known. */
-export function translatePhrase(raw: string, dict: PhraseDictionary): string | null {
+export function translatePhrase(raw: string, dict: PhraseDictionary, isolate = true): string | null {
   if (!raw) return null;
   const key = normalizePhrase(raw);
   if (!key) return null;
   // the isolation is applied to the dictionary's own words, before a template is filled: a name typed by the restaurant is left exactly as written
-  let hit: string | undefined = Object.prototype.hasOwnProperty.call(dict, key) ? isolateLatinRuns(dict[key]) : undefined;
+  const iso = (v: string) => (isolate ? isolateLatinRuns(v) : v);
+  let hit: string | undefined = Object.prototype.hasOwnProperty.call(dict, key) ? iso(dict[key]) : undefined;
   if (hit === undefined) {
     for (const t of templatesOf(dict)) {
       const m = t.re.exec(key);
-      if (m) { let i = 0; hit = isolateLatinRuns(t.out).replace(/\{n?\}/g, () => m[++i] ?? ''); break; }
+      if (m) { let i = 0; hit = iso(t.out).replace(/\{n?\}/g, () => m[++i] ?? ''); break; }
     }
   }
   if (hit === undefined) return null;
@@ -77,6 +78,8 @@ export function translatePhrase(raw: string, dict: PhraseDictionary): string | n
 
 // ---- state --------------------------------------------------------------
 let dict: PhraseDictionary | null = null;
+/** Right-to-left Urdu isolates its English runs; Roman Urdu is left-to-right and needs none (v1.115.0). */
+let isolateRuns = true;
 let observer: MutationObserver | null = null;
 let root: Node | null = null;
 /** The text node's original English and what we wrote over it. */
@@ -100,7 +103,7 @@ function doText(n: Text): void {
   const cur = n.nodeValue ?? '';
   if (textWritten.get(n) === cur) return;                 // our own write coming back through the observer
   if (skipped(n.parentElement, true)) return;
-  const next = translatePhrase(cur, dict);
+  const next = translatePhrase(cur, dict, isolateRuns);
   if (next === null || next === cur) { textOriginal.delete(n); textWritten.delete(n); return; }
   textOriginal.set(n, cur);
   textWritten.set(n, next);
@@ -115,7 +118,7 @@ function doAttr(el: Element, name: string): void {
   const st = attrState.get(el)?.get(name);
   if (st && st.written === cur) return;
   if (skipped(el, false)) return;
-  const next = translatePhrase(cur, dict);
+  const next = translatePhrase(cur, dict, isolateRuns);
   if (next === null || next === cur) { attrState.get(el)?.delete(name); return; }
   let m = attrState.get(el);
   if (!m) { m = new Map(); attrState.set(el, m); }
@@ -162,10 +165,11 @@ function onMutations(records: MutationRecord[]): void {
 // ---- public -------------------------------------------------------------
 
 /** Start translating everything under `scope` (the whole document by default) with this dictionary. Safe to call again with a new one. */
-export function enablePhraseLayer(dictionary: PhraseDictionary, scope?: Node): void {
+export function enablePhraseLayer(dictionary: PhraseDictionary, scope?: Node, opts: { isolate?: boolean } = {}): void {
   if (typeof document === 'undefined') return;
   if (dict && observer) disablePhraseLayer();
   dict = dictionary;
+  isolateRuns = opts.isolate !== false;
   root = scope ?? document.body;
   translatedCount = 0;
   walk(root);

@@ -16,6 +16,7 @@ import CustomerIntelligenceCard from '@/components/CustomerIntelligenceCard';
 import { gradeColor, birthdaysWithin, daysUntilBirthday, ageOnNextBirthday } from '@/lib/customers';
 import { primaryAddress } from '@/lib/customerAddress';
 import { PageTitle } from '@/components/layout/PageFrame';
+import MasterDetail from '@/components/layout/MasterDetail';
 
 function diffMinutes(a?: string, b?: string): number | null {
   if (!a || !b) return null;
@@ -199,9 +200,14 @@ export default function CustomersPage() {
               No customers yet. Customers are auto-saved when delivery orders are paid.
             </Card>
           )}
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {/* v1.115.0 — SW-19: the customer panel sits beside the list on a wide window, and is a dialog below it */}
+          <MasterDetail
+            title="Customer Intelligence" open={!!viewing} onClose={() => setViewing(null)} emptyText="Select a customer to see their history, favourites and credit."
+            detail={viewing ? <CustomerIntelligenceCard customer={viewing} /> : null}
+            list={
+          <div className="grid gap-3 md:grid-cols-2 min-[1700px]:grid-cols-3">
             {filtered.map(c => (
-              <Card key={c.id} className="p-3 space-y-2">
+              <Card key={c.id} className={`p-3 space-y-2 ${viewing?.id === c.id ? 'ring-2 ring-primary' : ''}`} data-customer-card={c.id}>
                 <div className="flex justify-between items-start">
                   {/* v1.32.0 — the photo the customer set in their own app, and
                     * the short code they can quote on the phone. Both read-only
@@ -281,6 +287,8 @@ export default function CustomersPage() {
               </Card>
             ))}
           </div>
+            }
+          />
         </TabsContent>
 
         <TabsContent value="top">
@@ -372,14 +380,6 @@ export default function CustomersPage() {
         </Dialog>
       )}
 
-      {viewing && (
-        <Dialog open onOpenChange={() => setViewing(null)}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader><DialogTitle>Customer Intelligence</DialogTitle></DialogHeader>
-            <CustomerIntelligenceCard customer={viewing} />
-          </DialogContent>
-        </Dialog>
-      )}
     </div>
   );
 }

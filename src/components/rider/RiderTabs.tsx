@@ -240,6 +240,12 @@ export function RecordSheet({ r, onClose }: { r: DeliveryRecord | null; onClose:
         {r.address && <div className="flex justify-between gap-3"><dt className="shrink-0 text-muted-foreground">Address</dt><dd className="text-right font-semibold">{r.address}</dd></div>}
         <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Delivered</dt><dd className="font-bold">{d.toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</dd></div>
         <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Bill</dt><dd className="font-extrabold text-primary">{money(r.total)}</dd></div>
+        {r.cashCollected ? (
+          <div className="flex justify-between gap-3" data-rider-record-cash>
+            <dt className="text-muted-foreground">Cash taken</dt>
+            <dd className="font-bold">{money(r.cashCollected)} · {r.handedOverAt ? 'handed over' : 'to hand over'}</dd>
+          </div>
+        ) : null}
       </dl>
       <RButton className="w-full" onClick={onClose}>Close</RButton>
     </Sheet>
@@ -257,6 +263,7 @@ export function RecordTab({ rows, lifetime, state, onRetry, onRecord, now }: {
   const sum = useMemo(() => periodSummary(rows, period, now), [rows, period, now]);
   const max = Math.max(1, ...sum.bars.map(b => b.total));
   const label = RIDER_PERIODS.find(p => p.id === period)!.label.toLowerCase();
+  const cashHeld = sum.rows.reduce((n, r) => n + (r.cashCollected && !r.handedOverAt ? r.cashCollected : 0), 0);
   return (
     <div className="space-y-3">
       <div role="tablist" aria-label="Period" className="flex gap-2">
@@ -290,6 +297,11 @@ export function RecordTab({ rows, lifetime, state, onRetry, onRecord, now }: {
               <span>{sum.bars[sum.bars.length - 1]?.label}</span>
             </div>
           </RCard>
+          {cashHeld > 0 && (
+            <p className="px-1 text-[12.5px] font-semibold text-[hsl(var(--rd-warn))]" data-rider-record-cash-held>
+              {money(cashHeld)} of this is cash you have not handed over yet.
+            </p>
+          )}
           <p className="px-1 text-[12.5px] text-muted-foreground">The value of the bills you delivered. Your pay is agreed with your restaurant.</p>
           <RLabel>Delivered {label === 'today' ? 'today' : label}</RLabel>
           {sum.rows.length === 0

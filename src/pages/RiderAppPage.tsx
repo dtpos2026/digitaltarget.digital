@@ -361,7 +361,7 @@ export default function RiderAppPage() {
   // by their token, so the record survives a reinstall and a new phone.
   const [history, setHistory] = useState<{
     orders: Array<Record<string, unknown>>;
-    totals: { delivered?: number; today?: number; earnings?: number };
+    totals: { delivered?: number; today?: number; earnings?: number; cashUnsettled?: number; cashUnsettledCount?: number; cashToday?: number };
   } | null>(null);
   // A phone with no portal session (the staff route) keeps its own record: known at once, no loading rows.
   const [historyState, setHistoryState] = useState<'loading' | 'ready' | 'failed' | 'local'>(
@@ -768,6 +768,18 @@ export default function RiderAppPage() {
               <div className="text-[12px] opacity-90">{`${cashDue.count} order${cashDue.count === 1 ? '' : 's'}`}</div>
             </div>
             <b className="shrink-0 text-[18px]">{money(cashDue.amount)}</b>
+          </RCard>
+        )}
+
+        {/* v1.115.0 — cash taken at the door that the cashier has not received yet (the server's figure; it falls to zero when the cashier taps Receive cash) */}
+        {(history?.totals?.cashUnsettled ?? 0) > 0 && (
+          <RCard data-rider-cash-held className="flex items-center gap-3 border-transparent bg-[hsl(var(--rd-tint))] shadow-none">
+            <Wallet className="h-5 w-5 shrink-0 text-primary" aria-hidden />
+            <div className="min-w-0 flex-1">
+              <div className="text-[13px] font-bold">Cash to hand over</div>
+              <div className="text-[12px] text-muted-foreground">{history?.totals?.cashUnsettledCount === 1 ? '1 order · give it to the cashier' : `${history?.totals?.cashUnsettledCount ?? 0} orders · give it to the cashier`}</div>
+            </div>
+            <b className="shrink-0 text-[18px] text-primary">{money(history?.totals?.cashUnsettled ?? 0)}</b>
           </RCard>
         )}
 

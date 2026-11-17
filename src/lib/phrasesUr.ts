@@ -199,6 +199,12 @@ const RIDER: PhraseDictionary = {
   'Welcome {}!': 'خوش آمدید {}!',
   'What happened with #{n}?': '#{n} کے ساتھ کیا ہوا؟',
   'Call {}': 'کال {}',
+  // v1.115.0 — cash to hand over
+  'Cash to hand over': 'حوالے کرنے والی نقد رقم',
+  '1 order · give it to the cashier': '1 آرڈر · کیشیئر کو دے دیں',
+  '{n} orders · give it to the cashier': '{n} آرڈرز · کیشیئر کو دے دیں',
+  'Cash taken': 'وصول شدہ نقد',
+  'of this is cash you have not handed over yet.': 'میں سے اتنی نقد رقم ہے جو آپ نے ابھی حوالے نہیں کی۔',
   // v1.112.0 — cash to collect
   'To collect from customers': 'گاہکوں سے وصول کرنا ہے',
   'Collect {}': 'وصول کریں {}',

@@ -99,6 +99,7 @@ export default function PromoCodesPage() {
                 <td className="p-2 text-center">
                   {p.isActive ? <Badge className="bg-green-600">Active</Badge> : <Badge variant="outline">Inactive</Badge>}
                   {p.accountsOnly && <Badge variant="secondary" className="ml-1" data-promo-badge-accounts>Account</Badge>}
+                  {p.showOnWebsite && <Badge variant="outline" className="ml-1" data-promo-badge-public>On website</Badge>}
                 </td>
                 <td className="p-2 text-right">
                   <Button size="sm" variant="ghost" onClick={() => onEdit(p)}><Edit3 className="h-3.5 w-3.5" /></Button>
@@ -160,6 +161,13 @@ export default function PromoCodesPage() {
                 <p className="text-[11px] text-muted-foreground">On the ordering website the customer must be signed in. The till is not affected.</p>
               </div>
               <Switch checked={draft.accountsOnly === true} onCheckedChange={v => setDraft({ ...draft, accountsOnly: v })} aria-label="Only for customers with an account" />
+            </div>
+            <div className="flex items-center justify-between border rounded p-2" data-promo-show-on-website>
+              <div className="pr-3">
+                <Label className="text-sm">Show on the ordering website</Label>
+                <p className="text-[11px] text-muted-foreground">Lists the code on the website's Offers page. Off: only people you give the code to can use it.</p>
+              </div>
+              <Switch checked={draft.showOnWebsite === true} onCheckedChange={v => setDraft({ ...draft, showOnWebsite: v })} aria-label="Show on the ordering website" />
             </div>
             <div className="flex items-center justify-between border rounded p-2">
               <Label className="text-sm">Active</Label>

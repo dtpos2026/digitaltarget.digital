@@ -308,7 +308,7 @@ export const ALLOWED_COLUMNS: Record<string, Set<string>> = {
     // could not be enforced across devices. A DB trigger keeps the pair in step.
     'usage_count', 'created_at',
     // v1.113.0 — the conditions a code carries
-    'min_order_amount', 'accounts_only', 'notes']),
+    'min_order_amount', 'accounts_only', 'notes', 'show_on_website']),
   shifts: new Set(['id', 'tenant_id', 'branch_id', 'device_id', 'opened_by', 'opened_by_name',
     'opened_at', 'starting_cash', 'closed_by', 'closed_by_name', 'closed_at', 'ending_cash',
     'expected_cash', 'variance', 'status']),
@@ -463,6 +463,7 @@ export function rowToDb(col: string, data: Record<string, any>): Record<string, 
     typed.valid_until = data.endDate ? new Date(data.endDate).toISOString() : null;
     typed.min_order_amount = Number(data.minOrderAmount) > 0 ? Number(data.minOrderAmount) : null;
     typed.accounts_only = data.accountsOnly === true;
+    typed.show_on_website = data.showOnWebsite === true;
     typed.notes = data.notes ? String(data.notes) : null;
     typed.deleted_at = data.deletedAt ? new Date(data.deletedAt).toISOString() : null;
     return typed;
@@ -568,7 +569,7 @@ export const NOT_NULL_WITH_DEFAULT: Record<string, ReadonlySet<string>> = {
   inventory_categories: new Set(['sort_order', 'updated_at']),
   kitchens: new Set(['is_active', 'updated_at']),
   payment_accounts: new Set(['is_active', 'sort_order', 'updated_at']),
-  promo_codes: new Set(['used_count', 'is_active', 'usage_count', 'created_at', 'updated_at', 'accounts_only']),
+  promo_codes: new Set(['used_count', 'is_active', 'usage_count', 'created_at', 'updated_at', 'accounts_only', 'show_on_website']),
   shifts: new Set(['opened_at', 'starting_cash', 'status', 'updated_at']),
 };
 
@@ -708,6 +709,7 @@ export function rowFromDb(row: Record<string, any>, table?: string): Record<stri
     out.endDate = row.valid_until ? String(row.valid_until).slice(0, 10) : undefined;
     out.minOrderAmount = row.min_order_amount != null ? Number(row.min_order_amount) : undefined;
     out.accountsOnly = row.accounts_only === true;
+    out.showOnWebsite = row.show_on_website === true;
     out.notes = row.notes ?? undefined;
     out.isActive = row.is_active !== false;
     return out;

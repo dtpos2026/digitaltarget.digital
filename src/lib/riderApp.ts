@@ -160,6 +160,9 @@ export interface DeliveryRecord {
   /** The bill's total — what the server's "earnings" adds up (portal_my_history). */
   total: number;
   deliveredAt: string;
+  /** v1.115.0 — the cash this rider took on the order, and when the cashier received it (portal_my_history). */
+  cashCollected?: number;
+  handedOverAt?: string;
 }
 
 /** The server's rows (portal_my_history), made safe to show: no row without an id or a delivery time. */
@@ -172,6 +175,8 @@ export function historyRows(raw: Array<Record<string, unknown>> | undefined | nu
       address: String(r.address ?? '').trim(),
       total: Number(r.grandTotal) || 0,
       deliveredAt: String(r.deliveredAt ?? ''),
+      cashCollected: Number(r.cashCollected) > 0 ? Number(r.cashCollected) : undefined,
+      handedOverAt: typeof r.handedOverAt === 'string' && r.handedOverAt ? r.handedOverAt : undefined,
     }))
     .filter(r => r.id && r.deliveredAt && !Number.isNaN(Date.parse(r.deliveredAt)))
     .sort((a, b) => Date.parse(b.deliveredAt) - Date.parse(a.deliveredAt));

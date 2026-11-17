@@ -1,3 +1,5 @@
+import { closedMessage, openState, parseOpeningHours, type OpeningHours } from '@/lib/openingHours';
+
 // ============================================================
 // PUBLIC STOREFRONT (v1.95.0) — what a customer who is not signed in may know about a restaurant, and the rules the
 // owner's website switches turn into.
@@ -30,10 +32,26 @@ export interface PublicStorefront {
   pickupTimeSlots?: number[];
   restaurantLat?: number;
   restaurantLng?: number;
+  // v1.115.0 — what the About / Help / closed screens of the website show, and the opening-hours rule
+  about?: string;
+  instagram?: string;
+  facebook?: string;
+  tiktok?: string;
+  /** The weekly schedule; null when the owner has not set one (the site is then never closed by the clock). */
+  openingHours?: OpeningHours | null;
+  /** ISO time until which the owner paused online orders by hand ("busy mode"); past or missing = not paused. */
+  pausedUntil?: string;
 }
 
 const str = (v: unknown): string | undefined => (typeof v === 'string' && v.trim() ? v.trim() : undefined);
 const num = (v: unknown): number => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : 0; };
+/** A link the customer is sent to: http(s) only — a `javascript:` or `data:` address typed into a setting is dropped. */
+const link = (v: unknown): string | undefined => {
+  const t = str(v);
+  if (!t) return undefined;
+  const full = /^https?:\/\//i.test(t) ? t : /^[\w.-]+\.[a-z]{2,}(\/|$)/i.test(t) ? `https://${t}` : '';
+  try { return full ? new URL(full).toString() : undefined; } catch { return undefined; }
+};
 const coord = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
 
 /**
@@ -63,14 +81,20 @@ export function pickStorefront(settings: unknown, tenantName = ''): PublicStoref
     ...(slots.length ? { pickupTimeSlots: slots } : {}),
     restaurantLat: coord(s.restaurantLat),
     restaurantLng: coord(s.restaurantLng),
+    about: str(s.onlineAbout),
+    instagram: link(s.onlineInstagram),
+    facebook: link(s.onlineFacebook),
+    tiktok: link(s.onlineTiktok),
+    openingHours: parseOpeningHours(s.onlineHours),
+    pausedUntil: str(s.onlinePausedUntil),
   };
 }
 
 /** The same fields in the shape the website page already reads (`settings.deliveryCharge` …). */
 export function storefrontAsSettings(sf: PublicStorefront | null): Record<string, unknown> {
   if (!sf) return {};
-  const out: Record<string, unknown> = { ...sf, onlineTagline: sf.tagline, onlineBanner: sf.banner };
-  delete out.tagline; delete out.banner;
+  const out: Record<string, unknown> = { ...sf, onlineTagline: sf.tagline, onlineBanner: sf.banner, onlineAbout: sf.about };
+  delete out.tagline; delete out.banner; delete out.about;
   for (const k of Object.keys(out)) if (out[k] === undefined) delete out[k];
   return out;
 }
@@ -106,14 +130,20 @@ export function resolveFulfilment(wanted: 'delivery' | 'pickup', opts: Fulfilmen
  *     are neither.
  */
 export function orderingBlockedReason(
-  s: Pick<PublicStorefront, 'onlineOrderEnabled' | 'onlineDeliveryEnabled' | 'onlinePickupEnabled'>,
+  s: Pick<PublicStorefront, 'onlineOrderEnabled' | 'onlineDeliveryEnabled' | 'onlinePickupEnabled'> & Partial<Pick<PublicStorefront, 'openingHours' | 'pausedUntil'>>,
   order: { orderType?: unknown; source?: unknown },
+  now: Date = new Date(),
 ): string | null {
   if (order?.source === 'order_taker') return null;
   if (s.onlineOrderEnabled === false) return 'Online ordering is closed right now. Please call the restaurant.';
   const type = typeof order?.orderType === 'string' ? order.orderType : '';
   if (type === 'delivery' && s.onlineDeliveryEnabled === false) return 'Delivery is switched off right now. Please choose pickup or call the restaurant.';
   if (type === 'takeaway' && s.onlinePickupEnabled === false) return 'Pickup is switched off right now.';
+  // v1.115.0 — the opening hours and the owner's pause close delivery and pickup; a customer already sitting at a table (QR) is not turned away
+  if (type !== 'dining') {
+    const closed = closedMessage(openState(s.openingHours ?? null, now, { pausedUntil: s.pausedUntil ?? null }));
+    if (closed) return closed;
+  }
   return null;
 }
 

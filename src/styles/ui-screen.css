@@ -59,6 +59,9 @@ html[data-ui="modern"][data-ui-theme="dt-refined"] [data-ui-shell="content"] :is
 /* ---------- phone: dialogs become bottom sheets, wide things scroll inside their own box ---------- */
 html[data-screen="phone"] [data-slot="dialog-content"] {
   left: 0; right: 0; bottom: 0; top: auto; transform: none; translate: none;
+  /* v1.115.0 — `translate: none` is dropped by the CSS minifier (it is the initial value), so the dialog kept Tailwind's
+     translate(-50%, -50%) and sat half off the screen. Zeroing the two variables the Tailwind class reads cannot be minified away. */
+  --tw-translate-x: 0px; --tw-translate-y: 0px;
   width: 100%; max-width: 100%; max-height: 92dvh; overflow-y: auto;
   border-radius: 1.25rem 1.25rem 0 0;
 }

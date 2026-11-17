@@ -667,7 +667,8 @@ const App = () => {
                     person cannot sign in. */}
                 <Route path="/reset-password" element={<ResetPasswordPage />} />
                 <Route path="/order" element={<OnlineOrderPage />} />
-                <Route path="/order/:tenantId" element={<OnlineOrderPage />} />
+                {/* v1.115.0 — one route for the site and its extra screens (#/order/<name>/offers, /about, /help): the page stays mounted, so the cart survives a visit to Offers */}
+                <Route path="/order/:tenantId/*" element={<OnlineOrderPage />} />
                 {/* v1.83.0 — public invoice verification (QR / link printed on every Digital Target invoice) */}
                 <Route path="/verify/:invoiceId" element={<VerifyInvoicePage />} />
                 {/* v1.110.0 — the privacy policy, readable without signing in */}

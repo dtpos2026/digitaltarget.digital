@@ -308,6 +308,9 @@ export interface PaymentAccount {
 }
 
 export interface Order {
+  /** v1.115.0 — the cashier received the cash this rider collected on this order (see lib/riderCash). */
+  cashHandedOverAt?: string;
+  cashHandedOverBy?: string;
   id: string;
   orderNumber: number;
   orderType: OrderType;
@@ -1139,6 +1142,13 @@ export interface RestaurantSettings {
   onlineBanner?: string;          // base64 / URL hero banner image
   onlineTagline?: string;         // short tagline under restaurant name
   onlineAbout?: string;           // about / welcome paragraph
+  /** v1.115.0 — weekly opening hours + time zone (see lib/openingHours.ts); the site closes delivery and pickup outside them. */
+  onlineHours?: { enabled: boolean; timeZone?: string; days: Record<'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun', { closed: boolean; open: string; close: string }> };
+  /** v1.115.0 — ISO time until which online orders are paused by hand ("busy mode"); a past time means not paused. */
+  onlinePausedUntil?: string;
+  onlineInstagram?: string;
+  onlineFacebook?: string;
+  onlineTiktok?: string;
   onlineBrandColor?: string;      // hex e.g. "#7c3aed" — overrides primary on public pages
   discountExcludedCategoryIds?: string[]; // categories excluded from any discount
   discountExcludedItemIds?: string[];     // specific items excluded
@@ -1584,6 +1594,8 @@ export interface PromoCode {
   minOrderAmount?: number;   // optional minimum cart
   /** v1.113.0 — only a customer who is signed in on the ordering site can use it (the till is not affected). */
   accountsOnly?: boolean;
+  /** v1.115.0 — list the code on the ordering website's Offers page. Off unless the owner says so. */
+  showOnWebsite?: boolean;
   isActive: boolean;
   createdAt: string;
   notes?: string;

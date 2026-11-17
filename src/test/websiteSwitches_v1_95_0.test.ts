@@ -37,9 +37,10 @@ describe('the allow-list', () => {
   it('carries what a customer needs to order and nothing else', () => {
     const sf = pickStorefront(everything, 'Tenant Name');
     expect(Object.keys(sf).sort()).toEqual([
-      'allowGuestCheckout', 'banner', 'currencySymbol', 'deliveryCharge', 'freeDeliveryThreshold', 'minOnlineOrder', 'name',
-      'onlineDeliveryEnabled', 'onlineOrderEnabled', 'onlinePickupEnabled', 'phone', 'pickupTimeSlots', 'restaurantLat',
-      'restaurantLng', 'selfPickupEnabled', 'tagline',
+      // v1.115.0 added the About / Help / closed-screen fields: about, facebook, instagram, openingHours, pausedUntil, tiktok
+      'about', 'allowGuestCheckout', 'banner', 'currencySymbol', 'deliveryCharge', 'facebook', 'freeDeliveryThreshold', 'instagram', 'minOnlineOrder', 'name',
+      'onlineDeliveryEnabled', 'onlineOrderEnabled', 'onlinePickupEnabled', 'openingHours', 'pausedUntil', 'phone', 'pickupTimeSlots', 'restaurantLat',
+      'restaurantLng', 'selfPickupEnabled', 'tagline', 'tiktok',
     ]);
     const json = JSON.stringify(sf);
     for (const secret of ['03001234567', '9999', 'hunter2', 'secret footer', 'PK00SECRET', 'NTN-123', '"sk"', '35202', 'Ali']) expect(json, secret).not.toContain(secret);
@@ -52,6 +53,7 @@ describe('the allow-list', () => {
         name: 'Cafe', phone: undefined, currencySymbol: undefined, tagline: undefined, banner: undefined,
         onlineOrderEnabled: true, onlineDeliveryEnabled: true, onlinePickupEnabled: true, allowGuestCheckout: true, selfPickupEnabled: false,
         deliveryCharge: 0, freeDeliveryThreshold: 0, minOnlineOrder: 0, restaurantLat: undefined, restaurantLng: undefined,
+        about: undefined, instagram: undefined, facebook: undefined, tiktok: undefined, openingHours: null, pausedUntil: undefined,   // v1.115.0: no hours = never closed by the clock
       });
     }
   });
@@ -232,7 +234,7 @@ describe('the wiring', () => {
     expect(page).toMatch(/!guestCheckoutAllowed\(\{ allowGuestCheckout: settings\.allowGuestCheckout !== false \}\) && !getCustomerToken\(\)/);
     expect(page).not.toMatch(/guestCheckoutAllowed\([^)]*\)\s*&&\s*!account\b/);
     // and the place-order button is disabled when nothing is offered
-    expect(page).toMatch(/placing\s*\|\|\s*nothingOffered/);
+    expect(page).toMatch(/placing\s*\|\|\s*isClosed\s*\|\|\s*nothingOffered/);   // v1.115.0 added the opening-hours rule in front
   });
 
   it('a staff order through the same function is exempt, a QR dine-in order is not delivery or pickup', () => {

@@ -114,3 +114,9 @@ created until the owner confirms.
 
 Code + tests (full suite green) + a QA/UAT note + CHANGELOG line + the ZIP; every user-visible change is also checked
 in a real browser screenshot before it is called done. Anything not executed is said so plainly.
+
+
+## 8. Status after v1.115.0 (17 Nov 2026)
+
+Phase one is closed. Done since v1.100.0: the Rider / Order Taker / Owner apps in Urdu and Roman Urdu, the Order Taker sync fix, promo codes in the cloud with server-side checks, the rider's cash hand-over, the website's About / Offers / Help / Product details / opening hours / pause, the phone pop-up fix, and the master-detail component with Customers on it.
+What is left is in `docs/LAST-PHASE.md` — a real-phone test, the owner's signing key, a native reader for the Urdu, 36 desktop screens, and the parked customer app.

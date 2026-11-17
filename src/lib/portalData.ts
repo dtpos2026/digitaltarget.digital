@@ -211,11 +211,11 @@ export function portalRestaurant(): Promise<PortalResult<PortalRestaurant>> {
  */
 export function portalMyHistory(limit = 100): Promise<PortalResult<{
   orders: Array<Record<string, unknown>>;
-  totals: { delivered?: number; today?: number; earnings?: number };
+  totals: { delivered?: number; today?: number; earnings?: number; cashUnsettled?: number; cashUnsettledCount?: number; cashToday?: number };
 }>> {
   return call('portal_my_history', { p_limit: limit }, (r) => ({
     orders: Array.isArray(r.orders) ? r.orders : [],
-    totals: (r.totals ?? {}) as { delivered?: number; today?: number; earnings?: number },
+    totals: (r.totals ?? {}) as { delivered?: number; today?: number; earnings?: number; cashUnsettled?: number; cashUnsettledCount?: number; cashToday?: number },
   }));
 }
 

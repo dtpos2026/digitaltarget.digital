@@ -14,6 +14,7 @@ import { uploadTenantImage } from '@/lib/storage';
 import { scopeToBranch } from '@/lib/cashierScope';
 import { Globe, Copy, ExternalLink, ShoppingBag, MapPin, Bike, Users, Power, Truck, Package, Settings as SettingsIcon, RefreshCw, Phone, Search, Palette, Image as ImageIcon, Upload } from 'lucide-react';
 import { PageTitle } from '@/components/layout/PageFrame';
+import OpeningHoursEditor from '@/components/website/OpeningHoursEditor';
 import { Globe as TitleIcon } from 'lucide-react';
 
 /**
@@ -262,6 +263,9 @@ export default function OnlinePortalPage() {
       </Card>
 
       {qrLink && <QrModal url={qrLink.url} label={qrLink.label} onClose={() => setQrLink(null)} />}
+
+      {/* v1.115.0 — opening hours, pause (busy mode) and the links the website's About page shows */}
+      <OpeningHoursEditor settings={settings} persist={persist} />
 
       {/* Website Branding & Design */}
       <Card className="p-4 space-y-3">

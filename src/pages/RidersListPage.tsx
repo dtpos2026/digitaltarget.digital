@@ -9,9 +9,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   Bike, Phone, MapPin, RefreshCw, Search, Trophy, CheckCircle2, Circle,
-  TrendingUp, Truck, Clock, X,
+  TrendingUp, Truck, Clock, X, Wallet,
 } from 'lucide-react';
-import { getRiders, getOrders, getSettings } from '@/lib/store';
+import { getRiders, getOrders, getSettings, saveOrder, getCurrentUser } from '@/lib/store';
+import { riderCashSummary, settleRiderCash } from '@/lib/riderCash';
 import { Rider, Order } from '@/lib/types';
 import { DELIVERY_STAGE_LABEL } from '@/lib/delivery';
 import { isOnline as isRiderOnline, tsToMs } from '@/lib/geo';
@@ -127,6 +128,7 @@ function RiderTile({ rider: r, orders, active, onClick }: {
 }) {
   const last = tsToMs(r.lastSeenAt);
   const online = isRiderOnline(last, ONLINE_MS);
+  const cash = riderCashSummary(orders, r.id);
   const activeOrders = orders.filter(o =>
     o.riderId === r.id &&
     o.deliveryStatus &&
@@ -174,6 +176,11 @@ function RiderTile({ rider: r, orders, active, onClick }: {
         <Clock className="h-2.5 w-2.5" />
         {last ? `Last seen ${timeAgo(Date.now() - last)}` : 'Never connected'}
       </div>
+      {cash.due > 0 && (
+        <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-700" data-rider-cash-chip>
+          <Wallet className="h-2.5 w-2.5" /> Cash with rider {money(cash.due)}
+        </div>
+      )}
     </button>
   );
 }
@@ -222,6 +229,8 @@ function RiderDetail({ rider: r, orders, settings, onClose }: {
         <Kpi icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="Total Sales" value={`${money(totalEarnings)}`} accent="text-primary" small />
       </div>
 
+      <CashCard rider={r} orders={orders} />
+
       <div>
         <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Active Orders ({active.length})</h4>
         {active.length === 0 && <p className="text-xs text-muted-foreground italic px-2 py-3">No active orders.</p>}
@@ -261,6 +270,39 @@ function RiderDetail({ rider: r, orders, settings, onClose }: {
         </div>
       </div>
     </Card>
+  );
+}
+
+/** v1.115.0 — the cash this rider took at the door and has not yet handed over; "Receive cash" settles it and clears it in the rider's app too. */
+function CashCard({ rider, orders }: { rider: Rider; orders: Order[] }) {
+  const cash = riderCashSummary(orders, rider.id);
+  const [busy, setBusy] = useState(false);
+  const receive = () => {
+    if (cash.due <= 0) return;
+    if (!window.confirm(`Receive ${money(cash.due)} in cash from ${rider.name} (${cash.dueCount} order${cash.dueCount === 1 ? '' : 's'})?`)) return;
+    setBusy(true);
+    try {
+      let by = 'cashier';
+      try { by = getCurrentUser()?.name || by; } catch { /* the till's own name is a nicety */ }
+      const changed = settleRiderCash(orders, rider.id, by);
+      for (const o of changed) saveOrder(o);
+      toast.success(`${money(cash.due)} received from ${rider.name}`);
+    } finally { setBusy(false); }
+  };
+  return (
+    <div className="rounded-lg border p-3 space-y-2" data-rider-cash-card>
+      <div className="flex items-center justify-between">
+        <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1"><Wallet className="h-3 w-3" /> Cash with rider</h4>
+        <span className={`text-lg font-extrabold ${cash.due > 0 ? 'text-amber-700' : 'text-green-700'}`} data-rider-cash-due>{money(cash.due)}</span>
+      </div>
+      <p className="text-[11px] text-muted-foreground">
+        {cash.due > 0
+          ? `Taken at the door on ${cash.dueCount} order${cash.dueCount === 1 ? '' : 's'}, not handed over yet.`
+          : 'Nothing to receive from this rider.'}
+        {cash.handedOver > 0 ? ` Already received: ${money(cash.handedOver)}.` : ''}
+      </p>
+      {cash.due > 0 && <Button size="sm" className="w-full" disabled={busy} onClick={receive}>Receive cash {money(cash.due)}</Button>}
+    </div>
   );
 }
 

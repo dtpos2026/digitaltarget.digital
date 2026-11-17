@@ -139,7 +139,7 @@ describe('the page', () => {
   it('uses the new blocks, shows the hero and tiles only on the home view, and keeps its ordering rules', () => {
     for (const c of ['<SiteHeader', '<HeroBanner', '<CategoryRail', '<ItemCard', '<CartBar']) expect(page, c).toContain(c);
     expect(page).toContain("const isHome = activeCat === 'all' && !search.trim();");
-    expect(page).toMatch(/\{isHome && !dineIn && menuItems\.length > 0 && \(\s*<HeroBanner/);
+    expect(page).toMatch(/\{view === 'menu' && isHome && !dineIn && menuItems\.length > 0 && \(\s*<HeroBanner/);   // v1.115.0: only on the menu view, not on About / Offers / Help
     // the switch in the header only when both ways are offered (v1.95.0)
     expect(page).toContain('fulfilment={!dineIn && fulfilOpts.delivery && fulfilOpts.pickup ?');
     // the cart, the sizes and the quantity helpers are the page's own, unchanged

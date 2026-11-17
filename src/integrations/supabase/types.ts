@@ -3026,6 +3026,14 @@ export type Database = {
         Args: { p_branch: string; p_order: Json; p_tenant: string }
         Returns: Json
       }
+      public_check_promo: {
+        Args: { p_code: string; p_subtotal: number; p_tenant: string; p_token?: string }
+        Returns: Json
+      }
+      public_offers: {
+        Args: { p_tenant: string }
+        Returns: Json
+      }
       public_track_order: {
         Args: {
           p_order_id?: string

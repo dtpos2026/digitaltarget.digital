@@ -1,7 +1,7 @@
 // v1.98.0 — the customer website's building blocks (design package WEB-01): header, hero, category tiles, item card, cart bar.
 // Presentational only: the page keeps every rule (cart, branches, sign-in, ordering) and passes what to show.
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Beef, CakeSlice, CookingPot, CupSoda, Flame, Gift, Minus, Pizza, Plus, Salad, Sandwich, Search, ShoppingBag, Store, Utensils, ChevronDown, User, ClipboardList, LogIn, LayoutGrid } from 'lucide-react';
+import { Beef, CakeSlice, CookingPot, CupSoda, Flame, Gift, Minus, Pizza, Plus, Salad, Sandwich, Search, ShoppingBag, Store, Utensils, ChevronDown, User, ClipboardList, LogIn, LayoutGrid, Menu } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { TONES, type CategoryTile, type Hero, type TileIcon } from '@/lib/websiteHome';
@@ -24,6 +24,8 @@ export interface SiteHeaderProps {
   signedIn: boolean; accountName?: string; /** the customer's own picture, if they set one */ accountPhoto?: string | null; ordersCount?: number; showOrders: boolean;
   onProfile: () => void; onOrders: () => void; onLogin: () => void;
   cartCount: number; onCart: () => void;
+  /** v1.115.0 — the hamburger: Menu, Offers, About us, Help (design WEB-20 puts it left of the name) */
+  onMenu?: () => void;
 }
 
 export function SiteHeader(p: SiteHeaderProps) {
@@ -31,6 +33,7 @@ export function SiteHeader(p: SiteHeaderProps) {
     <header className="sticky top-0 z-40 border-b bg-card/95 backdrop-blur" data-site-header>
       <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3">
         <div className="flex min-w-0 flex-1 items-center gap-2 md:flex-none">
+          {p.onMenu && <button type="button" onClick={p.onMenu} aria-label="Open menu" data-site-menu-button className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border bg-card hover:bg-muted"><Menu className="h-5 w-5" /></button>}
           {p.logo && <img src={p.logo} alt="" className="h-9 w-9 rounded-lg object-cover" />}
           <div className="min-w-0">
             <h1 className="truncate text-base font-extrabold leading-tight text-primary">{p.name}</h1>
@@ -215,16 +218,20 @@ export interface ItemCardProps {
   mode: 'add' | 'choose' | 'stepper';
   quantity?: number;
   onAdd: () => void; onMinus?: () => void; onPlus?: () => void;
+  /** v1.115.0 — opens the product details (picture, sizes, flavours, notes) */
+  onOpen?: () => void;
+  /** v1.115.0 — the restaurant is closed right now: the add buttons are greyed out (the picture and details stay open to look at) */
+  disabled?: boolean;
 }
 
 export function ItemCard(p: ItemCardProps) {
   return (
     <article data-item-card={p.id} className="flex flex-col overflow-hidden rounded-2xl border bg-card p-2 shadow-card">
-      <div className={cn('grid h-28 place-items-center overflow-hidden rounded-xl bg-gradient-to-br text-white md:h-32', TONES[p.tone])}>
+      <div className={cn('grid h-28 place-items-center overflow-hidden rounded-xl bg-gradient-to-br text-white md:h-32', TONES[p.tone], p.onOpen && 'cursor-pointer')} onClick={p.onOpen} data-item-open={p.onOpen ? p.id : undefined}>
         {p.image ? <img src={p.image} alt={p.name} className="h-full w-full object-cover" loading="lazy" /> : <TileIconView icon={p.icon} className="h-10 w-10 opacity-90" />}
       </div>
       <div className="flex flex-1 flex-col gap-1 px-1 pb-1 pt-2.5">
-        <h3 className="line-clamp-2 text-sm font-bold leading-tight">{p.name}</h3>
+        <h3 className="line-clamp-2 text-sm font-bold leading-tight">{p.onOpen ? <button type="button" onClick={p.onOpen} className="text-left hover:underline" data-item-title>{p.name}</button> : p.name}</h3>
         {p.notes?.map(n => <p key={n} className="line-clamp-2 text-[11px] leading-tight text-muted-foreground">{n}</p>)}
         <div className="mt-auto flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5 pt-1.5">
           <span className="shrink-0 text-sm font-extrabold text-primary">{p.priceText}</span>
@@ -232,12 +239,12 @@ export function ItemCard(p: ItemCardProps) {
             <div className="ml-auto flex items-center gap-1" role="group" aria-label={`Quantity of ${p.name}`}>
               <button type="button" onClick={p.onMinus} aria-label={`Remove one ${p.name}`} className="grid h-8 w-8 place-items-center rounded-lg border bg-card hover:bg-muted"><Minus className="h-3.5 w-3.5" /></button>
               <span className="w-6 text-center text-sm font-bold" data-qty>{p.quantity}</span>
-              <button type="button" onClick={p.onPlus} aria-label={`Add one ${p.name}`} className="grid h-8 w-8 place-items-center rounded-lg bg-primary text-primary-foreground hover:opacity-90"><Plus className="h-3.5 w-3.5" /></button>
+              <button type="button" onClick={p.onPlus} disabled={p.disabled} aria-label={`Add one ${p.name}`} className="grid h-8 w-8 place-items-center rounded-lg bg-primary text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"><Plus className="h-3.5 w-3.5" /></button>
             </div>
           ) : p.mode === 'choose' ? (
-            <button type="button" onClick={p.onAdd} className="inline-flex h-8 items-center gap-1 rounded-lg bg-primary/10 px-3 text-xs font-bold text-primary hover:bg-primary/15">Choose size</button>
+            <button type="button" onClick={p.onAdd} disabled={p.disabled} className="inline-flex h-8 items-center gap-1 rounded-lg bg-primary/10 px-3 text-xs font-bold text-primary hover:bg-primary/15 disabled:cursor-not-allowed disabled:opacity-40">Choose size</button>
           ) : (
-            <button type="button" onClick={p.onAdd} aria-label={`Add ${p.name}`} className="grid h-8 w-8 place-items-center rounded-lg bg-primary/10 text-primary hover:bg-primary/15"><Plus className="h-4 w-4" /></button>
+            <button type="button" onClick={p.onAdd} disabled={p.disabled} aria-label={`Add ${p.name}`} className="grid h-8 w-8 place-items-center rounded-lg bg-primary/10 text-primary hover:bg-primary/15 disabled:cursor-not-allowed disabled:opacity-40"><Plus className="h-4 w-4" /></button>
           )}
         </div>
       </div>

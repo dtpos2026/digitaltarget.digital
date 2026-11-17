@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate, useParams } from '@/lib/hash-router';
 import { money } from '@/lib/currency';
 import { onDataChange, initStore, getCategories, getMenuItems, getSettings, getNextOrderNumber, getNextOrderNumberAsync, saveOrder, validatePromoCode, incrementPromoUsage, getOrders, getBranches, getTables, saveTable, getDeals, genId } from '@/lib/store';
 import { getTenantId } from '@/lib/tenant';
@@ -17,7 +18,8 @@ import WhatsAppFloat from '@/components/WhatsAppFloat';
 import CustomerProfilePanel from '@/components/CustomerProfilePanel';
 import CustomerOrderTracker from '@/components/CustomerOrderTracker';
 import LeafletMap from '@/components/LeafletMap';
-import { submitPublicOrder } from '@/lib/publicPortal.functions';
+import { checkPublicPromo, submitPublicOrder } from '@/lib/publicPortal.functions';
+import { orderRefusalMessage, promoMessage } from '@/lib/promoMessages';
 import {
   customerSignup, customerLogin, customerMe, customerLogout, customerOrders,
   customerUpdate, getCachedProfile, getCustomerToken,
@@ -30,9 +32,12 @@ import {
 } from '@/lib/customerAppConfig';
 import AppUpdateGate from '@/components/AppUpdateGate';
 import {
-  fulfilmentOptions, resolveFulfilment, orderingBlockedReason, guestCheckoutAllowed, storefrontAsSettings,
+  fulfilmentOptions, resolveFulfilment, orderingBlockedReason, guestCheckoutAllowed, storefrontAsSettings, pickStorefront,
   type PublicStorefront,
 } from '@/lib/publicStorefront';
+import { closedMessage, openState } from '@/lib/openingHours';
+import { buildFaq } from '@/lib/siteHelp';
+import { AboutView, ClosedBanner, HelpView, ItemDetailSheet, OffersView, SiteMenuSheet, type DetailItem, type OfferCode, type OfferDeal, type SiteNavItem } from '@/components/website/siteViews';
 import { getCachedStorefront, loadPublicStorefront } from '@/lib/storefrontClient';
 import { CartBar, CategoryRail, HeroBanner, ItemCard, SiteHeader } from '@/components/website/siteBits';
 import { categoryTiles, heroFor, iconFor, priceLabel, toneIndex } from '@/lib/websiteHome';
@@ -198,6 +203,8 @@ export default function OnlineOrderPage() {
   }, []);
 
   const settings = useMemo(() => ready ? ({ ...getSettings(), ...storefrontAsSettings(storefront) }) as any : ({} as any), [ready, dataTick, storefront]);
+  // what the restaurant lets the public know: the server's answer, or (on a machine where the owner is signed in) the local settings
+  const site = useMemo<PublicStorefront | null>(() => (ready ? (storefront ?? pickStorefront(getSettings(), '')) : null), [ready, storefront, dataTick]);
   const categories = useMemo(() => ready ? getCategories() : [], [ready, dataTick]);
   const menuItems = useMemo(() => ready ? getMenuItems().filter(m => m.isActive !== false) : [], [ready, dataTick]);
 
@@ -221,6 +228,25 @@ export default function OnlineOrderPage() {
       return { table, floor: qs.get('floor') || undefined, branch: qs.get('branch') || undefined };
     } catch { return null; }
   });
+
+  // ===== v1.115.0 — the website's other screens, opening hours and the owner's pause =====
+  // #/order/<name>/offers | about | help are views of this same page (one route), so the cart and the sign-in survive a visit.
+  const navigate = useNavigate();
+  const routeParams = useParams();
+  const routePath = useLocation().pathname;                 // /order/<name>/offers → ['order', '<name>', 'offers']
+  const rawView = routePath.split('/').filter(Boolean)[2] || '';
+  const view: 'menu' | 'offers' | 'about' | 'help' = rawView === 'offers' || rawView === 'about' || rawView === 'help' ? rawView : 'menu';
+  const goView = (v: string) => {
+    const seg = routeParams.tenantId || getTenantId() || '';
+    if (!seg) return;
+    navigate(v === 'menu' ? `/order/${seg}` : `/order/${seg}/${v}`);
+    try { window.scrollTo({ top: 0 }); } catch { /* not a browser */ }
+  };
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [detailItem, setDetailItem] = useState<MenuItem | null>(null);
+  const [clock, setClock] = useState(() => new Date());
+  useEffect(() => { const t = setInterval(() => setClock(new Date()), 30_000); return () => clearInterval(t); }, []);
+  const HOUR12 = true;
 
 
   // Branches (multi-branch tenants)
@@ -502,6 +528,48 @@ export default function OnlineOrderPage() {
 
   // v1.98.0 — the home page: what leads, and the category tiles (design package WEB-01).
   const isHome = activeCat === 'all' && !search.trim();
+
+  // ===== v1.115.0 — Offers (WEB-17): the codes the owner chose to show + the active deals =====
+  const [offers, setOffers] = useState<{ loading: boolean; failed: boolean; codes: OfferCode[]; deals: OfferDeal[] | null }>({ loading: false, failed: false, codes: [], deals: null });
+  const loadOffers = useCallback(async () => {
+    const tid = getTenantId();
+    if (!tid) return;
+    setOffers(o => ({ ...o, loading: true, failed: false }));
+    try {
+      const { getPublicOffers } = await import('@/lib/publicPortal.functions');
+      const r = await getPublicOffers({ data: { tenantId: tid } });
+      if (!r?.ok) throw new Error('not available');
+      const all = getMenuItems();
+      const nameOf = (id: string) => all.find(x => x.id === id)?.name || 'Item';
+      const codes: OfferCode[] = (r.codes || []).map(c => {
+        const d = c.validUntil ? new Date(`${String(c.validUntil).slice(0, 10)}T00:00:00`) : null;
+        return {
+          code: c.code,
+          title: c.discountType === 'percent' ? `${c.discountValue}% off your order` : `${money(c.discountValue)} off your order`,
+          validity: d && !Number.isNaN(d.getTime()) ? `Valid until ${d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}` : null,
+          terms: [c.minOrder && c.minOrder > 0 ? `Min order ${money(c.minOrder)}` : '', c.accountsOnly ? 'Signed-in customers only' : '', c.notes || ''].filter(Boolean),
+        };
+      });
+      const deals: OfferDeal[] = (r.deals || []).map(d => {
+        const lines = Array.isArray(d.items) ? (d.items as Array<{ menuItemId?: string; quantity?: number }>) : [];
+        return { id: d.id, name: d.name, priceText: money(Number(d.price) || 0), contents: lines.map(l => `${l.quantity || 1}× ${nameOf(String(l.menuItemId || ''))}`).join(', '), image: d.image, available: true };
+      });
+      setOffers({ loading: false, failed: false, codes, deals });
+    } catch (e) {
+      console.warn('[online-order] offers could not be loaded', e);
+      setOffers(o => ({ ...o, loading: false, failed: true }));
+    }
+  }, []);
+  useEffect(() => { if (view === 'offers' && ready) void loadOffers(); }, [view, ready, loadOffers]);
+  // The deals are menu items too; whatever the server could not tell us, the local list does.
+  const offerDeals: OfferDeal[] = useMemo(() => {
+    const local = ready ? getDeals() : [];
+    const base: OfferDeal[] = offers.deals ?? local.filter(d => d.isActive !== false).map(d => ({
+      id: d.id, name: d.name, priceText: money(d.price), image: (d as { image?: string }).image ?? null, available: true,
+      contents: (d.items || []).map(di => `${di.quantity}× ${menuItems.find(x => x.id === di.menuItemId)?.name || 'Item'}`).join(', '),
+    }));
+    return base.map(d => ({ ...d, available: menuItems.some(m => m.id === d.id) }));
+  }, [offers.deals, ready, menuItems, dataTick]); // eslint-disable-line react-hooks/exhaustive-deps
   const tiles = useMemo(() => categoryTiles(categories, menuItems), [categories, menuItems]);
   const hero = useMemo(
     () => heroFor({ banner: settings.onlineBanner, tagline: settings.onlineTagline, name: appConfig?.appName || settings.name || 'Restaurant', deals: ready ? getDeals() : [], items: menuItems }),
@@ -523,6 +591,10 @@ export default function OnlineOrderPage() {
     selfPickupEnabled: settings.selfPickupEnabled === true,
   });
   const nothingOffered = !dineIn && !fulfilOpts.delivery && !fulfilOpts.pickup;
+  // v1.115.0 — opening hours / pause (design WEB-20): a customer sitting at a table (QR) is never turned away by the clock
+  const openNow = useMemo(() => openState(site?.openingHours ?? null, clock, { pausedUntil: site?.pausedUntil ?? null }), [site, clock]);
+  const closedText = !dineIn ? closedMessage(openNow, HOUR12) : null;
+  const isClosed = !!closedText;
   useEffect(() => {
     if (dineIn) return;
     const r = resolveFulfilment(fulfillment, fulfilOpts);
@@ -543,7 +615,41 @@ export default function OnlineOrderPage() {
     return { hasVariants: false, kind: null, minPrice: m.price, list: [] };
   };
 
+  // the restaurant's WhatsApp, only when the owner has the WhatsApp feature on (the same switch the floating button follows)
+  const waNumber: string | null = featureOn(appConfig, 'whatsapp') ? (appConfig?.whatsappNumber || settings.supportWhatsappNumber || settings.phone || null) : null;
+
+  // v1.115.0 — Product details (WEB-05): the picture, sizes, flavours and a note on one screen
+  const openDetail = (m: MenuItem) => {
+    if (m.pricingType !== 'fixed' && !((m.sizeVariants?.length || 0) > 0) && !((m.inchVariants?.length || 0) > 0)) {
+      toast.error('Please order weight-based items at the POS counter.');
+      return;
+    }
+    setDetailItem(m);
+  };
+  const detailData: DetailItem | null = useMemo(() => {
+    const m = detailItem;
+    if (!m) return null;
+    const vi = variantInfo(m);
+    const catName = categories.find(c => c.id === m.categoryId)?.name || '';
+    const deal = getDeals().find(d => d.id === m.id);
+    const all = deal?.items?.length ? getMenuItems() : [];
+    return {
+      id: m.id, name: m.name, image: m.image || null, category: catName, icon: iconFor(catName), tone: toneIndex(catName || m.name), price: m.price,
+      contents: deal?.items?.length ? deal.items.map(di => `${di.quantity}× ${all.find(x => x.id === di.menuItemId)?.name || 'Item'}`).join(', ') : undefined,
+      variants: vi.hasVariants && vi.kind ? { kind: vi.kind, list: vi.list } : null,
+      flavors: m.flavors || [],
+    };
+  }, [detailItem, categories]); // eslint-disable-line react-hooks/exhaustive-deps
+  const navItems: SiteNavItem[] = [
+    { key: 'menu', label: 'Menu', icon: 'home' },
+    { key: 'offers', label: 'Offers', hint: 'Deals and promo codes', icon: 'offers' },
+    { key: 'about', label: 'About us', hint: 'Hours, address, contact', icon: 'about' },
+    { key: 'help', label: 'Help', hint: 'Questions, WhatsApp, call', icon: 'help' },
+    ...(account && featureOn(appConfig, 'history') ? [{ key: 'orders', label: 'My orders', icon: 'orders' as const, badge: myOrders.length || undefined }] : []),
+  ];
+
   const addItem = (m: MenuItem) => {
+    if (closedText) { toast.error(closedText); return; }
     if (m.pricingType !== 'fixed' && !((m.sizeVariants?.length || 0) > 0) && !((m.inchVariants?.length || 0) > 0)) {
       toast.error('Please order weight-based items at the POS counter.');
       return;
@@ -561,18 +667,20 @@ export default function OnlineOrderPage() {
     pushToCart(m);
   };
 
-  const pushToCart = (m: MenuItem, flavor?: string, variant?: { kind: 'size' | 'inch'; name: string; price: number }) => {
+  const pushToCart = (m: MenuItem, flavor?: string, variant?: { kind: 'size' | 'inch'; name: string; price: number }, extra?: { qty?: number; note?: string }) => {
+    const addQty = Math.max(1, Math.min(20, Math.floor(extra?.qty ?? 1)));
+    const userNote = (extra?.note || '').trim();
     setCart(prev => {
       const variantKey = variant ? `|${variant.kind}:${variant.name}` : '';
-      const flavorNote = flavor ? `Flavor: ${flavor}` : '';
+      const flavorNote = [flavor ? `Flavor: ${flavor}` : '', userNote].filter(Boolean).join(' · ');
       const ex = prev.find(c => c.menuItemId === m.id && (c.note || '') === flavorNote && (c.variantName || '') === (variant?.name || ''));
-      if (ex) return prev.map(c => c.id === ex.id ? { ...c, quantity: c.quantity + 1, lineTotal: (c.quantity + 1) * c.price } : c);
+      if (ex) return prev.map(c => c.id === ex.id ? { ...c, quantity: c.quantity + addQty, lineTotal: (c.quantity + addQty) * c.price } : c);
       const price = variant ? variant.price : m.price;
       const displayName = variant ? `${m.name} (${variant.name})` : m.name;
       const item: CartItem = {
         id: `c-${Date.now()}-${Math.random().toString(36).slice(2, 7)}${variantKey}`,
         menuItemId: m.id, name: displayName, pricingType: 'fixed', price,
-        quantity: 1, lineTotal: price, note: flavorNote,
+        quantity: addQty, lineTotal: price * addQty, note: flavorNote,
         ...(variant ? { variantType: variant.kind, variantName: variant.name } : {}),
       };
       return [...prev, item];
@@ -617,9 +725,23 @@ export default function OnlineOrderPage() {
     );
   };
 
-  const applyPromo = () => {
-    if (!promoInput.trim()) return;
-    const r = validatePromoCode(promoInput.trim(), subtotal, { signedIn: !!account });
+  // v1.115.0 — the server decides: it knows every code (a visitor's browser does not), the real use count, and who is signed in.
+  // Only when the server cannot be reached does the page fall back to the codes it has locally, and the order is checked again anyway.
+  const applyPromo = async () => {
+    const code = promoInput.trim();
+    if (!code) return;
+    const tenantId = getTenantId();
+    if (tenantId) {
+      try {
+        const r = await checkPublicPromo({ data: { tenantId, code, subtotal, customerToken: getCustomerToken() } });
+        if (!r.ok) { toast.error(promoMessage(r.reason, { minOrder: r.minOrder }, money)); return; }
+        const discount = Number(r.discount) || 0;
+        setPromoApplied({ code: (r.code || code).toUpperCase(), discount });
+        toast.success(`Promo applied: -${money(discount)}`);
+        return;
+      } catch { /* offline or the server is busy: the local codes below */ }
+    }
+    const r = validatePromoCode(code, subtotal, { signedIn: !!account });
     if ('error' in r) { toast.error(r.error); return; }
     setPromoApplied({ code: r.promo.code, discount: r.discount });
     toast.success(`Promo applied: -${money(r.discount)}`);
@@ -629,8 +751,9 @@ export default function OnlineOrderPage() {
     if (cart.length === 0) { toast.error('Cart is empty'); return; }
     // v1.95.0 — the owner's switches (the server checks them again).
     const closedReason = orderingBlockedReason(
-      { onlineOrderEnabled: settings.onlineOrderEnabled !== false, onlineDeliveryEnabled: settings.onlineDeliveryEnabled !== false, onlinePickupEnabled: settings.onlinePickupEnabled !== false },
+      { onlineOrderEnabled: settings.onlineOrderEnabled !== false, onlineDeliveryEnabled: settings.onlineDeliveryEnabled !== false, onlinePickupEnabled: settings.onlinePickupEnabled !== false, openingHours: site?.openingHours ?? null, pausedUntil: site?.pausedUntil },
       { orderType: dineIn ? 'dining' : (fulfillment === 'pickup' ? 'takeaway' : 'delivery'), source: dineIn ? 'qr' : 'website' },
+      new Date(),
     );
     if (closedReason) { toast.error(closedReason); return; }
     if (nothingOffered) { toast.error('Delivery is switched off right now. Please call the restaurant.'); return; }
@@ -779,9 +902,19 @@ export default function OnlineOrderPage() {
       const submitted = await submitPublicOrder({ data: {
         tenantId,
         branchId: effectiveBranchId,
+        customerToken: getCustomerToken(),
         order: order as unknown as Record<string, unknown>,
       } });
       order.id = submitted.id;
+      // v1.115.0 — the server priced the order: its discount, delivery charge and total are the ones the restaurant sees
+      if (typeof submitted.grand_total === 'number' && Number.isFinite(submitted.grand_total)) {
+        order.subtotal = Number(submitted.subtotal ?? order.subtotal);
+        order.discount = Number(submitted.discount ?? 0);
+        order.promoCodeDiscount = order.discount;
+        order.grandTotal = submitted.grand_total;
+        if (typeof submitted.delivery_charge === 'number') (order as Order & { deliveryCharge?: number }).deliveryCharge = submitted.delivery_charge;
+        if (Math.round(submitted.grand_total) !== Math.round(grandTotal)) toast(`Your total is ${money(submitted.grand_total)}`);
+      }
 
       // ===== v1.42.0 — "Order #undefined placed!" =====
       //
@@ -817,7 +950,7 @@ export default function OnlineOrderPage() {
           });
         } catch {}
       }
-      if (promoApplied?.code) incrementPromoUsage(promoApplied.code);
+      // (the code's use is counted by the server, in the same step as the order)
       // Remember this device's details for next time, and — when the customer
       // is signed in — send the same details to their real profile. The order
       // itself is already linked to that profile by the database.
@@ -879,7 +1012,9 @@ export default function OnlineOrderPage() {
         }
       } catch {}
     } catch (e: any) {
-      toast.error('Order fail: ' + e.message);
+      const refusal = orderRefusalMessage(String(e?.message || ''), money);
+      if (refusal) { toast.error(refusal.text); if (refusal.clearPromo) { setPromoApplied(null); setPromoInput(''); } }
+      else toast.error('Order fail: ' + e.message);
     } finally {
       setPlacing(false);
     }
@@ -1092,15 +1227,59 @@ export default function OnlineOrderPage() {
         onBranch={branches.length > 1 ? () => setBranchPickerOpen(true) : undefined}
         branchLabel={currentBranch ? `${currentBranch.name}${currentBranch.city ? ' · ' + currentBranch.city : ''}` : null}
         fulfilment={!dineIn && fulfilOpts.delivery && fulfilOpts.pickup ? { value: fulfillment, onChange: setFulfillment } : null}
-        search={search} onSearch={setSearch}
+        search={search} onSearch={v => { setSearch(v); if (v.trim() && view !== 'menu') goView('menu'); }}
+        onMenu={() => setMenuOpen(true)}
         signedIn={!!account} accountName={account?.name} accountPhoto={profile?.photoUrl ?? null} showOrders={featureOn(appConfig, 'history')} ordersCount={myOrders.length}
         onProfile={() => setProfileOpen(true)} onOrders={() => setOrdersOpen(true)} onLogin={() => setLoginOpen(true)}
         cartCount={cart.reduce((n, c) => n + c.quantity, 0)} onCart={() => setCartOpen(true)}
       />
 
+      {/* v1.115.0 — closed by the clock or paused by the owner (design WEB-20): said once, at the top of every screen */}
+      {closedText && (
+        <div className="mx-auto max-w-6xl px-4 pt-3">
+          <ClosedBanner message={closedText} onBranch={branches.length > 1 ? () => setBranchPickerOpen(true) : undefined} />
+        </div>
+      )}
+
       {/* Menu grid */}
       <main className="max-w-6xl mx-auto space-y-5 p-4 pb-24 md:pb-6">
-        {isHome && !dineIn && menuItems.length > 0 && (
+        {view === 'about' && (
+          <AboutView
+            info={{
+              name: appConfig?.appName || settings.name || 'Restaurant', tagline: settings.onlineTagline || undefined,
+              logo: appConfig?.logoUrl || appConfig?.iconUrl || settings.webPortalLogo || settings.logo || null,
+              about: settings.onlineAbout || undefined, phone: settings.phone || settings.phone1 || undefined, whatsapp: waNumber,
+              lat: settings.restaurantLat, lng: settings.restaurantLng, instagram: site?.instagram, facebook: site?.facebook, tiktok: site?.tiktok,
+            }}
+            branches={branches.map(b => ({ id: b.id, name: b.name, address: b.address, city: b.city, phone: b.phone }))}
+            hours={site?.openingHours ?? null} state={openNow} hour12={HOUR12} onBack={() => goView('menu')}
+            onPickBranch={branches.length > 1 ? (id => { saveBranchIdLS(id); setBranchId(id); goView('menu'); }) : undefined}
+          />
+        )}
+        {view === 'offers' && (
+          <OffersView
+            codes={offers.codes} deals={offerDeals} loading={offers.loading} failed={offers.failed} closed={isClosed}
+            onBack={() => goView('menu')} onRetry={() => void loadOffers()}
+            onOrderDeal={id => { const m = menuItems.find(x => x.id === id); if (m) { addItem(m); } }}
+            onCopied={(code, ok) => { if (ok) { setPromoInput(code); toast.success(`Code ${code} copied — it is ready in your cart`); } else toast.error('Could not copy. Press and hold the code instead.'); }}
+          />
+        )}
+        {view === 'help' && (
+          <HelpView
+            phone={settings.phone || settings.phone1 || undefined} whatsapp={waNumber} restaurant={appConfig?.appName || settings.name || 'the restaurant'}
+            faq={buildFaq({
+              restaurant: settings.name || '', deliveryOn: fulfilOpts.delivery, pickupOn: fulfilOpts.pickup,
+              deliveryFee: baseDeliveryCharge > 0 ? money(baseDeliveryCharge) : '', freeAbove: freeDeliveryThreshold > 0 ? money(freeDeliveryThreshold) : '',
+              minOrder: minOrder > 0 ? money(minOrder) : '', radiusKm: Number(settings.deliveryRadiusKm || 0) || undefined,
+              hours: site?.openingHours ?? null, hour12: HOUR12, phone: settings.phone || settings.phone1 || null, hasWhatsApp: !!waNumber,
+              guestCheckout: guestCheckoutAllowed({ allowGuestCheckout: settings.allowGuestCheckout !== false }),
+            })}
+            lastOrder={account && myOrders[0] ? { number: myOrders[0].orderNumber, status: myOrders[0].status } : null}
+            onTrackOrder={() => { if (account) setOrdersOpen(true); else setLoginOpen(true); }}
+            onBack={() => goView('menu')}
+          />
+        )}
+        {view === 'menu' && isHome && !dineIn && menuItems.length > 0 && (
           <HeroBanner
             hero={hero}
             price={hero.kind === 'deal' && hero.dealPrice != null ? money(hero.dealPrice) : undefined}
@@ -1110,6 +1289,7 @@ export default function OnlineOrderPage() {
             }}
           />
         )}
+        {view === 'menu' && (<>
         {/* v1.111.0 — one line of categories under the hero (and under the header once a category is open): the 4-box button opens them all */}
         {tiles.length > 0 && (
           <CategoryRail
@@ -1155,11 +1335,13 @@ export default function OnlineOrderPage() {
                   icon={iconFor(catName)} tone={toneIndex(catName || m.name)} notes={notes}
                   mode={vi.hasVariants ? 'choose' : inCart ? 'stepper' : 'add'} quantity={inCart?.quantity}
                   onAdd={() => addItem(m)} onMinus={inCart ? () => updateQty(inCart.id, -1) : undefined} onPlus={inCart ? () => updateQty(inCart.id, 1) : undefined}
+                  onOpen={() => openDetail(m)} disabled={isClosed}
                 />
               );
             })}
           </div>
         )}
+        </>)}
       </main>
 
       {/* Floating cart bar (phones) */}
@@ -1189,7 +1371,7 @@ export default function OnlineOrderPage() {
                         <div className="flex items-center gap-2">
                           <div className="flex-1 min-w-0">
                             <p className="text-xs font-bold truncate">{c.name}</p>
-                            {c.note && c.note.startsWith('Flavor: ') && (
+                            {c.note && (
                               <p className="text-[10px] text-primary font-medium truncate">{c.note}</p>
                             )}
                             <p className="text-[10px] text-muted-foreground">{money(c.price)} × {c.quantity}</p>
@@ -1375,7 +1557,7 @@ export default function OnlineOrderPage() {
                     ) : (
                       <div className="flex gap-1">
                         <Input className="h-8 text-xs" placeholder="Promo code" value={promoInput} onChange={e => setPromoInput(e.target.value.toUpperCase())} />
-                        <Button size="sm" variant="outline" onClick={applyPromo}>Apply</Button>
+                        <Button size="sm" variant="outline" onClick={() => void applyPromo()}>Apply</Button>
                       </div>
                     )}
                   </div>
@@ -1396,11 +1578,13 @@ export default function OnlineOrderPage() {
                       This restaurant takes orders from signed-in customers only. You will be asked to sign in.
                     </p>
                   )}
+                  {closedText && <ClosedBanner message={closedText} />}
                   <Button
                     className="w-full h-11 text-sm font-bold"
                     onClick={placeOrder}
                     disabled={
                       placing
+                      || isClosed
                       || nothingOffered
                       || (!dineIn && minOrder > 0 && subtotal < minOrder)
                       || (!dineIn && fulfillment === 'delivery' && (lat == null || lng == null))
@@ -1826,6 +2010,22 @@ export default function OnlineOrderPage() {
       )}
 
       {/* Flavor picker — single-select with checkbox-style cards */}
+      <SiteMenuSheet
+        open={menuOpen} onOpenChange={setMenuOpen} name={appConfig?.appName || settings.name || 'Restaurant'}
+        logo={appConfig?.logoUrl || appConfig?.iconUrl || settings.webPortalLogo || settings.logo || null}
+        items={navItems} active={view} onGo={k => { if (k === 'orders') setOrdersOpen(true); else goView(k); }}
+      />
+      <ItemDetailSheet
+        item={detailData} money={money} closed={isClosed} closedText={closedText} onClose={() => setDetailItem(null)}
+        onAdd={(it, pick) => {
+          const m = detailItem;
+          if (!m) return;
+          pushToCart(m, pick.flavor, pick.variant, { qty: pick.qty, note: pick.note });
+          setDetailItem(null);
+          toast.success(`${pick.qty > 1 ? pick.qty + '× ' : ''}${it.name} added to your cart`);
+        }}
+      />
+
       <Dialog open={!!flavorPick} onOpenChange={(o) => { if (!o) setFlavorPick(null); }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
