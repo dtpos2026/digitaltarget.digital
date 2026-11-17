@@ -91,16 +91,15 @@ export function recipeFor(recipes: Recipe[], menuItemId: string, variantKey = ''
   return { recipe: def, usesDefault: !!def && !!variantKey };
 }
 
-export function costItem(i: CostInput): ItemCost {
-  const variantKey = i.variantKey || '';
-  const { recipe, usesDefault } = recipeFor(i.recipes, i.item.id, variantKey);
-  const byId = new Map(i.inventory.map(x => [x.id, x]));
+/** The ingredient lines and totals of one recipe — the arithmetic every cost on every screen goes through. */
+export function costRecipe(recipe: Recipe | undefined, inventory: InventoryItem[], branchId?: string): { lines: CostLine[]; ingredientCost: number; packagingCost: number; productionCost: number; warnings: string[] } {
+  const byId = new Map(inventory.map(x => [x.id, x]));
   const warnings: string[] = [];
   const raw: Omit<CostLine, 'sharePct'>[] = [];
   for (const c of recipe?.components ?? []) {
     const base = byId.get(c.inventoryItemId);
     if (!base) { warnings.push('An ingredient is no longer in the stock list'); continue; }
-    const ing = ingredientFor(base, i.inventory, i.branchId);
+    const ing = ingredientFor(base, inventory, branchId);
     const w = wasteShare(c.wastePct);
     const effectiveQty = c.quantity / (1 - w);
     const unitCost = costPerBase(ing);
@@ -111,17 +110,32 @@ export function costItem(i: CostInput): ItemCost {
   const ingredientCost = raw.reduce((s, l) => s + l.cost, 0);
   const lines: CostLine[] = raw.map(l => ({ ...l, cost: r2(l.cost), sharePct: ingredientCost > 0 ? r1((l.cost / ingredientCost) * 100) : 0 }));
   const packagingCost = Math.max(0, Number(recipe?.packagingCost) || 0);
-  const productionCost = ingredientCost + packagingCost;
+  return { lines, ingredientCost, packagingCost, productionCost: ingredientCost + packagingCost, warnings: [...new Set(warnings)] };
+}
+
+/**
+ * The production cost of ONE unit (one portion; one kg for a weighed item) of a recipe: ingredients with their waste allowance, plus
+ * packaging — unrounded, so a bill's cost adds up exactly. Reports, the profit and loss and the profit page all use this one number.
+ */
+export function recipeCostPerUnit(recipe: Recipe | undefined, inventory: InventoryItem[] | Map<string, InventoryItem>, branchId?: string): number {
+  if (!recipe) return 0;
+  return costRecipe(recipe, Array.isArray(inventory) ? inventory : [...inventory.values()], branchId).productionCost;
+}
+
+export function costItem(i: CostInput): ItemCost {
+  const variantKey = i.variantKey || '';
+  const { recipe, usesDefault } = recipeFor(i.recipes, i.item.id, variantKey);
+  const c = costRecipe(recipe, i.inventory, i.branchId);
   const hasRecipe = !!recipe && (recipe.components?.length ?? 0) > 0;
   const price = Number(i.price) || 0;
   return {
     menuItemId: i.item.id, name: i.item.name, categoryId: i.item.categoryId, variantKey, variantLabel: i.variantLabel || '',
-    price, perKg: i.item.pricingType === 'weight', hasRecipe, usesDefault, lines,
-    ingredientCost: r2(ingredientCost), packagingCost: r2(packagingCost), productionCost: r2(productionCost),
-    grossProfit: r2(price - productionCost),
-    marginPct: price > 0 ? r1(((price - productionCost) / price) * 100) : null,
-    foodCostPct: price > 0 && hasRecipe ? r1((productionCost / price) * 100) : null,
-    warnings: [...new Set(warnings)],
+    price, perKg: i.item.pricingType === 'weight', hasRecipe, usesDefault, lines: c.lines,
+    ingredientCost: r2(c.ingredientCost), packagingCost: r2(c.packagingCost), productionCost: r2(c.productionCost),
+    grossProfit: r2(price - c.productionCost),
+    marginPct: price > 0 ? r1(((price - c.productionCost) / price) * 100) : null,
+    foodCostPct: price > 0 && hasRecipe ? r1((c.productionCost / price) * 100) : null,
+    warnings: c.warnings,
   };
 }
 

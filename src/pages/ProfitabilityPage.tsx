@@ -8,24 +8,16 @@ import { TrendingUp, TrendingDown, DollarSign, Trash2, Percent, Award } from 'lu
 import DateTimeRangeFilter, { DateTimeRange } from '@/components/DateTimeRangeFilter';
 import { getCurrentBusinessDay, getBusinessDayRange } from '@/lib/businessDay';
 
-import { toBaseQty } from '@/lib/units';
+import { recipeCostPerUnit, recipeFor } from '@/lib/recipeCosting';
 import { PageTitle } from '@/components/layout/PageFrame';
 
 function lineFoodCost(line: CartItem, recipes: Recipe[], inv: InventoryItem[]): number {
-  const recipe = recipes.find(r => r.menuItemId === line.menuItemId);
+  // the variant's own recipe when it has one, else the item's default — and the same cost the Costing page shows (waste and packaging included)
+  const vk = line.variantType && line.variantName ? `${line.variantType}:${line.variantName}` : '';
+  const { recipe } = recipeFor(recipes, line.menuItemId, vk);
   if (!recipe) return 0;
-  const multiplier = line.pricingType === 'weight'
-    ? (line.weightGrams || 0) / 1000
-    : (line.quantity || 0);
-  let cost = 0;
-  for (const c of recipe.components) {
-    const item = inv.find(i => i.id === c.inventoryItemId);
-    if (!item) continue;
-    const perBase = toBaseQty(item, c.quantity, c.unit);
-    const unitCost = item.avgCostPrice ?? item.costPrice ?? 0;
-    cost += unitCost * perBase * multiplier;
-  }
-  return cost;
+  const multiplier = line.pricingType === 'weight' ? (line.weightGrams || 0) / 1000 : (line.quantity || 0);
+  return recipeCostPerUnit(recipe, inv) * multiplier;
 }
 
 export default function ProfitabilityPage() {

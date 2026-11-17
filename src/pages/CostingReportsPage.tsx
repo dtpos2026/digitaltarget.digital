@@ -6,6 +6,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Printer, TrendingUp, Soup, Package, Boxes } from 'lucide-react';
 import { toBaseQty, getBaseUnit } from '@/lib/units';
+import { recipeCostPerUnit, recipeFor } from '@/lib/recipeCosting';
 import DateTimeRangeFilter, { DateTimeRange } from '@/components/DateTimeRangeFilter';
 import { getCurrentBusinessDay } from '@/lib/businessDay';
 
@@ -34,20 +35,8 @@ export default function CostingReportsPage() {
 
   const filteredOrders = orders.filter(o => inRange(o.createdAt));
 
-  /** Compute cost of 1 unit of a menu item using its recipe. */
-  const menuItemCost = (menuItemId: string): number => {
-    const r = recipeByMenu[menuItemId];
-    if (!r) return 0;
-    let cost = 0;
-    for (const c of r.components) {
-      const item = inv[c.inventoryItemId];
-      if (!item) continue;
-      const baseQty = toBaseQty(item, c.quantity, c.unit);
-      const unitCost = item.avgCostPrice ?? item.costPrice ?? 0;
-      cost += baseQty * unitCost;
-    }
-    return cost;
-  };
+  /** Cost of 1 unit of a menu item (or of its size) from its recipe: ingredients with waste allowance, plus packaging — the engine every screen uses. */
+  const menuItemCost = (menuItemId: string, variantKey = ''): number => recipeCostPerUnit(recipeFor(recipes, menuItemId, variantKey).recipe, inventory);
 
   // ===== Food Cost Report (per menu item) =====
   const foodCostRows = useMemo(() => {
@@ -57,7 +46,7 @@ export default function CostingReportsPage() {
         const m = map.get(it.menuItemId) || { name: it.name, qty: 0, sales: 0, cost: 0 };
         m.qty += it.pricingType === 'weight' ? ((it.weightGrams || 0) / 1000) : it.quantity;
         m.sales += it.lineTotal;
-        m.cost += menuItemCost(it.menuItemId) * (it.pricingType === 'weight' ? ((it.weightGrams || 0) / 1000) : it.quantity);
+        m.cost += menuItemCost(it.menuItemId, it.variantType && it.variantName ? `${it.variantType}:${it.variantName}` : '') * (it.pricingType === 'weight' ? ((it.weightGrams || 0) / 1000) : it.quantity);
         map.set(it.menuItemId, m);
       }
     }

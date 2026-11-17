@@ -13,7 +13,7 @@
 // ============================================================================
 import type { Order, Transaction, Wastage, Payslip, Recipe, InventoryItem, CreditPayment, Party, LedgerEntry } from './types';
 import { bucketize } from './sales';
-import { toBaseQty } from './units';
+import { recipeCostPerUnit } from './recipeCosting';
 
 export interface Period { fromMs: number; toMs: number }          // [from, to)
 
@@ -83,15 +83,12 @@ function recipeFor(recipes: Map<string, Recipe>, line: { menuItemId: string; var
   return (vk && recipes.get(`${line.menuItemId}|${vk}`)) || recipes.get(`${line.menuItemId}|`);
 }
 
-/** Cost of ONE unit of a menu item from its recipe, at the inventory's average cost. */
+/**
+ * Cost of ONE unit of a menu item from its recipe, at the inventory's average cost — with the recipe's waste allowance and packaging
+ * (v1.116.0: the one cost engine, lib/recipeCosting.ts, so this profit and loss, the Costing page and the reports agree).
+ */
 export function recipeUnitCost(recipe: Recipe, inventory: Map<string, InventoryItem>): number {
-  let cost = 0;
-  for (const c of recipe.components) {
-    const item = inventory.get(c.inventoryItemId);
-    if (!item) continue;
-    cost += toBaseQty(item, c.quantity, c.unit) * (item.avgCostPrice ?? item.costPrice ?? 0);
-  }
-  return cost;
+  return recipeCostPerUnit(recipe, inventory);
 }
 
 /** Categories that should not also be charged as an expense: stock purchases are already inside food cost. */
