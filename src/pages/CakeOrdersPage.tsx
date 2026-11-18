@@ -169,24 +169,43 @@ export default function CakeOrdersPage() {
       <MasterDetail title={current ? `${current.number} — ${current.customerName}` : 'Cake order'} open={!!current} onClose={() => setSelected(null)} emptyText="Select an order to see its payments and move it along." dialogClassName="sm:max-w-lg max-h-[90vh] overflow-y-auto" detail={panel}
         list={orders.length === 0 ? <EmptyState icon={<Cake />} title="No cake orders yet" hint="Take the first one: customer, the cake, the day it is needed and the advance." />
           : rows.length === 0 ? <EmptyState title="Nothing matches" hint="Change the search or the filter above." /> : (
+            <>
+            {/* phone: one card per order (a six-column table does not fit) */}
+            <div className="space-y-2 sm:hidden" data-cake-cards>
+              {rows.map(o => {
+                const due = DUE[dueState(o, today)];
+                return (
+                  <button key={o.id} type="button" onClick={() => setSelected(o.id)} data-cake-card={o.id} className={cn('block w-full rounded-xl border bg-card p-3 text-left', selected === o.id && 'border-primary bg-primary/5')}>
+                    <div className="flex items-center justify-between gap-2"><span className="font-extrabold">{o.number} · {o.customerName}</span><span className={cn('shrink-0 rounded-full px-2 py-0.5 text-xs font-bold', STATUS[o.status].cls)}>{STATUS[o.status].label}</span></div>
+                    <div className="mt-0.5 truncate text-sm text-muted-foreground">{o.description}</div>
+                    <div className="mt-2 flex items-center justify-between gap-2 text-sm">
+                      <span className="whitespace-nowrap">{o.dueDate}{o.dueTime ? ` ${o.dueTime}` : ''} {due && <span className={cn('ml-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold', due.cls)}>{due.label}</span>}</span>
+                      <span className="whitespace-nowrap tabular-nums"><b>{money(balanceOf(o))}</b> <span className="text-muted-foreground">of {money(o.total)}</span></span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="hidden sm:block">
             <Table data-cake-table>
-              <TableHeader><TableRow><TableHead>Order</TableHead><TableHead>Customer</TableHead><TableHead>Needed</TableHead><TableHead className="text-right">Total</TableHead><TableHead className="text-right">Balance</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
+              <TableHeader><TableRow><TableHead>Order</TableHead><TableHead>Customer</TableHead><TableHead>Needed</TableHead><TableHead className="text-right">Balance</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
               <TableBody>
                 {rows.map(o => {
                   const due = DUE[dueState(o, today)];
                   return (
                     <TableRow key={o.id} onClick={() => setSelected(o.id)} className={cn('cursor-pointer', selected === o.id && 'bg-primary/5')} data-cake-row={o.id}>
-                      <TableCell className="font-semibold">{o.number}</TableCell>
+                      <TableCell className="whitespace-nowrap font-semibold">{o.number}</TableCell>
                       <TableCell>{o.customerName}<div className="max-w-[16rem] truncate text-xs text-muted-foreground">{o.description}</div></TableCell>
-                      <TableCell>{o.dueDate}{o.dueTime ? ` ${o.dueTime}` : ''} {due && <span className={cn('ml-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold', due.cls)}>{due.label}</span>}</TableCell>
-                      <TableCell className="text-right tabular-nums">{money(o.total)}</TableCell>
-                      <TableCell className="text-right tabular-nums">{money(balanceOf(o))}</TableCell>
-                      <TableCell><span className={cn('rounded-full px-2 py-0.5 text-xs font-bold', STATUS[o.status].cls)}>{STATUS[o.status].label}</span></TableCell>
+                      <TableCell className="whitespace-nowrap">{o.dueDate}{o.dueTime ? ` ${o.dueTime}` : ''}{due && <div><span className={cn('rounded-full px-1.5 py-0.5 text-[10px] font-bold', due.cls)}>{due.label}</span></div>}</TableCell>
+                      <TableCell className="whitespace-nowrap text-right tabular-nums"><b>{money(balanceOf(o))}</b><div className="text-xs text-muted-foreground">of {money(o.total)}</div></TableCell>
+                      <TableCell className="whitespace-nowrap"><span className={cn('rounded-full px-2 py-0.5 text-xs font-bold', STATUS[o.status].cls)}>{STATUS[o.status].label}</span></TableCell>
                     </TableRow>
                   );
                 })}
               </TableBody>
             </Table>
+            </div>
+            </>
           )} />
 
       <Dialog open={!!draft} onOpenChange={o => !o && setDraft(null)}>

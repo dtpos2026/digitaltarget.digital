@@ -93,7 +93,7 @@ export default function PrepPanel() {
 
   return (
     <div className="space-y-4" data-prep-panel>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <p className="min-w-0 flex-1 text-sm text-muted-foreground">A prep item (dough, a sauce, a filling) is made from raw material and kept in stock. Make a batch and the raw material leaves stock, the prep item enters it at its real cost. Then use it as an ingredient in the menu recipes.</p>
         {canEdit && <Button size="sm" onClick={() => setEdit(blank())} data-prep-new><Plus className="mr-1 h-3.5 w-3.5" /> New prep recipe</Button>}
       </div>
@@ -101,6 +101,24 @@ export default function PrepPanel() {
       {preps.length === 0 ? (
         <EmptyState icon={<ChefHat />} title="No prep recipes yet" hint="Add one for dough, a sauce or a filling — say what goes in and how much comes out." />
       ) : (
+        <>
+        <div className="space-y-2 sm:hidden" data-prep-cards>
+          {preps.map(p => {
+            const made = byId.get(p.outputItemId);
+            const bad = prepIssues(p, inventory, preps);
+            return (
+              <div key={p.id} data-prep-card={p.id} className="rounded-xl border bg-card p-3">
+                <div className="flex items-center justify-between gap-2"><span className="font-extrabold">{made?.name ?? 'Item removed from stock'}</span>{bad.length > 0 && <Badge variant="destructive" className="text-[10px]">Needs attention</Badge>}</div>
+                <div className="mt-1 text-sm text-muted-foreground">{p.yieldQty} {p.yieldUnit} per batch · {made ? `${m2(prepCostPerUnit(p, inventory))}/${p.yieldUnit}` : '—'} · in stock {made ? `${qtyText(Number(made.quantity) || 0)} ${getBaseUnit(made)}` : '—'}</div>
+                <div className="mt-2 flex items-center gap-2">
+                  <Button size="sm" variant="outline" className="flex-1" disabled={!canEdit || bad.length > 0} onClick={() => openMake(p)} data-prep-make-card={p.id}>Make a batch</Button>
+                  <Button size="icon" variant="ghost" aria-label={`Edit ${made?.name ?? 'prep recipe'}`} onClick={() => setEdit(p)}><Pencil className="h-4 w-4" /></Button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="hidden sm:block">
         <Table data-prep-table>
           <TableHeader><TableRow><TableHead>Made item</TableHead><TableHead className="text-right">One batch makes</TableHead><TableHead className="text-right">Cost per unit</TableHead><TableHead className="text-right">In stock</TableHead><TableHead className="w-44" /></TableRow></TableHeader>
           <TableBody>
@@ -122,6 +140,8 @@ export default function PrepPanel() {
             })}
           </TableBody>
         </Table>
+        </div>
+        </>
       )}
 
       <div className="flex flex-wrap items-center gap-2 pt-2">
@@ -129,6 +149,16 @@ export default function PrepPanel() {
         <div className="ml-auto"><ReportActions build={reportDoc} disabled={history.length === 0} /></div>
       </div>
       {history.length === 0 ? <p className="text-sm text-muted-foreground" data-prep-no-history>No batch made yet.</p> : (
+        <>
+        <div className="space-y-2 sm:hidden" data-history-cards>
+          {history.map(b => (
+            <div key={b.id} data-batch-card={b.id} className="rounded-xl border bg-card p-3">
+              <div className="flex items-center justify-between gap-2"><span className="font-extrabold">{b.outputName}</span><span className="whitespace-nowrap font-bold tabular-nums">{qtyText(b.outputBaseQty)} {b.outputUnit}</span></div>
+              <div className="mt-1 text-sm text-muted-foreground">{b.date}{b.branchId ? ` · ${branches.find(x => x.id === b.branchId)?.name ?? ''}` : ''} · {m2(b.totalCost)} ({m2(b.unitCost)} per {b.outputUnit}){b.by ? ` · ${b.by}` : ''}{b.shortOf ? ` · short of ${b.shortOf.length}` : ''}</div>
+            </div>
+          ))}
+        </div>
+        <div className="hidden sm:block">
         <Table data-prep-history>
           <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Made</TableHead><TableHead className="text-right">Quantity</TableHead><TableHead className="text-right">Cost</TableHead><TableHead className="text-right">Per unit</TableHead><TableHead>By</TableHead></TableRow></TableHeader>
           <TableBody>
@@ -144,6 +174,8 @@ export default function PrepPanel() {
             ))}
           </TableBody>
         </Table>
+        </div>
+        </>
       )}
 
       {/* ---------------------------------------------------------------- editor */}
@@ -232,9 +264,9 @@ export default function PrepPanel() {
                   {plan.lines.map(l => (
                     <TableRow key={l.itemId} data-plan-line={l.itemId} className={l.short > 0 ? 'bg-destructive/10' : undefined}>
                       <TableCell>{l.name}</TableCell>
-                      <TableCell className="text-right tabular-nums">{qtyText(l.baseQty)} {l.unit}</TableCell>
-                      <TableCell className="text-right tabular-nums">{qtyText(l.available)} {l.unit}{l.short > 0 && <span className="ml-1 font-bold text-destructive" data-plan-short>short {qtyText(l.short)}</span>}</TableCell>
-                      <TableCell className="text-right tabular-nums">{m2(l.cost)}</TableCell>
+                      <TableCell className="whitespace-nowrap text-right tabular-nums">{qtyText(l.baseQty)} {l.unit}</TableCell>
+                      <TableCell className="whitespace-nowrap text-right tabular-nums">{qtyText(l.available)} {l.unit}{l.short > 0 && <span className="ml-1 font-bold text-destructive" data-plan-short>short {qtyText(l.short)}</span>}</TableCell>
+                      <TableCell className="whitespace-nowrap text-right tabular-nums">{m2(l.cost)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

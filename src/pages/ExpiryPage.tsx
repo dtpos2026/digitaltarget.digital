@@ -113,21 +113,36 @@ export default function ExpiryPage() {
       ) : rows.length === 0 ? (
         <EmptyState title="Nothing matches" hint="Change the search or the filters above." />
       ) : (
+        <>
+        <div className="space-y-2 sm:hidden" data-expiry-cards>
+          {rows.map(({ lot, days, status }) => (
+            <div key={lot.id} data-lot-card={lot.id} className="rounded-xl border bg-card p-3">
+              <div className="flex items-center justify-between gap-2"><span className="font-extrabold">{lot.itemName}</span><span className={cn('shrink-0 rounded-full px-2 py-0.5 text-xs font-bold', BADGE[status].cls)}>{BADGE[status].label(days)}</span></div>
+              <div className="mt-1 flex items-center justify-between gap-2 text-sm">
+                <span className="text-muted-foreground">Expires <b className="text-foreground">{lot.expiryDate ?? '—'}</b> · {SOURCE[lot.source] ?? lot.source} {lot.receivedAt}</span>
+                <span className="whitespace-nowrap tabular-nums"><b>{qty(lot.remaining)} {getBaseUnit(invMap.get(lot.inventoryItemId) ?? { unit: '' })}</b> · {money(lotValue(lot))}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="hidden sm:block">
         <Table data-expiry-table>
           <TableHeader><TableRow><TableHead>Item</TableHead><TableHead>Came in</TableHead><TableHead>Expires</TableHead><TableHead>Days left</TableHead><TableHead className="text-right">Remaining</TableHead><TableHead className="text-right">Value</TableHead></TableRow></TableHeader>
           <TableBody>
             {rows.map(({ lot, days, status }) => (
               <TableRow key={lot.id} data-lot-row={lot.id} data-lot-status={status}>
                 <TableCell className="font-semibold">{lot.itemName}</TableCell>
-                <TableCell>{lot.receivedAt} <span className="text-xs text-muted-foreground">· {SOURCE[lot.source] ?? lot.source}</span></TableCell>
-                <TableCell>{lot.expiryDate ?? '—'}</TableCell>
-                <TableCell><span className={cn('rounded-full px-2 py-0.5 text-xs font-bold', BADGE[status].cls)}>{BADGE[status].label(days)}</span></TableCell>
-                <TableCell className="text-right tabular-nums">{qty(lot.remaining)} {getBaseUnit(invMap.get(lot.inventoryItemId) ?? { unit: '' })}</TableCell>
+                <TableCell className="whitespace-nowrap">{lot.receivedAt} <span className="text-xs text-muted-foreground">· {SOURCE[lot.source] ?? lot.source}</span></TableCell>
+                <TableCell className="whitespace-nowrap">{lot.expiryDate ?? '—'}</TableCell>
+                <TableCell className="whitespace-nowrap"><span className={cn('rounded-full px-2 py-0.5 text-xs font-bold', BADGE[status].cls)}>{BADGE[status].label(days)}</span></TableCell>
+                <TableCell className="whitespace-nowrap text-right tabular-nums">{qty(lot.remaining)} {getBaseUnit(invMap.get(lot.inventoryItemId) ?? { unit: '' })}</TableCell>
                 <TableCell className="text-right tabular-nums">{money(lotValue(lot))}</TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
+        </div>
+        </>
       )}
 
       <Dialog open={confirm} onOpenChange={setConfirm}>

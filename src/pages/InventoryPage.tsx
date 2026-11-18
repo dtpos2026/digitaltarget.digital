@@ -48,6 +48,8 @@ export default function InventoryPage() {
   // v1.120.0 — the row's panel (master-detail): the item you tapped, with what its stock means; the tick boxes above are the bulk selection and are separate
   const [panelId, setPanelId] = useState<string | null>(null);
   const wide = useWideScreen();
+  // with the panel open beside the list the table is narrow: the panel already has Stock in / out / Edit, so the row drops SKU, Sale, Unit and the buttons
+  const compact = wide && !!panelId;
   const [statusFilter, setStatusFilter] = useState<'all' | 'ok' | 'low' | 'out' | 'active' | 'inactive'>('all');
   const [catFilter, setCatFilter] = useState<string>('all');
   const [bulkMoveOpen, setBulkMoveOpen] = useState(false);
@@ -328,19 +330,19 @@ export default function InventoryPage() {
               <tr className="border-b bg-muted/50">
                 <th className="py-2.5 px-3 w-8"><Checkbox checked={allVisibleSelected} onCheckedChange={toggleAllVisible} aria-label="Select all" /></th>
                 <th className="text-left py-2.5 px-3 font-bold">Item</th>
-                <th className="text-left py-2.5 px-3 font-bold">SKU</th>
+                {!compact && <th className="text-left py-2.5 px-3 font-bold">SKU</th>}
                 <th className="text-left py-2.5 px-3 font-bold">Category</th>
-                <th className="text-right py-2.5 px-3 font-bold">Avg Cost / Unit</th>
-                <th className="text-right py-2.5 px-3 font-bold">Sale</th>
+                <th className="text-right py-2.5 px-3 font-bold whitespace-nowrap">Avg Cost / Unit</th>
+                {!compact && <th className="text-right py-2.5 px-3 font-bold">Sale</th>}
                 <th className="text-center py-2.5 px-3 font-bold">Stock</th>
-                <th className="text-center py-2.5 px-3 font-bold">Unit</th>
+                {!compact && <th className="text-center py-2.5 px-3 font-bold">Unit</th>}
                 <th className="text-center py-2.5 px-3 font-bold">Status</th>
-                <th className="text-center py-2.5 px-3 font-bold">Actions</th>
+                {!compact && <th className="text-center py-2.5 px-3 font-bold">Actions</th>}
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={10} className="text-center py-8 text-muted-foreground">No inventory items found. Click "Add Item" to start.</td></tr>
+                <tr><td colSpan={compact ? 6 : 10} className="text-center py-8 text-muted-foreground">No inventory items found. Click "Add Item" to start.</td></tr>
               ) : (
                 filtered.map((item, idx) => {
                   const cat = categories.find(c => c.id === item.categoryId);
@@ -350,16 +352,16 @@ export default function InventoryPage() {
                     <tr key={item.id} onClick={() => setPanelId(item.id)} data-inventory-row={item.id} className={`border-b hover:bg-accent/30 transition-colors cursor-pointer ${panelId === item.id ? 'bg-primary/5' : selected.has(item.id) ? 'bg-violet-50 dark:bg-violet-950/30' : idx % 2 === 0 ? '' : 'bg-muted/20'}`}>
                       <td className="py-2 px-3" onClick={e => e.stopPropagation()}><Checkbox checked={selected.has(item.id)} onCheckedChange={() => toggleOne(item.id)} aria-label={`Select ${item.name}`} /></td>
                       <td className="py-2 px-3 font-semibold">{item.name}</td>
-                      <td className="py-2 px-3 text-muted-foreground font-mono text-xs">{item.sku}</td>
-                      <td className="py-2 px-3">{cat ? `${cat.icon} ${cat.name}` : '—'}</td>
-                        <td className="py-2 px-3 text-right">{money((item.avgCostPrice ?? item.costPrice ?? 0))} / {getBaseUnit(item)}</td>
-                      <td className="py-2 px-3 text-right font-bold text-primary">{money(item.salePrice)}</td>
+                      {!compact && <td className="py-2 px-3 text-muted-foreground font-mono text-xs">{item.sku}</td>}
+                      <td className="py-2 px-3 whitespace-nowrap">{cat ? `${cat.icon} ${cat.name}` : '—'}</td>
+                        <td className="py-2 px-3 text-right whitespace-nowrap">{money((item.avgCostPrice ?? item.costPrice ?? 0))} / {getBaseUnit(item)}</td>
+                      {!compact && <td className="py-2 px-3 text-right font-bold text-primary">{money(item.salePrice)}</td>}
                       <td className="py-2 px-3 text-center">
                         <span className={`font-bold ${isOut ? 'text-destructive' : isLow ? 'text-status-warning' : 'text-status-success'}`}>
                           {item.quantity}
                         </span>
                       </td>
-                      <td className="py-2 px-3 text-center text-muted-foreground">{item.unit}</td>
+                      {!compact && <td className="py-2 px-3 text-center text-muted-foreground">{item.unit}</td>}
                       <td className="py-2 px-3 text-center">
                         {isOut ? (
                           <Badge className="bg-destructive/20 text-destructive border-destructive/30 text-[10px]">Out</Badge>
@@ -369,7 +371,7 @@ export default function InventoryPage() {
                           <Badge className="bg-status-success/20 text-status-success border-status-success/30 text-[10px]">OK</Badge>
                         )}
                       </td>
-                      <td className="py-2 px-3" onClick={e => e.stopPropagation()}>
+                      {!compact && <td className="py-2 px-3" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-center gap-1">
                           <Button size="sm" variant="outline" className="h-7 text-[10px] px-2 text-status-success border-status-success/30 hover:bg-status-success/10"
                             onClick={() => openStockAdjust(item, 'in')}>
@@ -386,7 +388,7 @@ export default function InventoryPage() {
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </div>
-                      </td>
+                      </td>}
                     </tr>
                   );
                 })

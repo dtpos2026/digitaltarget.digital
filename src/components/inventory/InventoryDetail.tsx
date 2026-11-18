@@ -27,7 +27,7 @@ export default function InventoryDetail({ item, logs, categoryName, onStock, onE
   const soonest = lots.filter(l => l.expiryDate).sort((a, b) => (a.expiryDate! < b.expiryDate! ? -1 : 1))[0];
   const moves = recentMovements(logs, item.id);
   return (
-    <div className="space-y-4" data-inventory-panel={item.id}>
+    <div className="min-w-0 space-y-4 break-words" data-inventory-panel={item.id}>
       <div className="flex flex-wrap items-center gap-2">
         <span className={cn('rounded-full px-2 py-0.5 text-xs font-bold', STATUS[st].cls)} data-panel-status={st}>{STATUS[st].label}</span>
         {item.isActive === false && <Badge variant="outline">Inactive</Badge>}
@@ -60,7 +60,7 @@ export default function InventoryDetail({ item, logs, categoryName, onStock, onE
         <h4 className="mb-1 text-xs font-extrabold uppercase tracking-wider text-muted-foreground">Latest movements</h4>
         {moves.length === 0 ? <p className="text-sm text-muted-foreground">Nothing has moved yet.</p> : (
           <ul className="space-y-0.5 text-sm">
-            {moves.map(m => <li key={m.id} className="flex justify-between gap-2"><span className="min-w-0 truncate"><b>{MOVE[m.type] ?? m.type}</b> · {new Date(m.date).toLocaleDateString('en-PK')} · <span className="text-muted-foreground">{m.note}</span></span><span className="tabular-nums">{m.type === 'in' ? '+' : m.type === 'adjustment' ? '' : '−'}{qty(Number(m.quantity) || 0)}</span></li>)}
+            {moves.map(m => <li key={m.id} className="flex min-w-0 justify-between gap-2"><span className="min-w-0 truncate"><b>{MOVE[m.type] ?? m.type}</b> · {new Date(m.date).toLocaleDateString('en-PK')} · <span className="text-muted-foreground">{m.note}</span></span><span className="tabular-nums">{m.type === 'in' ? '+' : m.type === 'adjustment' ? '' : '−'}{qty(Number(m.quantity) || 0)}</span></li>)}
           </ul>
         )}
       </section>

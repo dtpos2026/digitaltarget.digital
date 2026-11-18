@@ -147,6 +147,25 @@ export default function RecipeCostingPage() {
             emptyText="Select an item to see where its cost goes and what price reaches your target." dialogClassName="sm:max-w-md max-h-[90vh] overflow-y-auto"
             detail={panel}
             list={rows.length === 0 ? <EmptyState icon={<Calculator />} title="Nothing to show" hint="Add recipes to your menu items, or change the filters." /> : (
+              <>
+              {/* phone: one card per item — the six-column table does not fit */}
+              <div className="space-y-2 sm:hidden" data-cost-cards>
+                {rows.map(c => {
+                  const st = foodCostStatus(c, target);
+                  return (
+                    <button key={rowKey(c)} type="button" data-cost-card={rowKey(c)} onClick={() => { setSelected(rowKey(c)); setWhatIf(''); }} className={cn('block w-full rounded-xl border bg-card p-3 text-left', selected === rowKey(c) && 'border-primary bg-primary/5')}>
+                      <div className="flex items-center justify-between gap-2"><span className="font-extrabold">{c.name}{c.variantLabel && <span className="ml-1.5 text-xs font-normal text-muted-foreground">{c.variantLabel}</span>}</span><Badge className={cn('shrink-0 text-[10px]', STATUS[st].cls)}>{STATUS[st].label}</Badge></div>
+                      <div className="mt-1 grid grid-cols-4 gap-1 text-center text-xs">
+                        <div><div className="text-[10px] font-bold uppercase text-muted-foreground">Cost</div><div className="font-bold tabular-nums">{c.hasRecipe ? money(c.productionCost) : '—'}</div></div>
+                        <div><div className="text-[10px] font-bold uppercase text-muted-foreground">Price</div><div className="font-bold tabular-nums">{money(c.price)}</div></div>
+                        <div><div className="text-[10px] font-bold uppercase text-muted-foreground">Profit</div><div className={cn('font-bold tabular-nums', c.hasRecipe && c.grossProfit < 0 && 'text-destructive')}>{c.hasRecipe ? money(c.grossProfit) : '—'}</div></div>
+                        <div><div className="text-[10px] font-bold uppercase text-muted-foreground">Food cost</div><div className="font-bold tabular-nums">{c.foodCostPct === null ? '—' : `${c.foodCostPct}%`}</div></div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="hidden sm:block">
               <Table data-cost-table>
                 <TableHeader>
                   <TableRow>
@@ -170,6 +189,8 @@ export default function RecipeCostingPage() {
                   })}
                 </TableBody>
               </Table>
+              </div>
+              </>
             )}
           />
         </TabsContent>

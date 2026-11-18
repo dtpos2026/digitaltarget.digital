@@ -6,6 +6,7 @@ import {
   ZoomIn, ZoomOut, Package, LogOut, Wallet, UserCog, MessageCircle, Megaphone,
   Smartphone, ChevronDown, BookOpen, Trash2, Contact, Building2, TrendingUp,
   Percent, Layers, MapPin, Bell, Receipt, RotateCcw, Globe, Lock, Bike, Edit3, UserX, HandCoins, RefreshCw, Ticket, Printer,
+  Cake, CalendarClock, ClipboardCheck, Wheat, Calculator, ShieldCheck, Clock, ScanBarcode, CalendarCheck, ShieldAlert, Crown,
 } from 'lucide-react';
 import { getSettings, getUsers, getBranches, getCurrentBranchId, setCurrentBranchId, canSwitchBranch, onDataChange } from '@/lib/store';
 import { loadBranchAccess, filterAllowedBranches, isBranchAllowed } from '@/lib/branchAccess';
@@ -78,6 +79,11 @@ const ICON_BY_KEY: Record<string, any> = {
   'live-map': MapPin,
   'live-riders': MapPin,
   riders: Bike,
+  // v1.120.1 — these pages had no icon here and all showed the shopping trolley
+  'cake-orders': Cake, expiry: CalendarClock, 'stock-count': ClipboardCheck, 'production-plan': Wheat, 'recipe-costing': Calculator, 'rights-matrix': ShieldCheck,
+  refund: RotateCcw, 'rider-app': Bike, 'credit-customers': Contact, 'owner-management': Crown, 'owner-app': Smartphone, itemSalesReport: BarChart3, praEims: FileText,
+  moduleManagement: Layers, shifts: Clock, dataIntegrity: ShieldAlert, barcode: ScanBarcode, procurement: Truck, financials: TrendingUp,
+  'branch-performance': BarChart3, 'branch-management': Building2, 'day-close': CalendarCheck,
 };
 
 interface Props {

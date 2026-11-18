@@ -89,7 +89,7 @@ export default function RulesPanel({ team, me, canEdit, applyRights }: { team: U
 
   return (
     <div className="space-y-5" data-rules-panel>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <p className="min-w-0 flex-1 text-sm text-muted-foreground">A <b>limit</b> narrows a right someone already has (only in one branch, only 10:00–22:00, only on some days). A <b>temporary grant</b> gives a right for a time and place, then ends by itself. An admin is never limited.</p>
         {canEdit && <Button size="sm" onClick={() => setDraft(blank())} data-rule-new><Plus className="mr-1 h-3.5 w-3.5" /> New rule</Button>}
       </div>
@@ -100,13 +100,13 @@ export default function RulesPanel({ team, me, canEdit, applyRights }: { team: U
           {pending.map(r => {
             const may = me ? mayDecide(me, r) : { ok: false };
             return (
-              <div key={r.id} className="flex flex-wrap items-center gap-2 rounded-xl border bg-card p-3" data-request={r.id}>
-                <div className="min-w-0 flex-1"><div className="font-semibold">{r.summary}</div><div className="text-xs text-muted-foreground">Asked by {r.requestedByName} · {r.createdAt.slice(0, 10)}{r.reason ? ` · “${r.reason}”` : ''}</div></div>
-                {may.ok ? (<>
-                  <Input placeholder="Note (optional)" value={note[r.id] ?? ''} onChange={e => setNote(n => ({ ...n, [r.id]: e.target.value }))} className="h-8 w-44" />
+              <div key={r.id} className="flex flex-col gap-2 rounded-xl border bg-card p-3 sm:flex-row sm:flex-wrap sm:items-center" data-request={r.id}>
+                <div className="min-w-0 flex-1 basis-full sm:basis-0"><div className="font-semibold">{r.summary}</div><div className="text-xs text-muted-foreground">Asked by {r.requestedByName} · {r.createdAt.slice(0, 10)}{r.reason ? ` · “${r.reason}”` : ''}</div></div>
+                {may.ok ? (<div className="flex flex-wrap items-center gap-2">
+                  <Input placeholder="Note (optional)" value={note[r.id] ?? ''} onChange={e => setNote(n => ({ ...n, [r.id]: e.target.value }))} className="h-8 w-full sm:w-44" />
                   <Button size="sm" onClick={() => void decide(r, true)} data-request-approve={r.id}>Approve</Button>
                   <Button size="sm" variant="outline" onClick={() => void decide(r, false)} data-request-reject={r.id}>Reject</Button>
-                </>) : <Badge variant="secondary" data-request-waiting>Waiting for an admin</Badge>}
+                </div>) : <Badge variant="secondary" data-request-waiting>Waiting for an admin</Badge>}
               </div>
             );
           })}
@@ -116,6 +116,20 @@ export default function RulesPanel({ team, me, canEdit, applyRights }: { team: U
       <section className="space-y-2">
         <h3 className="text-sm font-extrabold uppercase tracking-wider text-muted-foreground">Rules in force</h3>
         {rules.length === 0 ? <EmptyState icon={<CalendarClock />} title="No rules yet" hint="Everyone has exactly the rights on the other two tabs, in every branch, at every hour." /> : (
+          <>
+          <div className="space-y-2 sm:hidden" data-rules-cards>
+            {rules.map(r => {
+              const ended = r.mode === 'grant' && !!r.validUntil && r.validUntil < today;
+              return (
+                <div key={r.id} data-rule-card={r.id} className="rounded-xl border bg-card p-3">
+                  <div className="flex items-center justify-between gap-2"><span className="font-extrabold">{r.userName} · {rightTitle(r.kind, r.key)}</span><Badge variant={r.mode === 'limit' ? 'outline' : 'secondary'} className="shrink-0">{r.mode === 'limit' ? 'Limit' : 'Grant'}{ended ? ' · ended' : ''}</Badge></div>
+                  <div className="mt-1 text-sm text-muted-foreground">{describeScope(r, branchName)}{r.reason ? ` — ${r.reason}` : ''}</div>
+                  {canEdit && <Button size="sm" variant="ghost" className="mt-1 h-7 px-2" onClick={() => revoke(r)}>Remove</Button>}
+                </div>
+              );
+            })}
+          </div>
+          <div className="hidden sm:block">
           <Table data-rules-table>
             <TableHeader><TableRow><TableHead>Person</TableHead><TableHead>Rule</TableHead><TableHead>Right</TableHead><TableHead>Where and when</TableHead><TableHead className="w-24" /></TableRow></TableHeader>
             <TableBody>
@@ -133,6 +147,8 @@ export default function RulesPanel({ team, me, canEdit, applyRights }: { team: U
               })}
             </TableBody>
           </Table>
+          </div>
+          </>
         )}
       </section>
 
