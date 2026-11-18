@@ -105,22 +105,57 @@
 }
 :is(:root[data-ui="modern"][data-ui-theme="dt-refined"], :root[data-app="otk"]) [data-pos-card-qty] { top: 16px; right: 16px; height: 24px; min-width: 24px; font-size: 12px; }
 
-/* ---------- categories: icon tiles in a row (the reference's "Choose Category") ---------- */
-:is(:root[data-ui="modern"][data-ui-theme="dt-refined"], :root[data-app="otk"]) .cat-ribbon { gap: 10px; padding-top: 12px; padding-bottom: 12px; }
-:is(:root[data-ui="modern"][data-ui-theme="dt-refined"], :root[data-app="otk"]) .cat-ribbon .cat-pill {
+/* ---------- categories: icon tiles in a row (the phone Order Taker; the desktop look below follows the design package) ---------- */
+:root[data-app="otk"] .cat-ribbon { gap: 10px; padding-top: 12px; padding-bottom: 12px; }
+:root[data-app="otk"] .cat-ribbon .cat-pill {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; flex: 0 0 auto;
   min-width: 78px; height: 78px; padding: 8px 10px; border-radius: 16px; border: 1px solid hsl(var(--border));
   background: hsl(var(--card)); color: hsl(var(--foreground)); font-size: 12px; font-weight: 600; box-shadow: var(--ui-shadow-xs);
 }
-:is(:root[data-ui="modern"][data-ui-theme="dt-refined"], :root[data-app="otk"]) .cat-ribbon .cat-pill [data-cat-icon] { display: grid; place-items: center; font-size: 22px; line-height: 1; color: hsl(var(--primary)); }
-:is(:root[data-ui="modern"][data-ui-theme="dt-refined"], :root[data-app="otk"]) .cat-ribbon .cat-pill img { height: 28px; width: 28px; }
-:is(:root[data-ui="modern"][data-ui-theme="dt-refined"], :root[data-app="otk"]) .cat-ribbon .cat-grid-btn { min-width: 44px; width: 44px; height: 44px; padding: 0; align-self: center; border-radius: 12px; }
-:is(:root[data-ui="modern"][data-ui-theme="dt-refined"], :root[data-app="otk"]) .cat-ribbon .cat-pill [data-cat-count] { display: none; }
-:is(:root[data-ui="modern"][data-ui-theme="dt-refined"], :root[data-app="otk"]) .cat-ribbon .cat-pill[data-active="true"] {
+:root[data-app="otk"] .cat-ribbon .cat-pill [data-cat-icon] { display: grid; place-items: center; font-size: 22px; line-height: 1; color: hsl(var(--primary)); }
+:root[data-app="otk"] .cat-ribbon .cat-pill img { height: 28px; width: 28px; }
+:root[data-app="otk"] .cat-ribbon .cat-grid-btn { min-width: 44px; width: 44px; height: 44px; padding: 0; align-self: center; border-radius: 12px; }
+:root[data-app="otk"] .cat-ribbon .cat-pill [data-cat-count] { display: none; }
+:root[data-app="otk"] .cat-ribbon .cat-pill[data-active="true"] {
   background: hsl(var(--primary)); border-color: hsl(var(--primary)); color: hsl(var(--primary-foreground));
   box-shadow: 0 8px 18px -8px hsl(var(--primary) / .7);
 }
-:is(:root[data-ui="modern"][data-ui-theme="dt-refined"], :root[data-app="otk"]) .cat-ribbon .cat-pill[data-active="true"] [data-cat-icon] { color: hsl(var(--primary-foreground)); }
+:root[data-app="otk"] .cat-ribbon .cat-pill[data-active="true"] [data-cat-icon] { color: hsl(var(--primary-foreground)); }
+
+:root[data-app="otk"] .cat-ribbon .cat-pill [data-cat-sub] { display: none; }
+:root[data-app="otk"] .cat-ribbon .cat-pill [data-cat-name] { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; max-width: 112px; text-align: center; line-height: 1.15; }
+
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-pos-card-add] {
+  width: 32px; height: 32px; padding: 0; justify-content: center; border-radius: 999px;
+  background: hsl(var(--dt-accent-tint)); color: hsl(var(--primary));
+}
+
+/* ---------- categories, v1.126.0 — the design package's POS (SW-03): ONE ROW OF PILLS above the grid ----------
+   design-project/02-restaurant-software/screens/sw-03.html:  .chip { height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--border);
+   background: var(--surface); font: 600 13px; white-space: nowrap }  .chip.on { background: var(--accent); color: #fff }  inside `.row.wrap` (it wraps).
+   Text only: no icon, no count, no Urdu line (it is the hover text and is in the All Categories picker). */
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-cat-ribbon] { border-bottom: 0; background: transparent; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-cat-ribbon] > button[aria-label^="Scroll categories"] { display: none; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) .cat-ribbon {
+  flex-wrap: wrap; align-items: center; gap: 8px; overflow-x: hidden; overflow-y: auto; max-height: 132px; padding: 14px 20px 2px;
+}
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) .cat-ribbon .cat-pill {
+  display: inline-flex; flex-direction: row; align-items: center; justify-content: center; gap: 6px; flex: 0 0 auto;
+  height: 32px; min-width: 0; padding: 0 12px; border-radius: 999px; border: 1px solid hsl(var(--border));
+  background: hsl(var(--card)); color: hsl(var(--foreground)); font-size: 13px; font-weight: 600; white-space: nowrap; box-shadow: none;
+}
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) .cat-ribbon .cat-pill:hover { border-color: hsl(var(--primary) / .5); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) .cat-ribbon .cat-pill [data-cat-icon],
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) .cat-ribbon .cat-pill [data-cat-count],
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) .cat-ribbon .cat-pill [data-cat-sub],
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) .cat-ribbon .cat-pill img { display: none; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) .cat-ribbon .cat-pill [data-cat-name] { display: inline; max-width: 22ch; overflow: hidden; text-overflow: ellipsis; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) .cat-ribbon .cat-pill[data-active="true"] {
+  background: hsl(var(--primary)); border-color: hsl(var(--primary)); color: hsl(var(--primary-foreground)); box-shadow: none;
+}
+/* the All Categories button (the owner's 4-box picker) is a pill too: the same 32px, a square one */
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) .cat-ribbon .cat-pill.cat-grid-btn { width: 32px; min-width: 32px; padding: 0; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) .cat-ribbon .cat-pill.cat-grid-btn svg { display: block; }
 
 /* ---------- cart lines: the item's photo (or its icon) leads the line ---------- */
 :root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-line-row] { gap: 10px; }

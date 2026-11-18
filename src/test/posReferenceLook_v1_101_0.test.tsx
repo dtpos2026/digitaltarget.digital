@@ -90,20 +90,21 @@ describe('the POS, mounted', () => {
   beforeEach(() => { cleanup(); localStorage.clear(); seed(); });
   afterEach(() => cleanup());
 
-  it('DT Refined: cards carry the category line and an Add pill; categories are icon tiles; lines lead with a thumbnail', async () => {
+  it('DT Refined (the design package, SW-03): cards are a tile, a name, a price and one soft + button; categories are one row of pills; lines lead with a thumbnail', async () => {
     setUiStyle('modern'); setTheme(REFINED_THEME_ID);
     const { container } = await mountPos();
     const cards = [...container.querySelectorAll('[data-pos-card]')];
     expect(cards.length).toBe(2);
-    expect(cards.map(c => c.querySelector('[data-pos-card-sub]')?.textContent).sort()).toEqual(['Burgers', 'Drinks']);
-    expect(cards.every(c => /Add/.test(c.querySelector('[data-pos-card-add]')?.textContent || ''))).toBe(true);
+    // v1.126.0 — the design's card has no category line under the name and no "Add" word on its button (a soft round + only)
+    expect(cards.every(c => c.querySelector('[data-pos-card-sub]') === null)).toBe(true);
+    expect(cards.every(c => !!c.querySelector('[data-pos-card-add] svg') && !/Add/.test(c.querySelector('[data-pos-card-add]')?.textContent || ''))).toBe(true);
     // the item with a photo shows it; the one without gets the tinted tile with an icon
     expect(container.querySelectorAll('[data-pos-card-image] img').length).toBe(1);
     expect(container.querySelectorAll('[data-pos-card-image][data-initials] svg').length).toBe(1);
-    // every category tile (All + two) carries an outline icon and its own name
+    // the categories: All + two, each with its own name (the look draws them as text-only pills; the icon markup stays for the phone Order Taker's tiles)
     const tiles = [...container.querySelectorAll('.cat-ribbon .cat-pill:not(.cat-grid-btn)')];
     expect(tiles.map(t => t.querySelector('[data-cat-name]')?.textContent)).toEqual(['All', 'Burgers', 'Drinks']);
-    expect(tiles.every(t => !!t.querySelector('[data-cat-icon] svg'))).toBe(true);
+    expect(container.querySelector('[data-cat-ribbon]')).not.toBeNull();
 
     fireEvent.click(cards[0]);
     const thumb = container.querySelector('[data-pos-line-thumb]');

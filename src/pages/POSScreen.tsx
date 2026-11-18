@@ -43,6 +43,7 @@ import { tileHue, tileInitials } from '@/lib/tileLook';
 import { useThemeId, useUiStyle } from '@/lib/uiStyle';
 import { isRefinedTheme } from '@/lib/uiThemes';
 import { iconFor } from '@/lib/websiteHome';
+import { splitCategoryName } from '@/lib/categoryName';
 import { TileIconView } from '@/components/website/siteBits';
 import { usePosLayout } from '@/hooks/usePosLayout';
 import { enqueueKot, enqueueReceipt, enqueueKotUpdate, enqueueKotCancel, computeKotDiff, enqueueKotByPolicy, printOnHold, holdMessage, kotRecentlyQueued } from '@/lib/printQueue';
@@ -315,6 +316,11 @@ export default function POSScreen() {
   const refined = modern && isRefinedTheme(useThemeId());
   // v1.104.0 — the phone Order Taker takes the same photo-first cards and category tiles (in its own teal); the rest of the Refined panel stays Refined.
   const photoLook = refined || isOrderTaker;
+  // v1.126.0 — the design package's POS (SW-03): the categories are ONE ROW OF PILLS above the item grid. DT Refined shows exactly that, whatever
+  // "Category position" the restaurant saved (that choice still applies to the other looks, and is not changed). The phone Order Taker keeps its own tiles.
+  const designCategoriesOnTop = refined && !isOrderTaker;
+  // …and its item card is a tile, the name, the price and one soft "+" button: no category line under the name, no "Add" word
+  const designCard = refined && !isOrderTaker;
   const [showDisc, setShowDisc] = useState(false);
   const [showKeypad, setShowKeypad] = useState(false);
   const [showCash, setShowCash] = useState(false);
@@ -326,11 +332,11 @@ export default function POSScreen() {
   // its own grid classes, so nothing changes for a restaurant that has not chosen a modern theme.
   const posRootRef = useRef<HTMLDivElement | null>(null);
   const { layout } = usePosLayout(posRootRef, {
-    categoryLayoutSetting: ((settings.categoryLayout as string) === 'side' ? 'side' : (settings.categoryLayout as string) === 'right' ? 'right' : 'top'),
+    categoryLayoutSetting: designCategoriesOnTop ? 'top' : ((settings.categoryLayout as string) === 'side' ? 'side' : (settings.categoryLayout as string) === 'right' ? 'right' : 'top'),
     preferredColumns: settings.menuGridColumns || 6,
     photoCards: photoLook,
   });
-  const catPlacement: 'top' | 'side' | 'right' = modern ? layout.categoryPlacement : ((settings.categoryLayout || 'top') === 'side' ? 'side' : 'top');
+  const catPlacement: 'top' | 'side' | 'right' = designCategoriesOnTop ? 'top' : modern ? layout.categoryPlacement : ((settings.categoryLayout || 'top') === 'side' ? 'side' : 'top');
   const legacyGridClass = ({
     3: 'grid grid-cols-2 sm:grid-cols-3 gap-3',
     4: 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3',
@@ -1462,7 +1468,7 @@ export default function POSScreen() {
 
         {/* CATEGORY RIBBON — horizontal pills with scroll arrows (TOP layout only) */}
         {catPlacement === 'top' && (
-        <div className="relative border-b-2 border-border/60 bg-card/40 shrink-0">
+        <div data-cat-ribbon className="relative border-b-2 border-border/60 bg-card/40 shrink-0">
           <button
             type="button"
             onClick={() => scrollCatRibbon('left')}
@@ -1510,6 +1516,7 @@ export default function POSScreen() {
                   data-active={selectedCat === cat.id}
                   className="cat-pill flex items-center gap-1.5 shrink-0"
                   style={{ ...catFontStyle, ['--cat-c' as string]: categoryDotColor(catIndex) }}
+                  title={cat.name}
                 >
                   {cat.image ? (
                     <img src={cat.image} alt={cat.name} className="h-5 w-5 rounded-full object-cover" />
@@ -1521,7 +1528,10 @@ export default function POSScreen() {
                         : <span data-cat-icon className="text-sm">{cat.icon}</span>}
                     </>
                   )}
-                  <span data-cat-name>{cat.name}</span>
+                  {(() => { const label = splitCategoryName(cat.name); return (<>
+                    <span data-cat-name>{label.primary}</span>
+                    {label.secondary && <span data-cat-sub dir="rtl" className="ms-1 text-[0.85em] font-medium opacity-75">{label.secondary}</span>}
+                  </>); })()}
                   {modern && <span data-cat-count>{catCounts.byCat.get(cat.id) || 0}</span>}
                 </button>
               );
@@ -1592,7 +1602,12 @@ export default function POSScreen() {
                         <span data-cat-icon className="text-sm shrink-0">{cat.icon}</span>
                       </>
                     )}
-                    <span data-cat-name className="min-w-0 text-left leading-snug break-words">{cat.name}</span>
+                    {(() => { const label = splitCategoryName(cat.name); return (
+                      <span data-cat-label className="min-w-0 flex-1 text-left">
+                        <span data-cat-name className="block min-w-0 text-left leading-snug break-words">{label.primary}</span>
+                        {label.secondary && <span data-cat-sub dir="rtl" className="block min-w-0 truncate text-left leading-snug">{label.secondary}</span>}
+                      </span>
+                    ); })()}
                     {modern && <span data-cat-count>{catCounts.byCat.get(cat.id) || 0}</span>}
                   </button>
                 );
@@ -1706,7 +1721,7 @@ export default function POSScreen() {
               )}
               <div data-pos-card-body className="p-2.5">
                 <p data-pos-card-name className="text-xs font-bold text-foreground truncate leading-tight" style={itemFontStyle}>{item.name}</p>
-                {photoLook && <p data-pos-card-sub className="truncate">{categoryById.get(item.categoryId)?.name || ''}</p>}
+                {photoLook && !designCard && <p data-pos-card-sub className="truncate" title={categoryById.get(item.categoryId)?.name || ''}>{splitCategoryName(categoryById.get(item.categoryId)?.name || '').primary}</p>}
                 {item.categoryId === DEALS_CATEGORY_ID && (() => {
                   const deal = dealsById.get(item.id);
                   if (!deal || !deal.items?.length) return null;
@@ -1742,7 +1757,7 @@ export default function POSScreen() {
                     <span className="text-xs font-bold text-status-warning">Manual</span>
                   )}
                   {(modern || photoLook) && (
-                    <div data-pos-card-add className="rounded-full bg-primary/10 p-1 text-primary"><Plus className="h-3.5 w-3.5" />{photoLook && <span>Add</span>}</div>
+                    <div data-pos-card-add className="rounded-full bg-primary/10 p-1 text-primary"><Plus className="h-3.5 w-3.5" />{photoLook && !designCard && <span>Add</span>}</div>
                   )}
                 </div>
               </div>
@@ -2798,6 +2813,7 @@ export default function POSScreen() {
         counts={catCounts}
         selected={selectedCat}
         onSelect={id => setSelectedCat(id)}
+        iconStyle={photoLook ? 'tile' : 'emoji'}
         fontStyle={(() => {
           const f = settings.categoryStyle;
           return f && f.font !== 'default' ? {

@@ -80,7 +80,8 @@ describe('the POS category controls', () => {
     expect(pos).toMatch(/cat-ribbon flex gap-2 overflow-x-auto/);
   });
   it('never truncates a side-panel category name', () => {
-    expect(pos).toMatch(/<span data-cat-name className="min-w-0 text-left leading-snug break-words">\{cat\.name\}<\/span>/);
+    // v1.126.0 — the name is split ("English (اردو)" → the English name, then the Urdu one on its own line); it still wraps, never truncates
+    expect(pos).toMatch(/<span data-cat-name className="block min-w-0 text-left leading-snug break-words">\{label\.primary\}<\/span>/);
     expect(pos).not.toMatch(/<span className="truncate text-left">\{cat\.name\}<\/span>/);
     expect(css).toMatch(/\.cat-pill\.cat-pill-side \{\s*white-space: normal;/);
     expect(css).toMatch(/\.cat-pill\.cat-grid-btn \{/);

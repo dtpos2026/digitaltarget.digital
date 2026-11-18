@@ -1954,7 +1954,7 @@ export default function SettingsPage() {
                   <option value="top">Top — horizontal ribbon (default)</option>
                   <option value="side">Side — left vertical sidebar</option>
                 </select>
-                <p className="text-[10px] text-muted-foreground mt-1">Choose where the categories sit: above the menu (ribbon) or beside it (sidebar).</p>
+                <p className="text-[10px] text-muted-foreground mt-1">Choose where the categories sit: above the menu (ribbon) or beside it (sidebar). The DT Refined look follows the design and always shows them on top, as one row of pills; this choice applies to the other looks.</p>
               </div>
             </div>
           </div>
