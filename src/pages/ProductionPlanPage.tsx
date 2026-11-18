@@ -15,6 +15,7 @@ import { scopeToBranch } from '@/lib/cashierScope';
 import { buildPlan, localDay, planAsCsv, planAsText } from '@/lib/productionPlan';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ProductionSheetPanel from '@/components/production/ProductionSheetPanel';
+import PrepPanel from '@/components/production/PrepPanel';
 import ReportActions from '@/components/ReportActions';
 import type { ReportDoc } from '@/lib/reportExport';
 import { cn } from '@/lib/utils';
@@ -101,6 +102,7 @@ export default function ProductionPlanPage() {
         <TabsList>
           <TabsTrigger value="plan" data-tab-plan>Plan</TabsTrigger>
           <TabsTrigger value="sheet" data-tab-sheet>Day sheet</TabsTrigger>
+          <TabsTrigger value="prep" data-tab-prep>Prep &amp; batches</TabsTrigger>
         </TabsList>
         <TabsContent value="plan" className="space-y-4">
 
@@ -193,6 +195,7 @@ export default function ProductionPlanPage() {
       </p>
         </TabsContent>
         <TabsContent value="sheet"><ProductionSheetPanel /></TabsContent>
+        <TabsContent value="prep"><PrepPanel /></TabsContent>
       </Tabs>
     </div>
   );

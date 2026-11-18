@@ -449,7 +449,7 @@ const ARRAY_COLLECTIONS = [
   'categories', 'menuItems', 'orders', 'tables', 'floors', 'kitchens', 'waiters', 'riders', 'users',
   'inventory', 'stockLogs', 'employees', 'attendance', 'leaves', 'payslips', 'advances',
   'accountCategories', 'transactions', 'parties', 'ledger', 'dailyCashCloses',
-  'receivingEntries', 'purchaseOrders', 'stockTransfers', 'branchTargets', 'productionSheets', 'marketingContacts', 'recipes', 'wastages', 'customers', 'branches',
+  'receivingEntries', 'purchaseOrders', 'stockTransfers', 'branchTargets', 'productionSheets', 'prepRecipes', 'productionBatches', 'marketingContacts', 'recipes', 'wastages', 'customers', 'branches',
   'creditPayments', 'promoCodes', 'paymentAccounts', 'deals', 'shifts', 'refunds',
 ] as const;
 
@@ -1393,6 +1393,8 @@ export function startSupabaseRealtime() {
           scheduleReload('stockTransfers');
           scheduleReload('branchTargets');
           scheduleReload('productionSheets');
+          scheduleReload('prepRecipes');
+          scheduleReload('productionBatches');
         });
       if (generation !== sbRealtimeGeneration) {
         try { sb().removeChannel(channel); } catch {}
@@ -3903,6 +3905,7 @@ export function deletePaymentAccount(id: string) { deleteEntity('paymentAccounts
 // ============ Receiving (GRN) ============
 import type { ReceivingEntry, MarketingContact, PurchaseOrder, StockTransfer, BranchTarget } from './types';
 import type { ProductionSheet } from './productionSheet';
+import { movingAverage, type PrepRecipe, type ProductionBatch } from './prep';
 import { toBaseQty, getBaseUnit } from './units';
 
 export function getReceivingEntries(): ReceivingEntry[] { return loadData().receivingEntries || []; }
@@ -4000,6 +4003,33 @@ export function saveStockTransfer(t: StockTransfer) { saveEntity('stockTransfers
 // v1.115.1 — the bakery's day sheets (planned / made / left over) are synced documents too: same store, no new table.
 export function getProductionSheets(): ProductionSheet[] { return loadData().productionSheets || []; }
 export function saveProductionSheet(s: ProductionSheet) { saveEntity('productionSheets', s); }
+
+// v1.117.0 — prep recipes (how a stocked item is made) and the batches made from them: synced documents, no new table.
+export function getPrepRecipes(): PrepRecipe[] { return loadData().prepRecipes || []; }
+export function savePrepRecipe(p: PrepRecipe) { saveEntity('prepRecipes', p); }
+export function deletePrepRecipe(id: string) { deleteEntity('prepRecipes', id); }
+export function getProductionBatches(): ProductionBatch[] { return loadData().productionBatches || []; }
+export function saveProductionBatch(b: ProductionBatch) { saveEntity('productionBatches', b); }
+
+/**
+ * A batch's output enters stock: one ledger movement (so a retry moves it once), and the item's cost follows the batch like a purchase —
+ * a moving average of what was there and what this batch cost — so the next recipe that uses it, and every report, sees the real cost.
+ */
+export function receiveProducedStock(itemId: string, baseQty: number, baseUnitCost: number, note: string, movementId: string, refId: string): { applied: boolean } {
+  const before = (loadData().inventory || []).find(i => i.id === itemId);
+  if (!before) return { applied: false };
+  const oldQty = Math.max(0, Number(before.quantity) || 0);
+  const oldAvg = Number(before.avgCostPrice ?? before.costPrice ?? 0) || 0;
+  const res = adjustStock(itemId, baseQty, 'in', note, { movementId, refType: 'production', refId });
+  if (!res.applied) return { applied: false };
+  const item = (loadData().inventory || []).find(i => i.id === itemId);
+  if (item && baseUnitCost > 0) {
+    item.avgCostPrice = movingAverage(oldQty, oldAvg, baseQty, baseUnitCost);
+    item.costPrice = baseUnitCost;
+    saveEntity('inventory', item);
+  }
+  return { applied: true };
+}
 export function getBranchTargets(): BranchTarget[] { return loadData().branchTargets || []; }
 export function saveBranchTarget(t: BranchTarget) { saveEntity('branchTargets', t); }
 

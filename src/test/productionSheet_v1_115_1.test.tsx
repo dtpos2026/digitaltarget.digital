@@ -106,8 +106,8 @@ describe('Day sheet panel', () => {
 
 describe('where it lives', () => {
   it('is a synced document collection like the stock transfers: no new table', () => {
-    expect(read('src/lib/supabaseStore.ts')).toContain("'stockTransfers', 'branchTargets', 'productionSheets']");
-    expect(read('src/lib/store.ts')).toContain("'branchTargets', 'productionSheets', 'marketingContacts'");
+    expect(read('src/lib/supabaseStore.ts')).toContain("'stockTransfers', 'branchTargets', 'productionSheets'");
+    expect(read('src/lib/store.ts')).toContain("'branchTargets', 'productionSheets', 'prepRecipes', 'productionBatches', 'marketingContacts'");
     expect(read('src/lib/store.ts')).toContain("scheduleReload('productionSheets');");
     expect(read('src/lib/seed-data.ts')).toContain('productionSheets: [],');
     expect(read('src/lib/types.ts')).toContain('productionSheets: ProductionSheet[];');

@@ -17,7 +17,7 @@
 // Pure functions; the page passes the store's data in.
 // ============================================================================
 import type { InventoryItem, MenuItem, Order, Recipe } from '@/lib/types';
-import { toBaseQty } from '@/lib/units';
+import { getBaseUnit, toBaseQty } from '@/lib/units';
 
 export const DEFAULT_TARGET_FOOD_COST_PCT = 30;
 
@@ -71,6 +71,8 @@ export interface ItemCost {
   grossProfit: number; marginPct: number | null; foodCostPct: number | null;
   /** ingredients missing from the stock list or without a cost: the cost is understated by these */
   warnings: string[];
+  /** v1.117.0 — no recipe, but the item is the stock item itself (a finished croissant made in batches): its cost is that stock item's cost */
+  fromStock?: boolean;
 }
 
 export interface CostInput {
@@ -125,8 +127,19 @@ export function recipeCostPerUnit(recipe: Recipe | undefined, inventory: Invento
 export function costItem(i: CostInput): ItemCost {
   const variantKey = i.variantKey || '';
   const { recipe, usesDefault } = recipeFor(i.recipes, i.item.id, variantKey);
-  const c = costRecipe(recipe, i.inventory, i.branchId);
-  const hasRecipe = !!recipe && (recipe.components?.length ?? 0) > 0;
+  let c = costRecipe(recipe, i.inventory, i.branchId);
+  let hasRecipe = !!recipe && (recipe.components?.length ?? 0) > 0;
+  // a finished-goods item has no recipe: it IS a stock item (made in batches, or bought ready), and its cost is what that stock cost
+  let fromStock = false;
+  if (!hasRecipe && i.item.inventoryItemId && i.item.pricingType !== 'weight') {
+    const stock = i.inventory.find(x => x.id === i.item.inventoryItemId);
+    const per = Number(i.item.stockPerUnit) > 0 ? Number(i.item.stockPerUnit) : 1;
+    if (stock && costPerBase(stock) > 0) {
+      const cost = costPerBase(stock) * per;
+      c = { lines: [{ inventoryItemId: stock.id, name: stock.name, qty: per, unit: getBaseUnit(stock), wastePct: 0, effectiveQty: per, unitCost: costPerBase(stock), cost: r2(cost), sharePct: 100, noCost: false }], ingredientCost: cost, packagingCost: 0, productionCost: cost, warnings: [] };
+      hasRecipe = true; fromStock = true;
+    }
+  }
   const price = Number(i.price) || 0;
   return {
     menuItemId: i.item.id, name: i.item.name, categoryId: i.item.categoryId, variantKey, variantLabel: i.variantLabel || '',
@@ -135,7 +148,7 @@ export function costItem(i: CostInput): ItemCost {
     grossProfit: r2(price - c.productionCost),
     marginPct: price > 0 ? r1(((price - c.productionCost) / price) * 100) : null,
     foodCostPct: price > 0 && hasRecipe ? r1((c.productionCost / price) * 100) : null,
-    warnings: c.warnings,
+    warnings: c.warnings, ...(fromStock ? { fromStock } : {}),
   };
 }
 

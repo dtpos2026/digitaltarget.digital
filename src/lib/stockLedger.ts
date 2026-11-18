@@ -27,7 +27,7 @@
 import type { StockLog, InventoryItem } from './types';
 
 export type MovementRef =
-  | 'sale' | 'refund' | 'wastage' | 'receiving' | 'adjustment' | 'manual' | 'transfer';
+  | 'sale' | 'refund' | 'wastage' | 'receiving' | 'adjustment' | 'manual' | 'transfer' | 'production';
 
 export interface StockMovement extends StockLog {
   /** Deterministic idempotency key. Absent on legacy (pre-v1.26) rows. */

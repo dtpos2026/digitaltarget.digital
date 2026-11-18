@@ -1,4 +1,5 @@
 import type { ProductionSheet } from './productionSheet';
+import type { PrepRecipe, ProductionBatch } from './prep';
 export type PricingType = 'fixed' | 'weight' | 'manual' | 'size' | 'inch' | 'both';
 
 /** A single size / inch variant of a menu item (e.g. Small=450, Medium=850). */
@@ -1553,6 +1554,10 @@ export interface AppData {
   branchTargets: BranchTarget[];
   /** v1.115.1 — the bakery's day sheet per branch and day: planned, made, left over (module_documents kind 'productionSheets'). */
   productionSheets: ProductionSheet[];
+  /** v1.117.0 — how an item that is kept in stock is made (dough, a sauce, a finished croissant) (module_documents kind 'prepRecipes'). */
+  prepRecipes: PrepRecipe[];
+  /** v1.117.0 — every batch made: raw material used, what came out, what it cost (module_documents kind 'productionBatches'). */
+  productionBatches: ProductionBatch[];
   marketingContacts: MarketingContact[];
   // Recipes & Wastage (Phase 4)
   recipes: Recipe[];
