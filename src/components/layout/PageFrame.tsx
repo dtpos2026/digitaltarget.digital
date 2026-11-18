@@ -22,7 +22,7 @@ export function PageHeader({ title, subtitle, icon, actions, onBack, backLabel =
         )}
         <div className="min-w-0">
           <h1 data-page-title className="flex items-center gap-2">
-            {icon && <span className="text-primary [&>svg]:h-5 [&>svg]:w-5" aria-hidden>{icon}</span>}
+            {icon && <span data-page-icon className="text-primary [&>svg]:h-5 [&>svg]:w-5" aria-hidden>{icon}</span>}
             <span className="min-w-0 truncate">{title}</span>
           </h1>
           {subtitle && <p data-page-subtitle>{subtitle}</p>}

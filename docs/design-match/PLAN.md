@@ -1,0 +1,50 @@
+# Design match — every screen the same as the Design Package v1.1
+
+Written 2026-11-18 after the owner's two messages: *"jo design mein hai bilkul wesa hona chahiye — sara layout, alignment, sary UI/UX design ki screens dekh kar same karo."*
+
+**Reference:** `DT-POS-Design-Package-v1.1.zip` (identical to `design-project/` in this repository). **Rule:** the design is the authority. Where this software has a function the
+design does not draw (Credit, Void, Running, Calculator, Note, Manual item …) the function stays reachable — behind a menu or a "More" button in the design's own style —
+but what is visible on the screen follows the design.
+
+**How the differences are found:** `scripts/design-board/` puts the package's preview of each desktop screen next to the real screen at 1440×900 (35 of the 40 desktop
+screens are covered; SW-01 sign-in, SW-04 Payment, SW-05 Weight and SW-30 Receipt design are dialogs or print designs and are compared by hand). Every item below is something
+that was seen on that board, not guessed. Each item is one release with its own picture check.
+
+## A. The shell — the same on every screen (so fixed first, once)
+
+| # | Design | Ours today | Status |
+|---|---|---|---|
+| S1 | **Page header:** the title (24 px, bold) and one muted line under it; actions on the right (secondary, then the primary button). No icon tile before the title. | An icon tile before the title on 57 pages | **Done, v1.127.0** (the tile is hidden under DT Refined; pages that draw their own tile by hand are in the list below) |
+| S2 | **Sidebar:** white; logo + "DT POS Enterprise" + a collapse button; **Operations** open with 10 items; Marketing / Inventory / Accounts / Staff / Reports / Admin as folded groups with a count and a chevron — opening one folds the others; "Online · offline-ready" status card at the foot; no user block, no "Powered by". On the POS screen it is the 72 px **icon rail**. | Operations always lists 19 items and scrolls; Settings pinned; user block and "Powered by" at the foot; the full 230 px menu on the POS at 1440 px and wider | To do |
+| S3 | **Top bar:** page title, global search with a **Ctrl K** badge, **Main Branch** chip, **Synced 12 s ago** chip, bell, avatar with name and workspace. | The same plus a pulse icon, clock, zoom control, theme and font buttons; at 1440 px the Sync chip is squeezed under the branch select and clipped | To do |
+| S4 | Page padding 16/20, cards with a 16 px radius, a 1 px border and a soft shadow, 14 px gaps | Mostly the same (v1.104.0 unified it); hand-built pages differ | Check per screen |
+
+## B. Screens — what the board shows
+
+| Screen | Design | Ours today | Work |
+|---|---|---|---|
+| **SW-03 POS** | Collapsed icon rail; item search **and** the Dining / Takeaway / Delivery chips on one row; category pills (done v1.126.0); 4 × tile (92 px, a different gradient per category: amber, red, green, violet, cyan), name 13.5 px, price, soft **+**; cart: *Order #1043 · Running · Table T-07 · 4 guests*, lines with − 1 + steppers, Subtotal / Service charge / Tax / **Total**, **Hold · Discount · Kitchen**, one big **Pay** | Full menu; order type inside the cart; every tile purple; tile 143 px; cart carries Receipt / Calculator / Note and Running / Credit / Void rows | Collapsed rail + order-type chips in the search row + per-category tile colours + 92 px tile + the cart's totals lines; Receipt / Calculator / Note / Running / Credit / Void into a "More" popover (**needs the owner's yes** — it moves buttons a cashier uses) |
+| **SW-06 Orders** | A **table** (Bill, Type, Table, Customer, Total, Status, Time), status pills (All / Running / Hold / Paid / Partial / Void / Credit), Today and All types dropdowns, Export + **New bill**, the bill's panel on the right (lines, Total, Reprint, Pay) | The page is "Bill Reprint": a two-column card grid, tabs, a View / Reprint pair on every card, an empty panel | Rebuild the list as the design's table with the panel; keep View / Reprint in the panel |
+| **SW-10 Tables** | *Floor plan*: floor tabs (Ground / First floor / Outdoor), a colour legend, **big coloured table tiles on the plan**, a panel for the selected table (Open table · Request bill · Move / merge) | "Dining Tables": view switches, QR buttons, an overview with KPI chips; the plan is behind "Live floor" | Make the plan the first view with the design's tiles and panel; keep QR / counters / reservations behind tabs |
+| **SW-11 Kitchen (KDS)** | **Dark** full-screen board: station filter, three columns **New · Cooking · Ready**, the order card with its age, one action button (Start cooking / Bump → Ready / Recall) | A light page: page title, stat cards, delayed circles, a card grid | A dark KDS skin and the three-column board (the stat strip stays above it) |
+| **SW-13 Menu** | A table (image, item, category, price, variants, kitchen, **Available** switch), category pills, Import Excel + **Add item**, and an **Edit item** panel on the right (picture, name, category, kitchen, Fixed price / Sizes / Inch / By weight, Available on website & apps, Save item) | A table with edit / delete icons, category chips with edit icons, four extra buttons, no panel | Master-detail with the edit panel; the extra buttons into one "More" menu |
+| **SW-24 Shift & cash drawer** | Four KPI cards (Starting cash, Cash sales, Expected in drawer, Variance), **Count the drawer** (denominations × count), **Close the business day** checklist | A bare "Open shift" form when no shift is open | The KPI row and the two cards for an open shift; the open form stays for a closed one |
+| **SW-26 Reports** | A left list of reports (Sales summary / by item / by category / by hour / Payment methods / Order types / Staff / Discounts & voids / Tax / Day close), KPI cards, a daily chart | Tabs, KPI strip, a table | Left list + KPI cards + chart |
+| **SW-28 Settings** | A left list (Business, Tax & service charge, Receipts & invoices, Order channels, Discounts, Appearance & theme, Notifications, Day close, Language & currency) and cards; **Discard · Save changes** | A long left nav of ~25 entries in 5 groups, one long form | Regroup the nav to the design's nine and add the Discard / Save bar |
+| SW-02, 16, 18, 19, 21, 22 | Already built in the design's master-detail layout | Re-check on the board for header and spacing | After S1–S3 |
+| The other 26 (SW-07, 08, 09, 14, 15, 17, 20, 23, 25, 27, 29, 31–40) | — | Pictures are on the board; **not reviewed yet** | Review, then one release each |
+
+## C. Order of work (one release each, a picture check on each)
+
+1. **v1.127.0** — S1 page header (done) + this board and plan.
+2. **v1.128.0** — S2 sidebar + S3 top bar (every screen changes at once, so it goes first and alone).
+3. **v1.129.0** — SW-03 POS (needs the owner's decision on where Credit / Void / Running / Receipt / Calculator / Note go).
+4. SW-06 Orders → SW-10 Tables → SW-13 Menu → SW-24 Shift → SW-26 Reports → SW-28 Settings → SW-11 KDS.
+5. The remaining 26 desktop screens from the board.
+6. Then the customer website (21), the Rider app (22), the Order Taker app (11) and the Owner app (24) the same way, on the phone board.
+
+## D. Decisions the owner has to make (the design is silent)
+
+* **POS buttons the design does not draw** — Receipt, Calculator, Note, Running, Credit, Void, Manual item and the keypad. Proposal: keep all of them, behind one **More** button in the cart.
+* **Modules the design does not list under Operations** (Cake Orders, Rider App, Credit Customers, Pending Payments, Bill Reprint, Foodpanda, Customer Portal): proposal: move them into the folded groups where they belong (Inventory / Accounts / Marketing …) so Operations shows the design's ten.
+* **The restaurant's saved "Category Layout" (Side)**: under DT Refined it is now always the pill row (v1.126.0); the saved value is untouched and still rules the other looks.

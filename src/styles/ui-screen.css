@@ -55,6 +55,9 @@ html[data-ui="modern"][data-ui-theme="dt-refined"] [data-ui-shell="content"] :is
   html[data-ui="modern"][data-ui-theme="dt-refined"] [data-ui-shell="content"] :is(h1, [data-page-title]):not([data-no-frame], [data-hero] h1, [role="dialog"] h1) { font-size: 1.5rem; }
 }
 [data-page-subtitle] { font-size: 0.8125rem; line-height: 1.4; color: hsl(var(--muted-foreground)); margin-top: 0.125rem; }
+/* v1.127.0 — the design package's page header (design-project/…/sw-06.html: <div class="t-h1" style="font-size:24px">Orders</div> and one muted line under it):
+   the title stands on its own — no icon tile in front of it. The icon is still in the markup (other looks and the phone apps show it). */
+html[data-ui="modern"][data-ui-theme="dt-refined"] [data-ui-shell="content"] [data-page-icon] { display: none; }
 
 /* ---------- phone: dialogs become bottom sheets, wide things scroll inside their own box ---------- */
 html[data-screen="phone"] [data-slot="dialog-content"] {
