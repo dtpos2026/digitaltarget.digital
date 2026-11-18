@@ -627,6 +627,8 @@ export interface User {
   featurePermissions?: string[];
   /** Phone number — used by Order Taker / Rider portal for phone+PIN login. */
   phone?: string;
+  /** v1.125.1 — the cloud's stored "works across all branches" flag, so an edit does not reset it. */
+  allBranches?: boolean;
   /** 4-digit numeric PIN: portal login (Order Taker, Rider), and the optional
    *  quick PIN sign-in on the login screen for everyone else. */
   /** 4-digit numeric PIN for portal login (Order Taker, Rider). */

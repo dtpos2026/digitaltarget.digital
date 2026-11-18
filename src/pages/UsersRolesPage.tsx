@@ -14,12 +14,14 @@ import { toast } from 'sonner';
 import { PAGES, defaultPermissionsForRole, FEATURE_PERMISSIONS, FEATURE_GROUP_ORDER, defaultFeaturePermissionsForRole } from '@/lib/permissions';
 import { LEVEL_LABEL, LEVEL_ORDER, ROLE_PRESETS, findPreset, matchPreset, presetPermissions } from '@/lib/orgStructure';
 import { Zap } from 'lucide-react';
+import MasterDetail, { useWideScreen } from '@/components/layout/MasterDetail';
+import UserDetail from '@/components/users/UserDetail';
 
 const roleColors: Record<UserRole, string> = {
   admin: 'bg-status-danger text-status-danger-foreground',
-  manager: 'bg-status-purple text-status-purple-foreground',
+  manager: 'bg-status-purple !text-white',
   cashier: 'bg-status-info text-status-info-foreground',
-  rider: 'bg-status-teal text-status-teal-foreground',
+  rider: 'bg-status-teal !text-white',
   order_taker: 'bg-status-warning text-status-warning-foreground',
 };
 
@@ -28,6 +30,10 @@ export default function UsersRolesPage() {
   useEffect(() => { void refresh(); /* eslint-disable-next-line */ }, []);
   const [showDialog, setShowDialog] = useState(false);
   const [editUser, setEditUser] = useState<User | null>(null);
+  const [panelId, setPanelId] = useState<string | null>(null);
+  const wide = useWideScreen();
+  // with the panel open beside the list there is room for four columns, not six (the panel shows the rest)
+  const compact = wide && !!panelId;
 
   /**
    * v1.21.3 — on Supabase the staff list lives in `user_profiles`, not in the
@@ -38,7 +44,10 @@ export default function UsersRolesPage() {
     if (usingSupabaseAuth()) {
       try {
         const { sb } = await import('@/lib/supabase');
-        const { data, error } = await sb().rpc('pos_list_users');
+        // v1.125.1 — pos_list_staff also returns the action rights, the phone and "all branches"; the older pos_list_users does not,
+        // so the screen used to show role defaults and a save wrote them back. Fall back to the old list where the new one is missing.
+        let { data, error } = await sb().rpc('pos_list_staff' as never);
+        if (error) ({ data, error } = await sb().rpc('pos_list_users'));
         if (error) throw error;
         setUsers(((data ?? []) as any[]).map(r => ({
           id: r.user_id,
@@ -47,6 +56,9 @@ export default function UsersRolesPage() {
           role: r.role,
           branchId: r.branch_id,
           permissions: r.permissions ?? [],
+          ...(Array.isArray(r.feature_permissions) ? { featurePermissions: r.feature_permissions } : {}),
+          ...(r.phone ? { phone: r.phone } : {}),
+          ...(typeof r.all_branches === 'boolean' ? { allBranches: r.all_branches } : {}),
           isActive: r.is_active !== false,
           // The password hash deliberately never leaves the database, so there
           // is nothing to show here — the dialog sets a new one instead.
@@ -127,7 +139,7 @@ export default function UsersRolesPage() {
           permissions: (toSave.permissions ?? []) as string[],
           featurePermissions: (toSave.featurePermissions ?? []) as string[],
           phone: toSave.phone ?? null,
-          allBranches: false,
+          allBranches: toSave.allBranches === true,
           isActive: toSave.isActive !== false,
         } });
         if (toSave.role === 'rider') syncRiderRecord(toSave as User);
@@ -165,8 +177,9 @@ export default function UsersRolesPage() {
     });
   };
 
-  const handleDelete = async (u: User) => {
-    if (!confirm(`Delete ${u.name}?`)) return;
+  /** true when the person was deleted (the panel closes only then — "No" at the question leaves it open) */
+  const handleDelete = async (u: User): Promise<boolean> => {
+    if (!confirm(`Delete ${u.name}?`)) return false;
     try {
       if (usingSupabaseAuth()) {
         const { deleteStaffUser } = await import('@/lib/staffAuth.functions');
@@ -176,8 +189,10 @@ export default function UsersRolesPage() {
       if (u.role === 'rider') deleteRider(u.id);
       await refresh();
       toast.success('User deleted');
+      return true;
     } catch (e: any) {
       toast.error(e?.message || 'Could not delete the user');
+      return false;
     }
   };
 
@@ -247,13 +262,44 @@ export default function UsersRolesPage() {
       <WorkspaceCodeCard />
 
 
-      <div className="bg-card border rounded-xl overflow-x-auto shadow-card">
+      <MasterDetail
+        title={users.find(u => u.id === panelId)?.name ?? 'Person'} open={!!users.find(u => u.id === panelId)} onClose={() => setPanelId(null)}
+        emptyText="Select a person to see how they sign in, what they can open and do, and the rules on them." dialogClassName="sm:max-w-lg max-h-[90vh] overflow-y-auto"
+        detail={(() => {
+          const u = users.find(x => x.id === panelId);
+          if (!u) return null;
+          // below the wide layout the panel is a dialog: close it before another dialog opens on top of it
+          const leave = () => { if (!wide) setPanelId(null); };
+          return <UserDetail user={u} onEdit={() => { leave(); openEdit(u); }} onDelete={() => { void handleDelete(u).then(ok => { if (ok) setPanelId(null); }); }} />;
+        })()}
+        list={<>
+          {/* phone: one card per person (the table needs the width of a desktop) */}
+          <div className="space-y-2 sm:hidden" data-user-cards>
+            {users.map(u => {
+              const perms = u.role === 'admin' ? PAGES.length : (u.permissions && u.permissions.length > 0 ? u.permissions.length : defaultPermissionsForRole(u.role).length);
+              return (
+                <button key={u.id} type="button" onClick={() => setPanelId(u.id)} data-user-card={u.id} className="w-full rounded-xl border bg-card p-3 text-left shadow-card">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="min-w-0 truncate text-sm font-extrabold">{u.name}</span>
+                    <Badge variant={u.isActive ? 'default' : 'secondary'} className={`shrink-0 text-[10px] ${u.isActive ? 'bg-status-success text-status-success-foreground' : ''}`}>{u.isActive ? 'Active' : 'Inactive'}</Badge>
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                    <Badge className={`text-[10px] ${roleColors[u.role]}`}>{u.role}</Badge>
+                    <span className="font-mono">{u.username}</span>
+                    <span>{perms}/{PAGES.length} modules</span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+          <div className="hidden sm:block">
+      <div className="bg-card border rounded-xl overflow-x-auto shadow-card" data-user-table>
         <table className="w-full text-xs">
           <thead><tr className="border-b bg-muted/40">
             <th className="text-left px-4 py-2.5 text-muted-foreground font-bold uppercase text-[10px] tracking-wider">Name</th>
-            <th className="text-left px-4 py-2.5 text-muted-foreground font-bold uppercase text-[10px] tracking-wider">Username</th>
+            {!compact && <th className="text-left px-4 py-2.5 text-muted-foreground font-bold uppercase text-[10px] tracking-wider">Username</th>}
             <th className="text-left px-4 py-2.5 text-muted-foreground font-bold uppercase text-[10px] tracking-wider">Role</th>
-            <th className="text-left px-4 py-2.5 text-muted-foreground font-bold uppercase text-[10px] tracking-wider">Pages</th>
+            {!compact && <th className="text-left px-4 py-2.5 text-muted-foreground font-bold uppercase text-[10px] tracking-wider">Pages</th>}
             <th className="text-left px-4 py-2.5 text-muted-foreground font-bold uppercase text-[10px] tracking-wider">Status</th>
             <th className="px-4 py-2"></th>
           </tr></thead>
@@ -263,25 +309,25 @@ export default function UsersRolesPage() {
                 ? PAGES.length
                 : (u.permissions && u.permissions.length > 0 ? u.permissions.length : defaultPermissionsForRole(u.role).length);
               return (
-                <tr key={u.id} className="border-b hover:bg-muted/30 transition-smooth">
+                <tr key={u.id} onClick={() => setPanelId(u.id)} data-user-row={u.id} className={`border-b hover:bg-muted/30 transition-smooth cursor-pointer ${panelId === u.id ? 'bg-primary/5' : ''}`}>
                   <td className="px-4 py-2.5 font-bold">{u.name}</td>
-                  <td className="px-4 py-2.5 font-mono text-muted-foreground">{u.username}</td>
+                  {!compact && <td className="px-4 py-2.5 font-mono text-muted-foreground">{u.username}</td>}
                   <td className="px-4 py-2.5">
                     <Badge className={`text-[10px] ${roleColors[u.role]}`}>{u.role}</Badge>
                     {matchPreset(u) && <div className="mt-0.5 text-[10px] font-semibold text-muted-foreground">{matchPreset(u)!.name}</div>}
                   </td>
-                  <td className="px-4 py-2.5">
+                  {!compact && <td className="px-4 py-2.5">
                     <span className="font-bold text-foreground">{perms}</span>
                     <span className="text-muted-foreground"> / {PAGES.length}</span>
-                  </td>
+                  </td>}
                   <td className="px-4 py-2.5">
                     <Badge variant={u.isActive ? 'default' : 'secondary'} className={`text-[10px] ${u.isActive ? 'bg-status-success text-status-success-foreground' : ''}`}>
                       {u.isActive ? 'Active' : 'Inactive'}
                     </Badge>
                   </td>
                   <td className="px-4 py-2.5 text-right whitespace-nowrap">
-                    <Button variant="ghost" size="sm" onClick={() => openEdit(u)}><Edit2 className="h-3.5 w-3.5" /></Button>
-                    <Button variant="ghost" size="sm" onClick={() => void handleDelete(u)}>
+                    <Button variant="ghost" size="sm" aria-label={`Edit ${u.name}`} onClick={e => { e.stopPropagation(); openEdit(u); }}><Edit2 className="h-3.5 w-3.5" /></Button>
+                    <Button variant="ghost" size="sm" aria-label={`Delete ${u.name}`} onClick={e => { e.stopPropagation(); void handleDelete(u); }}>
                       <Trash2 className="h-3.5 w-3.5 text-destructive" />
                     </Button>
                   </td>
@@ -291,6 +337,9 @@ export default function UsersRolesPage() {
           </tbody>
         </table>
       </div>
+          </div>
+        </>}
+      />
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
