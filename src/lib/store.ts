@@ -449,7 +449,7 @@ const ARRAY_COLLECTIONS = [
   'categories', 'menuItems', 'orders', 'tables', 'floors', 'kitchens', 'waiters', 'riders', 'users',
   'inventory', 'stockLogs', 'employees', 'attendance', 'leaves', 'payslips', 'advances',
   'accountCategories', 'transactions', 'parties', 'ledger', 'dailyCashCloses',
-  'receivingEntries', 'purchaseOrders', 'stockTransfers', 'branchTargets', 'productionSheets', 'prepRecipes', 'productionBatches', 'stockLots', 'cakeOrders', 'marketingContacts', 'recipes', 'wastages', 'customers', 'branches',
+  'receivingEntries', 'purchaseOrders', 'stockTransfers', 'branchTargets', 'productionSheets', 'prepRecipes', 'productionBatches', 'stockLots', 'cakeOrders', 'rightsRules', 'rightsRequests', 'marketingContacts', 'recipes', 'wastages', 'customers', 'branches',
   'creditPayments', 'promoCodes', 'paymentAccounts', 'deals', 'shifts', 'refunds',
 ] as const;
 
@@ -1397,6 +1397,8 @@ export function startSupabaseRealtime() {
           scheduleReload('productionBatches');
           scheduleReload('stockLots');
           scheduleReload('cakeOrders');
+          scheduleReload('rightsRules');
+          scheduleReload('rightsRequests');
         });
       if (generation !== sbRealtimeGeneration) {
         try { sb().removeChannel(channel); } catch {}
@@ -3913,6 +3915,8 @@ import { movingAverage, type PrepRecipe, type ProductionBatch } from './prep';
 import { consumeFefo, effectiveLots, expiredByItem, newLot, type StockLot } from './lots';
 import { addPayment, canMove, cancelOrder, type CakeOrder, type CakeStatus, type PayInput } from './cakeOrders';
 import { costItem } from './recipeCosting';
+import { registerRightsRules } from './permissions';
+import type { RightsRequest, RightsRule } from './rightsRules';
 import { toBaseQty, getBaseUnit } from './units';
 
 export function getReceivingEntries(): ReceivingEntry[] { return loadData().receivingEntries || []; }
@@ -4126,6 +4130,15 @@ export function cancelCake(orderId: string, refund: boolean, by?: string): { ok:
   saveCakeOrder(order);
   return { ok: true, order };
 }
+// v1.118.0 — rights rules (by branch, hour and date) and the requests an admin decides. permissions.ts asks for them on every rights check.
+export function getRightsRules(): RightsRule[] { return loadData().rightsRules || []; }
+export function saveRightsRule(r: RightsRule) { saveEntity('rightsRules', r); }
+export function getRightsRequests(): RightsRequest[] { return loadData().rightsRequests || []; }
+export function saveRightsRequest(r: RightsRequest) { saveEntity('rightsRequests', r); }
+registerRightsRules(
+  userId => (loadData().rightsRules || []).filter(r => r.userId === userId && !r.revokedAt),
+  () => ({ now: new Date(), branchId: getCurrentBranchId() }),
+);
 export function getProductionBatches(): ProductionBatch[] { return loadData().productionBatches || []; }
 export function saveProductionBatch(b: ProductionBatch) { saveEntity('productionBatches', b); }
 

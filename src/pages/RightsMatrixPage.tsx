@@ -9,7 +9,9 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { EmptyState, FilterBar, PageHeader } from '@/components/layout/PageFrame';
-import { getCurrentUser, getUsers, saveUser } from '@/lib/store';
+import { genId, getCurrentUser, getUsers, saveRightsRequest, saveUser } from '@/lib/store';
+import RulesPanel from '@/components/rights/RulesPanel';
+import { needsApproval } from '@/lib/rightsRules';
 import { usingSupabaseAuth } from '@/lib/authProvider';
 import { logStaffAction } from '@/lib/staffAudit';
 import { FEATURE_GROUP_ORDER, FEATURE_PERMISSIONS, GROUP_ORDER, PAGES, userHasFeature } from '@/lib/permissions';
@@ -33,19 +35,36 @@ export default function RightsMatrixPage() {
   const featSets = useMemo(() => team.map(u => new Set(effectiveFeatures(u))), [team]);
   const needle = q.trim().toLowerCase();
 
-  const commit = async (before: User, after: User) => {
+  /** Writes the new rights (cloud first when there is one), the audit line, and refreshes the grid. true = done. */
+  const apply = async (before: User, after: User): Promise<boolean> => {
     const change = diffRights(before, after);
-    if (noChange(change)) return;
+    if (noChange(change)) return true;
     // on the cloud the rights live with the staff login on the server: save there first, and only then show the change
     if (usingSupabaseAuth()) {
       try {
         const { setStaffRights } = await import('@/lib/staffAuth.functions');
         await setStaffRights({ data: { username: before.username, permissions: after.permissions ?? [], featurePermissions: after.featurePermissions ?? [] } });
-      } catch (e: unknown) { toast.error((e as Error)?.message || 'Could not save the rights'); return; }
+      } catch (e: unknown) { toast.error((e as Error)?.message || 'Could not save the rights'); return false; }
     }
     saveUser(after);
     logStaffAction('RIGHTS_CHANGED', { reason: `${before.name}: ${describeChange(change)}`, meta: { userId: before.id, role: after.role, ...change } });
     setUsers(getUsers());
+    return true;
+  };
+  /** A change from the grid. Giving a risky right, or anything to yourself, is not applied by a non-admin: it becomes a request. */
+  const commit = async (before: User, after: User) => {
+    const change = diffRights(before, after);
+    if (noChange(change)) return;
+    const gate: { needed: boolean; reason?: string } = me ? needsApproval(me, before, { pages: change.pagesAdded, features: change.featuresAdded }) : { needed: false };
+    // on the cloud the server saves rights only for an admin, so what a manager changes there always goes through an admin
+    if (!gate.needed && me && me.role !== 'admin' && usingSupabaseAuth()) { gate.needed = true; gate.reason = 'Rights are saved by an admin on the cloud — it is sent for approval'; }
+    if (gate.needed && me) {
+      saveRightsRequest({ id: genId(), userId: before.id, userName: before.name, requestedBy: me.id, requestedByName: me.name, summary: `${before.name}: ${describeChange(change)}`, payload: { permissions: after.permissions ?? [], featurePermissions: after.featurePermissions ?? [] }, status: 'pending', createdAt: new Date().toISOString() });
+      logStaffAction('RIGHTS_REQUEST', { reason: `${before.name}: ${describeChange(change)}`, meta: { userId: before.id } });
+      toast.message('Sent to an admin for approval', { description: gate.reason });
+      return;
+    }
+    await apply(before, after);
   };
   const togglePage = (u: User, key: string, on: boolean) => { if (canEdit) void commit(u, setPage(u, key, on)); else toast.error('Only an admin can change rights'); };
   const toggleFeat = (u: User, key: string, on: boolean) => { if (canEdit) void commit(u, setFeature(u, key, on)); else toast.error('Only an admin can change rights'); };
@@ -118,6 +137,7 @@ export default function RightsMatrixPage() {
           <TabsList>
             <TabsTrigger value="modules" data-rights-tab-modules>Modules</TabsTrigger>
             <TabsTrigger value="actions" data-rights-tab-actions>Actions</TabsTrigger>
+            <TabsTrigger value="rules" data-rights-tab-rules>Rules &amp; approvals</TabsTrigger>
           </TabsList>
 
           <TabsContent value="modules">
@@ -161,6 +181,7 @@ export default function RightsMatrixPage() {
               </TableBody>
             </Table>
           </TabsContent>
+          <TabsContent value="rules"><RulesPanel team={team} me={me} canEdit={canEdit} applyRights={apply} /></TabsContent>
         </Tabs>
       )}
       <p className="text-[11px] text-muted-foreground">

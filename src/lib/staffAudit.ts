@@ -33,7 +33,11 @@ export type AuditAction =
   | 'PO_RECEIVED'
   | 'PO_CANCELLED'
   // v1.116.0 — who changed whose rights
-  | 'RIGHTS_CHANGED';
+  | 'RIGHTS_CHANGED'
+  // v1.118.0 — rules by branch / hour / date, and the approval of risky rights
+  | 'RIGHTS_RULE'
+  | 'RIGHTS_REQUEST'
+  | 'RIGHTS_DECISION';
 
 export interface StaffAuditEntry {
   id: string;
@@ -75,6 +79,9 @@ export const AUDIT_ACTION_TITLES: Record<AuditAction, string> = {
   PO_RECEIVED: 'Goods received against a purchase order',
   PO_CANCELLED: 'Purchase order cancelled',
   RIGHTS_CHANGED: 'Staff rights changed',
+  RIGHTS_RULE: 'Rights rule added or removed',
+  RIGHTS_REQUEST: 'Rights change sent for approval',
+  RIGHTS_DECISION: 'Rights request approved or rejected',
 };
 
 function readLocal(): StaffAuditEntry[] {

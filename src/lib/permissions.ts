@@ -1,6 +1,18 @@
 import { User, UserRole } from './types';
 import { featureEnabled, getCurrentTenantPlan, getCurrentTenantOverrides } from './plans';
 import { disabledModulePageKeys } from './optionalModules';
+import { effectiveRight, type RightsContext, type RightsRule } from './rightsRules';
+
+// v1.118.0 — rights rules (by branch, by hour, temporary grants) sit on top of the person's base rights. The store registers where the
+// rules and the current branch come from; with none registered (tests, a restaurant that uses none) every check is exactly what it was.
+let rulesFor: ((userId: string) => RightsRule[]) | null = null;
+let contextNow: (() => RightsContext) | null = null;
+export function registerRightsRules(rules: (userId: string) => RightsRule[], context: () => RightsContext): void { rulesFor = rules; contextNow = context; }
+function withRules(user: User, kind: 'page' | 'feature', key: string, base: boolean): boolean {
+  if (!rulesFor || user.role === 'admin') return base;
+  const mine = rulesFor(user.id).filter(r => r.kind === kind && r.key === key);
+  return mine.length === 0 ? base : effectiveRight(base, mine, contextNow ? contextNow() : { now: new Date(), branchId: null });
+}
 
 export type PageGroup = 'Operations' | 'Marketing' | 'Inventory' | 'Accounts' | 'Staff' | 'Reports' | 'Admin';
 
@@ -192,7 +204,7 @@ export function userHasFeature(user: User | undefined | null, featureKey: string
   const perms = user.featurePermissions && user.featurePermissions.length > 0
     ? user.featurePermissions
     : defaultFeaturePermissionsForRole(user.role);
-  return perms.includes(featureKey);
+  return withRules(user, 'feature', featureKey, perms.includes(featureKey));
 }
 
 
@@ -208,8 +220,8 @@ export function userHasAccess(user: User | undefined | null, pageKey: string): b
   const perms = user.permissions && user.permissions.length > 0
     ? user.permissions
     : defaultPermissionsForRole(user.role);
-  if (perms.includes(pageKey)) return true;
-  return (LEGACY_KEY_ALIASES[pageKey] || []).some((k) => perms.includes(k));
+  const base = perms.includes(pageKey) || (LEGACY_KEY_ALIASES[pageKey] || []).some((k) => perms.includes(k));
+  return withRules(user, 'page', pageKey, base);
 }
 
 

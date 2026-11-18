@@ -2,6 +2,7 @@ import type { ProductionSheet } from './productionSheet';
 import type { PrepRecipe, ProductionBatch } from './prep';
 import type { StockLot } from './lots';
 import type { CakeOrder } from './cakeOrders';
+import type { RightsRequest, RightsRule } from './rightsRules';
 export type PricingType = 'fixed' | 'weight' | 'manual' | 'size' | 'inch' | 'both';
 
 /** A single size / inch variant of a menu item (e.g. Small=450, Medium=850). */
@@ -1566,6 +1567,9 @@ export interface AppData {
   stockLots: StockLot[];
   /** v1.117.2 — custom cake orders with advance and balance (module_documents kind 'cakeOrders'). */
   cakeOrders: CakeOrder[];
+  /** v1.118.0 — rights by branch / hour / date (module_documents kind 'rightsRules') and the requests an admin decides ('rightsRequests'). */
+  rightsRules: RightsRule[];
+  rightsRequests: RightsRequest[];
   marketingContacts: MarketingContact[];
   // Recipes & Wastage (Phase 4)
   recipes: Recipe[];

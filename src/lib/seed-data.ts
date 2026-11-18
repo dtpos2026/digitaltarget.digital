@@ -101,6 +101,8 @@ export function seedData(): AppData {
     productionBatches: [],
     stockLots: [],
     cakeOrders: [],
+    rightsRules: [],
+    rightsRequests: [],
     marketingContacts: [],
     recipes: [],
     wastages: [],
