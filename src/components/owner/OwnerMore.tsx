@@ -7,7 +7,7 @@
 // ============================================================
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
-  AlertTriangle, BarChart3, Bike, Boxes, Building2, ChefHat, ChevronRight, CircleCheck, Globe, IdCard, LogOut, Phone, Plus,
+  AlertTriangle, BarChart3, Bike, Boxes, Building2, Cake, CalendarClock, ChefHat, ChevronRight, CircleCheck, Globe, IdCard, LogOut, Phone, Plus,
   Receipt, ShoppingBasket, Smartphone, TrendingUp, Truck, Users, X,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -51,6 +51,8 @@ export function OwnerMore({ caps }: { caps: MoreCaps }) {
     caps.can('online-approval') && <Row key="a" icon={CircleCheck} label="Online approvals" to={`${OWNER_BASE}/approvals`} testId="own-more-approvals" badge={approvals > 0 ? <Badge tone="warning">{approvals}</Badge> : undefined} />,
     caps.can('kitchen') && <Row key="k" icon={ChefHat} label="Kitchen" to={`${OWNER_BASE}/kitchen`} testId="own-more-kitchen" />,
     caps.can('delivery') && <Row key="d" icon={Bike} label="Delivery and riders" to={`${OWNER_BASE}/delivery`} testId="own-more-delivery" />,
+    caps.can('cake-orders') && <Row key="ck" icon={Cake} label="Cake orders" to={`${OWNER_BASE}/cakes`} testId="own-more-cakes" />,
+    caps.can('expiry') && <Row key="ex" icon={CalendarClock} label="Going off (expiry)" to={`${OWNER_BASE}/expiry`} testId="own-more-expiry" />,
   ].filter(Boolean);
   // v1.87.0 — branches, A to Z
   const branchRows = caps.multiBranch ? [

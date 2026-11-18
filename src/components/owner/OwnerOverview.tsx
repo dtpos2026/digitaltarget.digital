@@ -19,10 +19,11 @@ import { Badge, Bar, Card, Empty, IconButton, Label, PresetChips, ScreenHeader }
 import { BranchStaffPanel, BranchStockPanel, BranchTargetsPanel, BranchTillsPanel } from '@/components/branches/BranchPanels';
 import { TransferList } from '@/components/branches/Transfers';
 import { OWNER_BASE, rs, useBranchVisibility, useLiveTick } from './ownerHooks';
+import { BakeryToday, type BakeryCaps } from './OwnerBakery';
 
 const SPLIT_COLOURS = ['hsl(var(--primary))', 'hsl(173 80% 26%)', 'hsl(17 88% 40%)', 'hsl(224 76% 48%)', 'hsl(330 65% 45%)'];
 
-export interface OwnerCaps { approvals: boolean; stock: boolean }
+export interface OwnerCaps { approvals: boolean; stock: boolean; /** v1.121.0 — the bakery block, per module the account may open */ bakery?: BakeryCaps }
 
 function Tile({ icon: Icon, label, value, tone, testId, wide }: { icon: typeof Banknote; label: string; value: string; tone?: 'ok' | 'warn' | 'bad'; testId: string; wide?: boolean }) {
   return (
@@ -84,6 +85,8 @@ export function OwnerOverview({ caps }: { caps: OwnerCaps }) {
           )}
         </div>
       )}
+
+      {caps.bakery && <BakeryToday caps={caps.bakery} />}
 
       <div>
         <Label right={branches.length > 1

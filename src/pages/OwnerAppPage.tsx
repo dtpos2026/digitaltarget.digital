@@ -15,6 +15,7 @@ import { ownerAppAccess } from '@/lib/ownerAccess';
 import { cn } from '@/lib/utils';
 import { OWNER_BASE } from '@/components/owner/ownerHooks';
 import { OwnerBranch, OwnerOverview } from '@/components/owner/OwnerOverview';
+import { OwnerCakes, OwnerExpiry } from '@/components/owner/OwnerBakery';
 import { OwnerOrderDetail, OwnerOrders } from '@/components/owner/OwnerOrders';
 import { OwnerReports } from '@/components/owner/OwnerReports';
 import { OwnerMenu } from '@/components/owner/OwnerMenu';
@@ -32,7 +33,7 @@ const TABS = [
   { key: 'orders', label: 'Orders', icon: ReceiptText, to: `${OWNER_BASE}/orders`, match: (p: string) => p.startsWith(`${OWNER_BASE}/orders`) },
   { key: 'menu', label: 'Menu', icon: UtensilsCrossed, to: `${OWNER_BASE}/menu`, match: (p: string) => p.startsWith(`${OWNER_BASE}/menu`) },
   { key: 'reports', label: 'Reports', icon: BarChart3, to: `${OWNER_BASE}/reports`, match: (p: string) => p.startsWith(`${OWNER_BASE}/reports`) },
-  { key: 'more', label: 'More', icon: MenuIcon, to: `${OWNER_BASE}/more`, match: (p: string) => /^\/owner-app\/(more|stock|inventory|purchases|suppliers|expenses|transfers|approvals|kitchen|delivery|customers|staff|profile|profit|switches|devices)/.test(p) },
+  { key: 'more', label: 'More', icon: MenuIcon, to: `${OWNER_BASE}/more`, match: (p: string) => /^\/owner-app\/(more|stock|inventory|purchases|suppliers|expenses|transfers|approvals|kitchen|delivery|customers|staff|profile|profit|switches|devices|cakes|expiry)/.test(p) },
 ] as const;
 
 export default function OwnerAppPage({ onLogout }: { onLogout: () => void }) {
@@ -102,7 +103,7 @@ export default function OwnerAppPage({ onLogout }: { onLogout: () => void }) {
       <main className="mx-auto w-full max-w-[560px] px-4 pb-28 pt-[max(0.5rem,env(safe-area-inset-top))] min-[820px]:max-w-[1100px] min-[820px]:pb-10 min-[820px]:pl-[124px] min-[820px]:pr-8">
         {!online && <div className="pb-3 pt-1"><OfflineBanner /></div>}
         <Routes>
-          <Route path="/" element={<OwnerOverview caps={{ approvals: can('online-approval'), stock: can('inventory') }} />} />
+          <Route path="/" element={<OwnerOverview caps={{ approvals: can('online-approval'), stock: can('inventory'), bakery: { cakes: can('cake-orders'), expiry: can('expiry'), production: can('production-plan') } }} />} />
           <Route path="/branch/:id" element={<OwnerBranch caps={{ targets: can('branches'), stock: can('inventory'), by: user?.name || '' }} />} />
           {multi && <Route path="/compare" element={<OwnerCompare />} />}
           {multi && <Route path="/transfers" element={<OwnerTransfers caps={{ can: id => isBranchAllowed(id), stock: can('inventory'), by: user?.name || '' }} />} />}
@@ -119,6 +120,9 @@ export default function OwnerAppPage({ onLogout }: { onLogout: () => void }) {
           <Route path="/expenses" element={guard(can('accounts'), 'Expenses', <OwnerExpenses userName={user?.name || ''} />)} />
           {/* v1.90.0 — the operations screens (OWN-08/09/10/16/17/22), each behind its module's permission */}
           <Route path="/approvals" element={guard(can('online-approval'), 'Online approvals', <OwnerApprovals by={{ userId: user?.id, userName: user?.name }} />)} />
+          {/* v1.121.0 — the bakery side, read-only: today's cake orders and what is going off */}
+          <Route path="/cakes" element={guard(can('cake-orders'), 'Cake orders', <OwnerCakes />)} />
+          <Route path="/expiry" element={guard(can('expiry'), 'Expiry', <OwnerExpiry />)} />
           <Route path="/kitchen" element={guard(can('kitchen'), 'Kitchen', <OwnerKitchen />)} />
           <Route path="/delivery" element={guard(can('delivery'), 'Delivery and riders', <OwnerDelivery />)} />
           <Route path="/customers" element={guard(can('customers') || can('credits'), 'Customers and credit', <OwnerCustomers credit={can('credits')} />)} />
