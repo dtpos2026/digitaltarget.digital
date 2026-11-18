@@ -15,6 +15,8 @@ import { scopeToBranch } from '@/lib/cashierScope';
 import { buildPlan, localDay, planAsCsv, planAsText } from '@/lib/productionPlan';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ProductionSheetPanel from '@/components/production/ProductionSheetPanel';
+import ReportActions from '@/components/ReportActions';
+import type { ReportDoc } from '@/lib/reportExport';
 import { cn } from '@/lib/utils';
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -64,6 +66,21 @@ export default function ProductionPlanPage() {
     const url = URL.createObjectURL(new Blob([body], { type: 'text/csv;charset=utf-8' }));
     const a = document.createElement('a'); a.href = url; a.download = `production-plan-${day}.csv`; a.click(); URL.revokeObjectURL(url);
   };
+  // the same figures as on screen, for Print / PDF / POS / JPG
+  const reportDoc = (): ReportDoc => {
+    const day1 = WEEKDAYS[target.getDay()];
+    return {
+      title: 'Production plan', subtitle: `${day1} ${day}`, meta: branch !== 'all' ? [{ label: 'Branch', value: labelOf(branch) }] : [], filename: `production-plan-${day}`,
+      columns: perBranch
+        ? [{ key: 'item', label: 'Item' }, ...plan.columns.map(c => ({ key: c, label: labelOf(c), align: 'right' as const })), { key: 'total', label: 'Total', align: 'right' as const }]
+        : [{ key: 'item', label: 'Item' }, { key: 'history', label: `Sold on the last ${weeks} ${day1}s`, align: 'right' as const }, { key: 'average', label: 'Average', align: 'right' as const }, { key: 'make', label: 'Make', align: 'right' as const }],
+      rows: rows.map((r): Record<string, string | number> => perBranch
+        ? { item: r.name, ...Object.fromEntries(r.perColumn.map(c => [c.col, c.qty])), total: r.total }
+        : { item: r.name, history: r.history[plan.columns[0]].join(' · '), average: r.average[plan.columns[0]], make: r.perColumn[0].qty }),
+      totals: perBranch ? { ...Object.fromEntries(plan.columns.map((c, i) => [c, rows.reduce((s, r) => s + r.perColumn[i].qty, 0)])), total: totalPieces } : { make: totalPieces },
+      notes: [`Average of the days the branch traded, plus ${buffer}%${batch > 1 ? `, rounded up to trays of ${batch}` : ''}.`],
+    };
+  };
   const toggleCat = (id: string) => setCats(c => (c.includes(id) ? c.filter(x => x !== id) : [...c, id]));
 
   return (
@@ -76,6 +93,7 @@ export default function ProductionPlanPage() {
             <a href={`https://wa.me/?text=${encodeURIComponent(text)}`} target="_blank" rel="noopener noreferrer" data-plan-whatsapp><MessageCircle className="mr-1 h-3.5 w-3.5" /> WhatsApp</a>
           </Button>
           <Button size="sm" variant="outline" onClick={csv} disabled={totalPieces === 0} data-plan-csv><Download className="mr-1 h-3.5 w-3.5" /> CSV</Button>
+          <ReportActions build={reportDoc} disabled={totalPieces === 0} />
         </>}
       />
 

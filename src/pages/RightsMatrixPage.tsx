@@ -15,6 +15,8 @@ import { logStaffAction } from '@/lib/staffAudit';
 import { FEATURE_GROUP_ORDER, FEATURE_PERMISSIONS, GROUP_ORDER, PAGES, userHasFeature } from '@/lib/permissions';
 import { ROLE_PRESETS, findPreset, matchPreset } from '@/lib/orgStructure';
 import { applyPreset, countsFor, describeChange, diffRights, effectiveFeatures, effectivePages, isLocked, matrixCsv, noChange, setFeature, setPage } from '@/lib/rightsMatrix';
+import ReportActions from '@/components/ReportActions';
+import type { ReportDoc } from '@/lib/reportExport';
 import type { User } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -57,6 +59,18 @@ export default function RightsMatrixPage() {
     const a = document.createElement('a'); a.href = url; a.download = 'staff-rights.csv'; a.click(); URL.revokeObjectURL(url);
   };
 
+  // the grid as it stands, modules then actions, one column per person — for Print / PDF / JPG
+  const reportDoc = (): ReportDoc => {
+    const rows: Record<string, string | number>[] = [];
+    PAGES.forEach(p => rows.push({ item: `Module · ${p.title}`, ...Object.fromEntries(team.map((u, i) => [u.id, pageSets[i].has(p.key) ? '✓' : '—'])) }));
+    FEATURE_PERMISSIONS.forEach(f => rows.push({ item: `Action · ${f.title}`, ...Object.fromEntries(team.map((u, i) => [u.id, featSets[i].has(f.key) ? '✓' : '—'])) }));
+    return {
+      title: 'Staff rights', subtitle: new Date().toISOString().slice(0, 10), filename: 'staff-rights', rows,
+      columns: [{ key: 'item', label: 'Module / action' }, ...team.map(u => ({ key: u.id, label: `${u.name} (${ROLE_LABEL[u.role] ?? u.role})`, align: 'center' as const }))],
+      notes: ['✓ = allowed, — = not allowed. Admins have full access.'],
+    };
+  };
+
   const Cell = ({ locked, on, label, onChange }: { locked: boolean; on: boolean; label: string; onChange: (v: boolean) => void }) => (
     <button type="button" role="switch" aria-checked={on} aria-label={label} disabled={locked || !canEdit} onClick={() => onChange(!on)} data-right-cell={on ? 'on' : 'off'}
       className={cn('mx-auto grid h-7 w-7 place-items-center rounded-lg border transition-colors', on ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card hover:border-primary/50', (locked || !canEdit) && 'cursor-not-allowed opacity-60')}>
@@ -89,7 +103,7 @@ export default function RightsMatrixPage() {
   return (
     <div className="space-y-4 p-4 lg:p-6" data-rights-matrix>
       <PageHeader icon={<ShieldCheck />} title="Rights" subtitle="Who can open which module and do which action — the whole team on one grid"
-        actions={<Button size="sm" variant="outline" onClick={csv} disabled={team.length === 0} data-rights-csv><Download className="mr-1 h-3.5 w-3.5" /> Export CSV</Button>} />
+        actions={<><Button size="sm" variant="outline" onClick={csv} disabled={team.length === 0} data-rights-csv><Download className="mr-1 h-3.5 w-3.5" /> Export CSV</Button><ReportActions build={reportDoc} disabled={team.length === 0} pos={false} /></>} />
       <FilterBar label="Rights filters">
         <Input type="search" placeholder="Search a module or action" aria-label="Search" value={q} onChange={e => setQ(e.target.value)} data-filter-grow data-rights-search />
         <select value={group} onChange={e => setGroup(e.target.value)} aria-label="Group" data-rights-group>

@@ -13,6 +13,8 @@ import MasterDetail from '@/components/layout/MasterDetail';
 import { getBranches, getCategories, getInventory, getMenuItems, getOrders, getRecipes, getSettings, saveSettings } from '@/lib/store';
 import { scopeToBranch } from '@/lib/cashierScope';
 import { DEFAULT_TARGET_FOOD_COST_PCT, MENU_CLASS_ADVICE, costMenu, foodCostStatus, menuEngineering, suggestedPrice, summarize, type FoodCostStatus, type ItemCost } from '@/lib/recipeCosting';
+import ReportActions from '@/components/ReportActions';
+import type { ReportDoc } from '@/lib/reportExport';
 import { cn } from '@/lib/utils';
 
 const STATUS: Record<FoodCostStatus, { label: string; cls: string }> = {
@@ -54,6 +56,13 @@ export default function RecipeCostingPage() {
   const since = Date.now() - days * 86_400_000;
   const eng = useMemo(() => menuEngineering(orders.filter(o => (branchId ? o.branchId === branchId : true) && new Date(o.createdAt).getTime() >= since), all), [orders, all, branchId, since]);
 
+  const reportDoc = (): ReportDoc => ({
+    title: 'Recipe costing', subtitle: `Target food cost ${target}%`, filename: 'recipe-costing',
+    meta: [...(branchId ? [{ label: 'Branch', value: branches.find(b => b.id === branchId)?.name ?? '' }] : []), ...(sum.avgFoodCostPct !== null ? [{ label: 'Average food cost', value: `${sum.avgFoodCostPct}%` }] : [])],
+    columns: [{ key: 'item', label: 'Item' }, { key: 'cost', label: 'Cost', align: 'right' }, { key: 'price', label: 'Price', align: 'right' }, { key: 'profit', label: 'Profit', align: 'right' }, { key: 'fc', label: 'Food cost', align: 'right' }, { key: 'status', label: 'Status' }],
+    rows: rows.map(c => ({ item: `${c.name}${c.variantLabel ? ` (${c.variantLabel})` : ''}`, cost: c.hasRecipe ? money(c.productionCost) : '—', price: money(c.price), profit: c.hasRecipe ? money(c.grossProfit) : '—', fc: c.foodCostPct === null ? '—' : `${c.foodCostPct}%`, status: STATUS[foodCostStatus(c, target)].label })),
+    notes: ['Cost = ingredients (with waste allowance) + packaging, at each ingredient’s average cost.'],
+  });
   const panel = current ? (() => {
     const price = Number(whatIf) > 0 ? Number(whatIf) : current.price;
     const fc = price > 0 && current.hasRecipe ? Math.round((current.productionCost / price) * 1000) / 10 : null;
@@ -99,7 +108,7 @@ export default function RecipeCostingPage() {
 
   return (
     <div className="space-y-4 p-4 lg:p-6" data-recipe-costing>
-      <PageHeader icon={<Calculator />} title="Costing" subtitle="From the ingredient to the production price, gross profit and the menu’s best and weakest dishes — branch by branch" />
+      <PageHeader icon={<Calculator />} title="Costing" subtitle="From the ingredient to the production price, gross profit and the menu’s best and weakest dishes — branch by branch" actions={<ReportActions build={reportDoc} disabled={rows.length === 0} />} />
       <FilterBar label="Costing filters">
         <Input type="search" placeholder="Search item" aria-label="Search item" value={q} onChange={e => setQ(e.target.value)} data-filter-grow data-cost-search />
         {branches.length > 1 && (

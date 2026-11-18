@@ -15,6 +15,8 @@ import { adjustStock, genId, getBranches, getCategories, getCurrentUser, getInve
 import { userHasFeature } from '@/lib/permissions';
 import { getTenantId } from '@/lib/tenant';
 import { countLines, loadDraft, postCount, saveDraft, summarize, type Adjust } from '@/lib/stockCount';
+import ReportActions from '@/components/ReportActions';
+import type { ReportDoc } from '@/lib/reportExport';
 import { cn } from '@/lib/utils';
 
 type Show = 'all' | 'counted' | 'differences';
@@ -52,6 +54,14 @@ export default function StockCountPage() {
   const sum = summarize(allLines);
   const label = new Date().toISOString().slice(0, 10);
 
+  const reportDoc = (): ReportDoc => ({
+    title: 'Stock count', subtitle: label, filename: `stock-count-${label}`,
+    meta: [...(branch !== 'all' ? [{ label: 'Branch', value: branches.find(b => b.id === branch)?.name ?? '' }] : []), { label: 'Net difference', value: `${sum.net < 0 ? '−' : ''}${money(Math.abs(sum.net))}` }],
+    columns: [{ key: 'item', label: 'Item' }, { key: 'unit', label: 'Unit' }, { key: 'system', label: 'In system', align: 'right' }, { key: 'counted', label: 'Counted', align: 'right' }, { key: 'diff', label: 'Difference', align: 'right' }, { key: 'value', label: 'Value', align: 'right' }],
+    rows: lines.map(l => ({ item: l.name, unit: l.unit, system: l.expected, counted: l.counted ?? '', diff: l.diff ?? '', value: l.value === null || l.value === 0 ? '' : `${l.value < 0 ? '−' : ''}${money(Math.abs(l.value))}` })),
+    totals: { value: `${sum.net < 0 ? '−' : ''}${money(Math.abs(sum.net))}` },
+    notes: ['The value is the difference × the item’s cost.'],
+  });
   const post = () => {
     if (!canPost) { toast.error('You do not have the right to post a stock count'); return; }
     const live = new Map(getInventory().map(i => [i.id, Number(i.quantity) || 0]));
@@ -67,7 +77,7 @@ export default function StockCountPage() {
     <div className="space-y-4 p-4 lg:p-6" data-stock-count>
       <PageHeader
         icon={<ClipboardCheck />} title="Stock Count" subtitle="Count the shelves, see what differs, post the difference to stock"
-        actions={<Button size="sm" disabled={sum.withDifference === 0 || !canPost} title={canPost ? undefined : 'Ask an admin for the right to post a stock count'} onClick={() => setConfirm(true)} data-count-post>Post to stock{sum.withDifference ? ` (${sum.withDifference})` : ''}</Button>}
+        actions={<><ReportActions build={reportDoc} disabled={lines.length === 0} /><Button size="sm" disabled={sum.withDifference === 0 || !canPost} title={canPost ? undefined : 'Ask an admin for the right to post a stock count'} onClick={() => setConfirm(true)} data-count-post>Post to stock{sum.withDifference ? ` (${sum.withDifference})` : ''}</Button></>}
       />
 
       <FilterBar label="Count filters">

@@ -14,6 +14,8 @@ import { userHasFeature } from '@/lib/permissions';
 import { scopeToBranch } from '@/lib/cashierScope';
 import { buildPlan, localDay, soldOn } from '@/lib/productionPlan';
 import { addItem, addMade, reconcile, setLine, sheetFromPlan, sheetId, totals, type ProductionSheet } from '@/lib/productionSheet';
+import ReportActions from '@/components/ReportActions';
+import type { ReportDoc } from '@/lib/reportExport';
 import { cn } from '@/lib/utils';
 
 const sameSheet = (a: ProductionSheet | null, b: ProductionSheet | null) => JSON.stringify(a?.lines ?? null) === JSON.stringify(b?.lines ?? null);
@@ -53,6 +55,14 @@ export default function ProductionSheetPanel() {
     setSaved(next); setSheet(next);
     toast.success('Day sheet saved');
   };
+  const reportDoc = (): ReportDoc => ({
+    title: 'Production day sheet', subtitle: day, filename: `production-sheet-${day}`,
+    meta: [...(branchId ? [{ label: 'Branch', value: branches.find(b => b.id === branchId)?.name ?? '' }] : []), ...(tot.wastePct !== null ? [{ label: 'Unsold', value: `${tot.wastePct}%` }] : [])],
+    columns: [{ key: 'item', label: 'Item' }, ...['planned:Planned', 'made:Made', 'sold:Sold', 'unsold:Unsold', 'left:Left on shelf', 'gap:Gap'].map(x => ({ key: x.split(':')[0], label: x.split(':')[1], align: 'right' as const }))],
+    rows: rows.map(r => ({ item: r.name, planned: r.planned, made: r.made, sold: r.sold, unsold: r.unsold, left: r.leftover ?? '', gap: r.gap ?? '' })),
+    totals: { planned: tot.planned, made: tot.made, sold: tot.sold, unsold: tot.unsold, gap: tot.counted > 0 ? tot.gap : '' },
+    notes: ['Unsold = made − sold. Gap = unsold − what was counted on the shelf.'],
+  });
   const notOnSheet = items.filter(m => !sheet?.lines.some(l => l.menuItemId === m.id));
 
   return (
@@ -69,6 +79,7 @@ export default function ProductionSheetPanel() {
           </label>
         )}
         <div className="ml-auto flex items-end gap-2">
+          {sheet && <ReportActions build={reportDoc} />}
           {sheet && <Button size="sm" onClick={save} disabled={!dirty || !canEdit} title={canEdit ? undefined : 'Ask an admin for the right to edit the production sheet'} data-sheet-save>Save sheet</Button>}
         </div>
       </FilterBar>
