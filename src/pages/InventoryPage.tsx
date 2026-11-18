@@ -14,6 +14,8 @@ import { Dialog as ConfirmDialog, DialogContent as ConfirmContent, DialogHeader 
 import { toast } from 'sonner';
 import { BASE_UNITS, PURCHASE_UNITS, getBaseUnit } from '@/lib/units';
 import { PageTitle } from '@/components/layout/PageFrame';
+import MasterDetail, { useWideScreen } from '@/components/layout/MasterDetail';
+import InventoryDetail from '@/components/inventory/InventoryDetail';
 
 const UNITS = ['pcs', 'kg', 'g', 'l', 'ml']; // legacy alias list (kept for backward compat)
 
@@ -43,6 +45,9 @@ export default function InventoryPage() {
 
   // Bulk select + filters
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  // v1.120.0 — the row's panel (master-detail): the item you tapped, with what its stock means; the tick boxes above are the bulk selection and are separate
+  const [panelId, setPanelId] = useState<string | null>(null);
+  const wide = useWideScreen();
   const [statusFilter, setStatusFilter] = useState<'all' | 'ok' | 'low' | 'out' | 'active' | 'inactive'>('all');
   const [catFilter, setCatFilter] = useState<string>('all');
   const [bulkMoveOpen, setBulkMoveOpen] = useState(false);
@@ -304,6 +309,18 @@ export default function InventoryPage() {
       </div>
 
       {/* Inventory Table */}
+      <MasterDetail
+        title={items.find(i => i.id === panelId)?.name ?? 'Item'} open={!!items.find(i => i.id === panelId)} onClose={() => setPanelId(null)}
+        emptyText="Select an item to see how long its stock lasts, where it is used and what moved." dialogClassName="sm:max-w-md max-h-[90vh] overflow-y-auto"
+        detail={(() => {
+          const it = items.find(i => i.id === panelId);
+          if (!it) return null;
+          const cat = categories.find(c => c.id === it.categoryId);
+          // below the wide layout the panel is a dialog: close it before another dialog opens on top of it
+          const leave = () => { if (!wide) setPanelId(null); };
+          return <InventoryDetail item={it} logs={logs} categoryName={cat ? `${cat.icon ?? ''} ${cat.name}`.trim() : undefined} onStock={t => { leave(); openStockAdjust(it, t); }} onEdit={() => { leave(); openEdit(it); }} />;
+        })()}
+        list={
       <div className="bg-card rounded-lg border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -330,8 +347,8 @@ export default function InventoryPage() {
                   const isLow = item.quantity <= item.lowStockThreshold;
                   const isOut = item.quantity === 0;
                   return (
-                    <tr key={item.id} className={`border-b hover:bg-accent/30 transition-colors ${selected.has(item.id) ? 'bg-violet-50 dark:bg-violet-950/30' : idx % 2 === 0 ? '' : 'bg-muted/20'}`}>
-                      <td className="py-2 px-3"><Checkbox checked={selected.has(item.id)} onCheckedChange={() => toggleOne(item.id)} aria-label={`Select ${item.name}`} /></td>
+                    <tr key={item.id} onClick={() => setPanelId(item.id)} data-inventory-row={item.id} className={`border-b hover:bg-accent/30 transition-colors cursor-pointer ${panelId === item.id ? 'bg-primary/5' : selected.has(item.id) ? 'bg-violet-50 dark:bg-violet-950/30' : idx % 2 === 0 ? '' : 'bg-muted/20'}`}>
+                      <td className="py-2 px-3" onClick={e => e.stopPropagation()}><Checkbox checked={selected.has(item.id)} onCheckedChange={() => toggleOne(item.id)} aria-label={`Select ${item.name}`} /></td>
                       <td className="py-2 px-3 font-semibold">{item.name}</td>
                       <td className="py-2 px-3 text-muted-foreground font-mono text-xs">{item.sku}</td>
                       <td className="py-2 px-3">{cat ? `${cat.icon} ${cat.name}` : '—'}</td>
@@ -352,7 +369,7 @@ export default function InventoryPage() {
                           <Badge className="bg-status-success/20 text-status-success border-status-success/30 text-[10px]">OK</Badge>
                         )}
                       </td>
-                      <td className="py-2 px-3">
+                      <td className="py-2 px-3" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-center gap-1">
                           <Button size="sm" variant="outline" className="h-7 text-[10px] px-2 text-status-success border-status-success/30 hover:bg-status-success/10"
                             onClick={() => openStockAdjust(item, 'in')}>
@@ -378,6 +395,7 @@ export default function InventoryPage() {
           </table>
         </div>
       </div>
+        } />
 
       {/* Add/Edit Dialog */}
       <Dialog open={showForm} onOpenChange={setShowForm}>
