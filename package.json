@@ -1,6 +1,6 @@
 {
   "name": "dt-pos",
-  "version": "1.124.0",
+  "version": "1.125.0",
   "private": true,
   "sideEffects": false,
   "type": "module",
@@ -20,7 +20,8 @@
     "app:brand": "node scripts/brand-app.mjs",
     "app:sync": "node scripts/build-app.mjs && npx cap sync android",
     "test:drain": "node scripts/synctest/sync-drain.mjs",
-    "smoke:worker": "node scripts/smoke-worker.mjs"
+    "smoke:worker": "node scripts/smoke-worker.mjs",
+    "test:offline": "node scripts/test-offline-reload.mjs"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",

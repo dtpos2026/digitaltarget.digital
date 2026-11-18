@@ -36,6 +36,7 @@ import { PREMIUM_THEME_IDS } from '@/lib/premiumTheme';
 import InterfaceStyleCard from '@/components/settings/InterfaceStyleCard';
 import ScreenProfileCard from '@/components/settings/ScreenProfileCard';
 import PrivacyCard from '@/components/settings/PrivacyCard';
+import OfflineShellCard from '@/components/settings/OfflineShellCard';
 import { countryForCurrency, taxRuleFor } from '@/lib/taxRegistration';
 import ModuleManagementCard from '@/components/settings/ModuleManagementCard';
 import { PageHeader } from '@/components/ui-kit';
@@ -806,6 +807,7 @@ export default function SettingsPage() {
               → Open Devices page
             </a>
           </div>
+          <OfflineShellCard />
         </TabsContent>
 
         <TabsContent value="general" className="space-y-4">

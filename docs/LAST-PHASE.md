@@ -8,6 +8,7 @@ Everything the owner asked to be done in “phase 1” was done or is listed her
 3. **A native speaker reads the Urdu** (`docs/qa/urdu-proofread-sheet.html`); Roman Urdu follows by itself.
 4. **Supabase dashboard switch**: Authentication → Policies → leaked-password protection.
 5. **Set the delivery fee / minimum order / radius** in Settings → Online Portal (all live restaurants have none today).
+6. **Try “Reload with no signal”** (Settings → Devices, v1.125.0) on the Windows app and on a real phone/tablet — `docs/qa/2026-11-18-offline-reload-v1.125.0.md`. It is opt-in per device and has three kill switches; it passed a real Chromium test with the network off, not a real device.
 
 ## Code, in order
 | # | Work | Why it is not in phase 1 |

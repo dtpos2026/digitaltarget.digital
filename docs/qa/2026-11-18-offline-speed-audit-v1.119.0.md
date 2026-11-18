@@ -40,7 +40,7 @@ its receipt stack** (about 340 KB), because the app shell imports the till direc
 
 ## What was deliberately **not** changed — and why
 
-* **No service worker.** It is the right fix for "reload with no signal", and it is the riskiest change on this list: the project already
+* **No service worker** *(built in v1.125.0 — see `2026-11-18-offline-reload-v1.125.0.md`; opt-in, with kill switches)*. It is the right fix for "reload with no signal", and it is the riskiest change on this list: the project already
   had a release (v1.25.2) where a cached page asked for files a new deploy had removed, and the recovery code unregisters service workers
   on purpose. It must be built and tried on real phones and the Windows shell, not on a build machine. Design for when it is done:
   cache `/assets/*` forever by file name; load the page **network-first** with a 3-second timeout and the cached copy as the fallback;

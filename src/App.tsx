@@ -2,6 +2,7 @@ import { useState, useEffect, lazy, Suspense } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { toast } from "sonner";
 import '@/lib/uiBoot';
+import '@/lib/offlineShell';
 import { applyTheme, getActiveTheme } from '@/lib/themes';
 import { applyUiStyle, UI_STYLE_EVENT } from '@/lib/uiStyle';
 import { enforcePremiumThemeGate } from '@/lib/premiumTheme';
