@@ -10,6 +10,7 @@ import { weekLines, statusChip, type OpenState, type OpeningHours } from '@/lib/
 import { mapsLink, telLink, waLink, type FaqItem } from '@/lib/siteHelp';
 import { TONES, type TileIcon } from '@/lib/websiteHome';
 import { TileIconView } from '@/components/website/siteBits';
+import { activeGroups, checkChoice, liveOptions, maxOf, toggleChoice, type AddOnGroup } from '@/lib/addOns';
 
 // ------------------------------------------------------------------ shared
 export function SubPage({ title, onBack, children, testId }: { title: string; onBack: () => void; children: ReactNode; testId: string }) {
@@ -303,8 +304,14 @@ export interface DetailItem {
   id: string; name: string; image?: string | null; category?: string; icon: TileIcon; tone: number; contents?: string;
   variants: { kind: 'size' | 'inch'; list: { name: string; price: number }[] } | null;
   flavors: string[]; price: number;
+  /** v1.124.0 — the owner's description of the item, and its groups of priced extras */
+  description?: string; addOnGroups?: AddOnGroup[];
 }
-export interface DetailPick { variant?: { kind: 'size' | 'inch'; name: string; price: number }; flavor?: string; note: string; qty: number }
+export interface DetailPick {
+  variant?: { kind: 'size' | 'inch'; name: string; price: number }; flavor?: string; note: string; qty: number;
+  /** v1.124.0 — the extras chosen (the server prices them again from the menu) */
+  addOns?: { id: string; name: string; price: number }[];
+}
 
 export function ItemDetailSheet(p: {
   item: DetailItem | null; money: (n: number) => string; closed: boolean; closedText?: string | null; onClose: () => void; onAdd: (item: DetailItem, pick: DetailPick) => void;
@@ -314,16 +321,24 @@ export function ItemDetailSheet(p: {
   const [flavor, setFlavor] = useState<string>('');
   const [note, setNote] = useState('');
   const [qty, setQty] = useState(1);
-  const [missing, setMissing] = useState<'size' | 'flavor' | null>(null);
-  useEffect(() => { setSize(''); setFlavor(''); setNote(''); setQty(1); setMissing(null); }, [item?.id]);
+  const [missing, setMissing] = useState<'size' | 'flavor' | 'addon' | null>(null);
+  const [extras, setExtras] = useState<string[]>([]);
+  useEffect(() => { setSize(''); setFlavor(''); setNote(''); setQty(1); setMissing(null); setExtras([]); }, [item?.id]);
   if (!item) return null;
   const chosen = item.variants?.list.find(v => v.name === size);
-  const unit = chosen ? chosen.price : item.variants ? Math.min(...item.variants.list.map(v => v.price)) : item.price;
+  const groups = activeGroups(item);
+  const picked = checkChoice(groups, extras);
+  const base = chosen ? chosen.price : item.variants ? Math.min(...item.variants.list.map(v => v.price)) : item.price;
+  const unit = base + picked.total;
   const from = !!item.variants && !chosen;
   const add = () => {
     if (item.variants && !chosen) { setMissing('size'); return; }
     if (item.flavors.length > 0 && !flavor) { setMissing('flavor'); return; }
-    p.onAdd(item, { ...(chosen ? { variant: { kind: item.variants!.kind, name: chosen.name, price: chosen.price } } : {}), ...(flavor ? { flavor } : {}), note: note.trim(), qty });
+    if (!picked.ok) { setMissing('addon'); return; }
+    p.onAdd(item, {
+      ...(chosen ? { variant: { kind: item.variants!.kind, name: chosen.name, price: chosen.price } } : {}), ...(flavor ? { flavor } : {}), note: note.trim(), qty,
+      ...(picked.chosen.length ? { addOns: picked.chosen.map(o => ({ id: o.id, name: o.name, price: o.price })) } : {}),
+    });
   };
   return (
     <Dialog open onOpenChange={o => { if (!o) p.onClose(); }}>
@@ -335,6 +350,7 @@ export function ItemDetailSheet(p: {
           <div>
             <DialogTitle className="text-xl font-extrabold leading-tight">{item.name}</DialogTitle>
             <DialogDescription className="mt-0.5 text-sm">{[item.category, item.contents].filter(Boolean).join(' · ') || 'Freshly made to order'}</DialogDescription>
+            {item.description && <p className="mt-2 text-sm leading-relaxed text-muted-foreground" data-detail-description>{item.description}</p>}
             <div className="mt-1.5 text-lg font-extrabold text-primary" data-detail-price>{from ? `From ${p.money(unit)}` : p.money(unit)}</div>
           </div>
 
@@ -365,6 +381,35 @@ export function ItemDetailSheet(p: {
             </fieldset>
           )}
 
+          {groups.map(g => {
+            const max = maxOf(g);
+            const single = max === 1;
+            const problem = missing === 'addon' && picked.problems.some(x => x.groupId === g.id);
+            return (
+              <fieldset key={g.id} data-detail-addon-group={g.id}>
+                <legend className={cn('mb-1.5 text-sm font-extrabold', problem && 'text-destructive')}>
+                  {g.name} <span className="font-normal text-muted-foreground">· {g.required ? 'required' : 'optional'}{single ? ' · pick one' : max > 1 ? ` · up to ${max}` : ''}</span>
+                </legend>
+                <div role={single ? 'radiogroup' : 'group'} className="space-y-2">
+                  {liveOptions(g).map(o => {
+                    const on = extras.includes(o.id);
+                    return (
+                      <button key={o.id} type="button" role={single ? 'radio' : 'checkbox'} aria-checked={on} data-detail-addon={o.id}
+                        onClick={() => { setExtras(toggleChoice(groups, extras, o.id)); setMissing(null); }}
+                        className={cn('flex w-full items-center justify-between rounded-xl border-2 px-3.5 py-3 text-left text-sm font-semibold', on ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/50')}>
+                        <span className="flex items-center gap-2.5">
+                          <span className={cn('grid h-5 w-5 place-items-center border-2', single ? 'rounded-full' : 'rounded-md', on ? 'border-primary bg-primary text-primary-foreground' : 'border-muted-foreground/50')}>{on && <Check className="h-3 w-3" aria-hidden />}</span>
+                          {o.name}
+                        </span>
+                        <span className="font-extrabold text-muted-foreground">{o.price > 0 ? `+ ${p.money(o.price)}` : 'Free'}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </fieldset>
+            );
+          })}
+
           <label className="block">
             <span className="mb-1.5 block text-sm font-extrabold">Special instructions <span className="font-normal text-muted-foreground">· optional</span></span>
             <textarea value={note} onChange={e => setNote(e.target.value.slice(0, 140))} rows={2} placeholder="e.g. less spicy, no onions" data-detail-note
@@ -382,7 +427,7 @@ export function ItemDetailSheet(p: {
           </div>
           <button type="button" onClick={add} data-detail-add disabled={p.closed}
             className="h-11 flex-1 rounded-xl bg-primary px-4 text-sm font-extrabold text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50">
-            {p.closed ? 'Closed right now' : missing === 'size' ? 'Choose a size first' : missing === 'flavor' ? 'Choose a flavour first' : `Add to cart — ${p.money(unit * qty)}`}
+            {p.closed ? 'Closed right now' : missing === 'size' ? 'Choose a size first' : missing === 'flavor' ? 'Choose a flavour first' : missing === 'addon' ? (picked.problems[0]?.message ?? 'Choose your extras') : `Add to cart — ${p.money(unit * qty)}`}
           </button>
         </div>
       </DialogContent>

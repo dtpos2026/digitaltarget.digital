@@ -374,7 +374,7 @@ describe('the page', () => {
   });
   it('a copied code lands in the cart’s code box; the note and quantity from the details reach the cart', () => {
     expect(page).toContain('setPromoInput(code)');
-    expect(page).toContain('pushToCart(m, pick.flavor, pick.variant, { qty: pick.qty, note: pick.note })');
+    expect(page).toContain('pushToCart(m, pick.flavor, pick.variant, { qty: pick.qty, note: pick.note, addOns: pick.addOns })');
     expect(page).toContain("[flavor ? `Flavor: ${flavor}` : '', userNote].filter(Boolean).join(' · ')");
   });
   it('on a phone every dialog is a bottom sheet: the centring translate is zeroed through the variables the minifier cannot drop', () => {

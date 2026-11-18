@@ -37,6 +37,7 @@ import {
 } from '@/lib/publicStorefront';
 import { closedMessage, openState } from '@/lib/openingHours';
 import { buildFaq } from '@/lib/siteHelp';
+import { activeGroups, addOnNote, hasAddOns } from '@/lib/addOns';
 import { AboutView, ClosedBanner, HelpView, ItemDetailSheet, OffersView, SiteMenuSheet, type DetailItem, type OfferCode, type OfferDeal, type SiteNavItem } from '@/components/website/siteViews';
 import { getCachedStorefront, loadPublicStorefront } from '@/lib/storefrontClient';
 import { CartBar, CategoryRail, HeroBanner, ItemCard, SiteHeader } from '@/components/website/siteBits';
@@ -638,6 +639,8 @@ export default function OnlineOrderPage() {
       contents: deal?.items?.length ? deal.items.map(di => `${di.quantity}× ${all.find(x => x.id === di.menuItemId)?.name || 'Item'}`).join(', ') : undefined,
       variants: vi.hasVariants && vi.kind ? { kind: vi.kind, list: vi.list } : null,
       flavors: m.flavors || [],
+      description: m.description?.trim() || undefined,
+      addOnGroups: activeGroups(m),
     };
   }, [detailItem, categories]); // eslint-disable-line react-hooks/exhaustive-deps
   const navItems: SiteNavItem[] = [
@@ -654,6 +657,8 @@ export default function OnlineOrderPage() {
       toast.error('Please order weight-based items at the POS counter.');
       return;
     }
+    // v1.124.0 — an item with add-ons opens its details: the extras, their prices and any required choice are on that screen
+    if (hasAddOns(m)) { setDetailItem(m); return; }
     const vi = variantInfo(m);
     if (vi.hasVariants && vi.kind) {
       setVariantPick({ item: m, kind: vi.kind, selected: null });
@@ -667,21 +672,25 @@ export default function OnlineOrderPage() {
     pushToCart(m);
   };
 
-  const pushToCart = (m: MenuItem, flavor?: string, variant?: { kind: 'size' | 'inch'; name: string; price: number }, extra?: { qty?: number; note?: string }) => {
+  const pushToCart = (m: MenuItem, flavor?: string, variant?: { kind: 'size' | 'inch'; name: string; price: number }, extra?: { qty?: number; note?: string; addOns?: { id: string; name: string; price: number }[] }) => {
     const addQty = Math.max(1, Math.min(20, Math.floor(extra?.qty ?? 1)));
     const userNote = (extra?.note || '').trim();
+    const addOns = extra?.addOns ?? [];
+    const addOnKey = addOns.map(a => a.id).sort().join(',');
+    const addOnTotal = addOns.reduce((s, a) => s + (Number(a.price) || 0), 0);
     setCart(prev => {
       const variantKey = variant ? `|${variant.kind}:${variant.name}` : '';
       const flavorNote = [flavor ? `Flavor: ${flavor}` : '', userNote].filter(Boolean).join(' · ');
-      const ex = prev.find(c => c.menuItemId === m.id && (c.note || '') === flavorNote && (c.variantName || '') === (variant?.name || ''));
+      const ex = prev.find(c => c.menuItemId === m.id && (c.note || '') === flavorNote && (c.variantName || '') === (variant?.name || '') && (c.addOns || []).map(a => a.id).sort().join(',') === addOnKey);
       if (ex) return prev.map(c => c.id === ex.id ? { ...c, quantity: c.quantity + addQty, lineTotal: (c.quantity + addQty) * c.price } : c);
-      const price = variant ? variant.price : m.price;
+      const price = (variant ? variant.price : m.price) + addOnTotal;
       const displayName = variant ? `${m.name} (${variant.name})` : m.name;
       const item: CartItem = {
         id: `c-${Date.now()}-${Math.random().toString(36).slice(2, 7)}${variantKey}`,
         menuItemId: m.id, name: displayName, pricingType: 'fixed', price,
         quantity: addQty, lineTotal: price * addQty, note: flavorNote,
         ...(variant ? { variantType: variant.kind, variantName: variant.name } : {}),
+        ...(addOns.length ? { addOns } : {}),
       };
       return [...prev, item];
     });
@@ -1374,6 +1383,9 @@ export default function OnlineOrderPage() {
                             {c.note && (
                               <p className="text-[10px] text-primary font-medium truncate">{c.note}</p>
                             )}
+                            {(c.addOns?.length ?? 0) > 0 && (
+                              <p className="text-[10px] text-muted-foreground" data-cart-addons>{addOnNote(c.addOns!)}</p>
+                            )}
                             <p className="text-[10px] text-muted-foreground">{money(c.price)} × {c.quantity}</p>
                           </div>
                           <div className="flex items-center gap-1">
@@ -2020,7 +2032,7 @@ export default function OnlineOrderPage() {
         onAdd={(it, pick) => {
           const m = detailItem;
           if (!m) return;
-          pushToCart(m, pick.flavor, pick.variant, { qty: pick.qty, note: pick.note });
+          pushToCart(m, pick.flavor, pick.variant, { qty: pick.qty, note: pick.note, addOns: pick.addOns });
           setDetailItem(null);
           toast.success(`${pick.qty > 1 ? pick.qty + '× ' : ''}${it.name} added to your cart`);
         }}

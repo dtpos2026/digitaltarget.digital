@@ -14,6 +14,8 @@ import { toast } from 'sonner';
 import { featureActive } from '@/lib/optionalModules';
 import { uploadTenantImage } from '@/lib/storage';
 import BulkImageUpload from '@/components/BulkImageUpload';
+import AddOnEditor from '@/components/menu/AddOnEditor';
+import { cleanGroups, groupIssues } from '@/lib/addOns';
 import ExcelImportDialog from '@/components/ExcelImportDialog';
 import { money } from '@/lib/currency';
 import { PageTitle } from '@/components/layout/PageFrame';
@@ -311,7 +313,14 @@ export default function MenuManagerPage() {
 
   const saveItem = () => {
     if (!editItem || !editItem.name) return;
-    saveMenuItem(editItem);
+    // v1.124.0 — add-on groups: say what is wrong before saving; save them clean (trimmed, no empty rows, every id present)
+    const addOnProblems = groupIssues(editItem.addOnGroups || []);
+    if (addOnProblems.length) { toast.error(addOnProblems[0]); return; }
+    saveMenuItem({
+      ...editItem,
+      description: (editItem.description || '').trim() || undefined,
+      addOnGroups: cleanGroups(editItem.addOnGroups, genId),
+    });
     setShowItemDialog(false);
     refresh();
     toast.success('Item saved');
@@ -890,6 +899,17 @@ export default function MenuManagerPage() {
                   {editItem.image && <Button variant="ghost" size="sm" onClick={() => setEditItem({ ...editItem, image: '' })}>Remove</Button>}
                 </div>
               </div>
+              {/* v1.124.0 — what the website shows on the item, and the extras it can charge for */}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground block mb-1">Description (optional — shown on the website)</label>
+                <textarea
+                  rows={2} maxLength={300} value={editItem.description || ''} data-item-description
+                  onChange={e => setEditItem({ ...editItem, description: e.target.value })}
+                  placeholder="e.g. Crispy chicken fillet, cheese, lettuce and our house sauce"
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary/60"
+                />
+              </div>
+              <AddOnEditor groups={editItem.addOnGroups || []} onChange={g => setEditItem({ ...editItem, addOnGroups: g })} />
               <Button onClick={saveItem} className="w-full"><Save className="h-3 w-3 mr-1" /> Save</Button>
             </div>
           )}

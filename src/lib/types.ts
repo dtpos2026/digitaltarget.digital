@@ -3,6 +3,7 @@ import type { PrepRecipe, ProductionBatch } from './prep';
 import type { StockLot } from './lots';
 import type { CakeOrder } from './cakeOrders';
 import type { RightsRequest, RightsRule } from './rightsRules';
+import type { AddOnGroup } from './addOns';
 export type PricingType = 'fixed' | 'weight' | 'manual' | 'size' | 'inch' | 'both';
 
 /** A single size / inch variant of a menu item (e.g. Small=450, Medium=850). */
@@ -86,6 +87,10 @@ export interface MenuItem {
   kitchenId?: string;       // which kitchen prepares this item (Main / BBQ / Beverage / etc.)
   /** Optional flavor / variation choices. If non-empty, customer must pick one before adding to cart. */
   flavors?: string[];
+  /** v1.124.0 — a line or two about the item, shown on the website's item details. */
+  description?: string;
+  /** v1.124.0 — groups of priced extras the customer chooses on the website (priced by the server). */
+  addOnGroups?: AddOnGroup[];
   // ===== Advanced Menu (Pizza-style variants) =====
   /** Optional flavor / sub-category label e.g. "Pizza Flavors". Drives flavor-layer grouping. */
   subCategory?: string;
@@ -114,6 +119,8 @@ export interface Kitchen {
 
 
 export interface CartItem {
+  /** v1.124.0 — the add-ons chosen on this line (already inside `price`); the server prices them again from the menu. */
+  addOns?: { id: string; name: string; price: number }[];
   id: string;
   menuItemId: string;
   name: string;
