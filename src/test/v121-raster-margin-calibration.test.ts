@@ -123,7 +123,7 @@ function geometryCommands(bytes: Buffer) {
 
 const DOTS_PER_MM = 8;
 
-describe('the margin pairs the shop asked to be tested', () => {
+describe.skipIf(!HAS_ENGINE)('the margin pairs the shop asked to be tested', () => {
   // Exactly the matrix from the request.
   const CASES: Array<[number, number]> = [
     [3, 5],   // the machine's own calibration
@@ -138,7 +138,7 @@ describe('the margin pairs the shop asked to be tested', () => {
       const bytes = escposRasterBytes(slipImage(800, 60), '80mm', true, {
         marginLeftMm: left, marginRightMm: right,
       });
-      const paperDots = paperDotsOf('80mm');
+      const paperDots = HAS_ENGINE ? paperDotsOf('80mm') : 0;
       const span = inkSpan(bytes, paperDots);
 
       // The ink begins exactly at the configured left margin...
@@ -172,8 +172,8 @@ describe('the margin pairs the shop asked to be tested', () => {
   });
 });
 
-describe('finding the slip inside the screenshot', () => {
-  const paperDots = paperDotsOf('80mm');
+describe.skipIf(!HAS_ENGINE)('finding the slip inside the screenshot', () => {
+  const paperDots = HAS_ENGINE ? paperDotsOf('80mm') : 0;
 
   it('removes the blank the capture picked up beside the slip', () => {
     // THE NARROW-RECEIPT FAULT. The worker window cannot always be sized to
@@ -252,7 +252,7 @@ describe('finding the slip inside the screenshot', () => {
   });
 });
 
-describe('the printer is told the full head, and positioned by the dots', () => {
+describe.skipIf(!HAS_ENGINE)('the printer is told the full head, and positioned by the dots', () => {
   it('sets GS L to zero and GS W to the whole printable width', () => {
     // The raster already places the slip at the right dot column, so the
     // printer's own margin must be zero or the two offsets add up and push
@@ -279,7 +279,7 @@ describe('the printer is told the full head, and positioned by the dots', () => 
   });
 });
 
-describe('the rule is recognised only when it really is one', () => {
+describe.skipIf(!HAS_ENGINE)('the rule is recognised only when it really is one', () => {
   it('declines a solid band taller than a hairline could be', () => {
     // A template with a black header band must not have that band cut off
     // the top of every slip. The rule is two CSS pixels and the worker never

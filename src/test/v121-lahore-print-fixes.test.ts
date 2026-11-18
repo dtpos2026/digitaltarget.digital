@@ -149,7 +149,7 @@ describe('Standard text weight is the default', () => {
   });
 });
 
-describe('the Standard weight script', () => {
+describe.skipIf(!HAS_ENGINE)('the Standard weight script', () => {
   const { standardWeight, STANDARD_WEIGHT_JS, applyTextWeight } = requireEngine('textWeight.cjs');
 
   it('maps 900/800 → 700 and 700/600 → 500, leaves the rest', () => {
@@ -187,7 +187,7 @@ describe('the Standard weight script', () => {
   });
 });
 
-describe('Extra bold no longer closes white text inside black bars', () => {
+describe.skipIf(!HAS_ENGINE)('Extra bold no longer closes white text inside black bars', () => {
   const { packDots, rasterGeometry } = requireEngine('escposRaster.cjs');
   const row = (pattern: string) => {
     const px = Buffer.alloc(pattern.length * 4, 0xff);
@@ -195,7 +195,7 @@ describe('Extra bold no longer closes white text inside black bars', () => {
     return px;
   };
   const dots = (packed: any, n: number) => Array.from({ length: n }, (_, x) => ((packed.data[x >> 3] >> (7 - (x & 7))) & 1) ? 'x' : '.').join('');
-  const geom = rasterGeometry('80mm', 0, 0);
+  const geom = HAS_ENGINE ? rasterGeometry('80mm', 0, 0) : ({} as any);
 
   it('a one-dot white stroke between ink stays white', () => {
     expect(dots(packDots(row('xxx.xxx'), 7, 1, geom, { bold: true }), 7)).toBe('xxx.xxx');

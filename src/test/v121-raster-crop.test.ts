@@ -51,7 +51,7 @@ function stubImage(width: number, height: number, inkFrom: number, inkTo: number
   return make(width, height, data);
 }
 
-describe('locating the ink', () => {
+describe.skipIf(!HAS_ENGINE)('locating the ink', () => {
   it('finds the first and last inked column', () => {
     const cols = inkColumns(stubImage(200, 20, 30, 150).toBitmap(), 200, 20);
     expect(cols.first).toBe(30);
@@ -63,7 +63,7 @@ describe('locating the ink', () => {
   });
 });
 
-describe('trimming the blank the capture picked up', () => {
+describe.skipIf(!HAS_ENGINE)('trimming the blank the capture picked up', () => {
   it('removes a wide band on the right', () => {
     // The observed failure: content on the left, blank to the right, so the
     // downscale squeezed the receipt into part of the roll.

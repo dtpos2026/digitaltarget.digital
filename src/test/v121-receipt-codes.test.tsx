@@ -263,7 +263,7 @@ describe('on the bill', () => {
   });
 });
 
-describe('the image route prints codes dot-exact', () => {
+describe.skipIf(!HAS_ENGINE)('the image route prints codes dot-exact', () => {
   // A 3-dot module whose edges fall mid-dot: half-covered edge dots.
   function strip(offsetHalf: boolean) {
     const width = 16, height = 1;
@@ -274,7 +274,7 @@ describe('the image route prints codes dot-exact', () => {
     return { px, width, height };
   }
   const dots = (packed: any, n: number) => Array.from({ length: n }, (_, x) => (packed.data[x >> 3] >> (7 - (x & 7))) & 1).join('');
-  const geom = { ...rasterGeometry('80mm', 0, 0), leftDots: 0 };
+  const geom = HAS_ENGINE ? { ...rasterGeometry('80mm', 0, 0), leftDots: 0 } : ({} as any);
   it('text rule: a half-covered edge dot prints on BOTH sides (the 4/2 fault)', () => {
     const { px, width, height } = strip(true);
     expect(dots(packDots(px, width, height, geom, { darkness: 6 }), 10)).toBe('0000111100');

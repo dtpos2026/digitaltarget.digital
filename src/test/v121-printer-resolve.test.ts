@@ -23,7 +23,7 @@ const match = (name: string, printers: Array<{ name: string }>) => {
 };
 const installed = [{ name: 'BlackCopper 80mm Series (Copy 1)' }, { name: 'Microsoft Print to PDF' }];
 
-describe('following a renamed printer', () => {
+describe.skipIf(!HAS_ENGINE)('following a renamed printer', () => {
   it('the saved name resolves to the renamed queue', async () => {
     const r = createPrinterResolver({ list: async () => installed, match });
     expect(await r.resolve('BlackCopper 80mm Series')).toEqual({ name: 'BlackCopper 80mm Series (Copy 1)', stage: 'no-suffix' });
@@ -37,7 +37,7 @@ describe('following a renamed printer', () => {
   });
 });
 
-describe('one Windows query, not one per slip', () => {
+describe.skipIf(!HAS_ENGINE)('one Windows query, not one per slip', () => {
   it('the list is reused for 30 s', async () => {
     let t = 1_000_000;
     const list = vi.fn(async () => installed);
@@ -73,7 +73,7 @@ describe('one Windows query, not one per slip', () => {
   });
 });
 
-describe('resolving never makes a slip late or fails it', () => {
+describe.skipIf(!HAS_ENGINE)('resolving never makes a slip late or fails it', () => {
   it('a slow printer list is not waited for: the slip prints on the saved name', async () => {
     const list = vi.fn(async () => { await sleep(200); return installed; });
     const r = createPrinterResolver({ list, match, waitMs: 30 });

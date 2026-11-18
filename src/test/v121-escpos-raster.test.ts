@@ -24,7 +24,7 @@ function makePacked(rows: string[], paperDots = 32) {
   return { rowBytes, height: rows.length, data };
 }
 
-describe('rasterGeometry', () => {
+describe.skipIf(!HAS_ENGINE)('rasterGeometry', () => {
   it('places the content between the two margins, in whole dots', () => {
     const g = rasterGeometry('80mm', 2, 2);
     expect(g.paperDots).toBe(576);
@@ -53,7 +53,7 @@ describe('rasterGeometry', () => {
   });
 });
 
-describe('trimBlankRows', () => {
+describe.skipIf(!HAS_ENGINE)('trimBlankRows', () => {
   it('drops the blank tail a rendered document carries', () => {
     // The measured fault: over 15mm of blank paper fed before the cut,
     // purely from the document's own trailing space.
@@ -86,7 +86,7 @@ describe('trimBlankRows', () => {
   });
 });
 
-describe('inkCoverage', () => {
+describe.skipIf(!HAS_ENGINE)('inkCoverage', () => {
   it('reports a full-width slip as covering its content width', () => {
     const packed = makePacked(['xxxxxxxx'], 8);
     expect(inkCoverage(packed, 8)).toBe(1);
@@ -104,7 +104,7 @@ describe('inkCoverage', () => {
   });
 });
 
-describe('packDots', () => {
+describe.skipIf(!HAS_ENGINE)('packDots', () => {
   it('offsets the content by the left margin, in dots', () => {
     const geom = rasterGeometry('80mm', 2, 2);
     // One black pixel at x=0 must land at dot 16 (2mm at 8 dots/mm).
@@ -137,7 +137,7 @@ describe('packDots', () => {
 // print, not an edge case. The earlier tests missed it because they always
 // passed explicit numbers — exactly the argument shape the caller never uses.
 // ============================================================
-describe('blank-paper regression', () => {
+describe.skipIf(!HAS_ENGINE)('blank-paper regression', () => {
   /** A slip with a band of ink across the middle. */
   function renderedSlip(contentDots: number, height = 60) {
     const px = Buffer.alloc(contentDots * height * 4, 0xff);

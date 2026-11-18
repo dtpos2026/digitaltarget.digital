@@ -18,7 +18,7 @@
 // sign-in, and the desktop stops depending on an HTTP origin to let staff in.
 // ============================================================================
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const login = readFileSync(join(process.cwd(), 'src/pages/LoginPage.tsx'), 'utf8');
@@ -57,9 +57,10 @@ describe('the service-role path is kept, not replaced', () => {
   });
 });
 
-describe('what the operator is told when the origin really is wrong', () => {
-  const protocolTs = readFileSync(
-    join(process.cwd(), '..', 'dtpos-desktop', 'src', 'main', 'protocol.ts'), 'utf8');
+const PROTOCOL_TS = join(process.cwd(), '..', 'dtpos-desktop', 'src', 'main', 'protocol.ts');
+// the shell is a different repository: where it is not next to this one (a repo-only ZIP, Lovable) these checks are skipped, not failed
+describe.skipIf(!existsSync(PROTOCOL_TS))('what the operator is told when the origin really is wrong', () => {
+  const protocolTs = existsSync(PROTOCOL_TS) ? readFileSync(PROTOCOL_TS, 'utf8') : '';
 
   it('the shell names the address it called, not just the status', () => {
     expect(protocolTs).toContain('refused this request (HTTP');
