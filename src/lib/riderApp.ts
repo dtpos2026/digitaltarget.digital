@@ -122,6 +122,33 @@ export function collectFor(o: Order): Collect {
 }
 
 /**
+ * v1.123.0 — the rider took LESS than what is due at the door. `taken` is what the customer really handed over (null = all of it).
+ * Returns what the server books and what the phone should show: only the amount taken is a payment "by the rider", the bill stays
+ * 'partial' (not paid) and the rest is still due — it shows in Pending Payments like any other part-payment.
+ */
+export interface DeliveryMoney { due: number; taken: number; shortfall: number; status: 'paid' | 'partial'; refuse: 'bad_amount' | 'amount_too_high' | null }
+export function deliveryMoney(o: Order, taken: number | null | undefined): DeliveryMoney {
+  const c = collectFor(o);
+  const due = Math.max(0, Math.round(c.amount * 100) / 100);
+  if (taken === null || taken === undefined || !Number.isFinite(Number(taken))) return { due, taken: due, shortfall: 0, status: 'paid', refuse: null };
+  const t = Math.round(Number(taken) * 100) / 100;
+  if (t < 0) return { due, taken: 0, shortfall: due, status: due > 0 ? 'partial' : 'paid', refuse: 'bad_amount' };
+  if (t > due + 0.005) return { due, taken: due, shortfall: 0, status: 'paid', refuse: 'amount_too_high' };
+  const shortfall = Math.max(0, Math.round((due - t) * 100) / 100);
+  return { due, taken: t, shortfall, status: shortfall > 0.005 ? 'partial' : 'paid', refuse: null };
+}
+
+/** The order as the rider's phone should hold it after a delivery with `taken` cash — the same arithmetic as the server (portal_order_delivery). */
+export function applyDeliveryCash(o: Order, taken: number | null | undefined, rider: { id: string; name: string }, atIso: string): Order {
+  const m = deliveryMoney(o, taken);
+  if (m.refuse || m.due <= 0) return { ...o, status: 'paid', paidAt: atIso } as Order;
+  const method = String(o.paymentMethod || 'cash');
+  const payments = m.taken > 0 ? [...(o.payments || []), { id: `rider-${o.id}-${atIso}`, amount: m.taken, method, at: atIso, by: 'rider', riderId: rider.id, riderName: rider.name }] : (o.payments || []);
+  const next = { ...o, payments, amountPaid: (Number(o.amountPaid) || 0) + m.taken, paymentMethod: method, status: m.status } as Order;
+  return m.status === 'paid' ? ({ ...next, paidAt: atIso } as Order) : next;
+}
+
+/**
  * v1.112.0 — what the rider is going to take from customers on the orders still in their hands (the sum of "collect" on every
  * active order). Orders that are paid, on account, complimentary, delivered or cancelled add nothing.
  */

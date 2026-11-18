@@ -424,7 +424,7 @@ describe('DT Rider, the screens', () => {
 describe('the wiring', () => {
   const page = read('src/pages/RiderAppPage.tsx');
   it('the page keeps its server calls and only changes what is drawn', () => {
-    for (const s of ['portalSignIn', 'startVisiblePoll(pull, 15000)', 'await portalClaimOrder(o.id)', 'await portalSetDeliveryStage(o.id, stage)',
+    for (const s of ['portalSignIn', 'startVisiblePoll(pull, 15000)', 'await portalClaimOrder(o.id)', "await portalSetDeliveryStage(o.id, stage, stage === 'delivered' ? cashTaken : undefined)",
       'buildTrackingWhatsAppText', 'notifyCustomerStage(next, stage)', 'portalMyHistory(100)', 'portalLogout']) expect(page).toContain(s);
     expect(page).toContain("from '@/components/rider/RiderDelivery'");
     expect(read('src/styles.css')).toContain('@import "./styles/ui-rider.css";');

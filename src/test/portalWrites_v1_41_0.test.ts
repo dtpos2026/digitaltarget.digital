@@ -88,7 +88,7 @@ describe('the app actually calls them', () => {
 
   it('advancing a delivery goes to the server too', () => {
     const fn = rider.slice(rider.indexOf('const advance'));
-    expect(fn).toContain('await portalSetDeliveryStage(o.id, stage)');
+    expect(fn).toContain("await portalSetDeliveryStage(o.id, stage, stage === 'delivered' ? cashTaken : undefined)");
     expect(fn.indexOf('await portalSetDeliveryStage')).toBeLessThan(fn.indexOf('setDeliveryStage(o, stage)'));
   });
 });

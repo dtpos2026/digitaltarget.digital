@@ -20,7 +20,7 @@ import { APP_VERSION } from '@/lib/version';
 import { cn } from '@/lib/utils';
 import AppLanguageSwitch from '@/components/AppLanguageSwitch';
 import {
-  cashToCollect, historyRows, initials, localHistory, nextAction, periodSummary, problemMessage, type DeliveryRecord,
+  applyDeliveryCash, cashToCollect, historyRows, initials, localHistory, nextAction, periodSummary, problemMessage, type DeliveryRecord,
 } from '@/lib/riderApp';
 import { Banner, RButton, RCard, RLabel, Toggle } from '@/components/rider/riderUi';
 import {
@@ -419,17 +419,22 @@ export default function RiderAppPage() {
     return true;
   };
 
-  const advance = async (o: Order, stage: DeliveryStatus): Promise<boolean> => {
+  const advance = async (o: Order, stage: DeliveryStatus, cashTaken?: number | null): Promise<boolean> => {
     // Same reason as claimOrder: without this the stage change never leaves
     // the phone. The server also refuses a stage change on an order that is
     // not this rider's, which the local write could not check.
-    const res = await portalSetDeliveryStage(o.id, stage);
+    const res = await portalSetDeliveryStage(o.id, stage, stage === 'delivered' ? cashTaken : undefined);
     if (!res.ok) { toast.error(res.message || 'Could not update this delivery.'); return false; }
-    if (res.data?.ok === false) { toast.error('Could not update this delivery.'); return false; }
+    if (res.data?.ok === false) {
+      const why = res.data?.reason;
+      toast.error(why === 'amount_too_high' ? 'That is more than the customer owes. Check the amount.' : why === 'bad_amount' ? 'Enter the cash you took (0 or more).' : 'Could not update this delivery.');
+      return false;
+    }
 
     let next = setDeliveryStage(o, stage);
     if (stage === 'delivered') {
-      next = { ...next, status: 'paid', paidAt: new Date().toISOString() } as Order;
+      // v1.123.0 — the phone holds the order the way the server now does: paid when all of it was taken, part-paid when less
+      next = applyDeliveryCash(next, cashTaken, { id: rider?.id || '', name: rider?.name || '' }, new Date().toISOString());
       // Rider loyalty + lifetime delivered count
       try {
         const s = getSettings();
@@ -675,7 +680,7 @@ export default function RiderAppPage() {
         onConfirm={async () => { if (await advance(o, 'rider_picked')) setView({ kind: 'order', id: o.id }); }} />;
     } else if (view.kind === 'deliver') {
       body = <DeliverScreen order={o} onBack={() => setView({ kind: 'order', id: o.id })}
-        onConfirm={async () => { if (await advance(o, 'delivered')) setView({ kind: 'done', orderNumber: o.orderNumber }); }} />;
+        onConfirm={async (cash) => { if (await advance(o, 'delivered', cash)) setView({ kind: 'done', orderNumber: o.orderNumber }); }} />;
     } else {
       const r = restaurantFor(o);
       body = (

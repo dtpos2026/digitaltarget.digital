@@ -10,7 +10,7 @@ import { money } from '@/lib/currency';
 import type { DeliveryStatus, Order } from '@/lib/types';
 import DeliveryRouteMap from '@/components/DeliveryRouteMap';
 import {
-  RIDER_PROBLEMS, RIDER_STAGE_LABEL, RIDER_STEPS, bagChecklist, collectFor, directionsUrl, initials, nextAction, phaseTitle,
+  RIDER_PROBLEMS, RIDER_STAGE_LABEL, RIDER_STEPS, bagChecklist, collectFor, deliveryMoney, directionsUrl, initials, nextAction, phaseTitle,
   riderPhase, stageTone,
 } from '@/lib/riderApp';
 import { AppBar, Banner, CheckRow, RBadge, RButton, RCard, RLabel, Sheet, StickyAction, Stepper } from './riderUi';
@@ -179,10 +179,14 @@ export function PickupScreen({ order, onBack, onConfirm }: { order: Order; onBac
 }
 
 /** RID-13 — the money at the door, then Delivered. */
-export function DeliverScreen({ order, onBack, onConfirm }: { order: Order; onBack: () => void; onConfirm: () => Promise<void> }) {
+export function DeliverScreen({ order, onBack, onConfirm }: { order: Order; onBack: () => void; onConfirm: (cashTaken?: number) => Promise<void> }) {
   const c = collectFor(order);
   const [collected, setCollected] = useState(!c.mustConfirm);
+  // v1.123.0 — the customer may hand over less than what is due: empty = all of it
+  const [cash, setCash] = useState('');
   const [busy, setBusy] = useState(false);
+  const m = deliveryMoney(order, cash === '' ? null : Number(cash));
+  const short = !m.refuse && m.shortfall > 0;
   return (
     <div className="flex flex-1 flex-col gap-4" data-rider-screen="deliver">
       <AppBar title={`Delivery · #${order.orderNumber}`} onBack={onBack} />
@@ -193,12 +197,27 @@ export function DeliverScreen({ order, onBack, onConfirm }: { order: Order; onBa
         {c.amount > 0 && c.amount !== order.grandTotal && <span className="text-[13px] text-muted-foreground">Bill {money(order.grandTotal)}</span>}
       </RCard>
       {c.mustConfirm && (
-        <RCard className="py-1"><CheckRow checked={collected} onChange={setCollected}>I collected the full amount</CheckRow></RCard>
+        <RCard className="space-y-3 py-3">
+          <div>
+            <label htmlFor="rider-cash" className="text-[13px] font-semibold text-muted-foreground">Cash taken — leave empty if you took it all</label>
+            <div className="mt-1 flex items-center gap-2">
+              <input id="rider-cash" type="number" inputMode="decimal" min="0" value={cash} placeholder={String(c.amount)} data-rider-cash-input
+                onChange={e => { setCash(e.target.value); setCollected(false); }}
+                className="h-12 min-w-0 flex-1 rounded-xl border bg-card px-3 text-[18px] font-bold tabular-nums" />
+              <RButton variant="soft" onClick={() => { setCash(''); setCollected(false); }} data-rider-cash-full>All</RButton>
+              <RButton variant="soft" onClick={() => { setCash('0'); setCollected(false); }} data-rider-cash-none>Nothing</RButton>
+            </div>
+          </div>
+          {m.refuse === 'amount_too_high' && <Banner tone="warn" icon={AlertTriangle}>That is more than the customer owes ({money(m.due)}).</Banner>}
+          {m.refuse === 'bad_amount' && <Banner tone="warn" icon={AlertTriangle}>Enter 0 or more.</Banner>}
+          {short && <Banner tone="warn" icon={AlertTriangle}><span data-rider-shortfall>{money(m.shortfall)} stays unpaid on this order. The restaurant will collect it later.</span></Banner>}
+          <CheckRow checked={collected} onChange={setCollected}>{short ? `I took ${money(m.taken)} — ${money(m.shortfall)} stays unpaid` : 'I collected the full amount'}</CheckRow>
+        </RCard>
       )}
       <Banner tone="info" icon={Info}>Hand the order over and say the order number out loud.</Banner>
       <StickyAction>
-        <RButton variant="primary" size="lg" className="w-full" icon={CheckCircle2} busy={busy} disabled={!collected}
-          onClick={async () => { setBusy(true); try { await onConfirm(); } finally { setBusy(false); } }}>
+        <RButton variant="primary" size="lg" className="w-full" icon={CheckCircle2} busy={busy} disabled={!collected || !!m.refuse}
+          onClick={async () => { setBusy(true); try { await onConfirm(cash === '' ? undefined : Number(cash)); } finally { setBusy(false); } }}>
           Delivered
         </RButton>
       </StickyAction>

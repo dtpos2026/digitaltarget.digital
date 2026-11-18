@@ -241,9 +241,11 @@ export function portalClaimOrder(orderId: string): Promise<PortalResult<any>> {
 }
 
 /** Move a delivery this rider already owns to its next stage. */
-export function portalSetDeliveryStage(orderId: string, stage: string): Promise<PortalResult<any>> {
-  return call('portal_order_delivery',
-    { p_order: orderId, p_stage: stage, p_claim: false }, (r) => r);
+export function portalSetDeliveryStage(orderId: string, stage: string, cashTaken?: number | null): Promise<PortalResult<any>> {
+  // v1.123.0 — `cashTaken` (delivered only): how much the customer really handed over. Left out, the server books the whole amount due, as always.
+  const args: Record<string, unknown> = { p_order: orderId, p_stage: stage, p_claim: false };
+  if (stage === 'delivered' && typeof cashTaken === 'number' && Number.isFinite(cashTaken)) args.p_cash = cashTaken;
+  return call('portal_order_delivery', args, (r) => r);
 }
 
 /** A rider or order taker editing their OWN name, phone or photo. */
