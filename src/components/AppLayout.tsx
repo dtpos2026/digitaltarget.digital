@@ -32,6 +32,7 @@ import UpdateAvailableBanner from '@/components/UpdateAvailableBanner';
 import ModernSidebar from '@/components/shell/ModernSidebar';
 import RefinedSidebar from '@/components/shell/RefinedSidebar';
 import { isRefinedTheme } from '@/lib/uiThemes';
+import { warmCoreScreens } from '@/lib/prefetchScreens';
 import ModernHeader from '@/components/shell/ModernHeader';
 import ModuleLauncher from '@/components/shell/ModuleLauncher';
 import { useThemeId, useUiLook, useUiStyle } from '@/lib/uiStyle';
@@ -351,6 +352,8 @@ export default function AppLayout({ children, userRole, onLogout }: Props) {
   const themeId = useThemeId();
   const refined = modern && isRefinedTheme(themeId);
   const [launcherOpen, setLauncherOpen] = useState(false);
+  // v1.119.0 — once signed in, fetch the day-to-day screens while the browser is idle (they then open at once and survive a dropped connection)
+  useEffect(() => { warmCoreScreens(); }, []);
   const signedInName = (() => {
     try { return getUsers().find(u => u.id === (localStorage.getItem('pos-user-id') || ''))?.name || ''; } catch { return ''; }
   })();
