@@ -69,6 +69,8 @@ export const PAGES: PageDef[] = [
   { key: 'production-plan', path: '/production-plan', title: 'Production', group: 'Inventory', defaultRoles: ['admin', 'manager'] },
   // v1.115.1 — a physical stock-take with the difference posted to the stock ledger
   { key: 'stock-count', path: '/stock-count', title: 'Stock Count', group: 'Inventory', defaultRoles: ['admin', 'manager'] },
+  // v1.117.1 — dated stock: what is going off, first-expired-first-out, write off what has expired
+  { key: 'expiry', path: '/expiry', title: 'Expiry', group: 'Inventory', defaultRoles: ['admin', 'manager'] },
   // v1.116.0 — recipe → production cost → gross profit → menu engineering, per branch
   { key: 'rights-matrix', path: '/rights-matrix', title: 'Rights', group: 'Staff', defaultRoles: ['admin'] },
   { key: 'recipe-costing', path: '/recipe-costing', title: 'Costing', group: 'Inventory', defaultRoles: ['admin', 'manager'] },

@@ -84,7 +84,7 @@ export const ROLE_PRESETS: RolePreset[] = [
   {
     id: 'store-head', name: 'Store & Purchasing Head', level: 'department', department: 'store', role: 'manager', acrossBranches: true,
     summary: 'Inventory, receiving, purchase orders, suppliers and barcodes.',
-    pages: ['inventory', 'receiving', 'procurement', 'wastage', 'stock-count', 'production-plan', 'barcode', 'parties', 'recipes'],
+    pages: ['inventory', 'receiving', 'procurement', 'wastage', 'stock-count', 'expiry', 'production-plan', 'barcode', 'parties', 'recipes'],
     features: ['feat.inv.adjust', 'feat.inv.wastage', 'feat.inv.receive', 'feat.inv.cost-view'],
   },
   {

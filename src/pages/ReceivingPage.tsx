@@ -25,6 +25,7 @@ type FormState = {
   surcharge: number;
   receivedBy: string;
   notes: string;
+  expiryDate: string;
 };
 
 const emptyForm = (): FormState => ({
@@ -37,6 +38,7 @@ const emptyForm = (): FormState => ({
   surcharge: 0,
   receivedBy: '',
   notes: '',
+  expiryDate: '',
 });
 
 export default function ReceivingPage() {
@@ -107,6 +109,7 @@ export default function ReceivingPage() {
       receivedBy: form.receivedBy,
       notes: form.notes,
       date: new Date().toISOString(),
+      ...(form.expiryDate ? { expiryDate: form.expiryDate } : {}),
     };
     saveReceivingEntry(entry);
     setEntries(getReceivingEntries().slice());
@@ -293,6 +296,12 @@ export default function ReceivingPage() {
               <p className="text-[10px] text-muted-foreground mt-1">
                 Yeh amount item ki cost me add ho jayega (per-unit cost barhayega).
               </p>
+            </div>
+
+            <div>
+              <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Expiry date (optional)</label>
+              <Input type="date" value={form.expiryDate} onChange={e => setForm({ ...form, expiryDate: e.target.value })} data-receiving-expiry />
+              <p className="text-[10px] text-muted-foreground mt-1">With a date, the Expiry screen warns before it goes off and the oldest is used first.</p>
             </div>
 
             {selectedItem && form.quantity > 0 && (

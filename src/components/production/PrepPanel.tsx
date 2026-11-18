@@ -14,7 +14,7 @@ import { EmptyState } from '@/components/layout/PageFrame';
 import ReportActions from '@/components/ReportActions';
 import type { ReportDoc } from '@/lib/reportExport';
 import { money } from '@/lib/currency';
-import { adjustStock, deletePrepRecipe, genId, getBranches, getCurrentUser, getInventory, getPrepRecipes, getProductionBatches, receiveProducedStock, savePrepRecipe, saveProductionBatch } from '@/lib/store';
+import { adjustStock, deletePrepRecipe, genId, openStockLot, getBranches, getCurrentUser, getInventory, getPrepRecipes, getProductionBatches, receiveProducedStock, savePrepRecipe, saveProductionBatch } from '@/lib/store';
 import { userHasFeature } from '@/lib/permissions';
 import { RECIPE_UNITS, getBaseUnit } from '@/lib/units';
 import { batchesForQty, planBatch, postBatch, prepCostPerUnit, prepIssues, recentBatches, type PrepRecipe } from '@/lib/prep';
@@ -77,6 +77,7 @@ export default function PrepPanel() {
       });
       if (!done) { toast.error('Nothing to make — check the quantity'); return; }
       saveProductionBatch(done);
+      if (done.expiryDate) openStockLot({ inventoryItemId: done.outputItemId, expiryDate: done.expiryDate, qty: done.outputBaseQty, unitCost: done.unitCost, source: 'production', refId: done.id, receivedAt: done.date });
       toast.success(`${qtyText(done.outputBaseQty)} ${done.outputUnit} of ${done.outputName} made — ${m2(done.totalCost)}`);
       setMake(null); setVersion(v => v + 1);
     } finally { setPosting(false); }

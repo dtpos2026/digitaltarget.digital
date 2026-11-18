@@ -449,7 +449,7 @@ const ARRAY_COLLECTIONS = [
   'categories', 'menuItems', 'orders', 'tables', 'floors', 'kitchens', 'waiters', 'riders', 'users',
   'inventory', 'stockLogs', 'employees', 'attendance', 'leaves', 'payslips', 'advances',
   'accountCategories', 'transactions', 'parties', 'ledger', 'dailyCashCloses',
-  'receivingEntries', 'purchaseOrders', 'stockTransfers', 'branchTargets', 'productionSheets', 'prepRecipes', 'productionBatches', 'marketingContacts', 'recipes', 'wastages', 'customers', 'branches',
+  'receivingEntries', 'purchaseOrders', 'stockTransfers', 'branchTargets', 'productionSheets', 'prepRecipes', 'productionBatches', 'stockLots', 'marketingContacts', 'recipes', 'wastages', 'customers', 'branches',
   'creditPayments', 'promoCodes', 'paymentAccounts', 'deals', 'shifts', 'refunds',
 ] as const;
 
@@ -1395,6 +1395,7 @@ export function startSupabaseRealtime() {
           scheduleReload('productionSheets');
           scheduleReload('prepRecipes');
           scheduleReload('productionBatches');
+          scheduleReload('stockLots');
         });
       if (generation !== sbRealtimeGeneration) {
         try { sb().removeChannel(channel); } catch {}
@@ -3801,6 +3802,8 @@ export function adjustStock(
       cloudSaveItem('stockLogs', log.id, log);
     }
   }
+  // v1.117.1 — whatever leaves stock leaves the lot that expires first (only items that have lots pay anything for this)
+  if (plan.delta < 0) { try { takeFromLots(itemId, -plan.delta); } catch (e) { console.warn('[lots] FEFO failed', e); } }
   return { applied: true, duplicate: false, needsReview: plan.needsReview, balanceAfter: plan.balanceAfter };
 }
 
@@ -3906,6 +3909,7 @@ export function deletePaymentAccount(id: string) { deleteEntity('paymentAccounts
 import type { ReceivingEntry, MarketingContact, PurchaseOrder, StockTransfer, BranchTarget } from './types';
 import type { ProductionSheet } from './productionSheet';
 import { movingAverage, type PrepRecipe, type ProductionBatch } from './prep';
+import { consumeFefo, effectiveLots, expiredByItem, newLot, type StockLot } from './lots';
 import { toBaseQty, getBaseUnit } from './units';
 
 export function getReceivingEntries(): ReceivingEntry[] { return loadData().receivingEntries || []; }
@@ -3954,6 +3958,8 @@ export function saveReceivingEntry(e: ReceivingEntry) {
       d.stockLogs.push(log);
       saveLocal(d);
       if (useFirestore()) cloudSaveItem('stockLogs', log.id, log);
+      // v1.117.1 — goods with an expiry date open a lot (used first-expired-first-out, warned about on the Expiry screen)
+      if (e.expiryDate) { try { openStockLot({ inventoryItemId: item.id, expiryDate: e.expiryDate, qty: baseQty, unitCost: baseUnitCost, source: 'receiving', refId: e.id, receivedAt: (e.date || '').slice(0, 10) || undefined }); } catch (err) { console.warn('[lots] receipt lot failed', err); } }
     }
   }
 
@@ -4008,6 +4014,46 @@ export function saveProductionSheet(s: ProductionSheet) { saveEntity('production
 export function getPrepRecipes(): PrepRecipe[] { return loadData().prepRecipes || []; }
 export function savePrepRecipe(p: PrepRecipe) { saveEntity('prepRecipes', p); }
 export function deletePrepRecipe(id: string) { deleteEntity('prepRecipes', id); }
+// v1.117.1 — stock lots (receipts and batches with an expiry date) and the first-expired-first-out rule.
+export function getStockLots(): StockLot[] { return loadData().stockLots || []; }
+export function saveStockLot(l: StockLot) { saveEntity('stockLots', l); }
+export function deleteStockLot(id: string) { deleteEntity('stockLots', id); }
+function takeFromLots(itemId: string, baseQty: number) {
+  const mine = (loadData().stockLots || []).filter(l => l.inventoryItemId === itemId && (Number(l.remaining) || 0) > 0);
+  if (mine.length === 0) return;
+  for (const l of consumeFefo(mine, baseQty).changed) saveEntity('stockLots', l);
+}
+/** Opens a lot for stock that has just come in (a receipt with an expiry date, a batch with a shelf life, or stock counted in as dated). */
+export function openStockLot(input: Omit<Parameters<typeof newLot>[0], 'id' | 'itemName' | 'branchId' | 'receivedAt'> & { id?: string; receivedAt?: string }): StockLot | null {
+  const item = (loadData().inventory || []).find(i => i.id === input.inventoryItemId);
+  if (!item) return null;
+  const lot = newLot({ ...input, id: input.id || genId(), itemName: item.name, branchId: item.branchId, receivedAt: input.receivedAt || new Date().toISOString().slice(0, 10) });
+  if (lot) saveEntity('stockLots', lot);
+  return lot;
+}
+/** Takes everything that has expired out of stock as wastage (reason "expired"), item by item; the expired lots are used up by the same movement. */
+export function writeOffExpired(today: string, who?: string, itemId?: string): { items: number; value: number } {
+  const lots = getStockLots();
+  const inv = new Map((loadData().inventory || []).map(i => [i.id, i]));
+  const live = effectiveLotsByItem(lots, inv);
+  let items = 0, value = 0;
+  for (const [id, e] of expiredByItem(live, today)) {
+    if (itemId && id !== itemId) continue;
+    const item = inv.get(id);
+    if (!item || e.qty <= 0) continue;
+    const qty = Math.min(e.qty, Number(item.quantity) || 0);
+    if (qty <= 0) continue;
+    saveWastage({ id: genId(), date: new Date().toISOString(), inventoryItemId: id, inventoryItemName: item.name, quantity: qty, unit: item.baseUnit || item.unit, costValue: Math.round(e.value * 100) / 100, reason: 'expired', note: 'Past its expiry date', recordedBy: who, branchId: item.branchId });
+    items++; value += e.value;
+  }
+  return { items, value: Math.round(value * 100) / 100 };
+}
+/** The lots of every item, each capped to what is really in stock (see effectiveLots). */
+export function effectiveLotsByItem(lots: StockLot[], inv: Map<string, { quantity?: number }>): StockLot[] {
+  const by = new Map<string, StockLot[]>();
+  for (const l of lots) by.set(l.inventoryItemId, [...(by.get(l.inventoryItemId) ?? []), l]);
+  return [...by].flatMap(([id, ls]) => effectiveLots(ls, Number(inv.get(id)?.quantity) || 0));
+}
 export function getProductionBatches(): ProductionBatch[] { return loadData().productionBatches || []; }
 export function saveProductionBatch(b: ProductionBatch) { saveEntity('productionBatches', b); }
 

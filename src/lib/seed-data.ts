@@ -99,6 +99,7 @@ export function seedData(): AppData {
     productionSheets: [],
     prepRecipes: [],
     productionBatches: [],
+    stockLots: [],
     marketingContacts: [],
     recipes: [],
     wastages: [],

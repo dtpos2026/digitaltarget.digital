@@ -1,5 +1,6 @@
 import type { ProductionSheet } from './productionSheet';
 import type { PrepRecipe, ProductionBatch } from './prep';
+import type { StockLot } from './lots';
 export type PricingType = 'fixed' | 'weight' | 'manual' | 'size' | 'inch' | 'both';
 
 /** A single size / inch variant of a menu item (e.g. Small=450, Medium=850). */
@@ -1466,6 +1467,8 @@ export interface ReceivingEntry {
   receivedBy: string;
   notes: string;
   date: string;
+  /** v1.117.1 — YYYY-MM-DD the goods go off; opens a stock lot so the Expiry screen can warn and the oldest is used first. */
+  expiryDate?: string;
 }
 
 // ============= PROCUREMENT (v1.79.0) =============
@@ -1558,6 +1561,8 @@ export interface AppData {
   prepRecipes: PrepRecipe[];
   /** v1.117.0 — every batch made: raw material used, what came out, what it cost (module_documents kind 'productionBatches'). */
   productionBatches: ProductionBatch[];
+  /** v1.117.1 — dated layers inside an item's stock: receipts and batches with an expiry date (module_documents kind 'stockLots'). */
+  stockLots: StockLot[];
   marketingContacts: MarketingContact[];
   // Recipes & Wastage (Phase 4)
   recipes: Recipe[];
