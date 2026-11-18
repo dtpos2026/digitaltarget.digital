@@ -99,6 +99,7 @@ const BillReprintPage = lazy(() => import("@/pages/BillReprintPage"));
 const ProductionPlanPage = lazy(() => import("@/pages/ProductionPlanPage"));
 const StockCountPage = lazy(() => import("@/pages/StockCountPage"));
 const ExpiryPage = lazy(() => import("@/pages/ExpiryPage"));
+const CakeOrdersPage = lazy(() => import("@/pages/CakeOrdersPage"));
 const RecipeCostingPage = lazy(() => import("@/pages/RecipeCostingPage"));
 const RightsMatrixPage = lazy(() => import("@/pages/RightsMatrixPage"));
 const FoodpandaOrdersPage = lazy(() => import("@/pages/FoodpandaOrdersPage"));
@@ -986,6 +987,7 @@ const App = () => {
                 <Route path="/production-plan" element={<ProductionPlanPage />} />
                 <Route path="/stock-count" element={<StockCountPage />} />
                 <Route path="/expiry" element={<ExpiryPage />} />
+                <Route path="/cake-orders" element={<CakeOrdersPage />} />
                 <Route path="/recipe-costing" element={<RecipeCostingPage />} />
                 <Route path="/rights-matrix" element={<RightsMatrixPage />} />
                 <Route path="/printing-center" element={<PrintingCenterPage />} />

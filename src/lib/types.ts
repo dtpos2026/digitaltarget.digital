@@ -1,6 +1,7 @@
 import type { ProductionSheet } from './productionSheet';
 import type { PrepRecipe, ProductionBatch } from './prep';
 import type { StockLot } from './lots';
+import type { CakeOrder } from './cakeOrders';
 export type PricingType = 'fixed' | 'weight' | 'manual' | 'size' | 'inch' | 'both';
 
 /** A single size / inch variant of a menu item (e.g. Small=450, Medium=850). */
@@ -1563,6 +1564,8 @@ export interface AppData {
   productionBatches: ProductionBatch[];
   /** v1.117.1 — dated layers inside an item's stock: receipts and batches with an expiry date (module_documents kind 'stockLots'). */
   stockLots: StockLot[];
+  /** v1.117.2 — custom cake orders with advance and balance (module_documents kind 'cakeOrders'). */
+  cakeOrders: CakeOrder[];
   marketingContacts: MarketingContact[];
   // Recipes & Wastage (Phase 4)
   recipes: Recipe[];

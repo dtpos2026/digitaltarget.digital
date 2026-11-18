@@ -19,6 +19,8 @@ export const PAGES: PageDef[] = [
   // Operations — daily floor work
   { key: 'pos',        path: '/',           title: 'POS',        group: 'Operations', defaultRoles: ['admin', 'manager', 'cashier'] },
   { key: 'tables',     path: '/tables',     title: 'Tables',     group: 'Operations', defaultRoles: ['admin', 'manager', 'cashier'] },
+  // v1.117.2 — custom cakes taken with an advance, baked for a date, handed over when the balance is paid
+  { key: 'cake-orders', path: '/cake-orders', title: 'Cake Orders', group: 'Operations', defaultRoles: ['admin', 'manager', 'cashier'] },
   { key: 'bills',      path: '/bills',      title: 'Retrieve',   group: 'Operations', defaultRoles: ['admin', 'manager', 'cashier'] },
   { key: 'delivery',   path: '/delivery',   title: 'Delivery',   group: 'Operations', defaultRoles: ['admin', 'manager', 'cashier', 'rider'] },
   { key: 'pickup',     path: '/pickup',     title: 'Pickup Orders', group: 'Operations', defaultRoles: ['admin', 'manager', 'cashier'] },
@@ -161,6 +163,7 @@ export const FEATURE_PERMISSIONS: FeaturePermDef[] = [
   { key: 'feat.inv.cost-view',     title: 'View Cost Price',     desc: 'See product cost / margin',     group: 'Inventory', defaultRoles: ['admin', 'manager'] },
   // v1.116.0 — the bakery / kitchen back office
   { key: 'feat.inv.count',         title: 'Post Stock Count',    desc: 'Post a physical count to stock', group: 'Inventory', defaultRoles: ['admin', 'manager'] },
+  { key: 'feat.cake.cancel',       title: 'Cancel Cake Order',   desc: 'Cancel a cake order and refund or keep the advance', group: 'Billing', defaultRoles: ['admin', 'manager'] },
   { key: 'feat.prod.edit',         title: 'Edit Production Sheet', desc: 'Save the day sheet (made, left over)', group: 'Inventory', defaultRoles: ['admin', 'manager'] },
   { key: 'feat.recipe.edit',       title: 'Edit Recipes',        desc: 'Change ingredients, waste and packaging', group: 'Inventory', defaultRoles: ['admin', 'manager'] },
 

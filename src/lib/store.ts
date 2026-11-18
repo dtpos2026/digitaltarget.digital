@@ -449,7 +449,7 @@ const ARRAY_COLLECTIONS = [
   'categories', 'menuItems', 'orders', 'tables', 'floors', 'kitchens', 'waiters', 'riders', 'users',
   'inventory', 'stockLogs', 'employees', 'attendance', 'leaves', 'payslips', 'advances',
   'accountCategories', 'transactions', 'parties', 'ledger', 'dailyCashCloses',
-  'receivingEntries', 'purchaseOrders', 'stockTransfers', 'branchTargets', 'productionSheets', 'prepRecipes', 'productionBatches', 'stockLots', 'marketingContacts', 'recipes', 'wastages', 'customers', 'branches',
+  'receivingEntries', 'purchaseOrders', 'stockTransfers', 'branchTargets', 'productionSheets', 'prepRecipes', 'productionBatches', 'stockLots', 'cakeOrders', 'marketingContacts', 'recipes', 'wastages', 'customers', 'branches',
   'creditPayments', 'promoCodes', 'paymentAccounts', 'deals', 'shifts', 'refunds',
 ] as const;
 
@@ -1396,6 +1396,7 @@ export function startSupabaseRealtime() {
           scheduleReload('prepRecipes');
           scheduleReload('productionBatches');
           scheduleReload('stockLots');
+          scheduleReload('cakeOrders');
         });
       if (generation !== sbRealtimeGeneration) {
         try { sb().removeChannel(channel); } catch {}
@@ -3910,6 +3911,8 @@ import type { ReceivingEntry, MarketingContact, PurchaseOrder, StockTransfer, Br
 import type { ProductionSheet } from './productionSheet';
 import { movingAverage, type PrepRecipe, type ProductionBatch } from './prep';
 import { consumeFefo, effectiveLots, expiredByItem, newLot, type StockLot } from './lots';
+import { addPayment, canMove, cancelOrder, type CakeOrder, type CakeStatus, type PayInput } from './cakeOrders';
+import { costItem } from './recipeCosting';
 import { toBaseQty, getBaseUnit } from './units';
 
 export function getReceivingEntries(): ReceivingEntry[] { return loadData().receivingEntries || []; }
@@ -4053,6 +4056,75 @@ export function effectiveLotsByItem(lots: StockLot[], inv: Map<string, { quantit
   const by = new Map<string, StockLot[]>();
   for (const l of lots) by.set(l.inventoryItemId, [...(by.get(l.inventoryItemId) ?? []), l]);
   return [...by].flatMap(([id, ls]) => effectiveLots(ls, Number(inv.get(id)?.quantity) || 0));
+}
+// v1.117.2 — custom cake orders: the order, its payments (posted to Accounts as income) and its ingredients (stock and cost).
+export function getCakeOrders(): CakeOrder[] { return loadData().cakeOrders || []; }
+export function saveCakeOrder(o: CakeOrder) { saveEntity('cakeOrders', o); }
+function accountCategory(name: string, type: 'income' | 'expense'): { id: string; name: string } {
+  const found = getAccountCategories().find(c => c.name === name && c.type === type);
+  if (found) return found;
+  const made = { id: genId(), name, type };
+  saveAccountCategory(made);
+  return made;
+}
+function cakeTransaction(o: CakeOrder, type: 'income' | 'expense', category: string, amount: number, method: string, at: string, by: string | undefined, what: string): string {
+  const cat = accountCategory(category, type);
+  const t: Transaction = { id: genId(), date: at, type, categoryId: cat.id, categoryName: cat.name, amount, paymentMethod: method || 'cash', description: `${o.number} — ${what}`, reference: o.number, partyName: o.customerName, createdBy: by, ...(o.branchId ? { branchId: o.branchId } : {}) };
+  saveTransaction(t);
+  return t.id;
+}
+/** Takes a payment on a cake order: validated, saved on the order, and posted to Accounts as income "Cake orders". */
+export function recordCakePayment(orderId: string, p: Omit<PayInput, 'id' | 'at'> & { id?: string; at?: string }): { ok: true; order: CakeOrder } | { ok: false; reason: string } {
+  const o = getCakeOrders().find(x => x.id === orderId);
+  if (!o) return { ok: false, reason: 'Order not found' };
+  const at = p.at || new Date().toISOString();
+  const r = addPayment(o, { ...p, id: p.id || genId(), at });
+  if (!r.ok) return r;
+  const txnId = cakeTransaction(o, 'income', 'Cake orders', r.payment.amount, r.payment.method, at, p.by, r.payment.kind === 'advance' ? 'advance' : 'balance');
+  const order = { ...r.order, payments: r.order.payments.map(x => (x.id === r.payment.id ? { ...x, txnId } : x)) };
+  saveCakeOrder(order);
+  return { ok: true, order };
+}
+/** The recipe of the linked item feeds stock the first time the baking starts (once; a retry moves nothing) and its cost is booked as "Cake ingredients". */
+function postCakeIngredients(o: CakeOrder, at: string, by?: string): CakeOrder {
+  if (o.stockPosted || !o.menuItemId) return o;
+  const d = loadData();
+  const mi = ((d as any).menuItems || []).find((m: any) => m.id === o.menuItemId);
+  if (!mi) return { ...o, stockPosted: true };
+  try {
+    deductStockForOrder({ id: `cake:${o.id}`, orderNumber: o.number, items: [{ id: `cake-${o.id}`, menuItemId: o.menuItemId, name: o.itemName || mi.name, quantity: o.quantity, pricingType: 'fixed' }] } as any);
+  } catch (e) { console.error('[cake] stock failed', e); }
+  const unit = costItem({ item: mi, price: Number(mi.price) || 0, recipes: d.recipes || [], inventory: d.inventory || [] }).productionCost;
+  const cost = Math.round(unit * (Number(o.quantity) || 0) * 100) / 100;
+  if (cost > 0) cakeTransaction(o, 'expense', 'Cake ingredients', cost, 'cash', at, by, 'ingredients');
+  return { ...o, stockPosted: true, ingredientCost: cost };
+}
+/** new → baking → ready → delivered. Refused (with the reason) when the order may not go there — a hand-over needs the balance paid first. */
+export function moveCake(orderId: string, to: Exclude<CakeStatus, 'cancelled'>, by?: string): { ok: true; order: CakeOrder } | { ok: false; reason: string } {
+  const o = getCakeOrders().find(x => x.id === orderId);
+  if (!o) return { ok: false, reason: 'Order not found' };
+  const can = canMove(o, to);
+  if (!can.ok) return { ok: false, reason: can.reason || 'Not allowed' };
+  const at = new Date().toISOString();
+  let next: CakeOrder = { ...o, status: to, updatedAt: at };
+  if (to === 'baking' || to === 'ready') next = postCakeIngredients(next, at, by);
+  saveCakeOrder(next);
+  return { ok: true, order: next };
+}
+/** Cancels an open order; with `refund` the advance goes back to the customer (an expense "Cake order refunds"), without it the advance is kept. */
+export function cancelCake(orderId: string, refund: boolean, by?: string): { ok: true; order: CakeOrder } | { ok: false; reason: string } {
+  const o = getCakeOrders().find(x => x.id === orderId);
+  if (!o) return { ok: false, reason: 'Order not found' };
+  const at = new Date().toISOString();
+  const r = cancelOrder(o, refund, at, by, genId());
+  if (!r.ok) return r;
+  let order = r.order;
+  if (r.refund) {
+    const txnId = cakeTransaction(o, 'expense', 'Cake order refunds', r.refund.amount, r.refund.method, at, by, 'advance refunded');
+    order = { ...order, payments: order.payments.map(x => (x.id === r.refund!.id ? { ...x, txnId } : x)) };
+  }
+  saveCakeOrder(order);
+  return { ok: true, order };
 }
 export function getProductionBatches(): ProductionBatch[] { return loadData().productionBatches || []; }
 export function saveProductionBatch(b: ProductionBatch) { saveEntity('productionBatches', b); }

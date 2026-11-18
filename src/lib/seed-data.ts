@@ -100,6 +100,7 @@ export function seedData(): AppData {
     prepRecipes: [],
     productionBatches: [],
     stockLots: [],
+    cakeOrders: [],
     marketingContacts: [],
     recipes: [],
     wastages: [],

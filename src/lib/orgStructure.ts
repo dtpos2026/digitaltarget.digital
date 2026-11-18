@@ -72,13 +72,13 @@ export const ROLE_PRESETS: RolePreset[] = [
   {
     id: 'kitchen-head', name: 'Kitchen Head', level: 'department', department: 'kitchen', role: 'manager', acrossBranches: true,
     summary: 'Kitchen display, recipes, wastage, the menu and kitchen slips.',
-    pages: ['kitchen', 'recipes', 'wastage', 'production-plan', 'recipe-costing', 'menu', 'variations', 'printing-center', 'itemSalesReport'],
+    pages: ['kitchen', 'recipes', 'wastage', 'production-plan', 'cake-orders', 'recipe-costing', 'menu', 'variations', 'printing-center', 'itemSalesReport'],
     features: ['feat.bill.cancel-kot', 'feat.inv.wastage'],
   },
   {
     id: 'production-head', name: 'Head Baker / Production Head', level: 'department', department: 'production', role: 'manager', acrossBranches: true,
     summary: 'Plans and records the day’s baking, keeps recipes and their cost, counts stock — bakery and central kitchen.',
-    pages: ['production-plan', 'recipes', 'recipe-costing', 'wastage', 'stock-count', 'inventory', 'kitchen', 'receiving', 'itemSalesReport'],
+    pages: ['production-plan', 'cake-orders', 'recipes', 'recipe-costing', 'wastage', 'stock-count', 'inventory', 'kitchen', 'receiving', 'itemSalesReport'],
     features: ['feat.inv.adjust', 'feat.inv.wastage', 'feat.inv.receive', 'feat.inv.count', 'feat.prod.edit', 'feat.recipe.edit', 'feat.inv.cost-view'],
   },
   {

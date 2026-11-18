@@ -5,7 +5,7 @@ import {
   Ban, Clock, Printer, Stethoscope, Ticket, BarChart3, TrendingUp, Users, UserCog, Wallet, Settings,
   Database, Smartphone, Building2, RefreshCw, MapPin, Globe, Bell, MessageCircle, Megaphone, Percent,
   Layers, BookOpen, Trash2, Package, UtensilsCrossed, Edit3, Moon, ReceiptText, FileText, History,
-  ShieldCheck, Gauge, Armchair, UserX, Warehouse, Coins, FileBarChart, Landmark, Handshake, Store, Wheat, ClipboardCheck, CalendarClock, Calculator,
+  ShieldCheck, Gauge, Armchair, UserX, Warehouse, Coins, FileBarChart, Landmark, Handshake, Store, Wheat, ClipboardCheck, CalendarClock, Cake, Calculator,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -44,6 +44,7 @@ export const MODERN_NAV_ICONS: Record<string, LucideIcon> = {
   'production-plan': Wheat,
   'stock-count': ClipboardCheck,
   'expiry': CalendarClock,
+  'cake-orders': Cake,
   'recipe-costing': Calculator,
   'rights-matrix': ShieldCheck,
   receiving: Package,
