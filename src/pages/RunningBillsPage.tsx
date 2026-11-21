@@ -1,10 +1,15 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { money } from '@/lib/currency';
 import { getOrders, saveOrder, getTables, saveTable, getSettings, refreshOrdersFromCloud, onDataChange, genId } from '@/lib/store';
 import { Order, PaymentEntry } from '@/lib/types';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { CreditCard, Eye, Clock, RotateCcw, Ban, Gift, Pause, ChefHat, History } from 'lucide-react';
+import { CreditCard, Eye, Clock, RotateCcw, Ban, Pause, Play, ChefHat, History, Printer, Download, Plus, MoreHorizontal, Search, Calendar, Filter } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import StatusBadge, { type Tone } from '@/components/ui-kit/StatusBadge';
+import { logReprint } from '@/lib/reprintAudit';
+import { STATUS_FILTERS, RANGES, filterOrders, isOpenBill, statusPill, tableOf, customerOf, timeLabel, ordersCsv, type OrdersFilter, type PillTone } from '@/lib/ordersView';
+import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import ReceiptPreview from '@/components/ReceiptPreview';
 import OrderDetailDialog from '@/components/OrderDetailDialog';
@@ -17,23 +22,30 @@ import ReceivePaymentButton from '@/components/ReceivePaymentButton';
 import { balanceDue } from '@/lib/sales';
 import { scopeOrders, getCurrentScope } from '@/lib/cashierScope';
 import { startVisiblePoll } from '@/lib/visiblePoll';
-import { PageTitle } from '@/components/layout/PageFrame';
-import MasterDetail from '@/components/layout/MasterDetail';
+import { PageTitle, FilterBar, EmptyState } from '@/components/layout/PageFrame';
+import MasterDetail, { useWideScreen } from '@/components/layout/MasterDetail';
 
 export default function RunningBillsPage() {
   const scope = getCurrentScope();
-  const loadOpen = () => scopeOrders(getOrders()).filter(o => o.status === 'running' || o.status === 'hold' || o.status === 'partial' || o.status === 'pending_approval' || o.status === 'credit_pending');
-  const [orders, setOrders] = useState(loadOpen);
+  // v1.131.0 — the design's Orders screen lists the day's bills of every status (it used to list only the open ones); an open bill
+  // still has all of its actions in the panel.
+  const loadAll = () => scopeOrders(getOrders());
+  const [orders, setOrders] = useState(loadAll);
   const [payOrderTarget, setPayOrderTarget] = useState<Order | null>(null);
   const settings = getSettings();
-  const [viewOrder, setViewOrder] = useState<Order | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [panelClosed, setPanelClosed] = useState(false);
+  const [receiptOrder, setReceiptOrder] = useState<Order | null>(null);
   const [historyOrder, setHistoryOrder] = useState<Order | null>(null);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [filter, setFilter] = useState<OrdersFilter>({ range: 'today', type: 'all', status: 'all', q: '' });
+  const wide = useWideScreen();
   const navigate = useNavigate();
   const isOrderTaker = scope.role === 'order_taker';
 
 
 
-  const refresh = () => setOrders(loadOpen());
+  const refresh = () => setOrders(loadAll());
 
   // Live cross-device sync: cloud pull every 10s + onDataChange listener.
   useEffect(() => {
@@ -183,13 +195,38 @@ export default function RunningBillsPage() {
     navigate('/?retrieve=' + order.id);
   };
 
-  const statusColor = (status: string) => {
-    if (status === 'running') return 'bg-status-success/15 text-status-success border-status-success/30';
-    if (status === 'hold') return 'bg-status-warning/15 text-status-warning border-status-warning/30';
-    if (status === 'partial') return 'bg-amber-500/15 text-amber-700 border-amber-500/30';
-    if (status === 'pending_approval') return 'bg-violet-500/15 text-violet-700 border-violet-500/30';
-    return 'bg-muted text-muted-foreground';
+  const reprint = (o: Order) => {
+    try {
+      enqueueReceipt(o, { force: true });
+      logReprint({ orderId: o.id, billNumber: o.orderNumber, orderStatus: o.status, type: 'receipt' });
+      toast.success(`Bill #${o.orderNumber} — customer receipt sent to the printer`);
+    } catch {
+      toast.error('Print failed');
+    }
   };
+
+  const visible = useMemo(() => filterOrders(orders, filter), [orders, filter]);
+  const shown = visible.slice(0, 300);
+  const viewOrder = shown.find(o => o.id === selectedId) || null;
+  // On a wide window the panel is never empty (the design opens with a bill selected); closing it keeps it closed until the filter changes.
+  useEffect(() => { setPanelClosed(false); }, [filter.status, filter.range, filter.type]);
+  useEffect(() => { if (wide && !panelClosed && shown.length > 0 && !shown.some(o => o.id === selectedId)) setSelectedId(shown[0].id); }, [wide, panelClosed, shown, selectedId]);
+
+  const exportCsv = () => {
+    const blob = new Blob(['\ufeff' + ordersCsv(visible)], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `orders-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const TONE: Record<PillTone, Tone> = { info: 'info', accent: 'accent', warn: 'warning', ok: 'success', bad: 'danger', neutral: 'neutral' };
+  const pill = (o: Order) => { const p = statusPill(o); return <StatusBadge tone={TONE[p.tone]} dot={false} className="px-2 py-[3px] text-[11.5px] font-bold">{p.label}</StatusBadge>; };
+  const rangeLabel = RANGES.find(r => r.key === filter.range)?.label || 'Today';
+  const typeOptions = ['dining', 'takeaway', 'delivery', ...(settings.foodpandaEnabled ? ['foodpanda'] : [])];
+  const chip = 'inline-flex h-8 items-center whitespace-nowrap rounded-full border px-3 text-[13px] font-semibold transition-colors';
+  const selectCls = 'h-9 appearance-none rounded-xl border bg-card pl-8 pr-3 text-[13px] font-semibold';
 
   return (
     <div className="p-4 lg:p-6">
@@ -210,122 +247,148 @@ export default function RunningBillsPage() {
           />
         </Suspense>
       )}
-      <PageTitle icon={Clock} subtitle="Bills that are open or on hold">Running / Hold Bills
-        {scope.restrict && (
-          <span className="ml-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/30">
-            👤 {scope.name} — Sirf apne bills
-          </span>
-        )}
-        {!scope.restrict && (
-          <span className="ml-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-gold/15 text-gold border border-gold/30">
-            🛡️ Admin — All cashiers
-          </span>
-        )}</PageTitle>
-      {/* v1.115.0 — SW-06: the selected bill opens in a panel beside the list on a wide window, and in a dialog below it */}
-      <MasterDetail
-        title={viewOrder ? `Bill #${viewOrder.orderNumber}` : 'Bill'} open={!!viewOrder} onClose={() => setViewOrder(null)}
-        emptyText="Select a bill to see its items and total." dialogClassName="sm:max-w-md max-h-[90vh] overflow-y-auto"
-        detail={viewOrder ? (
-          <div className="space-y-3" data-bill-panel={viewOrder.id}>
-            <ReceiptPreview order={viewOrder} settings={settings} />
-            <div className="flex flex-wrap gap-1.5 border-t pt-3">
-              <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => retrieveInPOS(viewOrder)}><RotateCcw className="mr-1 h-3 w-3" /> Edit</Button>
-              {!isOrderTaker && <Button size="sm" className="h-8 bg-status-success text-xs text-status-success-foreground hover:bg-status-success/90" onClick={() => payOrder(viewOrder)}><CreditCard className="mr-1 h-3 w-3" /> Pay</Button>}
-            </div>
-          </div>
-        ) : null}
-        list={
-      orders.length === 0 ? (
-        <p className="text-muted-foreground text-sm">No running or hold bills</p>
-      ) : (
-        <div className="grid gap-3 md:grid-cols-2 min-[1700px]:grid-cols-3">
-          {orders.map(order => {
-            const tables = getTables();
-            const table = order.tableId ? tables.find(t => t.id === order.tableId) : null;
-            const isRunning = order.status === 'running';
-            const isUnpaid = (order.amountPaid || 0) <= 0 && order.status !== 'paid';
-            return (
-              <div key={order.id} data-bill-card={order.id} className={`rounded-xl border p-4 space-y-2 ${viewOrder?.id === order.id ? 'ring-2 ring-primary ' : ''}${isRunning ? 'bg-status-success/5 border-status-success/20' : 'bg-status-warning/5 border-status-warning/20'}`}>
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-sm">#{order.orderNumber}</span>
-                  <div className="flex items-center gap-1.5 flex-wrap justify-end">
-                    {isUnpaid && (
-                      <Badge className="text-[10px] bg-destructive text-destructive-foreground border-destructive font-bold tracking-wide">UNPAID</Badge>
-                    )}
-                    <Badge className={`text-[10px] ${statusColor(order.status)}`}>{order.status}</Badge>
-                    <Badge variant="secondary" className="capitalize text-xs">{order.orderType}</Badge>
-                  </div>
-                </div>
-                {table && <p className="text-xs text-muted-foreground">{table.name}</p>}
-                {order.orderType === 'dining' && order.waiterName && (
-                  <p className="text-xs text-muted-foreground">🧑‍🍳 Waiter: <span className="font-medium text-foreground">{order.waiterName}</span></p>
-                )}
-                {order.orderType === 'delivery' && order.riderName && (
-                  <p className="text-xs text-muted-foreground">🛵 Rider: <span className="font-medium text-foreground">{order.riderName}</span>{order.riderPhone ? ` · ${order.riderPhone}` : ''}</p>
-                )}
-                {order.orderType === 'delivery' && !order.riderName && (
-                  <p className="text-xs text-amber-700">🛵 Rider: <span className="italic">Not assigned</span></p>
-                )}
-                <p className="text-xs text-muted-foreground">{order.items.length} items</p>
-                <p className="text-sm font-bold text-primary">{money(order.grandTotal)}</p>
-                {(order as any).cashierName && (
-                  <p className="text-[10px] text-muted-foreground">👤 {(order as any).cashierName}</p>
-                )}
-                {(order.status === 'partial' || (order.amountPaid && order.amountPaid > 0)) && (
-                  <p className="text-[11px] font-bold text-amber-700">
-                    Paid {money(Number(order.amountPaid || 0))} · Due {money(balanceDue(order))}
-                  </p>
-                )}
-                <p className="text-[10px] text-muted-foreground">{new Date(order.createdAt).toLocaleString('en-PK')}</p>
-                <div className="flex gap-1.5 flex-wrap">
-                  <Button size="sm" variant="outline" onClick={() => setViewOrder(order)} className="text-xs h-8">
-                    <Eye className="h-3 w-3 mr-1" /> View
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => setHistoryOrder(order)} className="text-xs h-8">
-                    <History className="h-3 w-3 mr-1" /> History
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => reprintKot(order)}
-                    className="text-xs h-8 border-status-warning text-status-warning hover:bg-status-warning/10">
-                    <ChefHat className="h-3 w-3 mr-1" /> {order.kotPrinted ? 'Reprint KOT' : 'Send to Kitchen'}
-                  </Button>
-
-                  <Button size="sm" variant="outline" onClick={() => retrieveInPOS(order)}
-                    className="text-xs h-8 border-status-info text-status-info hover:bg-status-info/10">
-                    <RotateCcw className="h-3 w-3 mr-1" /> Edit
-                  </Button>
-                  {!isOrderTaker && balanceDue(order) > 0 && (order.status === 'partial' || (order.amountPaid || 0) > 0) && (
-                    <ReceivePaymentButton order={order} onUpdated={refresh} />
-                  )}
-                  {!isOrderTaker && (
-                    <Button size="sm" onClick={() => payOrder(order)}
-                      className="text-xs h-8 bg-status-success text-status-success-foreground hover:bg-status-success/90">
-                      <CreditCard className="h-3 w-3 mr-1" /> Pay
-                    </Button>
-                  )}
-
-                  {isRunning ? (
-                    <Button size="sm" variant="outline" onClick={() => markStatus(order, 'hold')}
-                      className="text-xs h-8 border-status-warning text-status-warning hover:bg-status-warning/10">
-                      <Pause className="h-3 w-3 mr-1" /> Hold
-                    </Button>
-                  ) : (
-                    <Button size="sm" variant="outline" onClick={() => markStatus(order, 'running')}
-                      className="text-xs h-8 border-status-success text-status-success hover:bg-status-success/10">
-                      Resume
-                    </Button>
-                  )}
-                  <Button size="sm" variant="outline" onClick={() => markStatus(order, 'cancelled')}
-                    className="text-xs h-8 border-destructive text-destructive hover:bg-destructive/10">
-                    <Ban className="h-3 w-3 mr-1" /> Cancel
-                  </Button>
-                </div>
-              </div>
-            );
-          })}
+      {/* v1.131.0 — SW-06 Orders: the title and its one muted line, Export + New bill at the right */}
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <PageTitle icon={Clock} subtitle={`${rangeLabel} · ${visible.length} ${visible.length === 1 ? 'bill' : 'bills'}${scope.restrict ? ` · ${scope.name || 'your'} bills only` : ''}`}>Orders</PageTitle>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" className="h-11 rounded-xl px-4" onClick={exportCsv} disabled={visible.length === 0}><Download className="mr-2 h-4 w-4" /> Export</Button>
+          <Button className="h-11 rounded-xl px-4" onClick={() => navigate('/')}><Plus className="mr-2 h-4 w-4" /> New bill</Button>
         </div>
-      )
+      </div>
+
+      <FilterBar label="Filter bills">
+        <div className="relative min-w-[240px] max-w-sm flex-1" data-filter-grow>
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+          <Input value={filter.q} onChange={e => setFilter(f => ({ ...f, q: e.target.value }))} placeholder="Bill number, customer, table…" aria-label="Search bills" className="h-10 rounded-xl pl-9" />
+        </div>
+        <div role="group" aria-label="Status" className="flex flex-wrap gap-2">
+          {STATUS_FILTERS.map(f => (
+            <button key={f.key} type="button" data-status-filter={f.key} aria-pressed={filter.status === f.key} onClick={() => setFilter(x => ({ ...x, status: f.key }))}
+              className={cn(chip, filter.status === f.key ? 'border-primary bg-primary text-primary-foreground' : 'bg-card hover:border-primary/50')}>{f.label}</button>
+          ))}
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          <label className="relative"><Calendar className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+            <select aria-label="Period" value={filter.range} onChange={e => setFilter(f => ({ ...f, range: e.target.value as OrdersFilter['range'] }))} className={selectCls}>
+              {RANGES.map(r => <option key={r.key} value={r.key}>{r.label}</option>)}
+            </select></label>
+          <label className="relative"><Filter className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+            <select aria-label="Order type" value={filter.type} onChange={e => setFilter(f => ({ ...f, type: e.target.value }))} className={selectCls}>
+              <option value="all">All types</option>
+              {typeOptions.map(t => <option key={t} value={t}>{t[0].toUpperCase() + t.slice(1)}</option>)}
+            </select></label>
+        </div>
+      </FilterBar>
+
+      {/* the bill opens in a panel beside the table on a wide window, and in a dialog below it */}
+      <div className="mt-4">
+      <MasterDetail
+        title={viewOrder ? `Bill #${viewOrder.orderNumber}` : 'Bill'} badge={viewOrder ? pill(viewOrder) : undefined} open={!!viewOrder} onClose={() => { setSelectedId(null); setPanelClosed(true); }}
+        emptyText="Select a bill to see its items and total." dialogClassName="sm:max-w-md max-h-[90vh] overflow-y-auto"
+        detail={viewOrder ? (() => {
+          const o = viewOrder;
+          const open = isOpenBill(o);
+          const isRunning = o.status === 'running';
+          const act = (fn: () => void) => () => { setMoreOpen(false); fn(); };
+          const row = 'flex h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-[13px] font-semibold transition-colors hover:bg-accent';
+          return (
+            <div className="space-y-4" data-bill-panel={o.id}>
+              <div>
+                <p className="text-[12.5px] text-muted-foreground">{[o.orderType[0].toUpperCase() + o.orderType.slice(1), tableOf(o), customerOf(o), timeLabel(o)].filter(Boolean).join(' · ')}</p>
+                {o.orderType === 'delivery' && <p className="text-[12.5px] text-muted-foreground">{o.riderName ? `Rider: ${o.riderName}${o.riderPhone ? ` · ${o.riderPhone}` : ''}` : 'Rider: not assigned'}</p>}
+                {o.orderType === 'dining' && o.waiterName && <p className="text-[12.5px] text-muted-foreground">Waiter: {o.waiterName}</p>}
+              </div>
+              <ul className="divide-y border-y" data-bill-lines>
+                {o.items.map(i => (
+                  <li key={i.id} className="py-2.5 text-[14px]">
+                    <div className="flex items-start justify-between gap-3"><span>{i.quantity} × {i.name}</span><span className="shrink-0 tabular-nums">{money(i.lineTotal)}</span></div>
+                    {i.note && <p className="text-[12px] italic text-muted-foreground">{i.note}</p>}
+                  </li>
+                ))}
+              </ul>
+              <div className="flex items-baseline justify-between"><span className="text-[18px] font-extrabold">Total</span><span className="text-[20px] font-extrabold tabular-nums">{money(o.grandTotal)}</span></div>
+              {(o.status === 'partial' || Number(o.amountPaid || 0) > 0) && o.status !== 'paid' && (
+                <p className="text-[12.5px] font-bold text-[hsl(var(--dt-warn))]">Paid {money(Number(o.amountPaid || 0))} · Due {money(balanceDue(o))}</p>
+              )}
+              <div className="flex flex-wrap items-center gap-2" data-bill-actions>
+                <Button variant="outline" className="h-11 rounded-xl px-4" onClick={() => reprint(o)}><Printer className="mr-2 h-4 w-4" /> Reprint</Button>
+                {open && !isOrderTaker && <Button className="h-11 rounded-xl px-5" onClick={() => payOrder(o)}><CreditCard className="mr-2 h-4 w-4" /> Pay</Button>}
+                {open && !isOrderTaker && balanceDue(o) > 0 && (o.status === 'partial' || Number(o.amountPaid || 0) > 0) && <ReceivePaymentButton order={o} onUpdated={refresh} />}
+                <Popover open={moreOpen} onOpenChange={setMoreOpen}>
+                  <PopoverTrigger asChild><Button variant="outline" size="icon" className="h-11 w-11 rounded-xl" aria-label="More actions" data-bill-more><MoreHorizontal className="h-5 w-5" /></Button></PopoverTrigger>
+                  <PopoverContent align="end" className="w-60 p-1.5" data-bill-more-menu>
+                    <div className="space-y-0.5">
+                      <button type="button" className={row} data-bill-more-item="receipt" onClick={act(() => setReceiptOrder(o))}><Eye className="h-4 w-4 text-muted-foreground" /> View receipt</button>
+                      <button type="button" className={row} data-bill-more-item="history" onClick={act(() => setHistoryOrder(o))}><History className="h-4 w-4 text-muted-foreground" /> History</button>
+                      {open && <>
+                        <div className="my-1 h-px bg-border" />
+                        <button type="button" className={row} data-bill-more-item="edit" onClick={act(() => retrieveInPOS(o))}><RotateCcw className="h-4 w-4 text-muted-foreground" /> Edit in POS</button>
+                        <button type="button" className={row} data-bill-more-item="kot" onClick={act(() => reprintKot(o))}><ChefHat className="h-4 w-4 text-muted-foreground" /> {o.kotPrinted ? 'Reprint KOT' : 'Send to Kitchen'}</button>
+                        {isRunning
+                          ? <button type="button" className={row} data-bill-more-item="hold" onClick={act(() => markStatus(o, 'hold'))}><Pause className="h-4 w-4 text-muted-foreground" /> Hold</button>
+                          : <button type="button" className={row} data-bill-more-item="resume" onClick={act(() => markStatus(o, 'running'))}><Play className="h-4 w-4 text-muted-foreground" /> Resume</button>}
+                        <button type="button" className={cn(row, 'text-destructive')} data-bill-more-item="cancel" onClick={act(() => markStatus(o, 'cancelled'))}><Ban className="h-4 w-4" /> Cancel bill</button>
+                      </>}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+          );
+        })() : null}
+        list={
+          <div className="overflow-hidden rounded-2xl border bg-card shadow-card" data-orders-table>
+            {shown.length === 0 ? (
+              <EmptyState title="No bills here" hint={orders.length === 0 ? 'Bills you take will appear here.' : 'Nothing matches this period, type and status.'} />
+            ) : (
+              <div className="overflow-x-auto">
+                <table data-roomy className="w-full text-[14px]">
+                  <thead>
+                    <tr className="border-b text-left text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
+                      <th className="px-4 py-3">Bill</th>
+                      <th className="hidden px-3 py-3 md:table-cell">Type</th>
+                      <th className="hidden px-3 py-3 md:table-cell">Table</th>
+                      <th className="px-3 py-3">Customer</th>
+                      <th className="px-3 py-3 text-right">Total</th>
+                      <th className="px-3 py-3">Status</th>
+                      <th className="hidden px-4 py-3 sm:table-cell">Time</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {shown.map(o => {
+                      const sel = viewOrder?.id === o.id;
+                      return (
+                        <tr key={o.id} data-bill-row={o.id} data-bill-card={o.id} aria-selected={sel} tabIndex={0}
+                          onClick={() => { setSelectedId(o.id); setPanelClosed(false); }}
+                          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedId(o.id); setPanelClosed(false); } }}
+                          className={cn('cursor-pointer border-b outline-none transition-colors last:border-0 hover:bg-accent/50 focus-visible:bg-accent/60', sel && 'bg-[hsl(var(--dt-accent-tint))]')}>
+                          <td className="px-4 py-3 font-extrabold">#{o.orderNumber}</td>
+                          <td className="hidden px-3 py-3 capitalize md:table-cell">{o.orderType}</td>
+                          <td className="hidden px-3 py-3 md:table-cell">{tableOf(o) || '—'}</td>
+                          <td className="max-w-[14rem] truncate px-3 py-3">{customerOf(o)}</td>
+                          <td className="px-3 py-3 text-right font-extrabold tabular-nums">{money(o.grandTotal)}</td>
+                          <td className="px-3 py-3">{pill(o)}</td>
+                          <td className="hidden px-4 py-3 tabular-nums sm:table-cell">{timeLabel(o)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                {visible.length > shown.length && <p className="border-t px-4 py-2 text-[12px] text-muted-foreground">Showing the newest {shown.length} of {visible.length} — narrow the period or search to see the rest.</p>}
+              </div>
+            )}
+          </div>
         }
       />
+      </div>
+
+      {/* the full receipt, one tap from the ⋯ menu (it used to be the whole panel) */}
+      <Dialog open={!!receiptOrder} onOpenChange={o => { if (!o) setReceiptOrder(null); }}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
+          <DialogHeader><DialogTitle>{receiptOrder ? `Bill #${receiptOrder.orderNumber}` : 'Bill'}</DialogTitle></DialogHeader>
+          {receiptOrder && <ReceiptPreview order={receiptOrder} settings={settings} />}
+        </DialogContent>
+      </Dialog>
 
       <OrderDetailDialog order={historyOrder} onClose={() => setHistoryOrder(null)} />
     </div>

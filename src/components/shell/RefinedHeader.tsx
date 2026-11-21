@@ -40,13 +40,13 @@ export default function RefinedHeader({ title, onOpenMobileMenu, onOpenLauncher,
         <Menu className="h-5 w-5" />
       </button>
 
-      <h1 className="min-w-0 max-w-[16rem] shrink truncate text-[16px] font-extrabold sm:text-[18px] tracking-tight text-foreground" title={title}>{title}</h1>
+      <h1 className="min-w-0 max-w-[16rem] shrink truncate text-[16px] font-extrabold sm:text-[18px] md:shrink-0 tracking-tight text-foreground" title={title}>{title}</h1>
 
       {/* the design: the title, a spacer, then search · branch · sync · bell · user together at the right */}
       <span className="flex-1" aria-hidden />
       <button
         type="button" onClick={onOpenLauncher} data-dtr="search-wide" aria-label="Search modules"
-        className="hidden h-[38px] w-[300px] shrink items-center gap-2 rounded-xl border bg-background px-3 text-[13px] text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground md:flex lg:w-[340px]"
+        className="hidden h-[38px] w-[300px] min-w-[170px] shrink items-center gap-2 rounded-xl border bg-background px-3 text-[13px] text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground md:flex lg:w-[340px]"
       >
         <Search className="h-4 w-4 shrink-0" />
         <span className="flex-1 truncate text-left">Search modules…</span>

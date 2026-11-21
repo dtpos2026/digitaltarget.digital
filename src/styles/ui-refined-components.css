@@ -146,3 +146,13 @@ html[data-ui="modern"][data-ui-theme="dt-refined"] [data-board-col-head][data-co
 html[data-ui="modern"][data-ui-theme="dt-refined"] [data-board-col-head][data-col="onway"] { --lane: hsl(var(--primary)); }
 html[data-ui="modern"][data-ui-theme="dt-refined"] [data-board-col-head][data-col="delivered"] { --lane: hsl(var(--dt-ok)); }
 html[data-ui="modern"][data-ui-theme="dt-refined"] [data-board-col-head][data-col="cancelled"] { --lane: hsl(var(--dt-bad)); }
+
+/* ---------- the design's table (.tbl: th 10/12, td 12/12, a line under each row) — opt in with data-roomy ----------
+   index.css gives every table a compact 6 px cell, which beats a utility class; a screen that draws the design's table says so here. */
+html[data-ui="modern"][data-ui-theme="dt-refined"] table[data-roomy] thead th { padding-block: 10px; }
+html[data-ui="modern"][data-ui-theme="dt-refined"] table[data-roomy] tbody td { padding-block: 12px; }
+
+/* ---------- the master-detail panel (SW-06 / 16 / 18 / 19 / 21 / 22): the heading sits in the card, not in a bar ---------- */
+html[data-ui="modern"][data-ui-theme="dt-refined"] [data-detail-panel] [data-detail-head] { border-bottom: 0; background: transparent; padding: 18px 20px 0; }
+html[data-ui="modern"][data-ui-theme="dt-refined"] [data-detail-panel] [data-detail-head] h2 { font-size: 20px; font-weight: 800; letter-spacing: -.01em; }
+html[data-ui="modern"][data-ui-theme="dt-refined"] [data-detail-panel] [data-detail-body] { padding: 8px 20px 20px; }

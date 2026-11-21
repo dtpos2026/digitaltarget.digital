@@ -70,12 +70,15 @@ describe('Orders (SW-06) and Parties (SW-18) use it too', () => {
       const src = read(f);
       expect(src, f).toContain('<MasterDetail');
       expect(src, f).toContain('data-bill-panel=');
-      expect(src, f).toContain("ring-2 ring-primary");
     }
+    expect(read('src/pages/BillReprintPage.tsx')).toContain("ring-2 ring-primary");
+    // v1.131.0 — the Orders screen is the design's table: the selected ROW is marked (aria-selected + the accent tint), not a ringed card
+    expect(read('src/pages/RunningBillsPage.tsx')).toContain('data-bill-row=');
+    expect(read('src/pages/RunningBillsPage.tsx')).toContain('aria-selected={sel}');
     expect(read('src/pages/RunningBillsPage.tsx')).not.toContain('<Dialog open={!!viewOrder}');
     expect(read('src/pages/BillReprintPage.tsx')).not.toContain('<Dialog open={!!view} onOpenChange');
-    // the panel carries the actions the design shows: Pay and Edit on running bills, Reprint on a paid one
-    expect(read('src/pages/RunningBillsPage.tsx')).toMatch(/data-bill-panel[\s\S]*Edit[\s\S]*Pay/);
+    // the panel carries the actions the design shows — Reprint and Pay — and Edit, Kitchen, Hold, Cancel behind its ⋯ menu
+    expect(read('src/pages/RunningBillsPage.tsx')).toMatch(/data-bill-panel[\s\S]*Reprint[\s\S]*Pay[\s\S]*Edit in POS/);
     expect(read('src/pages/BillReprintPage.tsx')).toMatch(/data-bill-panel[\s\S]*Reprint Customer Receipt/);
   });
   it('Party Master: a row selects the party; its panel shows what is owed, the counts and the latest ledger lines; the row buttons do not also select', () => {
