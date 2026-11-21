@@ -37,6 +37,7 @@ import {
 } from 'firebase/firestore';
 import { toast } from 'sonner';
 import { archiveOrders, getArchivedOrders as getArchivedOrdersSafe } from './orderArchive';
+import { markSynced } from './syncClock';
 import { isForeignRecordError, isSetAside, parseSaveLabel, partitionSetAside, setAside, settleBatchFailures } from './setAside';
 
 const STORAGE_KEY_BASE = 'desi-pos-data';
@@ -315,6 +316,7 @@ function refreshCloudStoreInBackground() {
       cachedData = remote;
       try { localStorage.setItem(STORAGE_KEY(), JSON.stringify(remote)); } catch {}
       try { startRealtimeListeners(); } catch (e) { console.warn('[store] realtime listeners failed', e); }
+      markSynced();
       emitDataChange('*');
       runWhenIdle(() => { void loadHeavyCollectionsInBackground(); });
     } catch (e) {
@@ -2307,6 +2309,7 @@ async function refreshOrdersFromCloudOnce(): Promise<Order[]> {
         // holding none — a fresh install, a cleared browser, a second profile
         // — a delta would leave the screen empty, so that read is a full one.
         const { rows } = await sbLoadOrdersDelta({ force: localArr.length === 0 });
+        markSynced();                    // v1.129.0 — the top bar's "Synced 12 s ago": the cloud answered just now
         const arr = rows as Order[];
         const localById = new Map(localArr.map(o => [o.id, o]));
         // v1.128.0 — this poll used to rebuild the list and rewrite the WHOLE cache on every tick, every ~6 s per open screen,

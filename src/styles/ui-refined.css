@@ -9,7 +9,7 @@
 html[data-ui="modern"][data-ui-theme="dt-refined"] {
   --ui-radius-card: 16px;
   --ui-radius-control: 10px;
-  --ui-header-h: 4rem;                /* 64 */
+  --ui-header-h: 3.75rem;             /* 60 — the design's top bar (SW-02) */
   --ui-sidebar-w: 15.5rem;            /* 248 */
   --ui-sidebar-w-collapsed: 4.5rem;   /* 72 */
   --ui-shadow-card: 0 1px 2px rgba(26, 21, 35, .06), 0 4px 14px rgba(26, 21, 35, .06);
@@ -29,10 +29,10 @@ html[data-ui="modern"][data-ui-theme="dt-refined"] :is(button, a, input, select,
   box-shadow: 0 0 0 3px hsl(var(--primary) / .25);
 }
 
-/* ---------- sidebar ---------- */
+/* ---------- sidebar (design SW-02: .side padding 14/10, .nav 38 high, radius 10, gap 10, weight 600, muted; .grp 10.5 px / .14em) ---------- */
 html[data-ui="modern"][data-ui-theme="dt-refined"] [data-ui-shell="sidebar"] { background: hsl(var(--card)); }
 html[data-ui="modern"][data-ui-theme="dt-refined"] [data-refined-nav-item] {
-  height: 2.5rem; border-radius: 10px; font-size: 14px; font-weight: 600; color: hsl(var(--foreground) / .86);
+  height: 2.375rem; border-radius: 10px; font-size: 14px; font-weight: 600; color: hsl(var(--muted-foreground));
 }
 html[data-ui="modern"][data-ui-theme="dt-refined"] [data-refined-nav-item]:hover { background: hsl(var(--dt-accent-tint)); color: hsl(var(--foreground)); }
 html[data-ui="modern"][data-ui-theme="dt-refined"] [data-refined-nav-item][aria-current="page"] {
@@ -40,15 +40,31 @@ html[data-ui="modern"][data-ui-theme="dt-refined"] [data-refined-nav-item][aria-
 }
 html[data-ui="modern"][data-ui-theme="dt-refined"] [data-refined-nav-item][aria-current="page"] svg { color: currentColor; }
 html[data-ui="modern"][data-ui-theme="dt-refined"] [data-refined-group-head] {
-  font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: hsl(var(--muted-foreground));
+  font-size: 10.5px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: hsl(var(--muted-foreground) / .8);
 }
 html[data-ui="modern"][data-ui-theme="dt-refined"] [data-refined-count] {
-  min-width: 1.5rem; border-radius: 999px; background: hsl(var(--dt-accent-tint)); color: hsl(var(--muted-foreground));
-  font-size: 11px; font-weight: 700; text-align: center; padding: 1px 6px;
+  display: inline-flex; align-items: center; height: 22px; min-width: 1.5rem; justify-content: center; padding: 0 8px; border-radius: 999px;
+  background: hsl(var(--dt-accent-tint)); color: hsl(var(--muted-foreground)); font-size: 11.5px; font-weight: 700;
 }
 
-/* ---------- top bar ---------- */
+/* ---------- top bar (design SW-02: 60 px, one row — title, search + Ctrl K, branch, synced chip, bell, user) ---------- */
 html[data-ui="modern"][data-ui-theme="dt-refined"] [data-ui-shell="header"] { background: hsl(var(--card)); }
+html[data-ui="modern"][data-ui-theme="dt-refined"] [data-refined-header] [data-branch-chip] {
+  height: 38px; gap: 8px; padding: 0 12px; border-radius: 12px; background: hsl(var(--card)); border-color: hsl(var(--border)); white-space: nowrap;
+}
+html[data-ui="modern"][data-ui-theme="dt-refined"] [data-refined-header] [data-branch-chip="warn"] { background: hsl(var(--dt-bad-bg)); border-color: hsl(var(--dt-bad) / .4); }
+html[data-ui="modern"][data-ui-theme="dt-refined"] [data-refined-header] [data-branch-chip] svg { color: hsl(var(--muted-foreground)); width: 16px; height: 16px; }
+html[data-ui="modern"][data-ui-theme="dt-refined"] [data-refined-header] [data-branch-chip="warn"] svg { color: hsl(var(--dt-bad)); }
+html[data-ui="modern"][data-ui-theme="dt-refined"] [data-refined-header] [data-branch-chip] select {
+  height: 32px; font-size: 13px; font-weight: 600; color: hsl(var(--foreground)); min-height: 0; padding: 0 2px; border: 0; background: transparent; max-width: 11rem;
+}
+
+/* A phone: the bell and the user must never be pushed off the bar — the branch name gives way (the title truncates too). */
+@media (max-width: 639px) {
+  html[data-ui="modern"][data-ui-theme="dt-refined"] [data-refined-header] [data-branch-chip] { padding: 0 8px; gap: 4px; max-width: 7rem; }
+  html[data-ui="modern"][data-ui-theme="dt-refined"] [data-refined-header] [data-branch-chip] > svg:first-child { display: none; }
+  html[data-ui="modern"][data-ui-theme="dt-refined"] [data-refined-header] [data-branch-chip] select { max-width: 4.5rem; }
+}
 
 /* ---------- cards and tiles follow the design system's radius and shadow ---------- */
 html[data-ui="modern"][data-ui-theme="dt-refined"] [data-stat-card],

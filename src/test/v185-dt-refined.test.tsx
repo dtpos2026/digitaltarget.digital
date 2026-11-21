@@ -24,7 +24,7 @@ import {
 } from '@/lib/uiThemes';
 import { UI_STYLE_KEY, UI_THEME_KEY, getThemeId, getUiStyle, hslToRgb, setTheme, setUiStyle } from '@/lib/uiStyle';
 import { enforcePremiumThemeGate } from '@/lib/premiumTheme';
-import { GROUP_ORDER, OPEN_GROUPS_KEY, groupPages, initialOpenGroups, readOpenGroups, syncLabel } from '@/lib/refinedNav';
+import { GROUP_ORDER, OPEN_GROUPS_KEY, groupPages, initialOpenGroups, readOpenGroups, syncLabel, toggleGroup } from '@/lib/refinedNav';
 import { PAGES, type PageDef } from '@/lib/permissions';
 import {
   attentionItems, compareWindows, dailySales, dashboardCsv, highlightHour, hourLabel, kpisIn, openBills, ordersByHour,
@@ -118,11 +118,11 @@ describe('the DT Refined theme is the design package', () => {
   it('ui-refined.css is loaded, scoped to the theme, and uses the design sizes', () => {
     expect(read('src/styles.css')).toMatch(/@import "\.\/styles\/ui-refined\.css";/);
     const css = read('src/styles/ui-refined.css');
-    const selectors = css.replace(/\/\*[\s\S]*?\*\//g, '').match(/[^{}]+(?=\{)/g)!.flatMap(s => s.split(/,(?![^(]*\))/)).map(s => s.trim()).filter(Boolean);
+    const selectors = css.replace(/\/\*[\s\S]*?\*\//g, '').match(/[^{}]+(?=\{)/g)!.flatMap(s => s.split(/,(?![^(]*\))/)).map(s => s.trim()).filter(s => s && !s.startsWith('@')); // an @media wrapper is not a selector; the rules inside it are checked
     expect(selectors.length).toBeGreaterThan(5);
     for (const s of selectors) expect(s.startsWith('html[data-ui="modern"][data-ui-theme="dt-refined"]')).toBe(true);
     expect(css).toMatch(/--ui-radius-card:\s*16px/);
-    expect(css).toMatch(/--ui-header-h:\s*4rem/);           // 64 px top bar
+    expect(css).toMatch(/--ui-header-h:\s*3\.75rem/);        // 60 px top bar (design SW-02)
     expect(css).toMatch(/--ui-sidebar-w:\s*15\.5rem/);      // 248 px sidebar
     expect(css).toMatch(/--ui-sidebar-w-collapsed:\s*4\.5rem/); // 72 px collapsed
     expect(css).toContain('0 0 0 3px hsl(var(--primary) / .25)'); // the design's focus ring: 3px accent at 25 % (the accent is DT purple by default; v1.96.0 lets it follow the colour scheme)
@@ -231,14 +231,28 @@ describe('the sidebar: grouping and status words', () => {
     for (const g of groups) expect(GROUP_ORDER).toContain(g.group);
   });
 
-  it('first visit opens Operations; later the saved groups; the current page\'s group is always open', () => {
+  it('an accordion: first visit opens Operations; later the saved group; the current page\'s group is the one that is open', () => {
     expect([...initialOpenGroups(null)]).toEqual(['Operations']);
     expect([...initialOpenGroups(['Staff'])]).toEqual(['Staff']);
-    expect([...initialOpenGroups(['Staff'], 'Inventory')].sort()).toEqual(['Inventory', 'Staff']);
+    expect([...initialOpenGroups(['Staff', 'Reports'])]).toEqual(['Staff']);       // one at a time, whatever an older version saved
+    expect([...initialOpenGroups(['Staff'], 'Inventory')]).toEqual(['Inventory']);
+    expect([...toggleGroup(new Set(['Staff']), 'Reports')]).toEqual(['Reports']);  // opening one folds the other
+    expect([...toggleGroup(new Set(['Reports']), 'Reports')]).toEqual([]);         // clicking the open one closes it
     localStorage.setItem(OPEN_GROUPS_KEY, '{not json');
     expect(readOpenGroups()).toBeNull();
     localStorage.setItem(OPEN_GROUPS_KEY, JSON.stringify(['Admin', 3, 'Reports']));
     expect(readOpenGroups()).toEqual(['Admin', 'Reports']);
+  });
+
+  it('the design\'s ten stay first in Operations; modules the design does not list sit in the group they belong to', () => {
+    const groups = groupPages(PAGES);
+    const ops = groups.find(g => g.group === 'Operations')!.items.map(i => i.key);
+    expect(ops.length).toBeLessThanOrEqual(10);
+    expect(ops.slice(0, 4)).toEqual(['pos', 'tables', 'bills', 'delivery']);     // the design's order, first
+    const of = (k: string) => groups.find(g => g.items.some(i => i.key === k))?.group;
+    expect(of('cake-orders')).toBe('Inventory');
+    expect(of('credit-customers')).toBe('Accounts');
+    expect(of('rider-app')).toBe('Staff');
   });
 
   it('the status card never says "synced" when it is not', () => {
@@ -276,10 +290,12 @@ describe('the sidebar, rendered with the real permission rules', () => {
   };
   const groupButton = (name: string) => document.querySelector(`[data-refined-group="${name}"] > button[aria-expanded]`) as HTMLElement;
 
-  it('shows the restaurant, the groups in order with counts, Operations open, and the status card', async () => {
+  it('shows the brand row, the groups in order with counts, Operations open, and the status card — and nothing else', async () => {
     seed('admin');
     await sidebar('/');
-    expect(screen.getByText('Chai Corner')).toBeInTheDocument();
+    expect(screen.getByText('DT POS')).toBeInTheDocument();
+    expect(screen.getByText('Enterprise')).toBeInTheDocument();
+    expect(screen.queryByText('Chai Corner')).toBeNull();                      // the restaurant and the person live in the top bar's user menu
     const heads = [...document.querySelectorAll('[data-refined-group]')].map(e => e.getAttribute('data-refined-group'));
     expect(heads[0]).toBe('Operations');
     expect(heads).toEqual(GROUP_ORDER.filter(g => heads.includes(g)));
@@ -287,16 +303,18 @@ describe('the sidebar, rendered with the real permission rules', () => {
     expect(groupButton('Inventory')).toHaveAttribute('aria-expanded', 'false');
     expect(within(groupButton('Inventory')).getByText(/^\d+$/)).toBeInTheDocument(); // count on a closed group
     expect(screen.getByTestId('refined-sync-card').textContent).toMatch(/Online|Offline/);
-    expect(screen.getByText('Administrator')).toBeInTheDocument();
+    expect(screen.queryByText('Administrator')).toBeNull();
+    expect(screen.queryByRole('button', { name: /log out/i })).toBeNull();
   });
 
-  it('opening a group shows its modules and is remembered', async () => {
+  it('opening a group shows its modules, folds the one that was open, and is remembered', async () => {
     seed('admin');
     await sidebar('/');
     expect(screen.queryByRole('button', { name: 'Inventory' })).toBeNull();
     fireEvent.click(groupButton('Inventory'));
     expect(groupButton('Inventory')).toHaveAttribute('aria-expanded', 'true');
-    await waitFor(() => expect(JSON.parse(localStorage.getItem(OPEN_GROUPS_KEY)!)).toContain('Inventory'));
+    expect(groupButton('Operations')).toHaveAttribute('aria-expanded', 'false');
+    await waitFor(() => expect(JSON.parse(localStorage.getItem(OPEN_GROUPS_KEY)!)).toEqual(['Inventory']));
   });
 
   it('the current page is a filled item and its group opens by itself', async () => {
@@ -314,6 +332,7 @@ describe('the sidebar, rendered with the real permission rules', () => {
     const current = [...document.querySelectorAll('[aria-current="page"]')];
     expect(current).toHaveLength(1);
     expect(current[0].getAttribute('data-nav-key')).toBe('settings');
+    expect(groupButton('Admin')).toHaveAttribute('aria-expanded', 'true');     // Settings is the first entry of Admin
   });
 
   it('a cashier sees only what the permission system allows', async () => {

@@ -1,4 +1,5 @@
 // v1.103.0 — the colour scheme can be changed from the top bar (DT Refined), not only from Settings → Appearance.
+// v1.129.0 — the bar is the design's (title, search, sync, bell, user); the swatches moved one click away, into the user menu.
 // A scheme is only a page colour and an accent: nothing moves, so the owner's rule "themes change colours, not the UI" holds.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent, cleanup, within } from '@testing-library/react';
@@ -17,7 +18,8 @@ const mount = async () => {
   const { default: ModernHeader } = await import('@/components/shell/ModernHeader');
   return render(
     <TooltipProvider><HashRouter>
-      <ModernHeader title="Dashboard" collapsed={false} onToggleCollapse={() => {}} onOpenMobileMenu={() => {}} onOpenLauncher={() => {}} zoom={100} onZoom={() => {}} onResetZoom={() => {}} />
+      <ModernHeader title="Dashboard" collapsed={false} onToggleCollapse={() => {}} onOpenMobileMenu={() => {}} onOpenLauncher={() => {}} zoom={100} onZoom={() => {}} onResetZoom={() => {}}
+        userChip={{ name: 'Bilal', role: 'cashier', onLogout: () => {} }} />
     </HashRouter></TooltipProvider>,
   );
 };
@@ -42,14 +44,15 @@ describe('shared scheme logic', () => {
   });
 });
 
-describe('the top bar switcher', () => {
+describe('the user menu switcher', () => {
   beforeEach(() => { cleanup(); localStorage.clear(); });
   afterEach(() => cleanup());
 
   it('DT Refined: one click on a swatch changes the scheme and marks it in use', async () => {
     setUiStyle('modern'); setTheme(REFINED_THEME_ID); setRefinedSurface('lavender'); clearAccent();
     await mount();
-    fireEvent.click(screen.getByTestId('scheme-switcher'));
+    expect(screen.queryByRole('radiogroup', { name: 'Colour scheme' })).toBeNull();     // not loose in the bar any more
+    fireEvent.click(screen.getByTestId('refined-user-menu'));
     const group = await screen.findByRole('radiogroup', { name: 'Colour scheme' });
     expect(within(group).getAllByRole('radio')).toHaveLength(REFINED_SCHEMES.length);
     expect(within(group).getByRole('radio', { name: /DT Purple/ }).getAttribute('aria-checked')).toBe('true');

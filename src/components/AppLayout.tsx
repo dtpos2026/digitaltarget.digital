@@ -299,16 +299,16 @@ function BranchSelector() {
   if (!canSwitch) {
     const branch = branches.find(b => b.id === current);
     return (
-      <div className="flex items-center gap-1.5 rounded-md px-2 py-1 border bg-primary/10 border-primary/40" title="Your assigned branch (an admin can change it)">
+      <div data-branch-chip="locked" className="flex items-center gap-1.5 rounded-md px-2 py-1 border bg-primary/10 border-primary/40" title="Your assigned branch (an admin can change it)">
         <Building2 className="h-3.5 w-3.5 text-primary" />
-        <span className="text-[11px] font-semibold">{branch?.name || 'No branch assigned'}</span>
+        <span className="min-w-0 truncate text-[11px] font-semibold">{branch?.name || 'No branch assigned'}</span>
         <Lock className="h-3 w-3 text-muted-foreground" />
       </div>
     );
   }
 
   return (
-    <div className={cn(
+    <div data-branch-chip={hasActive ? 'ok' : 'warn'} className={cn(
       "flex items-center gap-1.5 rounded-md px-2 py-1 border",
       hasActive ? "bg-primary/10 border-primary/40" : "bg-destructive/10 border-destructive/40"
     )} title="Active branch — new bills save to this branch">
@@ -367,6 +367,9 @@ export default function AppLayout({ children, userRole, onLogout }: Props) {
   const [, setSettingsTick] = useState(0);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('pos-sidebar-collapsed') === '1');
+  // v1.129.0 — DT Refined, the design's POS screen (SW-03): the sidebar is the 72 px icon rail there, so the item grid and the cart get the
+  // room. Opening it on the POS lasts for the visit (this tab); every other screen keeps the choice the user made.
+  const [posRailOpen, setPosRailOpen] = useState(() => { try { return sessionStorage.getItem('dt-pos-rail-open') === '1'; } catch { return false; } });
   const [showLocationPrompt, setShowLocationPrompt] = useState(false);
   const [zoom, setZoom] = useState(() => {
     const saved = localStorage.getItem('desi-pos-zoom');
@@ -519,13 +522,18 @@ export default function AppLayout({ children, userRole, onLogout }: Props) {
   }, []);
 
   const currentTitle = PAGES.find(n => n.path === location.pathname)?.title || 'DT POS';
+  const railOnPos = modern && refined && location.pathname === '/';
+  const toggleSidebar = () => {
+    if (railOnPos) setPosRailOpen(v => { const n = !v; try { sessionStorage.setItem('dt-pos-rail-open', n ? '1' : '0'); } catch { /* private mode */ } return n; });
+    else setCollapsed(c => !c);
+  };
   const settings = getSettings();
 
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       {modern && refined
-        ? <RefinedSidebar userRole={userRole} onLogout={onLogout} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} collapsed={collapsed} onOpenLauncher={() => setLauncherOpen(true)} />
+        ? <RefinedSidebar userRole={userRole} onLogout={onLogout} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} collapsed={railOnPos ? !posRailOpen : collapsed} onOpenLauncher={() => setLauncherOpen(true)} onToggleCollapse={toggleSidebar} />
         : modern
         ? <ModernSidebar userRole={userRole} onLogout={onLogout} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} collapsed={collapsed} onOpenLauncher={() => setLauncherOpen(true)} />
         : <Sidebar userRole={userRole} onLogout={onLogout} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} collapsed={collapsed} />}

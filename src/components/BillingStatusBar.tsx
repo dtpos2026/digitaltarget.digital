@@ -26,7 +26,11 @@ import { toast } from 'sonner';
 
 const WARNING_DISMISSED_KEY = 'dtpos-browser-warning-dismissed';
 
-export default function BillingStatusBar() {
+/**
+ * `warning={false}` (v1.129.0): the one-time "Browser Print Mode" banner is a fixed card over the page. It belongs to the bar that is
+ * always on screen, not to a second copy mounted inside a menu, where it landed on top of the menu's own content.
+ */
+export default function BillingStatusBar({ warning = true, pills = true }: { warning?: boolean; pills?: boolean } = {}) {
   const [sync, setSync] = useState<{ online: boolean; pending: number; lastError?: string }>({ online: true, pending: 0 });
   const [settings, setSettings] = useState<PrinterSettingsDoc>({ printers: [], deviceAssignments: {} });
   const [, force] = useState(0);
@@ -112,12 +116,12 @@ export default function BillingStatusBar() {
     setWarningDismissed(true);
   }
 
-  const showWarning = !electron && !warningDismissed;
+  const showWarning = warning && !electron && !warningDismissed;
 
   return (
     <>
       {/* Status pill row — inline next to header bell, no longer hidden behind cart */}
-      <div className="flex items-center gap-1.5">
+      {pills && <div className="flex flex-wrap items-center gap-1.5" data-status-pills>
         <Pill {...syncPill} title="Cloud Sync" />
         {stuck > 0 && (
           <button
@@ -161,7 +165,7 @@ export default function BillingStatusBar() {
         >
           {APP_NAME} v{appVer}
         </span>
-      </div>
+      </div>}
 
       {/* Browser-mode warning banner */}
       {showWarning && (
