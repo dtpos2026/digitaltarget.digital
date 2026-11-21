@@ -42,6 +42,6 @@ describe('the board and the plan', () => {
   });
   it('the plan names the shell items and the order of work', () => {
     const plan = read('docs/design-match/PLAN.md');
-    for (const s of ['S1', 'S2', 'S3', 'SW-03 POS', 'SW-06 Orders', 'SW-10 Tables', 'SW-13 Menu', 'v1.128.0']) expect(plan).toContain(s);
+    for (const s of ['S1', 'S2', 'S3', 'SW-03 POS', 'SW-06 Orders', 'SW-10 Tables', 'SW-13 Menu', 'v1.129.0', 'v1.130.0']) expect(plan).toContain(s);
   });
 });

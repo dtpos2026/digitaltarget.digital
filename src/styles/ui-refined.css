@@ -59,6 +59,14 @@ html[data-ui="modern"][data-ui-theme="dt-refined"] [data-refined-header] [data-b
   height: 32px; font-size: 13px; font-weight: 600; color: hsl(var(--foreground)); min-height: 0; padding: 0 2px; border: 0; background: transparent; max-width: 11rem;
 }
 
+/* the bell is the design's: a 32 px square with a 1 px border and a plain bell (.btn.icon.sm) — the red count says there is something to read */
+html[data-ui="modern"][data-ui-theme="dt-refined"] [data-refined-header] [data-notif-bell] {
+  height: 32px; width: 32px; border-radius: 10px; background: hsl(var(--card)); color: hsl(var(--foreground)); border: 1px solid hsl(var(--border));
+  box-shadow: none; animation: none;
+}
+html[data-ui="modern"][data-ui-theme="dt-refined"] [data-refined-header] [data-notif-bell]:hover { background: hsl(var(--accent)); }
+html[data-ui="modern"][data-ui-theme="dt-refined"] [data-refined-header] [data-notif-bell] > svg:first-child { width: 18px; height: 18px; }
+
 /* A phone: the bell and the user must never be pushed off the bar — the branch name gives way (the title truncates too). */
 @media (max-width: 639px) {
   html[data-ui="modern"][data-ui-theme="dt-refined"] [data-refined-header] [data-branch-chip] { padding: 0 8px; gap: 4px; max-width: 7rem; }

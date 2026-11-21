@@ -47,7 +47,7 @@ export function useScreenConfig(): { facts: ScreenFacts; config: ScreenLayoutCon
 
 export function usePosLayout(
   ref: RefObject<HTMLElement | null>,
-  opts: { categoryLayoutSetting: 'top' | 'side' | 'right'; preferredColumns?: number; photoCards?: boolean },
+  opts: { categoryLayoutSetting: 'top' | 'side' | 'right'; preferredColumns?: number; photoCards?: boolean; designTiles?: boolean },
 ): { layout: PosLayout; config: ScreenLayoutConfig; facts: ScreenFacts } {
   const { facts, config } = useScreenConfig();
   const [size, setSize] = useState<{ w: number; h: number }>(() => ({ w: facts.windowW, h: facts.windowH }));
@@ -78,8 +78,9 @@ export function usePosLayout(
     categoryLayoutSetting: opts.categoryLayoutSetting,
     preferredColumns: opts.preferredColumns,
     photoCards: opts.photoCards,
+    designTiles: opts.designTiles,
     config,
-  }), [size.w, size.h, facts.touch, opts.categoryLayoutSetting, opts.preferredColumns, opts.photoCards, config]);
+  }), [size.w, size.h, facts.touch, opts.categoryLayoutSetting, opts.preferredColumns, opts.photoCards, opts.designTiles, config]);
 
   return { layout, config, facts };
 }

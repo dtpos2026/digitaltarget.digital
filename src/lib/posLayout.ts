@@ -68,6 +68,8 @@ export interface LayoutInput {
   preferredColumns?: number;
   /** v1.101.0 — photo-first cards (DT Refined): bigger cards, a 4:3 photo. Columns are fewer, never more. */
   photoCards?: boolean;
+  /** v1.130.0 — the Design Package's POS tile (SW-03): ≥ 200 px wide, a 92 px picture, 14 px gaps, 20 px margins — four to a row at 1440 px. */
+  designTiles?: boolean;
   config: ScreenLayoutConfig;
 }
 
@@ -104,6 +106,9 @@ export const SHORT_HEIGHT = 680;
 export const RESIZE_HANDLE = 6;
 const SCROLLBAR = 8;
 const CARD_MIN: Record<CardSize, number> = { small: 116, medium: 138, large: 162 };
+/** The design's tile (SW-03) is ~225 px wide; a window too narrow for three of them gets 168 px tiles rather than two big ones. */
+const DESIGN_TILE_MIN = 200;
+const DESIGN_TILE_NARROW_MIN = 168;
 /** Photo-first cards need room for a real photo, name, line and price: never narrower than this. */
 const PHOTO_CARD_MIN = 176;
 /** Below this a card cannot show a name and a price legibly. */
@@ -142,13 +147,14 @@ export function computePosLayout(input: LayoutInput): PosLayout {
   const density: PosLayout['density'] = cfg.density !== 'auto'
     ? cfg.density
     : (height < 700 || mode === 'narrow' ? 'compact' : 'comfortable');
-  const gap = density === 'compact' ? 8 : 10;
-  const padding = density === 'compact' ? 8 : 12;
+  const dt = !!input.designTiles;
+  const gap = dt ? (density === 'compact' ? 10 : 14) : density === 'compact' ? 8 : 10;
+  const padding = dt ? (density === 'compact' ? 12 : 20) : density === 'compact' ? 8 : 12;
 
   const cardSize: CardSize = cfg.cardSize !== 'auto'
     ? cfg.cardSize
     : (input.touch ? 'large' : mode === 'wide' ? 'medium' : 'small');
-  const cardMin = input.photoCards ? Math.max(CARD_MIN[cardSize], PHOTO_CARD_MIN) : CARD_MIN[cardSize];
+  const cardMin = dt ? DESIGN_TILE_MIN : input.photoCards ? Math.max(CARD_MIN[cardSize], PHOTO_CARD_MIN) : CARD_MIN[cardSize];
 
   // --- cart ---
   let cartPlacement: PosLayout['cartPlacement'] = mode === 'portrait' ? 'bottom' : 'side';
@@ -187,11 +193,15 @@ export function computePosLayout(input: LayoutInput): PosLayout {
     productColumns = Math.min(wanted, most);
     columnsLimited = productColumns < wanted;
   } else {
-    productColumns = clamp(Math.min(columnsFor(productAreaWidth, cardMin, gap), preferred), 2, 8);
+    let fit = columnsFor(productAreaWidth, cardMin, gap);
+    if (dt && fit < 3) fit = columnsFor(productAreaWidth, DESIGN_TILE_NARROW_MIN, gap);
+    productColumns = clamp(Math.min(fit, preferred), 2, 8);
   }
 
   const cardWidth = Math.floor((productAreaWidth - gap * (productColumns - 1)) / productColumns);
-  const cardImageHeight = input.photoCards
+  const cardImageHeight = dt
+    ? (density === 'compact' ? 84 : 92)                               // the design's picture: 92 px tall, whatever the tile's width
+    : input.photoCards
     ? clamp(Math.round((cardWidth - 20) * (density === 'compact' ? 0.58 : 0.68)), 84, 176)
     : clamp(Math.round(cardWidth * (density === 'compact' ? 0.5 : 0.6)), 52, 124);
 

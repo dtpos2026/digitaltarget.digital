@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } fro
 import { money, screenAmount } from '@/lib/currency';
 import { releasedTable } from '@/lib/tableRelease';
 import { sortOrdersNewestFirst, liveOrdersForTable } from '@/lib/orderOrder';
-import { Search, Plus, Minus, Trash2, CreditCard, Pause, Weight, Edit3, ShoppingCart, RotateCcw, Delete, User, Phone, Ban, Gift, XCircle, ChefHat, MessageCircle, ChevronLeft, ChevronRight, AlertTriangle, LayoutGrid, Receipt, Ticket, Calculator, Pencil, StickyNote, Banknote, Percent } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, CreditCard, Pause, Weight, Edit3, ShoppingCart, RotateCcw, Delete, User, Phone, Ban, Gift, XCircle, ChefHat, MessageCircle, ChevronLeft, ChevronRight, AlertTriangle, LayoutGrid, Receipt, Ticket, Calculator, Pencil, StickyNote, Banknote, Percent, MoreHorizontal } from 'lucide-react';
 import { normalizePhone, buildPaidMessage, buildDeliveryMessage, openWhatsApp } from '@/lib/whatsapp';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,6 +17,7 @@ import {
   getCurrentBranchId, getBranches, validatePromoCode, incrementPromoUsage
 } from '@/lib/store';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import OrderTakerReview from '@/components/pos/OrderTakerReview';
 import OrderTakerCart from '@/components/pos/OrderTakerCart';
 import { publishLiveBill, toLiveBill } from '@/lib/liveBill';
@@ -39,7 +40,7 @@ const PaymentDialog = lazy(() => import('@/components/PaymentDialog'));
 import WeightPanel from '@/components/WeightPanel';
 import type { WeightLine } from '@/lib/weightPricing';
 import { categoryDotColor } from '@/lib/categoryColors';
-import { tileHue, tileInitials } from '@/lib/tileLook';
+import { tileHue, tileInitials, tileTone } from '@/lib/tileLook';
 import { useThemeId, useUiStyle } from '@/lib/uiStyle';
 import { isRefinedTheme } from '@/lib/uiThemes';
 import { iconFor } from '@/lib/websiteHome';
@@ -335,6 +336,7 @@ export default function POSScreen() {
     categoryLayoutSetting: designCategoriesOnTop ? 'top' : ((settings.categoryLayout as string) === 'side' ? 'side' : (settings.categoryLayout as string) === 'right' ? 'right' : 'top'),
     preferredColumns: settings.menuGridColumns || 6,
     photoCards: photoLook,
+    designTiles: designCard,
   });
   const catPlacement: 'top' | 'side' | 'right' = designCategoriesOnTop ? 'top' : modern ? layout.categoryPlacement : ((settings.categoryLayout || 'top') === 'side' ? 'side' : 'top');
   const legacyGridClass = ({
@@ -1449,13 +1451,28 @@ export default function POSScreen() {
             <Search className="absolute left-2.5 top-1.5 h-4 w-4 text-muted-foreground" />
             <Input
               id="pos-search"
-              placeholder="Search items... (Ctrl+K)"
+              placeholder={designCard ? 'Search items or scan a barcode' : 'Search items... (Ctrl+K)'}
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="pl-8 h-7 text-xs rounded-full bg-background"
             />
           </div>
 
+          {/* v1.130.0 — the design's order type: three pills on the search row (Dining · Takeaway · Delivery), not a control inside the cart */}
+          {designCard && (
+            <div data-pos-ordertype-chips role="radiogroup" aria-label="Order type" className="flex shrink-0 items-center gap-2">
+              {orderTypes.map(ot => (
+                <button
+                  key={ot.value} type="button" role="radio" aria-checked={orderType === ot.value}
+                  data-pos-ordertype-chip data-active={orderType === ot.value}
+                  disabled={!!editingOrderId}
+                  onClick={() => { if (!editingOrderId) setOrderType(ot.value); }}
+                >{ot.label}</button>
+              ))}
+            </div>
+          )}
+
+          {!designCard && (
           <Button
             variant="outline"
             size="sm"
@@ -1464,6 +1481,7 @@ export default function POSScreen() {
           >
             <Edit3 className="h-3 w-3 mr-1" /> Manual
           </Button>
+          )}
         </div>
 
         {/* CATEGORY RIBBON — horizontal pills with scroll arrows (TOP layout only) */}
@@ -1707,6 +1725,7 @@ export default function POSScreen() {
                 <div
                   data-pos-card-image
                   data-initials={tileInitials(item.name)}
+                  data-tile-tone={designCard ? tileTone(categoryById.get(item.categoryId)?.name, item.categoryId) : undefined}
                   className="w-full h-16 bg-gradient-to-br from-primary/8 to-accent/30 flex items-center justify-center"
                   style={{ ['--tile-hue' as any]: tileHue(item.categoryId), ...(modern ? { height: photoLook ? layout.cardImageHeight : Math.round(layout.cardImageHeight * 0.66) } : {}) }}
                 >
@@ -1832,6 +1851,7 @@ export default function POSScreen() {
           </h2>
           )}
           {/* Order type quick switch inside cart — always visible */}
+          {!designCard && (
           <div data-pos-ordertypes className="grid grid-cols-3 gap-1">
             {orderTypes.map(ot => (
               <button
@@ -1848,6 +1868,7 @@ export default function POSScreen() {
               </button>
             ))}
           </div>
+          )}
           {refined && !showCust && !custName && !custPhone && (
             <button type="button" data-pos-cust-add onClick={() => setShowCust(true)}
               className="flex h-10 w-full items-center gap-2 rounded-xl border bg-card px-3 text-left text-[13px] text-muted-foreground hover:bg-muted">
@@ -2104,7 +2125,7 @@ export default function POSScreen() {
             </div>
           )}
           <div data-pos-grand className="flex justify-between items-center pt-2 border-t-2 border-primary/30">
-            <span className="text-sm font-extrabold tracking-tight">GRAND TOTAL</span>
+            <span className="text-sm font-extrabold tracking-tight">{refined ? 'Total' : 'GRAND TOTAL'}</span>
             <span className="text-primary text-xl font-black tracking-tight">{screenAmount(grandTotal)}</span>
           </div>
 
@@ -2304,27 +2325,64 @@ export default function POSScreen() {
         {/* v1.99.0 — DT Refined action bar (design package SW-03): Hold, Discount, Kitchen and one big Pay; everything else is one tap away */}
         {refined && (
           <div data-pos-refined-actions className="shrink-0 space-y-2 border-t px-3 pb-1 pt-3">
-            <div className="grid grid-cols-3 gap-2">
+            <div className={designCard ? 'grid grid-cols-[repeat(3,minmax(0,1fr))_auto] gap-2' : 'grid grid-cols-3 gap-2'}>
               <button type="button" data-rf-btn="hold" onClick={() => processOrder('hold')}><Pause className="h-4 w-4" /> Hold</button>
               <button type="button" data-rf-btn="discount" data-on={showDisc ? 'true' : undefined} disabled={isOrderTaker} onClick={() => setShowDisc(v => !v)}><Percent className="h-4 w-4" /> Discount</button>
               <button type="button" data-rf-btn="kitchen" onClick={handleKitchenClick}><ChefHat className="h-4 w-4" /> Kitchen</button>
+              {/* v1.130.0 — the design draws three buttons and one Pay. What this software also does (Running, Credit, Void, Receipt, Calculator,
+                  Cash received, Note, Token, Manual item) is one tap away here — every one of them is still on the till, none was removed. */}
+              {designCard && (
+                <Popover open={showMore} onOpenChange={setShowMore}>
+                  <PopoverTrigger asChild>
+                    <button type="button" data-rf-btn="more" data-on={showMore ? 'true' : undefined} aria-label="More actions" title="More actions"><MoreHorizontal className="h-5 w-5" /></button>
+                  </PopoverTrigger>
+                  <PopoverContent side="top" align="end" data-pos-more className="w-60 p-1.5">
+                    {(() => {
+                      const act = (fn: () => void) => () => { setShowMore(false); fn(); };
+                      const row = 'flex h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-[13px] font-semibold transition-colors hover:bg-accent disabled:opacity-45 disabled:hover:bg-transparent';
+                      return (
+                        <div className="space-y-0.5">
+                          <button type="button" className={row} data-pos-more-item="running"
+                            onClick={act(() => processOrder('running'))}><Pause className="h-4 w-4 text-muted-foreground" /> {editingOrderId ? 'Update order' : 'Save as running'}</button>
+                          <button type="button" className={row} data-pos-more-item="credit"
+                            onClick={act(() => { if (cart.length === 0) { toast.error('Cart is empty'); return; } setShowCreditDialog(true); })}><Banknote className="h-4 w-4 text-muted-foreground" /> Credit / Udhaar</button>
+                          <button type="button" className={row + ' text-destructive'} data-pos-more-item="void"
+                            onClick={act(() => {
+                              if (cart.length === 0 && !editingOrderId) { toast.error('No order to void'); return; }
+                              guardAction('void', { orderId: editingOrderId || undefined, tableLabel: tableObjName(), amount: grandTotal }, () => { setVoidType('void'); setShowVoidDialog(true); });
+                            })}><Ban className="h-4 w-4" /> Void</button>
+                          <div className="my-1 h-px bg-border" />
+                          <button type="button" className={row} data-pos-more-item="receipt" onClick={act(handleReceiptClick)}><Receipt className="h-4 w-4 text-muted-foreground" /> Receipt</button>
+                          <button type="button" className={row} data-pos-more-item="calculator" onClick={act(() => setShowKeypad(v => !v))}><Calculator className="h-4 w-4 text-muted-foreground" /> Calculator</button>
+                          {cart.length > 0 && <button type="button" className={row} data-pos-more-item="cash" onClick={act(() => setShowCash(v => !v))}><Banknote className="h-4 w-4 text-muted-foreground" /> Cash received</button>}
+                          <button type="button" className={row} data-pos-more-item="note" onClick={act(() => setShowNote(v => !v))}><StickyNote className="h-4 w-4 text-muted-foreground" /> Note{specialNote ? ' •' : ''}</button>
+                          {tokenModuleOn && <button type="button" className={row} data-pos-more-item="token" disabled={!canPrintToken} onClick={act(handlePrintToken)}><Ticket className="h-4 w-4 text-muted-foreground" /> Print token</button>}
+                          <button type="button" className={row} data-pos-more-item="manual" onClick={act(() => setShowManualDialog(true))}><Edit3 className="h-4 w-4 text-muted-foreground" /> Manual item</button>
+                          {editingOrderId && <button type="button" className={row} data-pos-more-item="cancel-edit" onClick={act(clearCart)}><XCircle className="h-4 w-4 text-muted-foreground" /> Cancel editing</button>}
+                        </div>
+                      );
+                    })()}
+                  </PopoverContent>
+                </Popover>
+              )}
             </div>
             <button type="button" data-rf-pay data-pos-pay-refined
               onClick={() => { if (isOrderTaker) { if (cart.length === 0) { toast.error('Cart is empty'); return; } setReviewOpen(true); } else handleDirectPay(); }}>
               <CreditCard className="h-4 w-4" /> {isOrderTaker ? 'Send to kitchen' : `Pay ${screenAmount(grandTotal)}`}
             </button>
-            <div data-rf-more className="flex flex-wrap items-center gap-x-1 gap-y-0.5 text-[12px]">
+            {!designCard && <div data-rf-more className="flex flex-wrap items-center gap-x-1 gap-y-0.5 text-[12px]">
               {!isOrderTaker && <button type="button" onClick={handleReceiptClick}><Receipt className="h-3.5 w-3.5" /> Receipt</button>}
               <button type="button" data-on={showKeypad ? 'true' : undefined} onClick={() => setShowKeypad(v => !v)}><Calculator className="h-3.5 w-3.5" /> Calculator</button>
               {!isOrderTaker && cart.length > 0 && <button type="button" data-on={showCash ? 'true' : undefined} onClick={() => setShowCash(v => !v)}><Banknote className="h-3.5 w-3.5" /> Cash received</button>}
               <button type="button" data-on={showNote || specialNote ? 'true' : undefined} onClick={() => setShowNote(v => !v)}><StickyNote className="h-3.5 w-3.5" /> Note{specialNote ? ' •' : ''}</button>
               {tokenModuleOn && <button type="button" disabled={!canPrintToken} onClick={handlePrintToken}><Ticket className="h-3.5 w-3.5" /> Token</button>}
-            </div>
+            </div>}
           </div>
         )}
 
         {/* Action Buttons - always visible at bottom */}
 
+        {!designCard && (
         <div data-pos-bottom className="p-2 border-t flex gap-1.5 bg-card shrink-0">
           <Button
             variant="outline"
@@ -2369,6 +2427,7 @@ export default function POSScreen() {
             </Button>
           )}
         </div>
+        )}
       </div>
 
       {/* Manual Item Dialog */}

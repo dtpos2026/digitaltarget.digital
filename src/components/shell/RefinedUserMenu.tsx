@@ -64,7 +64,7 @@ export default function RefinedUserMenu({
           <span data-dtr="avatar" className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary/10 text-[13px] font-extrabold uppercase text-primary">{shown.slice(0, 2)}</span>
           <span className="hidden min-w-0 leading-tight xl:block">
             <span className="block max-w-[9rem] truncate text-[13px] font-bold text-foreground">{shown}</span>
-            <span className="block max-w-[9rem] truncate text-[11.5px] text-muted-foreground">{workspace || <span className="capitalize">{role}</span>}</span>
+            <span className="block max-w-[9rem] truncate text-[11.5px] text-muted-foreground">{id.workspaceCode ? `Workspace ${id.workspaceCode}` : workspace || <span className="capitalize">{role}</span>}</span>
           </span>
           <ChevronDown className="hidden h-4 w-4 text-muted-foreground xl:block" aria-hidden />
         </button>

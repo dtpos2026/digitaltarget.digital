@@ -128,6 +128,7 @@ export default function HeaderNotificationBar() {
     <div className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
+        data-notif-bell data-has-alerts={count > 0 ? 'true' : 'false'}
         className={cn(
           'relative h-7 w-7 rounded-full flex items-center justify-center transition-colors border shadow-sm',
           count > 0

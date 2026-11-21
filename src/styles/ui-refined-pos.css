@@ -209,3 +209,90 @@
 /* The phone Order Taker runs the classic grid (no layout engine), so its photo and tile get a fixed phone-sized height. */
 :root[data-app="otk"] [data-pos-card-image] { height: 112px !important; }
 :root[data-app="otk"] [data-pos-card-body] { padding-top: 8px; }
+
+/* ============================================================
+ * v1.130.0 — the POS exactly as the design draws it (SW-03).
+ * design-project/02-restaurant-software/screens/sw-03.html:
+ *   search row  = .search (38px, radius 12) + three .chip (32px pills: Dining · Takeaway · Delivery)
+ *   tile        = .card padding 10, gap 8 · .ph 92px tall radius 14, a gradient in one of five colours · name 13.5/700 · price accent 700 + .btn.icon.soft.sm
+ *   cart line   = name 14/700, "Rs 1,450 each", − 1 + (32px, radius 10), the line total — no picture
+ *   totals      = Subtotal / Service charge / Tax as quiet rows, then Total 22px/800 and the amount 26px/800
+ * Scoped to the desktop POS (designCard): the phone Order Taker keeps its own tiles and its cart's order-type control.
+ * ============================================================ */
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-pos-topbar] {
+  background: transparent; border-bottom: 0; box-shadow: none; padding: 16px 20px 0; gap: 8px;
+}
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-pos-search] svg { left: 12px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-pos-search] input {
+  height: 38px; border-radius: 12px; padding-left: 36px; font-size: 14px; background: hsl(var(--background)); border: 1px solid hsl(var(--border));
+}
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-pos-ordertype-chip] {
+  display: inline-flex; align-items: center; height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid hsl(var(--border));
+  background: hsl(var(--card)); color: hsl(var(--foreground)); font-size: 13px; font-weight: 600; white-space: nowrap; transition: border-color .15s;
+}
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-pos-ordertype-chip]:hover:not(:disabled) { border-color: hsl(var(--primary) / .5); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-pos-ordertype-chip][data-active="true"] {
+  background: hsl(var(--primary)); border-color: hsl(var(--primary)); color: hsl(var(--primary-foreground));
+}
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-pos-ordertype-chip]:disabled:not([data-active="true"]) { opacity: .5; cursor: not-allowed; }
+
+/* the tile */
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-pos-card] { border-radius: 16px; padding: 10px; box-shadow: var(--ui-shadow-card); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-pos-card-body] { padding: 8px 0 0; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-pos-card-name] { font-size: 13.5px; line-height: 1.3; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-pos-card-foot] { margin-top: 8px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-pos-card-foot] .dt-menu-price { font-size: 14px; font-weight: 700; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-pos-card-qty] { top: 16px; right: 16px; }
+/* a photo-less tile: the design's five gradients — amber, red, green, violet, cyan */
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-pos-card-image][data-tile-tone="1"] { background: linear-gradient(135deg, #f59e0b, #b45309); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-pos-card-image][data-tile-tone="2"] { background: linear-gradient(135deg, #ef4444, #7f1d1d); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-pos-card-image][data-tile-tone="3"] { background: linear-gradient(135deg, #22c55e, #14532d); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-pos-card-image][data-tile-tone="4"] { background: linear-gradient(135deg, #8b5cf6, #3c096c); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-pos-card-image][data-tile-tone="5"] { background: linear-gradient(135deg, #06b6d4, #164e63); }
+
+/* the cart line: no picture, a 32 px stepper, the trash only where a finger or the pointer is */
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-pos-line-thumb] { display: none; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-pos-line-qty] button { height: 32px; width: 32px; border-radius: 10px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-pos-line-qty] span { width: 20px; text-align: center; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-pos-line-del] { opacity: 0; transition: opacity .12s; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-pos-line]:hover [data-pos-line-del],
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-pos-line][data-selected="true"] [data-pos-line-del],
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-pos-line-del]:focus-visible { opacity: 1; }
+@media (hover: none) { :root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-pos-line-del] { opacity: .55; } }
+
+/* totals: quiet rows, then a big Total */
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-pos-totals] { padding: 12px 16px 4px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-pos-totals] > div:not([data-pos-grand]) { font-size: 14px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-pos-totals] > div:not([data-pos-grand]) > span:last-child { font-weight: 500; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-pos-grand] > span:first-child { font-size: 22px; letter-spacing: -.01em; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-pos-grand] > span:last-child { font-size: 26px; letter-spacing: -.02em; }
+
+/* the buttons: Hold · Discount · Kitchen · ⋯ , then one big Pay; everything else is in the ⋯ menu */
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-rf-btn="more"] { width: 44px; padding: 0; color: hsl(var(--muted-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-refined-actions] { border-top: 0; padding-bottom: 16px; }
+/* the tile name takes the lines it needs (the old rule reserved two); the cart line has no picture column */
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-pos-card-name] { min-height: 0; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-pos-line-row] {
+  grid-template-columns: minmax(0, 1fr) auto 3.75rem 1rem; grid-template-areas: "name qty total del"; column-gap: 8px;
+}
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-pos-line-qty] { margin: 0; gap: 2px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-pos-line-del] { width: 1rem; margin-left: 0; }
+@media (min-height: 1000px) {
+  :root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-pos-lines]:not(:has([data-pos-line]:nth-child(6))) [data-pos-line-row] {
+    grid-template-columns: minmax(0, 1fr) auto 3.75rem 1rem; grid-template-areas: "name qty total del";
+  }
+}
+/* the cart line shows "Rs 1,450 each" under the name, as the design does */
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-pos-line-name] { display: block; grid-area: name; min-width: 0; padding-left: 0; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-pos-line-name] > p:first-child { display: block; -webkit-line-clamp: unset; overflow: visible; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-pos-line-name] > [data-pos-line-unit] { display: block; margin-top: 1px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-pos-cust-add] { width: auto; align-self: flex-start; height: 44px; padding: 0 16px; border-radius: 12px; font-size: 14px; }
+/* a narrow till (a 1024 px tablet gives the bill ~300 px): the three buttons shrink to their words, the ⋯ never leaves the panel */
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-pos-refined-actions] { container-type: inline-size; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-rf-btn] { min-width: 0; padding: 0 8px; overflow: hidden; }
+@container (max-width: 330px) {
+  :root[data-ui="modern"][data-ui-theme="dt-refined"] [data-rf-btn]:not([data-rf-btn="more"]) { font-size: 13px; gap: 4px; padding: 0 4px; }
+  :root[data-ui="modern"][data-ui-theme="dt-refined"] [data-rf-btn]:not([data-rf-btn="more"]) svg { display: none; }
+}
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-pos-cust-add] { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"]:not([data-app="otk"]) [data-pos-cust-add] svg { flex: none; }
