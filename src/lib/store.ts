@@ -37,7 +37,7 @@ import {
 } from 'firebase/firestore';
 import { toast } from 'sonner';
 import { archiveOrders, getArchivedOrders as getArchivedOrdersSafe } from './orderArchive';
-import { isForeignRecordError, isSetAside, parseSaveLabel, setAside } from './setAside';
+import { isForeignRecordError, isSetAside, parseSaveLabel, partitionSetAside, setAside, settleBatchFailures } from './setAside';
 
 const STORAGE_KEY_BASE = 'desi-pos-data';
 // Per-tenant cache key — different restaurants must NEVER share local cache,
@@ -109,7 +109,7 @@ async function loadHeavyCollectionsInBackground(): Promise<void> {
           name, rows, ((cachedData as any)[name] || []) as any[], pendingIds, cloudIdFor,
         );
         (cachedData as any)[name] = merged.filter((r: any) => !r?.deleted);
-        for (const id of requeue) enqueueDeferredOp(name, id, 'set');
+        for (const id of requeue) if (!isSetAside(name, id)) enqueueDeferredOp(name, id, 'set');
         if (requeue.length) {
           console.warn(`[store] ${name}: ${requeue.length} local row(s) missing from the cloud — re-queued for upload`);
         }
@@ -272,7 +272,7 @@ function refreshCloudStoreInBackground() {
             cloudIdFor,
           );
           (remote as any)[name] = rows;
-          for (const id of requeue) enqueueDeferredOp(name, id, 'set');
+          for (const id of requeue) if (!isSetAside(name, id)) enqueueDeferredOp(name, id, 'set');
           if (requeue.length) {
             console.warn(`[store] ${name}: ${requeue.length} local row(s) missing from the cloud — re-queued for upload`);
           }
@@ -747,7 +747,10 @@ registerDeferredBatchFlusher(async (col, entityIds, op) => {
 
   const items: Array<{ id: string; data: any }> = [];
   const gone: string[] = [];
-  for (const id of entityIds) {
+  // v1.128.0 — a record that belongs to another restaurant is settled, not sent again (see setAside.ts)
+  const { send, skipped } = partitionSetAside(col, entityIds);
+  gone.push(...skipped);
+  for (const id of send) {
     const item = byId.get(id);
     // The entity no longer exists locally (Close Day, a delete that raced the
     // queue). There is nothing to upload and nothing to retry — settled, which
@@ -757,7 +760,8 @@ registerDeferredBatchFlusher(async (col, entityIds, op) => {
   }
 
   const res = await sbSaveMany(col, items);
-  return { saved: [...res.saved, ...gone], failed: res.failed };
+  const { settled, failed } = settleBatchFailures(col, res.failed);
+  return { saved: [...res.saved, ...gone, ...settled], failed };
 });
 
 installDeferredSyncTriggers();
@@ -1254,7 +1258,7 @@ export async function sbReloadCollections(names: string[]) {
         merged = r.rows; requeue = r.requeue;
       }
       (d as any)[name] = merged;
-      for (const id of requeue) enqueueDeferredOp(name, id, 'set');
+      for (const id of requeue) if (!isSetAside(name, id)) enqueueDeferredOp(name, id, 'set');
       if (requeue.length) {
         console.warn(`[store] ${name}: ${requeue.length} local row(s) missing from the cloud — re-queued for upload`);
       }

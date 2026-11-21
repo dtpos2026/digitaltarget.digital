@@ -58,3 +58,25 @@ export function parseSaveLabel(label: string): { col: string; id: string } | nul
   const m = /^save ([A-Za-z_]+)\/(.+)$/.exec(label.trim());
   return m ? { col: m[1], id: m[2] } : null;
 }
+
+/**
+ * v1.128.0 — the BATCH path of the sync queue (registerDeferredBatchFlusher) never asked this list, which is why the 403s kept coming.
+ * Live logs, 21 Nov 2026: 86 `POST /customers -> 403` from one restaurant in seven hours, long after v1.110.0. The per-record paths
+ * skip a set-aside record; the batch path (one request for up to 100 records) sent them again on every flush, and a rejected chunk is
+ * retried record by record, so each flush produced a burst of refused requests, each burst counted a retry, and after six the record
+ * went to the dead-letter list the status bar shows as "sync needs attention". The re-queue after a cloud reload did the same.
+ */
+export function partitionSetAside(col: string, ids: readonly string[]): { send: string[]; skipped: string[] } {
+  const send: string[] = []; const skipped: string[] = [];
+  for (const id of ids) (isSetAside(col, id) ? skipped : send).push(id);
+  return { send, skipped };
+}
+
+/** A batch failure that is "another restaurant's record" is set aside and SETTLED (never retried); everything else still fails and retries. */
+export function settleBatchFailures<T extends { id: string; error: string }>(col: string, failed: readonly T[]): { settled: string[]; failed: T[] } {
+  const settled: string[] = []; const rest: T[] = [];
+  for (const f of failed) {
+    if (isForeignRecordError(f.error)) { setAside(col, f.id, f.error); settled.push(f.id); } else rest.push(f);
+  }
+  return { settled, failed: rest };
+}
