@@ -83,8 +83,18 @@ function dirFromSide(from: SupportFrom): 'owner' | 'support' {
   return from === 'owner' ? 'owner' : 'support';
 }
 
+/**
+ * v1.128.0 — every spelling of `direction` the table accepts, by who SENT the message. The database functions
+ * support_mark_read() and support_unread_counts() must cover the same lists (a test reads the migration and checks);
+ * they used to look for 'restaurant', which is not even allowed, so a thread could never be marked read.
+ */
+export const SUPPORT_DIRECTIONS = {
+  fromRestaurant: ['owner', 'in', 'inbound'],
+  fromSupport: ['support', 'out', 'outbound'],
+} as const;
+
 function sideFromDir(direction: string): SupportFrom {
-  return direction === 'support' || direction === 'out' ? 'admin' : 'owner';
+  return (SUPPORT_DIRECTIONS.fromSupport as readonly string[]).includes(direction) ? 'admin' : 'owner';
 }
 
 function msgFromDb(r: any): SupportMessage {

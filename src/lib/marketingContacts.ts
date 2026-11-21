@@ -37,14 +37,20 @@ function contactFromDb(r: any): MarketingContact {
     source: r.source ?? undefined, linkedTenantId: r.linked_tenant_id ?? undefined,
   };
 }
-function contactToDb(d: Partial<MarketingContact>): Record<string, unknown> {
-  const row: Record<string, unknown> = {
-    name: d.name ?? null, phone: d.phone ?? null, city: d.city ?? null,
-    restaurant_name: d.restaurantName ?? null, notes: d.notes ?? null,
-    owner_name: d.ownerName ?? null, address: d.address ?? null,
-    source: d.source ?? null,
-  };
-  if (d.linkedTenantId) row['linked_tenant_id'] = d.linkedTenantId;
+/**
+ * v1.128.0 — only the fields that were GIVEN. This used to write a full row, with null for every field the caller left
+ * out: linking a contact to a restaurant sent just `{ linkedTenantId, linkedDeviceIds }`, and the upsert turned the
+ * contact's name, phone, city, restaurant and notes into NULL — "I linked it and its name disappeared". A link can now
+ * also be cleared: `linkedTenantId: undefined` means "unlink" when the key is present.
+ */
+export function contactToDb(d: Partial<MarketingContact>): Record<string, unknown> {
+  const fields: Array<[keyof MarketingContact, string]> = [
+    ['name', 'name'], ['phone', 'phone'], ['city', 'city'], ['restaurantName', 'restaurant_name'],
+    ['notes', 'notes'], ['ownerName', 'owner_name'], ['address', 'address'], ['source', 'source'],
+  ];
+  const row: Record<string, unknown> = {};
+  for (const [key, col] of fields) if (key in d) row[col] = (d[key] as string | undefined) ?? null;
+  if ('linkedTenantId' in d) row['linked_tenant_id'] = d.linkedTenantId || null;
   if (Array.isArray(d.linkedDeviceIds)) row['linked_device_ids'] = d.linkedDeviceIds;
   return row;
 }
@@ -78,8 +84,8 @@ export async function createContact(data: Omit<MarketingContact, 'id' | 'created
 
 export async function updateContact(id: string, data: Partial<MarketingContact>): Promise<void> {
   if (firestoreUnavailable()) {
-    const { saveMarketingContact } = await import('./superAdminSupabase');
-    await saveMarketingContact({ id, ...contactToDb(data) });
+    const { updateMarketingContact } = await import('./superAdminSupabase');
+    await updateMarketingContact(id, contactToDb(data));
     return;
   }
   await updateDoc(doc(fbDb(), 'marketingContacts', id), data as any);

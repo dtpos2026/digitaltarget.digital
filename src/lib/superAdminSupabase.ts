@@ -70,6 +70,33 @@ function fail(op: string, error: { message: string; code?: string } | null): nev
   throw new Error(`${op}: ${msg}`);
 }
 
+
+// ---------------------------------------------------------------------------
+// v1.128.0 — create-or-change ONE row, without the NOT NULL trap of a partial upsert.
+//
+// Every save here used `.upsert(row, { onConflict: 'id' })`. An upsert is an INSERT first, and Postgres checks NOT NULL on
+// the proposed row BEFORE it looks for the conflict. So an update that sent only what changed — `{ id, is_published: false }`
+// to unpublish a release, `{ id, status: 'paid' }` on an invoice — was refused with 23502 "null value in column version
+// violates not-null constraint", even though the row existed. Measured on the live schema (invoices.number, releases.version,
+// plans.code/name, packages.name, payments.amount, service_calls.title are required). A row with an id is now UPDATEd (only the
+// given columns change); an id that matches nothing, or no id, is INSERTed with the full row.
+// ---------------------------------------------------------------------------
+async function saveRow<T>(table: string, row: Record<string, unknown>, label: string): Promise<T> {
+  const db = sb() as any;
+  const { id, ...rest } = row as { id?: string } & Record<string, unknown>;
+  if (id) {
+    const q = Object.keys(rest).length
+      ? db.from(table).update(rest).eq('id', id).select().maybeSingle()
+      : db.from(table).select('*').eq('id', id).maybeSingle();
+    const { data, error } = await q;
+    if (error) fail(label, error);
+    if (data) return data as T;
+  }
+  const { data, error } = await db.from(table).insert(row).select().single();
+  if (error) fail(label, error);
+  return data as T;
+}
+
 // ---------------------------------------------------------------------------
 // Packages
 // ---------------------------------------------------------------------------
@@ -82,10 +109,7 @@ export async function listPackages(): Promise<AdminPackage[]> {
 }
 
 export async function savePackage(p: Partial<AdminPackage>): Promise<AdminPackage> {
-  const { data, error } = await sb().from('admin_packages')
-    .upsert(p as any, { onConflict: 'id' }).select().single();
-  if (error) fail('Save package', error);
-  return data as AdminPackage;
+  return saveRow<AdminPackage>('admin_packages', p as Record<string, unknown>, 'Save package');
 }
 
 export async function deletePackage(id: string): Promise<void> {
@@ -105,10 +129,7 @@ export async function listPlans(): Promise<AdminPlan[]> {
 }
 
 export async function savePlan(p: Partial<AdminPlan>): Promise<AdminPlan> {
-  const { data, error } = await sb().from('admin_plans')
-    .upsert(p as any, { onConflict: 'id' }).select().single();
-  if (error) fail('Save plan', error);
-  return data as AdminPlan;
+  return saveRow<AdminPlan>('admin_plans', p as Record<string, unknown>, 'Save plan');
 }
 
 export async function deletePlan(id: string): Promise<void> {
@@ -146,10 +167,7 @@ export async function listInvoices(tenantId?: string): Promise<AdminInvoice[]> {
 }
 
 export async function saveInvoice(inv: Partial<AdminInvoice>): Promise<AdminInvoice> {
-  const { data, error } = await sb().from('admin_invoices')
-    .upsert(inv as any, { onConflict: 'id' }).select().single();
-  if (error) fail('Save invoice', error);
-  return data as AdminInvoice;
+  return saveRow<AdminInvoice>('admin_invoices', inv as Record<string, unknown>, 'Save invoice');
 }
 
 export async function deleteInvoice(id: string): Promise<void> {
@@ -166,9 +184,7 @@ export async function listPayments(tenantId?: string): Promise<AdminPayment[]> {
 }
 
 export async function savePayment(p: Partial<AdminPayment>): Promise<AdminPayment> {
-  const { data, error } = await sb().from('admin_payments')
-    .upsert(p as any, { onConflict: 'id' }).select().single();
-  if (error) fail('Save payment', error);
+  const data = await saveRow<AdminPayment>('admin_payments', p as Record<string, unknown>, 'Save payment');
 
   // Keep the invoice's paid_total in step. Doing this here rather than in a
   // trigger keeps the arithmetic visible where the money is recorded.
@@ -204,9 +220,19 @@ export async function listMarketingContacts() {
 }
 
 export async function saveMarketingContact(c: Record<string, unknown>) {
+  return saveRow<Record<string, unknown>>('admin_marketing_contacts', c, 'Save contact');
+}
+
+/**
+ * v1.128.0 — change ONLY the columns given, on a row that must already exist.
+ * saveMarketingContact() is an upsert of a whole row; sending it a partial patch (just the link) wrote NULL into every
+ * column the patch did not mention, so linking a contact blanked its name, phone and restaurant.
+ */
+export async function updateMarketingContact(id: string, patch: Record<string, unknown>) {
   const { data, error } = await sb().from('admin_marketing_contacts')
-    .upsert(c as any, { onConflict: 'id' }).select().single();
-  if (error) fail('Save contact', error);
+    .update(patch as any).eq('id', id).select().maybeSingle();
+  if (error) fail('Update contact', error);
+  if (!data) throw new Error('This contact no longer exists — refresh the list.');
   return data;
 }
 
@@ -224,10 +250,7 @@ export async function listServiceCalls(tenantId?: string) {
 }
 
 export async function saveServiceCall(c: Record<string, unknown>) {
-  const { data, error } = await sb().from('admin_service_calls')
-    .upsert(c as any, { onConflict: 'id' }).select().single();
-  if (error) fail('Save service call', error);
-  return data;
+  return saveRow<Record<string, unknown>>('admin_service_calls', c, 'Save service call');
 }
 
 // ---------------------------------------------------------------------------
@@ -242,10 +265,7 @@ export async function listReleases(): Promise<AdminRelease[]> {
 }
 
 export async function saveRelease(r: Partial<AdminRelease>): Promise<AdminRelease> {
-  const { data, error } = await sb().from('admin_releases')
-    .upsert(r as any, { onConflict: 'id' }).select().single();
-  if (error) fail('Save release', error);
-  return data as AdminRelease;
+  return saveRow<AdminRelease>('admin_releases', r as Record<string, unknown>, 'Save release');
 }
 
 export async function publishRelease(id: string, targetTenantIds: string[] = []) {

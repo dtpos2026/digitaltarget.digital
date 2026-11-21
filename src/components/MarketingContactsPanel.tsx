@@ -158,7 +158,7 @@ export default function MarketingContactsPanel() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="font-bold text-sm truncate">
-                      {c.restaurantName || '(no restaurant)'}
+                      {c.restaurantName || t?.restaurantName || '(no restaurant)'}
                       {c.ownerName && <span className="text-[11px] text-violet-700 font-bold ml-1">· Owner: {c.ownerName}</span>}
                       <span className="text-[10px] text-muted-foreground font-normal ml-1">· Lead: {c.name}</span>
                     </div>

@@ -1158,7 +1158,7 @@ function scheduleSnapshotFlush() {
       (d as any)[name] = dedupeById(merged as any);
     }
     pendingSnapshotData.clear();
-    saveLocal(d);
+    saveLocal(d, { background: true });
   }, 80);
 }
 
@@ -1264,7 +1264,7 @@ export async function sbReloadCollections(names: string[]) {
       console.warn(`[store] realtime reload ${name} failed`, e);
     }
   }
-  if (touched) saveLocal(d);
+  if (touched) saveLocal(d, { background: true });
 }
 
 /**
@@ -1972,14 +1972,24 @@ function loadData(): AppData {
 }
 
 // Local cache only — used after every mutation
-function saveLocal(data: AppData) {
+/**
+ * v1.128.0 — `background: true` is for what the DEVICE learns from the cloud (a poll, a realtime event), as opposed to what the
+ * cashier does. Writing the whole cache is the expensive part (a restaurant's cache is several MB of JSON), and these merges used
+ * to trigger one every few seconds on every open screen. A background write now waits 1.5 s and rides along with any cashier save
+ * that is already due; a cashier's own save is still written within 120 ms, and pagehide/visibilitychange still flush at once.
+ */
+function saveLocal(data: AppData, opts: { background?: boolean } = {}) {
   stampTenant(data);
   cachedData = data;
   // Keep cashier interactions synchronous in memory, but batch the expensive
   // whole-cache serialization. pagehide/visibilitychange above forces a final
   // flush, so fast billing does not trade away offline durability.
-  if (localPersistTimer) clearTimeout(localPersistTimer);
-  localPersistTimer = setTimeout(flushLocalPersistence, 120);
+  if (opts.background) {
+    if (!localPersistTimer) localPersistTimer = setTimeout(flushLocalPersistence, 1500);
+  } else {
+    if (localPersistTimer) clearTimeout(localPersistTimer);
+    localPersistTimer = setTimeout(flushLocalPersistence, 120);
+  }
   if (isElectron()) {
     if (writeTimer) clearTimeout(writeTimer);
     writeTimer = setTimeout(() => {
@@ -2295,14 +2305,23 @@ async function refreshOrdersFromCloudOnce(): Promise<Order[]> {
         const { rows } = await sbLoadOrdersDelta({ force: localArr.length === 0 });
         const arr = rows as Order[];
         const localById = new Map(localArr.map(o => [o.id, o]));
+        // v1.128.0 — this poll used to rebuild the list and rewrite the WHOLE cache on every tick, every ~6 s per open screen,
+        // even when the delta held nothing new: the window always re-reads the newest row (it overlaps the cursor by 30 s), and
+        // `>=` made an identical copy "replace" itself. Now a row only replaces the local one when it is newer, or the same
+        // version with different content; if nothing changed, nothing is written.
+        let changed = false;
         for (const remote of arr) {
           const local = localById.get(remote.id) as any;
-          if (!local || Number((remote as any)._updatedAt || 0) >= Number(local?._updatedAt || 0)) {
-            localById.set(remote.id, remote);
+          if (!local) { localById.set(remote.id, remote); changed = true; continue; }
+          const rT = Number((remote as any)._updatedAt || 0);
+          const lT = Number(local?._updatedAt || 0);
+          if (rT > lT || (rT === lT && JSON.stringify(remote) !== JSON.stringify(local))) {
+            localById.set(remote.id, remote); changed = true;
           }
         }
+        if (!changed) return localArr;
         d.orders = Array.from(localById.values());
-        saveLocal(d);
+        saveLocal(d, { background: true });
         return d.orders;
       }
       const c = colRef('orders'); if (!c) return getOrders();

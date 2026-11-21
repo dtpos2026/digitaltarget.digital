@@ -357,3 +357,44 @@ describe('refreshOrdersFromCloud — the till shows the same bills and the same 
     expect(delta.rowsMoved).toBeLessThan(full.rowsMoved * 0.25);
   });
 });
+
+// ---------------------------------------------------------------------------
+// v1.128.0 — a poll that learns nothing must write nothing.
+//
+// The delta window always re-reads the newest row (it overlaps the cursor by 30 s), and the merge replaced a local row whenever the
+// copy was not OLDER (`>=`). So every tick — about every 6 s on every open screen — rebuilt the whole orders list and rewrote the
+// whole local cache (several MB of JSON on a busy till), even when nothing had changed. On a slow till that is a freeze that comes
+// back every few seconds. Now an identical copy leaves the list as it is.
+// ---------------------------------------------------------------------------
+describe('v1.128.0 — an orders poll with nothing new leaves the local list alone', () => {
+  it('the same rows again: the very same list comes back (nothing rebuilt, nothing to write)', async () => {
+    table = Array.from({ length: 5 }, (_, i) => serverRow({ ageMs: (5 - i) * 60_000 }));
+    const first = await store.refreshOrdersFromCloud();
+    expect(first).toHaveLength(5);
+    clock += 6_000;
+    const second = await store.refreshOrdersFromCloud();
+    expect(second).toBe(first);
+    clock += 6_000;
+    expect(await store.refreshOrdersFromCloud()).toBe(first);
+  });
+
+  it('a row that really changed is taken, and the list is rebuilt', async () => {
+    table = Array.from({ length: 5 }, (_, i) => serverRow({ ageMs: (5 - i) * 60_000 }));
+    const first = await store.refreshOrdersFromCloud();
+    clock += 6_000;
+    touch(table[1].id, { status: 'paid' });
+    const second = await store.refreshOrdersFromCloud();
+    expect(second).not.toBe(first);
+    expect(second.find((o: any) => o.id === table[1].id)!.status).toBe('paid');
+  });
+
+  it('the same version with different content (a server-side edit that did not move the clock) is still taken', async () => {
+    table = Array.from({ length: 3 }, (_, i) => serverRow({ ageMs: (3 - i) * 60_000 }));
+    await store.refreshOrdersFromCloud();
+    clock += 6_000;
+    const newest = table[2];
+    newest.data.grandTotal = 777; newest.grand_total = 777;      // updated_at NOT touched
+    const second = await store.refreshOrdersFromCloud();
+    expect((second.find((o: any) => o.id === newest.id) as any).grandTotal).toBe(777);
+  });
+});

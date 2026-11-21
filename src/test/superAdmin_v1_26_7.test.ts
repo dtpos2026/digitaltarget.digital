@@ -34,9 +34,12 @@ describe('support messages can actually be inserted', () => {
     expect(s).toContain('this comment used to be wrong, and that was the bug');
   });
 
-  it('reads both vocabularies, so old rows still render', () => {
-    const s = read('src', 'lib', 'support.ts');
-    expect(s).toContain("direction === 'support' || direction === 'out'");
+  it('reads both vocabularies, so old rows still render', async () => {
+    // v1.128.0: the lists live in one exported constant (the database functions are checked against it in
+    // supportReadDirection_v1_128_0.test.ts), instead of a string in the middle of a function.
+    const { SUPPORT_DIRECTIONS } = await import('@/lib/support');
+    expect(SUPPORT_DIRECTIONS.fromSupport).toEqual(expect.arrayContaining(['support', 'out']));
+    expect(SUPPORT_DIRECTIONS.fromRestaurant).toEqual(expect.arrayContaining(['owner', 'in', 'inbound']));
   });
 });
 
