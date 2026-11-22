@@ -17,11 +17,17 @@ import { ENABLE_REDUNDANT_ORDER_POLL } from '@/lib/featureFlags';
 import { scopeToBranch } from '@/lib/cashierScope';
 import { PageTitle } from '@/components/layout/PageFrame';
 import { Bike as TitleIcon } from 'lucide-react';
+import { useThemeId, useUiStyle } from '@/lib/uiStyle';
+import { isRefinedTheme } from '@/lib/uiThemes';
+import { useNavigate } from '@/lib/hash-router';
+import RefinedDeliveryBoard from '@/components/delivery/RefinedDeliveryBoard';
+import { columnStatus, deliveryColumn, type DeliveryColumn } from '@/lib/deliveryBoard';
 
 const columns: { id: DeliveryStatus; label: string; color: string }[] = [
   { id: 'pending', label: 'Pending', color: 'bg-status-pending' },
   { id: 'cooking', label: 'Preparing', color: 'bg-status-cooking' },
   { id: 'ready', label: 'Ready', color: 'bg-status-warning' },
+  { id: 'rider_assigned', label: 'Rider assigned', color: 'bg-status-info' },
   { id: 'onway', label: 'Dispatched', color: 'bg-status-onway' },
   { id: 'delivered', label: 'Delivered', color: 'bg-status-delivered' },
   { id: 'cancelled', label: 'Cancelled', color: 'bg-status-cancelled' },
@@ -35,7 +41,12 @@ const statusButtons: { status: DeliveryStatus; label: string; icon: typeof ChefH
   { status: 'cancelled', label: 'Cancel', icon: XCircle, color: 'bg-status-cancelled hover:bg-status-cancelled/80 text-status-cancelled-foreground' },
 ];
 
+/** v1.138.0 — the lane an order sits in. An order only accepted, one a rider has been given, and one the rider has picked up or reached used to match no lane and vanish from the board. */
+const laneOf = (s: DeliveryStatus | undefined): DeliveryStatus => { const c = deliveryColumn(s); return c === 'assigned' ? 'rider_assigned' : columnStatus(c); };
+
 export default function DeliveryBoardPage() {
+  const refined = useUiStyle() === 'modern' && isRefinedTheme(useThemeId());
+  const navigate = useNavigate();
   const settings = getSettings();
   const riders = getRiders().filter(r => r.isActive);
   const [trackingId, setTrackingId] = useState<string | null>(null);
@@ -153,6 +164,32 @@ export default function DeliveryBoardPage() {
     openWhatsApp(phone, buildTrackingWhatsAppText(order));
   };
 
+  // v1.138.0 — DT Refined: the design's board (SW-08). The same saving, the same messages, the same tracking dialog.
+  if (refined) {
+    const moveTo = (o: Order, col: DeliveryColumn) => {
+      if (col === 'assigned' && !o.riderId) { toast.info('Choose a rider first — use Assign rider on the Ready card'); return; }
+      updateStatus(o.id, columnStatus(col));
+    };
+    return (
+      <div data-dl-page>
+        <RefinedDeliveryBoard
+          orders={orders}
+          riders={riders}
+          onAdvance={(o, to) => updateStatus(o.id, to)}
+          onAssign={(o, riderId) => assignRider(o.id, riderId)}
+          onMove={moveTo}
+          onCancel={o => updateStatus(o.id, 'cancelled')}
+          onWhatsApp={sendWhatsApp}
+          onTracking={sendTracking}
+          onLive={o => setTrackingId(o.id)}
+          onOpenMap={() => navigate('/live-riders')}
+          onOpenRiders={() => navigate('/riders')}
+        />
+        <OrderTrackingDialog orderId={trackingId} onClose={() => setTrackingId(null)} />
+      </div>
+    );
+  }
+
   return (
     <div className="p-3 lg:p-4 h-[calc(100vh-3rem)]">
       <div className="flex items-center justify-between mb-3">
@@ -164,9 +201,9 @@ export default function DeliveryBoardPage() {
         </div>
       </div>
       <DragDropContext onDragEnd={onDragEnd}>
-        <div className="grid grid-cols-[repeat(6,minmax(200px,1fr))] gap-2 h-full overflow-x-auto pb-4">
+        <div className="grid grid-cols-[repeat(7,minmax(200px,1fr))] gap-2 h-full overflow-x-auto pb-4">
           {columns.map(col => {
-            const colOrders = orders.filter(o => o.deliveryStatus === col.id);
+            const colOrders = orders.filter(o => laneOf(o.deliveryStatus) === col.id);
             return (
               <div key={col.id} className="flex flex-col min-w-0">
                 <div data-board-col-head data-col={col.id} className={`${col.color} text-primary-foreground rounded-t-md px-2 py-1.5 flex items-center justify-between`}>

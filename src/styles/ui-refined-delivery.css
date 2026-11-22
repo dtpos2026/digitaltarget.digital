@@ -1,0 +1,81 @@
+/* ============================================================
+   v1.138.0 — the Delivery board, as the design draws it (SW-08). DT Refined only: the title with "7 active · 2 riders online", a Board | Map
+   switch and Rider list, the rider strip, then lanes — a soft lavender panel each — of white cards with one button.
+   Markup: components/delivery/RefinedDeliveryBoard.tsx.
+   ============================================================ */
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-root {
+  display: flex; flex-direction: column; gap: 16px; padding: 20px 24px; min-height: calc(100vh - var(--ui-header-h, 3.75rem)); box-sizing: border-box;
+}
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-titles h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 800; letter-spacing: -.01em; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-titles p { margin: 2px 0 0; font-size: 12.5px; line-height: 18px; color: hsl(var(--muted-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-head-actions { display: flex; align-items: center; gap: 12px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-seg { display: inline-flex; background: hsl(var(--dt-accent-tint)); border-radius: 12px; padding: 3px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-seg > button {
+  padding: 6px 14px; border-radius: 9px; border: 0; background: transparent; color: hsl(var(--muted-foreground)); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+}
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-seg > button[data-on] { background: hsl(var(--card)); color: hsl(var(--foreground)); box-shadow: var(--ui-shadow-card); }
+
+/* buttons: the design's .btn (40 high) for the header, a 32 high one on a card */
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 32px; padding: 0 14px; border-radius: 10px; border: 1px solid transparent; cursor: pointer;
+  font: inherit; font-size: 13px; font-weight: 700; white-space: nowrap;
+}
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-btn-soft { background: hsl(var(--dt-accent-tint)); color: hsl(var(--primary-text, var(--primary))); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-btn-primary { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-btn-ghost { height: 40px; padding: 0 16px; border-radius: 12px; border-color: hsl(var(--border)); background: hsl(var(--card)); color: hsl(var(--foreground)); font-size: 14px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-btn:hover { filter: brightness(.97); }
+
+/* the rider strip */
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-strip { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-strip-chip {
+  display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 999px; font-size: 13px; font-weight: 600; white-space: nowrap;
+  background: hsl(var(--card)); border: 1px solid hsl(var(--border)); color: hsl(var(--foreground));
+}
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-strip-chip[data-online] { background: hsl(var(--dt-accent-tint)); border-color: transparent; color: hsl(var(--primary-text, var(--primary))); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-strip-empty { font-size: 13px; color: hsl(var(--muted-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-dot { width: 8px; height: 8px; border-radius: 50%; background: hsl(var(--muted-foreground) / .5); flex: none; display: inline-block; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-dot[data-on] { background: hsl(var(--dt-ok)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-grow { flex: 1; min-width: 0; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-link { border: 0; background: transparent; padding: 4px 2px; font: inherit; font-size: 12.5px; font-weight: 700; color: hsl(var(--muted-foreground)); cursor: pointer; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-link:hover { color: hsl(var(--foreground)); }
+
+/* the lanes */
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-lanes { display: grid; gap: 12px; flex: 1; align-items: stretch; overflow-x: auto; padding-bottom: 4px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-lane { display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 10px; border-radius: 16px; background: hsl(var(--dt-accent-tint) / .6); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-lane-head { display: flex; align-items: center; justify-content: space-between; padding: 2px 4px 0; font-size: 14px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-count { font-size: 12px; font-weight: 600; color: hsl(var(--muted-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-lane-body { display: flex; flex-direction: column; gap: 12px; flex: 1; min-height: 80px; border-radius: 12px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-lane-body[data-over] { background: hsl(var(--primary) / .06); outline: 2px dashed hsl(var(--primary) / .35); outline-offset: -2px; }
+
+/* a card */
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-card { background: hsl(var(--card)); border-radius: 14px; padding: 12px; box-shadow: var(--ui-shadow-card); display: flex; flex-direction: column; gap: 3px; cursor: grab; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-card-top { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-amount { font-variant-numeric: tabular-nums; white-space: nowrap; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-who { font-size: 14px; line-height: 20px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-where { display: flex; align-items: center; gap: 4px; font-size: 12px; line-height: 18px; color: hsl(var(--muted-foreground)); min-width: 0; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-where svg { flex: none; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-card-foot { display: flex; align-items: center; gap: 8px; margin-top: 8px; min-height: 32px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-chip {
+  display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border-radius: 999px; background: hsl(var(--dt-accent-tint)); color: hsl(var(--primary-text, var(--primary))); font-size: 12px; font-weight: 700;
+}
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-more { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; border: 0; background: transparent; color: hsl(var(--muted-foreground)); cursor: pointer; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-more:hover { background: hsl(var(--dt-accent-tint)); color: hsl(var(--foreground)); }
+
+/* a card's ⋯ menu and the rider list (popovers on <body>) */
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-menu-item {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 36px; padding: 0 10px; border: 0; border-radius: 10px; background: transparent; cursor: pointer; text-decoration: none; text-align: left;
+  font: inherit; font-size: 13.5px; font-weight: 600; color: hsl(var(--foreground));
+}
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-menu-item:hover:not(:disabled) { background: hsl(var(--dt-accent-tint)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-menu-item:disabled { opacity: .45; cursor: not-allowed; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-menu-danger { color: hsl(var(--dt-bad)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-menu-sub { margin-left: auto; font-size: 11.5px; font-weight: 600; color: hsl(var(--muted-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-menu-meta { margin: 0; padding: 6px 10px 2px; font-size: 11.5px; color: hsl(var(--muted-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-menu-addr { padding-top: 0; padding-bottom: 6px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-menu-head { margin: 6px 0 0; padding: 8px 10px 2px; font-size: 10.5px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: hsl(var(--muted-foreground) / .8); border-top: 1px solid hsl(var(--border)); }
+
+@media (max-width: 760px) {
+  :root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-root { padding: 16px 12px; }
+  :root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-lanes { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)) !important; overflow-x: visible; }
+}
