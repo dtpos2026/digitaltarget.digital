@@ -1,13 +1,19 @@
 import { useMemo, useState } from 'react';
 import { money } from '@/lib/currency';
-import { getOrders, getSettings, getBranches, getCurrentBranchId, getPaymentAccounts } from '@/lib/store';
+import { getOrders, getSettings, getBranches, getCurrentBranchId, getPaymentAccounts, getMenuItems, getCategories } from '@/lib/store';
 import { getAllHistoricalOrders } from '@/lib/orderArchive';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { BarChart3, CreditCard, Percent, ChefHat, Printer, Building2, FileDown, Landmark } from 'lucide-react';
+import { BarChart3, CreditCard, Percent, ChefHat, Printer, Building2, FileDown, Landmark, Banknote, Receipt, Calculator, Calendar, Filter, Download } from 'lucide-react';
+import { useNavigate } from '@/lib/hash-router';
+import { useThemeId, useUiStyle } from '@/lib/uiStyle';
+import { isRefinedTheme } from '@/lib/uiThemes';
+import { PERIODS, dailySales, inRange, pctChange, periodLabel, presetRange, previousRange, salesByCategory, salesByHour, staffSales, taxByDay, type PeriodPreset, type Bar } from '@/lib/salesReports';
+import { cn } from '@/lib/utils';
+import KpiCard from '@/components/ui-kit/KpiCard';
 import { Order } from '@/lib/types';
 import { isPaidSale, isCreditOrder } from '@/lib/sales';
 import jsPDF from 'jspdf';
@@ -23,26 +29,40 @@ export default function ReportsCenterPage() {
   const settings = getSettings();
   const allBranches = getBranches().filter(b => b.isActive);
   const activeBranchId = getCurrentBranchId();
+  // v1.135.0 — DT Refined draws the design's Reports (SW-26): a list of reports on the left, the period as a chip, four figures and the daily bars
+  const refined = useUiStyle() === 'modern' && isRefinedTheme(useThemeId());
+  const navigate = useNavigate();
   const [branchFilter, setBranchFilter] = useState<string>('all');
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
+  const [period, setPeriod] = useState<PeriodPreset>(refined ? 'month' : 'all');
+  const [from, setFrom] = useState(() => (refined ? presetRange('month').from : ''));
+  const [to, setTo] = useState(() => (refined ? presetRange('month').to : ''));
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [methodFilter, setMethodFilter] = useState('all');
+  const [tab, setTab] = useState(refined ? 'summary' : 'paid');
+  const pickPeriod = (p: PeriodPreset) => { setPeriod(p); if (p !== 'custom') { const r = presetRange(p); setFrom(r.from); setTo(r.to); } };
   // v1.15.1 — include archived (post Day Close) history.
   const orders = useMemo(() => getAllHistoricalOrders(getOrders()), []);
 
-  const filterDB = (list: Order[]) => list.filter(o => {
+  const sideMatch = (o: Order) => {
     // Branch filter: include orders that match, OR legacy orders without any branchId
     if (branchFilter !== 'all' && o.branchId && o.branchId !== branchFilter) return false;
+    if (typeFilter !== 'all' && o.orderType !== typeFilter) return false;
+    if (methodFilter !== 'all' && (o.paymentMethod || 'cash') !== methodFilter) return false;
+    return true;
+  };
+  const filterDB = (list: Order[]) => list.filter(o => {
+    if (!sideMatch(o)) return false;
     if (from && new Date(o.createdAt) < new Date(from)) return false;
     if (to && new Date(o.createdAt) > new Date(to + 'T23:59:59')) return false;
     return true;
   });
 
-  const paid = useMemo(() => filterDB(orders.filter(isPaidSale)), [orders, from, to, branchFilter]);
-  const credits = useMemo(() => filterDB(orders.filter(isCreditOrder)), [orders, from, to, branchFilter]);
-  const voids = useMemo(() => filterDB(orders.filter(o => o.status === 'void')), [orders, from, to, branchFilter]);
-  const comps = useMemo(() => filterDB(orders.filter(o => o.status === 'complimentary')), [orders, from, to, branchFilter]);
-  const cancels = useMemo(() => filterDB(orders.filter(o => o.status === 'cancelled')), [orders, from, to, branchFilter]);
-  const discounted = useMemo(() => filterDB(orders.filter(o => (o.discount || 0) > 0 && isPaidSale(o))), [orders, from, to, branchFilter]);
+  const paid = useMemo(() => filterDB(orders.filter(isPaidSale)), [orders, from, to, branchFilter, typeFilter, methodFilter]);
+  const credits = useMemo(() => filterDB(orders.filter(isCreditOrder)), [orders, from, to, branchFilter, typeFilter, methodFilter]);
+  const voids = useMemo(() => filterDB(orders.filter(o => o.status === 'void')), [orders, from, to, branchFilter, typeFilter, methodFilter]);
+  const comps = useMemo(() => filterDB(orders.filter(o => o.status === 'complimentary')), [orders, from, to, branchFilter, typeFilter, methodFilter]);
+  const cancels = useMemo(() => filterDB(orders.filter(o => o.status === 'cancelled')), [orders, from, to, branchFilter, typeFilter, methodFilter]);
+  const discounted = useMemo(() => filterDB(orders.filter(o => (o.discount || 0) > 0 && isPaidSale(o))), [orders, from, to, branchFilter, typeFilter, methodFilter]);
 
   const totalPaid = paid.reduce((s, o) => s + o.grandTotal, 0);
   const totalCredit = credits.reduce((s, o) => s + o.grandTotal, 0);
@@ -79,6 +99,25 @@ export default function ReportsCenterPage() {
     paid.forEach(o => { const k = o.orderType; map[k] = map[k] || { count: 0, total: 0 }; map[k].count++; map[k].total += o.grandTotal; });
     return map;
   }, [paid]);
+
+
+  // ---- v1.135.0 the design's cuts of the same paid sales
+  const menuById = useMemo(() => new Map(getMenuItems().map(m => [m.id, m])), []);
+  const catNameById = useMemo(() => new Map(getCategories().map(c => [c.id, c.name])), []);
+  const bars = useMemo(() => dailySales(paid, from, to), [paid, from, to]);
+  const prevPaidTotal = useMemo(() => {
+    const pr = previousRange(from, to);
+    if (!pr) return null;
+    return orders.filter(isPaidSale).filter(o => sideMatch(o) && inRange(o, pr.from, pr.to)).reduce((sum, o) => sum + o.grandTotal, 0);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orders, from, to, branchFilter, typeFilter, methodFilter]);
+  const salesDelta = prevPaidTotal === null ? null : pctChange(totalPaid, prevPaidTotal);
+  const totalTax = useMemo(() => paid.reduce((sum, o) => sum + (Number(o.tax) || 0), 0), [paid]);
+  const hourRows = useMemo(() => salesByHour(paid).filter(r => r.count > 0), [paid]);
+  const categoryRows = useMemo(() => salesByCategory(paid, (id, name) => { const m = id ? menuById.get(id) : undefined; return (m && catNameById.get(m.categoryId)) || ''; }), [paid, menuById, catNameById]);
+  const staffRows = useMemo(() => staffSales(paid), [paid]);
+  const taxRows = useMemo(() => taxByDay(paid), [paid]);
+  const pct = (part: number, whole: number) => (whole > 0 ? `${Math.round((part / whole) * 100)}%` : '—');
 
   // ===== Full PDF export =====
   const exportFullPDF = () => {
@@ -158,29 +197,7 @@ export default function ReportsCenterPage() {
     w.document.close(); w.print();
   };
 
-  return (
-    <div className="p-4 lg:p-6 space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <PageTitle icon={BarChart3} subtitle="Sales, items, payments and staff — pick a report">Reports Center</PageTitle>
-        {allBranches.length > 0 && (
-          <div className="flex items-center gap-1.5 rounded-md px-2 py-1 border bg-primary/10 border-primary/40">
-            <Building2 className="h-3.5 w-3.5 text-primary" />
-            <select value={branchFilter} onChange={e => setBranchFilter(e.target.value)} className="h-6 text-[11px] bg-transparent border-0 outline-none font-semibold cursor-pointer">
-              <option value="all">All Branches</option>
-              {allBranches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </select>
-          </div>
-        )}
-        <div className="flex items-center gap-2 ml-auto flex-wrap">
-          <Input type="date" value={from} onChange={e => setFrom(e.target.value)} className="h-8 text-xs w-36" />
-          <span className="text-xs text-muted-foreground">to</span>
-          <Input type="date" value={to} onChange={e => setTo(e.target.value)} className="h-8 text-xs w-36" />
-          <Button size="sm" onClick={exportFullPDF} className="h-8 text-xs">
-            <FileDown className="h-3.5 w-3.5 mr-1" /> Export Full PDF
-          </Button>
-        </div>
-      </div>
-
+  const legacyStrip = (
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
         <Card className="p-3"><div className="text-[10px] text-muted-foreground">Paid Sales</div><div className="text-lg font-bold text-primary">{money(totalPaid)}</div><div className="text-[10px] text-muted-foreground">{paid.length} orders</div></Card>
         <Card className="p-3"><div className="text-[10px] text-muted-foreground">Credit / Udhaar</div><div className="text-lg font-bold text-status-warning">{money(totalCredit)}</div><div className="text-[10px] text-muted-foreground">{credits.length} orders</div></Card>
@@ -189,22 +206,10 @@ export default function ReportsCenterPage() {
         <Card className="p-3"><div className="text-[10px] text-muted-foreground">Complimentary</div><div className="text-lg font-bold">{money(totalComp)}</div><div className="text-[10px] text-muted-foreground">{comps.length} bills</div></Card>
         <Card className="p-3"><div className="text-[10px] text-muted-foreground">Cancelled</div><div className="text-lg font-bold">{money(totalCancel)}</div><div className="text-[10px] text-muted-foreground">{cancels.length} bills</div></Card>
       </div>
+  );
 
-
-      <Tabs defaultValue="paid" className="w-full">
-        <TabsList className="flex-wrap">
-          <TabsTrigger value="paid"><BarChart3 className="h-3.5 w-3.5 mr-1" /> Paid Sales</TabsTrigger>
-          <TabsTrigger value="accounts"><Landmark className="h-3.5 w-3.5 mr-1" /> Payments by Account</TabsTrigger>
-          <TabsTrigger value="credit"><CreditCard className="h-3.5 w-3.5 mr-1" /> Credit / Udhaar</TabsTrigger>
-          <TabsTrigger value="discount"><Percent className="h-3.5 w-3.5 mr-1" /> Discount</TabsTrigger>
-          <TabsTrigger value="catdisc">Category Discount</TabsTrigger>
-          <TabsTrigger value="recovery">Credit Recovery</TabsTrigger>
-          <TabsTrigger value="kitchen"><ChefHat className="h-3.5 w-3.5 mr-1" /> Kitchen Status</TabsTrigger>
-          <TabsTrigger value="kitchenkot"><ChefHat className="h-3.5 w-3.5 mr-1" /> Kitchen KOT Reports</TabsTrigger>
-          <TabsTrigger value="mgmtcontrol">Management Control</TabsTrigger>
-        </TabsList>
-
-
+  const legacyTabs = (
+    <>
         <TabsContent value="paid">
           <Card className="p-3">
             <div className="flex items-center justify-between mb-2">
@@ -307,6 +312,197 @@ export default function ReportsCenterPage() {
         <TabsContent value="mgmtcontrol">
           <ManagementControlReport orders={filterDB(orders)} />
         </TabsContent>
+    </>
+  );
+
+  // ================= v1.135.0 — the design's Reports (SW-26) =================
+  const DESIGN_REPORTS: Array<[string, string]> = [
+    ['summary', 'Sales summary'], ['byitem', 'Sales by item'], ['bycat', 'Sales by category'], ['byhour', 'Sales by hour'], ['methods', 'Payment methods'],
+    ['types', 'Order types'], ['staff', 'Staff sales'], ['discvoid', 'Discounts & voids'], ['tax', 'Tax report'], ['dayclose', 'Day close (Z)'],
+  ];
+  const MORE_REPORTS: Array<[string, string]> = [
+    ['paid', 'Paid sales (bills)'], ['accounts', 'Payments by account'], ['credit', 'Credit / Udhaar'], ['discount', 'Discount bills'], ['catdisc', 'Category discount'],
+    ['recovery', 'Credit recovery'], ['kitchen', 'Kitchen status'], ['kitchenkot', 'Kitchen KOT'], ['mgmtcontrol', 'Management control'],
+  ];
+  const share = (part: number) => pct(part, totalPaid);
+  const tableViews: Record<string, { head: string[]; rows: Array<Array<string | number>>; numeric: number[] }> = {
+    byitem: { head: ['Item', 'Qty', 'Sales', 'Share'], rows: itemAgg.slice(0, 200).map(i => [i.name, i.qty, money(i.total), share(i.total)]), numeric: [1, 2, 3] },
+    bycat: { head: ['Category', 'Qty', 'Sales', 'Share'], rows: categoryRows.map(c => [c.name, c.qty, money(c.total), share(c.total)]), numeric: [1, 2, 3] },
+    byhour: { head: ['Hour', 'Bills', 'Sales', 'Share'], rows: hourRows.map(h => [h.label, h.count, money(h.total), share(h.total)]), numeric: [1, 2, 3] },
+    methods: { head: ['Method', 'Bills', 'Sales', 'Share'], rows: Object.entries(paymentMethodAgg).sort((a, b) => b[1].total - a[1].total).map(([k, v]) => [k[0].toUpperCase() + k.slice(1), v.count, money(v.total), share(v.total)]), numeric: [1, 2, 3] },
+    types: { head: ['Order type', 'Bills', 'Sales', 'Share'], rows: Object.entries(orderTypeAgg).sort((a, b) => b[1].total - a[1].total).map(([k, v]) => [k[0].toUpperCase() + k.slice(1), v.count, money(v.total), share(v.total)]), numeric: [1, 2, 3] },
+    staff: { head: ['Staff', 'Bills', 'Sales', 'Average bill'], rows: staffRows.map(r => [r.name, r.count, money(r.total), money(r.average)]), numeric: [1, 2, 3] },
+    tax: { head: ['Day', 'Bills', 'Tax', 'Service charge', 'Sales'], rows: taxRows.rows.map(r => [r.day, r.bills, money(r.tax), money(r.serviceCharge), money(r.total)]), numeric: [1, 2, 3, 4] },
+  };
+  const isDesignView = DESIGN_REPORTS.some(([k]) => k === tab);
+  const reportName = [...DESIGN_REPORTS, ...MORE_REPORTS].find(([k]) => k === tab)?.[1] || 'Reports';
+  const branchName = branchFilter === 'all' ? 'All branches' : allBranches.find(b => b.id === branchFilter)?.name || 'Branch';
+  const methodsSeen = Array.from(new Set(orders.map(o => o.paymentMethod || 'cash'))).sort();
+  const htmlTable = (head: string[], rows: Array<Array<string | number>>) =>
+    `<table><thead><tr>${head.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(c => `<td>${String(c)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+  const printCurrent: (() => void) | null =
+    tableViews[tab] ? () => printSection(reportName, htmlTable(tableViews[tab].head, tableViews[tab].rows))
+    : tab === 'paid' ? () => printSection('Paid Sales', renderOrdersTable(paid))
+    : tab === 'credit' ? () => printSection('Credit Report', renderOrdersTable(credits, true))
+    : tab === 'discount' ? () => printSection('Discount Report', renderDiscountTable(discounted))
+    : null;
+  const selectCls = 'h-9 appearance-none rounded-full border bg-card pl-9 pr-4 text-[13px] font-semibold';
+
+  if (refined) {
+    return (
+      <div className="p-4 lg:p-6" data-reports-screen>
+        <Tabs value={tab} onValueChange={setTab} className="w-full">
+          <div className="grid gap-4 lg:grid-cols-[15rem_minmax(0,1fr)]">
+            <nav aria-label="Reports" className="flex flex-wrap gap-1 rounded-2xl border bg-card p-3 shadow-card lg:block lg:space-y-1 lg:self-start" data-reports-nav>
+              {DESIGN_REPORTS.map(([k, label]) => (
+                <button key={k} type="button" data-report={k} aria-current={tab === k ? 'page' : undefined} onClick={() => setTab(k)}
+                  className={cn('block rounded-xl px-3.5 py-2 text-left text-[14px] font-semibold transition-colors lg:w-full', tab === k ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-accent hover:text-foreground')}>{label}</button>
+              ))}
+              <p className="basis-full px-3.5 pb-1 pt-3 text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-muted-foreground">More reports</p>
+              {MORE_REPORTS.map(([k, label]) => (
+                <button key={k} type="button" data-report={k} aria-current={tab === k ? 'page' : undefined} onClick={() => setTab(k)}
+                  className={cn('block rounded-xl px-3.5 py-2 text-left text-[14px] font-semibold transition-colors lg:w-full', tab === k ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-accent hover:text-foreground')}>{label}</button>
+              ))}
+            </nav>
+
+            <div className="min-w-0 space-y-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <PageTitle icon={BarChart3} subtitle={`${periodLabel(from, to)} · ${branchName}`}>{reportName}</PageTitle>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" className="h-11 rounded-xl px-4" onClick={exportFullPDF}><Download className="mr-2 h-4 w-4" /> Export</Button>
+                  {printCurrent && <Button variant="outline" className="h-11 rounded-xl px-4" onClick={printCurrent} data-report-print><Printer className="mr-2 h-4 w-4" /> Print</Button>}
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2" data-report-filters>
+                <label className="relative"><Calendar className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2" style={{ color: 'hsl(var(--primary-foreground))' }} aria-hidden />
+                  <select aria-label="Period" value={period} onChange={e => pickPeriod(e.target.value as PeriodPreset)} className={cn(selectCls, 'border-primary font-bold')} style={{ background: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))' }}>
+                    {PERIODS.map(p => <option key={p.key} value={p.key} style={{ color: 'initial' }}>{p.label}</option>)}
+                  </select></label>
+                {period === 'custom' && (<>
+                  <Input type="date" aria-label="From" value={from} onChange={e => setFrom(e.target.value)} className="h-9 w-36 rounded-full text-[13px]" />
+                  <span className="text-[13px] text-muted-foreground">to</span>
+                  <Input type="date" aria-label="To" value={to} onChange={e => setTo(e.target.value)} className="h-9 w-36 rounded-full text-[13px]" />
+                </>)}
+                {allBranches.length > 0 && (
+                  <select aria-label="Branch" value={branchFilter} onChange={e => setBranchFilter(e.target.value)} className={cn(selectCls, 'pl-4')}>
+                    <option value="all">All branches</option>
+                    {allBranches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                  </select>
+                )}
+                <select aria-label="Order type" value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className={cn(selectCls, 'pl-4')}>
+                  <option value="all">All order types</option><option value="dining">Dining</option><option value="takeaway">Takeaway</option><option value="delivery">Delivery</option>
+                </select>
+                <select aria-label="Payment method" value={methodFilter} onChange={e => setMethodFilter(e.target.value)} className={cn(selectCls, 'pl-4')}>
+                  <option value="all">All payment methods</option>
+                  {methodsSeen.map(m => <option key={m} value={m}>{m[0].toUpperCase() + m.slice(1)}</option>)}
+                </select>
+              </div>
+
+              {!isDesignView && legacyStrip}
+
+              {tab === 'summary' && (<>
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" data-report-kpis>
+                  <KpiCard label="Net sales" value={money(totalPaid)} icon={Banknote}
+                    caption={salesDelta === null ? undefined : <span className="inline-flex items-center gap-1">{salesDelta >= 0 ? '▲' : '▼'} {Math.abs(salesDelta)}%</span>} captionTone={salesDelta === null ? undefined : salesDelta >= 0 ? 'ok' : 'bad'} />
+                  <KpiCard label="Bills" value={paid.length.toLocaleString()} icon={Receipt} />
+                  <KpiCard label="Discounts" value={money(totalDiscount)} icon={Percent} />
+                  <KpiCard label="Tax" value={money(totalTax)} icon={Calculator} />
+                </div>
+                <section className="rounded-2xl border bg-card p-5 shadow-card" data-report-chart>
+                  <h2 className="text-[16px] font-extrabold">Daily sales</h2>
+                  <DailyBars bars={bars} />
+                </section>
+              </>)}
+
+              {tableViews[tab] && (
+                <>
+                  {tab === 'tax' && (
+                    <div className="grid gap-4 sm:grid-cols-2" data-report-kpis>
+                      <KpiCard label="Tax collected" value={money(taxRows.tax)} icon={Calculator} />
+                      <KpiCard label="Service charge" value={money(taxRows.serviceCharge)} icon={Percent} />
+                    </div>
+                  )}
+                  <ReportTable head={tableViews[tab].head} rows={tableViews[tab].rows} numeric={tableViews[tab].numeric} />
+                </>
+              )}
+
+              {tab === 'discvoid' && (
+                <div className="space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" data-report-kpis>
+                    <KpiCard label="Discount given" value={money(totalDiscount)} icon={Percent} caption={`${discounted.length} bills`} />
+                    <KpiCard label="Void" value={money(totalVoid)} icon={Receipt} caption={`${voids.length} bills`} />
+                    <KpiCard label="Complimentary" value={money(totalComp)} icon={Banknote} caption={`${comps.length} bills`} />
+                    <KpiCard label="Cancelled" value={money(totalCancel)} icon={Calculator} caption={`${cancels.length} bills`} />
+                  </div>
+                  <Card className="p-4"><h3 className="mb-2 text-[14px] font-extrabold">Discounts given</h3><DiscountTable orders={discounted} /></Card>
+                  <Card className="p-4"><h3 className="mb-2 text-[14px] font-extrabold">Void bills</h3><OrderTable orders={voids} /></Card>
+                  <Card className="p-4"><h3 className="mb-2 text-[14px] font-extrabold">Cancelled bills</h3><OrderTable orders={cancels} /></Card>
+                </div>
+              )}
+
+              {tab === 'dayclose' && (
+                <section className="rounded-2xl border bg-card p-5 shadow-card" data-report-dayclose>
+                  <h2 className="text-[16px] font-extrabold">Day close (Z) — what the period adds up to</h2>
+                  <dl className="mt-4 divide-y text-[14px]">
+                    {([['Net sales', money(totalPaid)], ['Bills', String(paid.length)], ['Discounts', money(totalDiscount)], ['Tax', money(totalTax)], ['Credit / Udhaar', money(totalCredit)], ['Void', money(totalVoid)],
+                      ...Object.entries(paymentMethodAgg).map(([k, v]) => [`Paid by ${k}`, `${money(v.total)} · ${v.count}`])] as Array<[string, string]>).map(([k, v]) => (
+                      <div key={k} className="flex items-baseline justify-between py-2.5"><dt className="text-muted-foreground">{k}</dt><dd className="font-extrabold tabular-nums">{v}</dd></div>
+                    ))}
+                  </dl>
+                  <Button className="mt-5 h-11 rounded-xl px-5" onClick={() => navigate('/day-close')}>Open Day Close</Button>
+                  <p className="mt-2 text-[12px] italic text-muted-foreground">The Z report is printed and the day archived from the Day Close screen; nothing is deleted.</p>
+                </section>
+              )}
+
+              {legacyTabs}
+            </div>
+          </div>
+        </Tabs>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 lg:p-6 space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <PageTitle icon={BarChart3} subtitle="Sales, items, payments and staff — pick a report">Reports Center</PageTitle>
+        {allBranches.length > 0 && (
+          <div className="flex items-center gap-1.5 rounded-md px-2 py-1 border bg-primary/10 border-primary/40">
+            <Building2 className="h-3.5 w-3.5 text-primary" />
+            <select value={branchFilter} onChange={e => setBranchFilter(e.target.value)} className="h-6 text-[11px] bg-transparent border-0 outline-none font-semibold cursor-pointer">
+              <option value="all">All Branches</option>
+              {allBranches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+          </div>
+        )}
+        <div className="flex items-center gap-2 ml-auto flex-wrap">
+          <Input type="date" value={from} onChange={e => setFrom(e.target.value)} className="h-8 text-xs w-36" />
+          <span className="text-xs text-muted-foreground">to</span>
+          <Input type="date" value={to} onChange={e => setTo(e.target.value)} className="h-8 text-xs w-36" />
+          <Button size="sm" onClick={exportFullPDF} className="h-8 text-xs">
+            <FileDown className="h-3.5 w-3.5 mr-1" /> Export Full PDF
+          </Button>
+        </div>
+      </div>
+
+      {legacyStrip}
+
+      <Tabs value={tab} onValueChange={setTab} className="w-full">
+        <TabsList className="flex-wrap">
+          <TabsTrigger value="paid"><BarChart3 className="h-3.5 w-3.5 mr-1" /> Paid Sales</TabsTrigger>
+          <TabsTrigger value="accounts"><Landmark className="h-3.5 w-3.5 mr-1" /> Payments by Account</TabsTrigger>
+          <TabsTrigger value="credit"><CreditCard className="h-3.5 w-3.5 mr-1" /> Credit / Udhaar</TabsTrigger>
+          <TabsTrigger value="discount"><Percent className="h-3.5 w-3.5 mr-1" /> Discount</TabsTrigger>
+          <TabsTrigger value="catdisc">Category Discount</TabsTrigger>
+          <TabsTrigger value="recovery">Credit Recovery</TabsTrigger>
+          <TabsTrigger value="kitchen"><ChefHat className="h-3.5 w-3.5 mr-1" /> Kitchen Status</TabsTrigger>
+          <TabsTrigger value="kitchenkot"><ChefHat className="h-3.5 w-3.5 mr-1" /> Kitchen KOT Reports</TabsTrigger>
+          <TabsTrigger value="mgmtcontrol">Management Control</TabsTrigger>
+        </TabsList>
+
+
+        {legacyTabs}
       </Tabs>
     </div>
 
@@ -530,5 +726,47 @@ function ManagementControlReport({ orders }: { orders: Order[] }) {
         </div>
       )}
     </Card>
+  );
+}
+
+/** The design's daily bars: a soft bar per day, the last (today / latest) in the full accent. */
+function DailyBars({ bars }: { bars: Bar[] }) {
+  if (bars.length === 0) return <p className="py-10 text-center text-[13px] text-muted-foreground">No sales in this period.</p>;
+  const max = Math.max(1, ...bars.map(b => b.total));
+  return (
+    <div className="mt-5 flex h-44 gap-2" role="img" aria-label="Daily sales" data-daily-bars>
+      {bars.map((b, i) => (
+        <div key={b.key} className="flex h-full min-w-0 flex-1 flex-col items-center gap-1.5" title={`${b.key} · ${b.count} bills`}>
+          <div className="flex w-full flex-1 items-end">
+            <div data-bar={b.key} className={cn('w-full rounded-lg', i === bars.length - 1 ? 'bg-primary' : 'bg-primary/55')} style={{ height: `${Math.max(b.total > 0 ? 4 : 2, Math.round((b.total / max) * 100))}%`, opacity: b.total > 0 ? 1 : 0.35 }} />
+          </div>
+          <span className="truncate text-[11px] font-semibold text-muted-foreground">{b.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** One of the design's report tables: a header row, right-aligned numbers, a line under each row. */
+function ReportTable({ head, rows, numeric }: { head: string[]; rows: Array<Array<string | number>>; numeric: number[] }) {
+  return (
+    <div className="overflow-hidden rounded-2xl border bg-card shadow-card" data-report-table>
+      {rows.length === 0 ? <p className="py-10 text-center text-[13px] text-muted-foreground">No sales in this period.</p> : (
+        <div className="overflow-x-auto">
+          <table data-roomy className="w-full text-[14px]">
+            <thead><tr className="border-b text-left text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
+              {head.map((h, i) => <th key={h} className={cn('px-4 py-3', numeric.includes(i) && 'text-right')}>{h}</th>)}
+            </tr></thead>
+            <tbody>
+              {rows.map((r, ri) => (
+                <tr key={ri} className="border-b last:border-0">
+                  {r.map((c, i) => <td key={i} className={cn('px-4 py-3', i === 0 && 'font-extrabold', numeric.includes(i) && 'text-right tabular-nums')}>{c}</td>)}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
   );
 }

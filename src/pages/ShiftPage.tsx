@@ -24,6 +24,7 @@ import { isOpenBill } from '@/lib/ordersView';
 import { getLastBackupAt } from '@/lib/updateSafety';
 import { getSettings } from '@/lib/store';
 import { cn } from '@/lib/utils';
+import Kpi from '@/components/ui-kit/KpiCard';
 import {
   getOpenShift, openShift, closeShift, addCashMovement, getShifts,
   getOrders, getCurrentUser, onDataChange,
@@ -420,19 +421,6 @@ function Row({ k, v }: { k: string; v: string }) {
     <div className="flex">
       <span className="flex-1">{k}</span>
       <span className="text-right">{v}</span>
-    </div>
-  );
-}
-
-function Kpi({ label, value, icon: Icon, caption, captionTone }: { label: string; value: string; icon: typeof Wallet; caption?: string; captionTone?: 'ok' | 'bad' }) {
-  return (
-    <div className="rounded-2xl border bg-card p-5 shadow-card" data-kpi={label}>
-      <div className="flex items-start justify-between gap-2">
-        <span className="text-[12.5px] font-bold">{label}</span>
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-[hsl(var(--dt-accent-tint))] text-primary"><Icon className="h-[18px] w-[18px]" aria-hidden /></span>
-      </div>
-      <div className="mt-2 text-[26px] font-extrabold leading-tight tracking-tight tabular-nums">{value}</div>
-      {caption && <div className={cn('mt-1 text-[12px] font-bold', captionTone === 'ok' ? 'text-[hsl(var(--dt-ok))]' : captionTone === 'bad' ? 'text-[hsl(var(--dt-bad))]' : 'text-muted-foreground')}>{caption}</div>}
     </div>
   );
 }
