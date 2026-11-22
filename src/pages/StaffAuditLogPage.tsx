@@ -7,12 +7,17 @@ import { Button } from '@/components/ui/button';
 import { RefreshCw, ShieldCheck, Download } from 'lucide-react';
 import { fetchAuditLog, flushAuditQueue, AUDIT_ACTION_TITLES, type StaffAuditEntry, type AuditAction } from '@/lib/staffAudit';
 import { PageTitle } from '@/components/layout/PageFrame';
+import { useThemeId, useUiStyle } from '@/lib/uiStyle';
+import { isRefinedTheme } from '@/lib/uiThemes';
+import RefinedAudit from '@/components/audit/RefinedAudit';
+import { auditCsv } from '@/lib/auditBoard';
 
 const ACTIONS: Array<AuditAction | 'all'> = ['all', ...(Object.keys(AUDIT_ACTION_TITLES) as AuditAction[])];
 
 function isoDay(d: Date) { return d.toISOString().slice(0, 10); }
 
 export default function StaffAuditLogPage() {
+  const refined = useUiStyle() === 'modern' && isRefinedTheme(useThemeId());
   const [day, setDay] = useState(isoDay(new Date()));
   const [action, setAction] = useState<AuditAction | 'all'>('all');
   const [staff, setStaff] = useState('');
@@ -52,6 +57,17 @@ export default function StaffAuditLogPage() {
     a.href = url; a.download = `staff-audit-${day}.csv`; a.click();
     URL.revokeObjectURL(url);
   };
+
+  // v1.145.0 — DT Refined: the design's table (SW-39). The day, the loading and the append-only log are the same; the chips and the search work on the day's rows.
+  if (refined) {
+    const download = (shown: StaffAuditEntry[]) => {
+      const url = URL.createObjectURL(new Blob([auditCsv(shown, AUDIT_ACTION_TITLES)], { type: 'text/csv' }));
+      const a = document.createElement('a');
+      a.href = url; a.download = `staff-audit-${day}.csv`; a.click();
+      URL.revokeObjectURL(url);
+    };
+    return <RefinedAudit rows={rows} loading={loading} day={day} today={isoDay(new Date())} onDay={setDay} onRefresh={() => void load()} onExport={download} />;
+  }
 
   return (
     <div className="p-4 space-y-3">

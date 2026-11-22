@@ -1,0 +1,40 @@
+/* ============================================================
+   v1.145.0 — Staff audit log, as the design draws it (SW-39). DT Refined only: "Staff audit log · N events", Export, a search with
+   All · Void · Discount … chips, and a table — Time, User, Action (a coloured pill), Bill, Amount, Reason, Approved by.
+   Markup: components/audit/RefinedAudit.tsx.
+   ============================================================ */
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .au-root { display: flex; flex-direction: column; gap: 16px; padding: 20px 24px; min-height: calc(100vh - var(--ui-header-h, 3.75rem)); box-sizing: border-box; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .au-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .au-titles h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 800; letter-spacing: -.01em; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .au-titles p { margin: 2px 0 0; font-size: 12.5px; line-height: 18px; color: hsl(var(--muted-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .au-head-actions { display: flex; align-items: center; gap: 8px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .au-date, :root[data-ui="modern"][data-ui-theme="dt-refined"] .au-select { height: 40px; padding: 0 12px; border: 1px solid hsl(var(--border)); border-radius: 12px; background: hsl(var(--card)); font: inherit; font-size: 13.5px; color: hsl(var(--foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .au-select { height: 40px; border-radius: 12px; font-size: 13px; font-weight: 600; padding: 0 10px; max-width: 12rem; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .au-icon { display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; border: 1px solid hsl(var(--border)); background: hsl(var(--card)); color: hsl(var(--foreground)); cursor: pointer; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .au-btn { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 20px; border-radius: 12px; border: 1px solid hsl(var(--border)); background: hsl(var(--card)); color: hsl(var(--foreground)); font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .au-btn:disabled, :root[data-ui="modern"][data-ui-theme="dt-refined"] .au-icon:disabled { opacity: .5; cursor: not-allowed; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .au-filters { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .au-search { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; width: 300px; max-width: 100%; border: 1px solid hsl(var(--border)); border-radius: 12px; background: hsl(var(--card)); color: hsl(var(--muted-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .au-search:focus-within { border-color: hsl(var(--primary)); box-shadow: 0 0 0 3px hsl(var(--primary) / .22); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .au-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font: inherit; font-size: 14px; color: hsl(var(--foreground)); box-shadow: none; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .au-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .au-chip { display: inline-flex; align-items: center; height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid hsl(var(--border)); background: hsl(var(--card)); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; color: hsl(var(--foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .au-chip[aria-pressed="true"] { background: hsl(var(--primary)); border-color: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .au-card { flex: 1; background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: 16px; box-shadow: var(--ui-shadow-card); overflow: hidden; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .au-card th { padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: hsl(var(--muted-foreground)); border-bottom: 1px solid hsl(var(--border)); white-space: nowrap; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .au-card th.text-right { text-align: right; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .au-card td { padding: 12px; border-bottom: 1px solid hsl(var(--border)); vertical-align: top; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .au-card tbody tr:last-child td { border-bottom: 0; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .au-sub { display: block; font-size: 11.5px; color: hsl(var(--muted-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .au-reason { max-width: 22rem; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .au-pill { display: inline-flex; align-items: center; height: 22px; padding: 0 9px; border-radius: 999px; font-size: 11.5px; font-weight: 700; white-space: nowrap; background: hsl(var(--muted)); color: hsl(var(--muted-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .au-pill[data-tone="warn"] { background: hsl(var(--dt-warn-bg)); color: hsl(var(--dt-warn)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .au-pill[data-tone="bad"] { background: hsl(var(--dt-bad-bg)); color: hsl(var(--dt-bad)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .au-pill[data-tone="info"] { background: hsl(var(--dt-info-bg)); color: hsl(var(--dt-info)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .au-pill[data-tone="ok"] { background: hsl(var(--dt-ok-bg)); color: hsl(var(--dt-ok)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .au-pill[data-tone="accent"] { background: hsl(var(--dt-accent-tint)); color: hsl(var(--primary-text, var(--primary))); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .au-empty { padding: 56px 16px; text-align: center; font-size: 14px; color: hsl(var(--muted-foreground)); }
+@media (max-width: 760px) {
+  :root[data-ui="modern"][data-ui-theme="dt-refined"] .au-root { padding: 16px 12px; }
+  :root[data-ui="modern"][data-ui-theme="dt-refined"] .au-search { width: 100%; }
+}
