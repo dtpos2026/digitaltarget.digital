@@ -1,0 +1,64 @@
+/* ============================================================
+   v1.141.0 — Credits (Udhaar), as the design draws it (SW-33). DT Refined only: the title with "Rs 148,600 outstanding · 11 customers", a search and
+   All · Over 30 days · Over 60 days, the customers who owe in a table (Owes in red, Oldest bill, Receive), and the selected customer's ledger beside it.
+   Markup: components/credits/RefinedCredits.tsx.
+   ============================================================ */
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-root { display: flex; flex-direction: column; gap: 16px; padding: 20px 24px; box-sizing: border-box; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-titles h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 800; letter-spacing: -.01em; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-titles p { margin: 2px 0 0; font-size: 12.5px; line-height: 18px; color: hsl(var(--muted-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 12px; border: 1px solid transparent; cursor: pointer; font: inherit; font-size: 14px; font-weight: 700; white-space: nowrap; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-btn:disabled { opacity: .45; cursor: not-allowed; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-btn-primary { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-btn-lg { height: 44px; padding: 0 20px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-btn-ghost { height: 32px; padding: 0 14px; border-radius: 10px; font-size: 13px; background: hsl(var(--card)); border-color: hsl(var(--border)); color: hsl(var(--foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-btn-ghost:hover:not(:disabled) { background: hsl(var(--dt-accent-tint)); }
+
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-filters { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-search { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; width: 300px; max-width: 100%; border: 1px solid hsl(var(--border)); border-radius: 12px; background: hsl(var(--card)); color: hsl(var(--muted-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-search:focus-within { border-color: hsl(var(--primary)); box-shadow: 0 0 0 3px hsl(var(--primary) / .22); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font: inherit; font-size: 14px; color: hsl(var(--foreground)); box-shadow: none; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-chip { display: inline-flex; align-items: center; height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid hsl(var(--border)); background: hsl(var(--card)); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; color: hsl(var(--foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-chip[aria-pressed="true"] { background: hsl(var(--primary)); border-color: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
+
+/* the table */
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-table-card { background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: 16px; box-shadow: var(--ui-shadow-card); overflow: hidden; min-height: 200px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-table-card th { padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: hsl(var(--muted-foreground)); border-bottom: 1px solid hsl(var(--border)); white-space: nowrap; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-table-card th.text-right { text-align: right; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-table-card td { padding: 14px 12px; border-bottom: 1px solid hsl(var(--border)); white-space: nowrap; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-table-card tbody tr { cursor: pointer; outline: none; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-table-card tbody tr:last-child td { border-bottom: 0; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-table-card tbody tr:hover { background: hsl(var(--accent) / .5); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-table-card tbody tr.cr-row-on { background: hsl(var(--dt-accent-tint)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-cell-name { font-weight: 800; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-cell-phone { font-variant-numeric: tabular-nums; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-cell-owes { font-weight: 800; font-variant-numeric: tabular-nums; color: hsl(var(--dt-bad)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-cell-owes[data-zero] { color: hsl(var(--muted-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-empty { padding: 48px 16px; text-align: center; font-size: 14px; color: hsl(var(--muted-foreground)); }
+
+/* the customer's panel */
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-panel { display: flex; flex-direction: column; gap: 12px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid hsl(var(--border)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-panel-owes { margin: 0; font-size: 13px; font-weight: 700; color: hsl(var(--dt-bad)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-panel-contact { margin: 4px 0 0; font-size: 12px; color: hsl(var(--muted-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-ledger { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-ledger li { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 4px 0; font-size: 14px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-ledger li > div { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-entry-note { font-size: 11.5px; color: hsl(var(--muted-foreground)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-entry-amount { font-variant-numeric: tabular-nums; white-space: nowrap; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-entry-amount[data-sign="plus"] { color: hsl(var(--dt-bad)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-entry-amount[data-sign="minus"] { color: hsl(var(--dt-ok)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-ledger-empty { color: hsl(var(--muted-foreground)); font-size: 13px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-more { flex: none; display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; border: 0; background: transparent; color: hsl(var(--muted-foreground)); cursor: pointer; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-more:hover { background: hsl(var(--dt-accent-tint)); color: hsl(var(--foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-menu-item { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 36px; padding: 0 10px; border: 0; border-radius: 10px; background: transparent; cursor: pointer; text-decoration: none; text-align: left; font: inherit; font-size: 13.5px; font-weight: 600; color: hsl(var(--foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-menu-item:hover { background: hsl(var(--dt-accent-tint)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-menu-danger { color: hsl(var(--dt-bad)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-menu-sub { margin-left: auto; font-size: 12px; font-weight: 700; color: hsl(var(--dt-bad)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-menu-meta { margin: 0; padding: 6px 10px 4px; font-size: 11.5px; color: hsl(var(--muted-foreground)); }
+
+@media (max-width: 760px) {
+  :root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-root { padding: 16px 12px; }
+  :root[data-ui="modern"][data-ui-theme="dt-refined"] .cr-search { width: 100%; }
+}

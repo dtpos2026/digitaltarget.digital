@@ -14,10 +14,16 @@ import { Order, PaymentMethod } from '@/lib/types';
 import ReceiptPreview from '@/components/ReceiptPreview';
 import { money } from '@/lib/currency';
 import { PageTitle } from '@/components/layout/PageFrame';
+import { useThemeId, useUiStyle } from '@/lib/uiStyle';
+import { isRefinedTheme } from '@/lib/uiThemes';
+import RefinedCredits from '@/components/credits/RefinedCredits';
+import { allocatePayment, creditCustomers, type CreditCustomer } from '@/lib/creditLedger';
+import { blockCustomer } from '@/lib/blocklist';
 
 type FilterT = 'all' | 'unpaid' | 'partial' | 'paid';
 
 export default function CreditsPage() {
+  const refined = useUiStyle() === 'modern' && isRefinedTheme(useThemeId());
   const [tick, setTick] = useState(0);
   const refresh = () => setTick(t => t + 1);
 
@@ -29,6 +35,7 @@ export default function CreditsPage() {
   const [payNote, setPayNote] = useState('');
   const [historyOrder, setHistoryOrder] = useState<Order | null>(null);
   const [printOrder, setPrintOrder] = useState<Order | null>(null);
+  const [payCustomer, setPayCustomer] = useState<CreditCustomer | null>(null);
 
   const settings = getSettings();
 
@@ -90,10 +97,100 @@ export default function CreditsPage() {
     refresh();
   };
 
+  // v1.141.0 — DT Refined takes the payment per CUSTOMER: it is spread over their bills, oldest first.
+  const customers = useMemo(() => creditCustomers(orders, payments),
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [tick]);
+  const openReceiveCustomer = (c: CreditCustomer) => { setPayCustomer(c); setPayAmount(String(c.owes)); setPayMethod('cash'); setPayNote(''); };
+  const confirmReceiveCustomer = () => {
+    if (!payCustomer) return;
+    const amt = parseFloat(payAmount);
+    if (!amt || amt <= 0) { toast.error('Enter an amount'); return; }
+    if (amt > payCustomer.owes + 0.01) { toast.error(`Max receivable: ${money(payCustomer.owes)}`); return; }
+    const currentUserId = localStorage.getItem('pos-user-id') || '';
+    const userName = getUsers().find(u => u.id === currentUserId)?.name || '';
+    for (const part of allocatePayment(payCustomer.bills, amt).parts) recordCreditPayment(part.orderId, part.amount, payMethod, payNote || undefined, userName);
+    toast.success(`Payment received: ${money(amt)}`);
+    setPayCustomer(null);
+    refresh();
+  };
+  const askBlock = (c: CreditCustomer) => {
+    const reason = window.prompt(`Block customer ${c.name}?\n\nReason:`, 'Does not pay back');
+    if (!reason) return;
+    blockCustomer({ name: c.name, phone: c.phone, reason });
+    toast.success('Customer blocked');
+  };
+
   const statusColor = (s: 'unpaid' | 'partial' | 'paid') =>
     s === 'paid' ? 'bg-status-success/15 text-status-success border-status-success/30'
     : s === 'partial' ? 'bg-status-warning/15 text-status-warning border-status-warning/30'
     : 'bg-destructive/15 text-destructive border-destructive/30';
+
+  const printDialog = (
+      <Dialog open={!!printOrder} onOpenChange={(o) => !o && setPrintOrder(null)}>
+        <DialogContent className="max-w-md p-0">
+          <DialogHeader className="p-4 pb-0"><DialogTitle>Credit Parchi</DialogTitle></DialogHeader>
+          {printOrder && (
+            <div className="p-4">
+              <ReceiptPreview order={printOrder} settings={settings} />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+  );
+
+  // v1.141.0 — DT Refined: the design's Credits (SW-33) — customers who owe, and the selected customer's ledger.
+  if (refined) {
+    const presets = payCustomer ? [payCustomer.owes, payCustomer.owes / 2, 1000, 500].filter((n, i, a) => n > 0 && a.indexOf(n) === i) : [];
+    const plan = payCustomer && parseFloat(payAmount) > 0 ? allocatePayment(payCustomer.bills, parseFloat(payAmount)) : null;
+    return (
+      <>
+        <RefinedCredits customers={customers} payments={payments} onReceive={openReceiveCustomer} onPrintBill={setPrintOrder} onDeletePayment={deletePayment} onBlock={askBlock} />
+        <Dialog open={!!payCustomer} onOpenChange={(o) => !o && setPayCustomer(null)}>
+          <DialogContent className="sm:max-w-sm" data-cr-receive-dialog>
+            <DialogHeader><DialogTitle>Receive payment</DialogTitle></DialogHeader>
+            {payCustomer && (
+              <div className="space-y-3">
+                <div className="rounded-xl bg-muted/50 p-3 text-[13px]">
+                  <div className="flex justify-between"><span>Customer</span><b>{payCustomer.name}</b></div>
+                  <div className="mt-1 flex justify-between"><span>Owes</span><b className="text-destructive">{money(payCustomer.owes)}</b></div>
+                </div>
+                <div>
+                  <label className="text-[12px] font-bold text-muted-foreground" htmlFor="cr-amount">Amount received</label>
+                  <Input id="cr-amount" type="number" value={payAmount} onChange={e => setPayAmount(e.target.value)} autoFocus />
+                  <div className="mt-1.5 flex gap-1.5">
+                    {presets.map(n => (
+                      <button key={n} type="button" onClick={() => setPayAmount(String(Math.round(n)))} className="rounded-lg bg-muted px-2.5 py-1 text-[11px] font-bold hover:bg-accent">{Math.round(n).toLocaleString()}</button>
+                    ))}
+                  </div>
+                  {plan && plan.parts.length > 0 && (
+                    <p className="mt-2 text-[12px] text-muted-foreground" data-cr-plan>Goes to the oldest bills first: {plan.parts.map(x => `#${x.orderNumber} ${money(x.amount)}`).join(', ')}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="text-[12px] font-bold text-muted-foreground">Method</label>
+                  <Select value={payMethod} onValueChange={v => setPayMethod(v as PaymentMethod)}>
+                    <SelectTrigger aria-label="Method"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cash">Cash</SelectItem>
+                      <SelectItem value="card">Card</SelectItem>
+                      <SelectItem value="online">Online</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-[12px] font-bold text-muted-foreground" htmlFor="cr-note">Note (optional)</label>
+                  <Input id="cr-note" value={payNote} onChange={e => setPayNote(e.target.value)} placeholder="e.g. partial cash" />
+                </div>
+                <Button className="h-11 w-full rounded-xl" data-cr-confirm onClick={confirmReceiveCustomer}>Confirm receive</Button>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+        {printDialog}
+      </>
+    );
+  }
 
   return (
     <div className="p-4 lg:p-6 space-y-4">
@@ -293,17 +390,7 @@ export default function CreditsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Print credit parchi (uses existing receipt preview) */}
-      <Dialog open={!!printOrder} onOpenChange={(o) => !o && setPrintOrder(null)}>
-        <DialogContent className="max-w-md p-0">
-          <DialogHeader className="p-4 pb-0"><DialogTitle>Credit Parchi</DialogTitle></DialogHeader>
-          {printOrder && (
-            <div className="p-4">
-              <ReceiptPreview order={printOrder} settings={settings} />
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {printDialog}
     </div>
   );
 }
