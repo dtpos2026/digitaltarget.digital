@@ -13,6 +13,9 @@ import { Switch } from '@/components/ui/switch';
 import { Plus, Edit3, Trash2, Tag, Percent, Banknote } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageTitle } from '@/components/layout/PageFrame';
+import { useThemeId, useUiStyle } from '@/lib/uiStyle';
+import { isRefinedTheme } from '@/lib/uiThemes';
+import RefinedPromos from '@/components/promos/RefinedPromos';
 
 function emptyPromo(): PromoCode {
   return {
@@ -27,11 +30,12 @@ function emptyPromo(): PromoCode {
 }
 
 export default function PromoCodesPage() {
+  const refined = useUiStyle() === 'modern' && isRefinedTheme(useThemeId());
   const [list, setList] = useState<PromoCode[]>([]);
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<PromoCode>(emptyPromo());
 
-  const refresh = () => setList(getPromoCodes());
+  const refresh = () => setList(getPromoCodes().slice());   // a copy: the store edits its array in place, and React skips a state set to the same array
   useEffect(() => { refresh(); }, []);
 
   const onSave = () => {
@@ -51,66 +55,7 @@ export default function PromoCodesPage() {
     refresh();
   };
 
-  return (
-    <div className="p-4 lg:p-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <PageTitle icon={Tag} subtitle="Discount codes customers can use">Promo Codes</PageTitle>
-        <Button onClick={onNew} size="sm"><Plus className="h-4 w-4 mr-1" /> New Promo</Button>
-      </div>
-
-      <Card className="p-0 overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-xs">
-            <tr>
-              <th className="text-left p-2">Code</th>
-              <th className="text-left p-2">Type</th>
-              <th className="text-right p-2">Value</th>
-              <th className="text-center p-2">Validity</th>
-              <th className="text-center p-2">Used / Limit</th>
-              <th className="text-center p-2">Status</th>
-              <th className="text-right p-2">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.length === 0 && (
-              <tr><td colSpan={7} className="text-center text-muted-foreground p-6 text-xs">
-                No promo codes yet. Click "New Promo" to create one.
-              </td></tr>
-            )}
-            {list.map(p => (
-              <tr key={p.id} className="border-t hover:bg-accent/30">
-                <td className="p-2 font-mono font-bold">{p.code}</td>
-                <td className="p-2">
-                  {p.discountType === 'percent'
-                    ? <Badge variant="secondary"><Percent className="h-3 w-3 mr-1" /> Percent</Badge>
-                    : <Badge variant="secondary"><Banknote className="h-3 w-3 mr-1" /> PKR</Badge>}
-                </td>
-                <td className="p-2 text-right font-semibold">
-                  {p.discountType === 'percent' ? `${p.discountValue}%` : `${money(p.discountValue)}`}
-                </td>
-                <td className="p-2 text-center text-xs">
-                  {p.startDate || p.endDate
-                    ? `${p.startDate || '—'} → ${p.endDate || '—'}`
-                    : 'Always'}
-                </td>
-                <td className="p-2 text-center text-xs">
-                  {p.usageCount || 0}{p.usageLimit ? ` / ${p.usageLimit}` : ''}
-                </td>
-                <td className="p-2 text-center">
-                  {p.isActive ? <Badge className="bg-green-600">Active</Badge> : <Badge variant="outline">Inactive</Badge>}
-                  {p.accountsOnly && <Badge variant="secondary" className="ml-1" data-promo-badge-accounts>Account</Badge>}
-                  {p.showOnWebsite && <Badge variant="outline" className="ml-1" data-promo-badge-public>On website</Badge>}
-                </td>
-                <td className="p-2 text-right">
-                  <Button size="sm" variant="ghost" onClick={() => onEdit(p)}><Edit3 className="h-3.5 w-3.5" /></Button>
-                  <Button size="sm" variant="ghost" onClick={() => onDelete(p.id)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </Card>
-
+  const editor = (
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>{draft.code ? 'Edit' : 'New'} Promo Code</DialogTitle></DialogHeader>
@@ -180,6 +125,86 @@ export default function PromoCodesPage() {
           </div>
         </DialogContent>
       </Dialog>
+  );
+
+  // v1.144.0 — DT Refined: the design's table (SW-34). The editor is the same dialog; the switch saves at once.
+  if (refined) {
+    return (
+      <>
+        <RefinedPromos
+          list={list}
+          onNew={onNew}
+          onEdit={onEdit}
+          onToggle={(p, on) => { savePromoCode({ ...p, isActive: on }); refresh(); toast.success(`${p.code} ${on ? 'is on' : 'is off'}`); }}
+          onCopy={p => { try { void navigator.clipboard?.writeText(p.code); } catch { /* selecting it by hand still works */ } toast.success(`Copied ${p.code}`); }}
+          onDelete={p => onDelete(p.id)}
+        />
+        {editor}
+      </>
+    );
+  }
+
+  return (
+    <div className="p-4 lg:p-6 space-y-4">
+      <div className="flex items-center justify-between">
+        <PageTitle icon={Tag} subtitle="Discount codes customers can use">Promo Codes</PageTitle>
+        <Button onClick={onNew} size="sm"><Plus className="h-4 w-4 mr-1" /> New Promo</Button>
+      </div>
+
+      <Card className="p-0 overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/50 text-xs">
+            <tr>
+              <th className="text-left p-2">Code</th>
+              <th className="text-left p-2">Type</th>
+              <th className="text-right p-2">Value</th>
+              <th className="text-center p-2">Validity</th>
+              <th className="text-center p-2">Used / Limit</th>
+              <th className="text-center p-2">Status</th>
+              <th className="text-right p-2">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {list.length === 0 && (
+              <tr><td colSpan={7} className="text-center text-muted-foreground p-6 text-xs">
+                No promo codes yet. Click "New Promo" to create one.
+              </td></tr>
+            )}
+            {list.map(p => (
+              <tr key={p.id} className="border-t hover:bg-accent/30">
+                <td className="p-2 font-mono font-bold">{p.code}</td>
+                <td className="p-2">
+                  {p.discountType === 'percent'
+                    ? <Badge variant="secondary"><Percent className="h-3 w-3 mr-1" /> Percent</Badge>
+                    : <Badge variant="secondary"><Banknote className="h-3 w-3 mr-1" /> PKR</Badge>}
+                </td>
+                <td className="p-2 text-right font-semibold">
+                  {p.discountType === 'percent' ? `${p.discountValue}%` : `${money(p.discountValue)}`}
+                </td>
+                <td className="p-2 text-center text-xs">
+                  {p.startDate || p.endDate
+                    ? `${p.startDate || '—'} → ${p.endDate || '—'}`
+                    : 'Always'}
+                </td>
+                <td className="p-2 text-center text-xs">
+                  {p.usageCount || 0}{p.usageLimit ? ` / ${p.usageLimit}` : ''}
+                </td>
+                <td className="p-2 text-center">
+                  {p.isActive ? <Badge className="bg-green-600">Active</Badge> : <Badge variant="outline">Inactive</Badge>}
+                  {p.accountsOnly && <Badge variant="secondary" className="ml-1" data-promo-badge-accounts>Account</Badge>}
+                  {p.showOnWebsite && <Badge variant="outline" className="ml-1" data-promo-badge-public>On website</Badge>}
+                </td>
+                <td className="p-2 text-right">
+                  <Button size="sm" variant="ghost" onClick={() => onEdit(p)}><Edit3 className="h-3.5 w-3.5" /></Button>
+                  <Button size="sm" variant="ghost" onClick={() => onDelete(p.id)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Card>
+
+      {editor}
     </div>
   );
 }
