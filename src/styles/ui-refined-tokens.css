@@ -1,0 +1,60 @@
+/* ============================================================
+   v1.142.0 — Tokens, as the design draws it (SW-36). DT Refined only: "Tokens · Counter service", Reset counter, the waiting tokens as large numbers
+   with their state, and a history table. Markup: components/tokens/RefinedTokens.tsx.
+   ============================================================ */
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-root { display: flex; flex-direction: column; gap: 16px; padding: 20px 24px; min-height: calc(100vh - var(--ui-header-h, 3.75rem)); box-sizing: border-box; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-titles h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 800; letter-spacing: -.01em; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-titles p { margin: 2px 0 0; font-size: 12.5px; line-height: 18px; color: hsl(var(--muted-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-btn { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 12px; border: 1px solid hsl(var(--border)); background: hsl(var(--card)); color: hsl(var(--foreground)); font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-btn:disabled { opacity: .5; cursor: not-allowed; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-btn:hover:not(:disabled) { background: hsl(var(--dt-accent-tint)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-btn-sm { height: 34px; padding: 0 12px; border-radius: 10px; font-size: 13px; }
+
+/* the waiting tokens: large numbers */
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 16px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-tile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 100px; padding: 14px 8px; border: 0; border-radius: 16px; background: hsl(var(--card)); box-shadow: var(--ui-shadow-card); cursor: pointer; font: inherit; color: hsl(var(--foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-tile:hover { box-shadow: var(--ui-shadow-pop); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-num { font-size: 40px; line-height: 44px; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-chip { display: inline-flex; align-items: center; height: 22px; padding: 0 9px; border-radius: 999px; font-size: 11.5px; font-weight: 700; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-chip[data-state="ready"] { background: hsl(var(--dt-ok-bg)); color: hsl(var(--dt-ok)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-chip[data-state="cooking"] { background: hsl(var(--dt-info-bg)); color: hsl(var(--dt-info)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-chip[data-state="new"] { background: hsl(var(--dt-warn-bg)); color: hsl(var(--dt-warn)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-quiet { padding: 28px 12px; text-align: center; font-size: 13.5px; color: hsl(var(--muted-foreground)); border: 1px dashed hsl(var(--border)); border-radius: 16px; background: hsl(var(--card)); grid-column: 1 / -1; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-quiet-pad { border: 0; border-radius: 0; padding: 40px 12px; }
+
+/* the history */
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-card { flex: 1; background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: 16px; box-shadow: var(--ui-shadow-card); overflow: hidden; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 16px; border-bottom: 1px solid hsl(var(--border)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-bar > b { margin-right: auto; font-size: 15px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-search { display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px; width: 220px; border: 1px solid hsl(var(--border)); border-radius: 10px; color: hsl(var(--muted-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font: inherit; font-size: 13px; color: hsl(var(--foreground)); box-shadow: none; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-seg { display: inline-flex; background: hsl(var(--dt-accent-tint)); border-radius: 10px; padding: 3px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-seg > button { padding: 4px 12px; border-radius: 8px; border: 0; background: transparent; color: hsl(var(--muted-foreground)); font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-seg > button[aria-pressed="true"] { background: hsl(var(--card)); color: hsl(var(--foreground)); box-shadow: var(--ui-shadow-card); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-card th { padding: 10px 16px; text-align: left; font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: hsl(var(--muted-foreground)); border-bottom: 1px solid hsl(var(--border)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-card td { padding: 14px 16px; border-bottom: 1px solid hsl(var(--border)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-card tbody tr:last-child td { border-bottom: 0; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-cell-token { font-weight: 800; font-variant-numeric: tabular-nums; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-pill { display: inline-flex; align-items: center; height: 22px; padding: 0 9px; border-radius: 999px; font-size: 11.5px; font-weight: 700; background: hsl(var(--muted)); color: hsl(var(--muted-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-pill[data-status="completed"] { background: hsl(var(--dt-ok-bg)); color: hsl(var(--dt-ok)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-pill[data-status="cancelled"] { background: hsl(var(--dt-bad-bg)); color: hsl(var(--dt-bad)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-pill[data-status="pending"] { background: hsl(var(--dt-warn-bg)); color: hsl(var(--dt-warn)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-more { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; border: 0; background: transparent; color: hsl(var(--muted-foreground)); cursor: pointer; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-more:hover { background: hsl(var(--dt-accent-tint)); color: hsl(var(--foreground)); }
+
+/* the action menu and the filters (popovers on <body>) */
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-menu-item { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 38px; padding: 0 10px; border: 0; border-radius: 10px; background: transparent; cursor: pointer; text-align: left; font: inherit; font-size: 13.5px; font-weight: 600; color: hsl(var(--foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-menu-item:hover:not(:disabled) { background: hsl(var(--dt-accent-tint)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-menu-item:disabled { opacity: .45; cursor: not-allowed; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-menu-danger { color: hsl(var(--dt-bad)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-menu-meta { margin: 0; padding: 6px 10px 6px; font-size: 11.5px; color: hsl(var(--muted-foreground)); border-bottom: 1px solid hsl(var(--border)); margin-bottom: 4px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-field { display: grid; gap: 4px; margin-bottom: 10px; font-size: 12px; font-weight: 700; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-field input, :root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-field select { width: 100%; border: 1px solid hsl(var(--border)); border-radius: 10px; background: hsl(var(--card)); padding: 7px 10px; font: inherit; font-size: 13.5px; color: hsl(var(--foreground)); }
+
+@media (max-width: 760px) {
+  :root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-root { padding: 16px 12px; }
+  :root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-tiles { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; }
+  :root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-num { font-size: 32px; }
+  :root[data-ui="modern"][data-ui-theme="dt-refined"] .tk-search { width: 100%; order: 5; }
+}

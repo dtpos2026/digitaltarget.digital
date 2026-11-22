@@ -20,7 +20,7 @@ export const NAV_EN: Dictionary = {
   "nav.void-bills": "Void / Comp / Cancel",
   "nav.owner-management": "Owner Management",
   "nav.owner-app": "Owner App",
-  "nav.tokens": "Token Management",
+  "nav.tokens": "Tokens",
   "nav.itemSalesReport": "Item Sales Report",
   "nav.praEims": "PRA EIMS",
   "nav.moduleManagement": "Module Management",

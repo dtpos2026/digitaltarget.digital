@@ -58,6 +58,11 @@ export function nextTokenNumber(settings?: RestaurantSettings): number {
   return next.value;
 }
 
+/** v1.142.0 — "Reset counter": the next token is 1 again (today's tokens keep their numbers). */
+export function resetTokenCounter(): void {
+  writeCounter({ day: todayKey(), value: 0 });
+}
+
 /** Peek without consuming — for previews/dashboards. */
 export function peekTokenNumber(settings?: RestaurantSettings): number {
   const s = settings || safeSettings();

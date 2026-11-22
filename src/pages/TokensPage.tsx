@@ -25,6 +25,12 @@ import {
 } from '@/lib/tokens';
 import TokenSlip from '@/components/TokenSlip';
 import { PageTitle } from '@/components/layout/PageFrame';
+import { useThemeId, useUiStyle } from '@/lib/uiStyle';
+import { isRefinedTheme } from '@/lib/uiThemes';
+import RefinedTokens from '@/components/tokens/RefinedTokens';
+import { tokenSubtitle } from '@/lib/tokenBoard';
+import { resetTokenCounter } from '@/lib/tokens';
+import { announceKitchenOrder, loadKitchenDisplay } from '@/lib/kitchenDisplay';
 
 type Tab = 'today' | 'pending' | 'completed' | 'cancelled' | 'history';
 
@@ -48,6 +54,7 @@ export default function TokensPage() {
 }
 
 function TokensPageInner() {
+  const refined = useUiStyle() === 'modern' && isRefinedTheme(useThemeId());
   const settings = useMemo(() => getSettings(), []);
   const user = useMemo(() => { try { return getCurrentUser(); } catch { return null; } }, []);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -142,6 +149,48 @@ function TokensPageInner() {
       {sub && <div className="text-[11px] text-muted-foreground">{sub}</div>}
     </Card>
   );
+
+  // v1.142.0 — DT Refined: the design's Tokens (SW-36). The same completing, cancelling, reprinting and permissions.
+  const reprintDialog = (
+    <Dialog open={!!reprint} onOpenChange={v => { if (!v) setReprint(null); }}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader><DialogTitle className="text-base">Reprint Token</DialogTitle></DialogHeader>
+        {reprint && <TokenSlip order={reprint} settings={settings} autoPrint />}
+      </DialogContent>
+    </Dialog>
+  );
+  if (refined) {
+    const callToken = (o: Order) => {
+      const lab = String(o.tokenLabel || o.tokenNumber || '');
+      toast.success(`Calling token ${lab}`);
+      try { void announceKitchenOrder(lab, loadKitchenDisplay()).catch(() => undefined); } catch { /* no voice on this device: the toast is the call */ }
+    };
+    const doReset = () => {
+      if (!isAdmin) { toast.error('Only an Admin or Manager can reset the counter'); return; }
+      if (!window.confirm('Reset the token counter? The next token will be number 1 again. Today\'s tokens keep their numbers.')) return;
+      resetTokenCounter();
+      toast.success('Token counter reset — the next token is 1');
+    };
+    return (
+      <>
+        <RefinedTokens
+          orders={orders}
+          subtitle={tokenSubtitle(stats, showMoney, money)}
+          showMoney={showMoney}
+          canReprint={canReprint}
+          canCancel={canCancel}
+          canReset={isAdmin}
+          cashiers={cashiers}
+          onCall={callToken}
+          onComplete={doComplete}
+          onReprint={doReprint}
+          onCancel={doCancel}
+          onReset={doReset}
+        />
+        {reprintDialog}
+      </>
+    );
+  }
 
   return (
     <div className="p-4 space-y-4">
@@ -266,12 +315,7 @@ function TokensPageInner() {
         </table>
       </Card>
 
-      <Dialog open={!!reprint} onOpenChange={v => { if (!v) setReprint(null); }}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader><DialogTitle className="text-base">Reprint Token</DialogTitle></DialogHeader>
-          {reprint && <TokenSlip order={reprint} settings={settings} autoPrint />}
-        </DialogContent>
-      </Dialog>
+      {reprintDialog}
     </div>
   );
 }
