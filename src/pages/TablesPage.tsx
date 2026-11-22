@@ -22,6 +22,8 @@ import TableQR, { PublicOrderQR } from '@/components/TableQR';
 import { ENABLE_REDUNDANT_ORDER_POLL } from '@/lib/featureFlags';
 import AdvancedFloorView from '@/components/tables/AdvancedFloorView';
 import { PageTitle } from '@/components/layout/PageFrame';
+import { useThemeId, useUiStyle } from '@/lib/uiStyle';
+import { isRefinedTheme } from '@/lib/uiThemes';
 
 const statusConfig: Record<TableStatus, { label: string; emoji: string; border: string; bg: string; icon: string; badge: string; badgeText: string }> = {
   free: {
@@ -83,6 +85,8 @@ export default function TablesPage() {
   const { guard: guardAction, dialog: managerGateDialog } = useRestrictedAction();
   const [billAction, setBillAction] = useState<BillAction>(null);
   const [splitPicks, setSplitPicks] = useState<Record<string, boolean>>({});
+  // v1.132.0 — DT Refined draws the design's Floor plan on the Live floor view (its own header, legend and table panel)
+  const refined = useUiStyle() === 'modern' && isRefinedTheme(useThemeId());
   const [viewMode, setViewModeState] = useState<ViewMode>(readView);
   const setViewMode = (v: ViewMode) => { setViewModeState(v); try { localStorage.setItem(VIEW_KEY, v); } catch { /* private mode */ } };
   const [historyTable, setHistoryTable] = useState<DiningTable | null>(null);
@@ -580,6 +584,7 @@ export default function TablesPage() {
 
   return (
     <div className="p-4 lg:p-6 space-y-5">
+      {!(refined && viewMode === 'advanced') && (
       <div className="bg-card rounded-2xl border shadow-card p-5">
         <div className={`flex items-center justify-between flex-wrap gap-3 ${viewMode === 'advanced' ? '' : 'mb-4'}`}>
           <div>
@@ -638,6 +643,7 @@ export default function TablesPage() {
           {viewMode === 'layout' && <span className="text-[10px] text-muted-foreground italic">Drag tables to arrange your floor map — positions save automatically.</span>}
         </div>}
       </div>
+      )}
 
       {viewMode === 'advanced' ? (
         <AdvancedFloorView
@@ -651,6 +657,23 @@ export default function TablesPage() {
           onAllQrs={() => setBulkQrOpen(true)}
           onNewOrder={(type) => navigate(`/?type=${type}`)}
           onChanged={() => { setTables(getTables()); setFloors(getFloors()); }}
+          refined={refined}
+          onRequestBill={markPendingPayment}
+          onPay={requestPayment}
+          moreMenu={close => {
+            const row = 'flex h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-[13px] font-semibold transition-colors hover:bg-accent';
+            return (
+              <div className="space-y-0.5" data-tables-more>
+                <p className="px-3 pb-0.5 pt-1 text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">Other views</p>
+                <button type="button" className={row} data-tables-view="grid" onClick={() => { close(); setViewMode('grid'); }}><Grid3x3 className="h-4 w-4 text-muted-foreground" /> Grid</button>
+                <button type="button" className={row} data-tables-view="layout" onClick={() => { close(); setViewMode('layout'); }}><MapIcon className="h-4 w-4 text-muted-foreground" /> Floor map</button>
+                <div className="my-1 h-px bg-border" />
+                <button type="button" className={row} onClick={() => { close(); setBulkQrOpen(true); }}><QrCode className="h-4 w-4 text-muted-foreground" /> All table QR codes</button>
+                <button type="button" className={row} onClick={() => { close(); setPublicQrOpen('takeaway'); }}><QrCode className="h-4 w-4 text-muted-foreground" /> Take away QR</button>
+                <button type="button" className={row} onClick={() => { close(); setPublicQrOpen('delivery'); }}><QrCode className="h-4 w-4 text-muted-foreground" /> Delivery QR</button>
+              </div>
+            );
+          }}
         />
       ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">

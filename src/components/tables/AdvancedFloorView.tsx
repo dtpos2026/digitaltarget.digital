@@ -11,11 +11,13 @@
 // Every action that touches a bill (move, merge, split, seat, pay) is handed back to the Tables
 // page, so there is exactly one implementation of each and nothing here can drift from it.
 // ============================================================
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
 import {
-  ArrowRightLeft, Bike, Combine, Eye, History, Layers, LayoutGrid, Maximize2, Minus, PencilRuler, Plus, QrCode, Settings2,
+  ArrowRightLeft, Bike, Combine, CreditCard, Eye, History, Layers, LayoutGrid, Maximize2, MoreHorizontal, Minus, PencilRuler, Plus, QrCode, Receipt, Settings2,
   ShoppingBag, Split, Trash2, Utensils, Wand2, X,
 } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { PageTitle } from '@/components/layout/PageFrame';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { money } from '@/lib/currency';
@@ -52,6 +54,17 @@ interface Props {
   onNewOrder: (type: 'takeaway' | 'delivery') => void;
   /** Called after this view saved a table or a floor, so the page re-reads them. */
   onChanged: () => void;
+  /**
+   * v1.132.0 — DT Refined draws the design's Floor plan (SW-10): its own header (title, floor tabs, Edit layout, a ⋯ menu), the legend above
+   * the plan, and the selected table's panel as Open table · Request bill · Move / merge. Every other look keeps the toolbar and panel it had.
+   */
+  refined?: boolean;
+  /** The page's own tools (switch to Grid / Floor map, the QR codes) for the ⋯ menu; `close` shuts the menu. */
+  moreMenu?: (close: () => void) => ReactNode;
+  /** Mark the table's bill as asked for. */
+  onRequestBill?: (t: DiningTable) => void;
+  /** Open the payment screen for the table's bill. */
+  onPay?: (t: DiningTable) => void;
 }
 
 type FloorKey = 'overview' | 'flat' | 'none' | string;
@@ -69,22 +82,25 @@ function canEditLayout(): boolean {
   } catch { return false; }
 }
 
-export default function AdvancedFloorView({ tables, orders, floors, onOpenTable, onBillAction, onShowQr, onShowHistory, onAllQrs, onNewOrder, onChanged }: Props) {
+export default function AdvancedFloorView({ tables, orders, floors, onOpenTable, onBillAction, onShowQr, onShowHistory, onAllQrs, onNewOrder, onChanged, refined = false, moreMenu, onRequestBill, onPay }: Props) {
   const [settings, setSettings] = useState<FloorSettings>(() => loadFloorSettings());
   const updateSettings = useCallback((next: FloorSettings) => { setSettings(next); saveFloorSettings(next); }, []);
 
   const hasFloors = floors.length > 0;
   const sortedFloors = useMemo(() => floors.slice().sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)), [floors]);
   const hasUnassigned = hasFloors && tables.some(t => !t.floorId || !floors.some(f => f.id === t.floorId));
-  const [floorKey, setFloorKey] = useState<FloorKey>(hasFloors ? 'overview' : 'flat');
+  const homeKey: FloorKey = refined && sortedFloors[0] ? sortedFloors[0].id : 'overview';
+  const [floorKey, setFloorKey] = useState<FloorKey>(hasFloors ? homeKey : 'flat');
   // a floor that was deleted elsewhere: fall back instead of showing an empty page
   const effectiveKey: FloorKey = !hasFloors ? 'flat'
-    : floorKey === 'overview' || (floorKey === 'none' && hasUnassigned) || sortedFloors.some(f => f.id === floorKey) ? floorKey : 'overview';
+    : floorKey === 'overview' || (floorKey === 'none' && hasUnassigned) || sortedFloors.some(f => f.id === floorKey) ? floorKey : homeKey;
 
   const [mode, setMode] = useState<'live' | 'edit'>('live');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [focus, setFocus] = useState<FloorState | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [moveOpen, setMoveOpen] = useState(false);
 
   // ---- counters / doors / zones, bookings and waiter calls: all live in the shared settings, so every till sees the same floor
   const [fixtures, setFixtures] = useState<FloorFixture[]>(() => getFixtures());
@@ -315,14 +331,113 @@ export default function AdvancedFloorView({ tables, orders, floors, onOpenTable,
     return groups;
   }, [allViews, sortedFloors, floors]);
 
+  const planViews = effectiveKey === 'overview' ? allViews : views;
+  const planName = effectiveKey === 'overview' ? 'All floors' : effectiveKey === 'flat' ? 'All tables' : effectiveKey === 'none' ? 'Unassigned' : (sortedFloors.find(f => f.id === effectiveKey)?.name || 'Floor');
+  const planSubtitle = `${planName} · ${planViews.length} ${planViews.length === 1 ? 'table' : 'tables'} · ${planViews.filter(v => v.state === 'available').length} free`;
+
   const tabClass = (on: boolean) => cn(
     'shrink-0 rounded-lg px-3.5 py-2 text-[13px] font-semibold transition-colors',
     on ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
   );
 
+  const statusBar = (
+      <div className={cn('flex flex-wrap items-center gap-x-4 gap-y-2', refined ? 'px-1' : 'rounded-2xl border bg-card px-3 py-2.5 shadow-card')} data-testid="floor-statusbar" data-floor-legend={refined ? '' : undefined}>
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+          {FLOOR_STATES.map(s => (
+            <button
+              key={s}
+              type="button"
+              aria-pressed={focus === s}
+              title={`${FLOOR_STATE_LABEL[s]} — ${FLOOR_STATE_HINT[s]}`}
+              onClick={() => setFocus(f => (f === s ? null : s))}
+              disabled={effectiveKey === 'overview'}
+              className={cn('inline-flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[12px] font-semibold transition-colors disabled:cursor-default',
+                focus === s ? 'border-primary bg-primary/10' : 'border-transparent enabled:hover:bg-muted/60',
+                (effectiveKey === 'overview' ? countStates(allViews)[s] : counts[s]) === 0 && 'opacity-50')}
+            >
+              <span className="grid h-5 min-w-[1.35rem] place-items-center rounded px-1 text-[11px] font-extrabold tabular-nums" style={{ background: stateColour(s, settings), color: readableText(stateColour(s, settings)) }}>
+                {effectiveKey === 'overview' ? countStates(allViews)[s] : counts[s]}
+              </span>
+              {FLOOR_STATE_LABEL[s]}
+            </button>
+          ))}
+        </div>
+        <dl className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12.5px] text-muted-foreground">
+          {(() => {
+            const s = effectiveKey === 'overview' ? summarise(allViews) : summary;
+            return (
+              <>
+                <div><dt className="inline">Tables </dt><dd className="inline font-bold text-foreground tabular-nums">{s.tables}</dd></div>
+                <div><dt className="inline">In use </dt><dd className="inline font-bold text-foreground tabular-nums">{s.occupancyPct}%</dd></div>
+                <div><dt className="inline">Free seats </dt><dd className="inline font-bold text-foreground tabular-nums">{s.seatsFree}/{s.seatsTotal}</dd></div>
+                <div><dt className="inline">Guests </dt><dd className="inline font-bold text-foreground tabular-nums">{s.pax}</dd></div>
+                <div><dt className="inline">Open bills </dt><dd className="inline font-bold text-foreground tabular-nums">{rs(s.openAmount)}</dd></div>
+              </>
+            );
+          })()}
+        </dl>
+      </div>
+  );
+
   return (
     <div className="space-y-3" data-testid="advanced-floor">
       {/* ---------- toolbar ---------- */}
+      {refined ? (
+        <div data-testid="floor-header" className="space-y-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <PageTitle icon={Utensils} subtitle={planSubtitle}>Floor plan</PageTitle>
+            <div className="flex flex-wrap items-center gap-2">
+              {hasFloors && (
+                <div className="flex min-w-0 max-w-full items-center gap-0.5 overflow-x-auto rounded-xl bg-[hsl(var(--dt-accent-tint))] p-1" role="tablist" aria-label="Floors">
+                  {sortedFloors.map(f => (
+                    <button key={f.id} role="tab" aria-selected={effectiveKey === f.id} onClick={() => setFloorKey(f.id)}
+                      className={cn('shrink-0 rounded-lg px-3.5 py-1.5 text-[13px] font-semibold transition-colors', effectiveKey === f.id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>{f.name}</button>
+                  ))}
+                  {hasUnassigned && (
+                    <button role="tab" aria-selected={effectiveKey === 'none'} onClick={() => setFloorKey('none')}
+                      className={cn('shrink-0 rounded-lg px-3.5 py-1.5 text-[13px] font-semibold', effectiveKey === 'none' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>Unassigned</button>
+                  )}
+                  {editing && <button className="shrink-0 rounded-lg px-3 py-1.5 text-[13px] font-semibold text-primary" onClick={addFloor}><Plus className="mr-1 inline h-3.5 w-3.5" />Floor</button>}
+                </div>
+              )}
+              {editable && (
+                <Button variant={editing ? 'default' : 'outline'} className="h-11 rounded-xl px-4" aria-pressed={editing} data-testid="floor-edit-toggle"
+                  onClick={() => { if (editing) setMode('live'); else { setMode('edit'); if (effectiveKey === 'overview') setFloorKey(sortedFloors[0]?.id ?? 'flat'); } }}>
+                  <PencilRuler className="mr-2 h-4 w-4" /> {editing ? 'Done' : 'Edit layout'}
+                </Button>
+              )}
+              <Popover open={moreOpen} onOpenChange={setMoreOpen}>
+                <PopoverTrigger asChild><Button variant="outline" size="icon" className="h-11 w-11 rounded-xl" aria-label="More" data-testid="floor-more"><MoreHorizontal className="h-5 w-5" /></Button></PopoverTrigger>
+                <PopoverContent align="end" className="w-64 p-1.5" data-floor-more-menu>
+                  <div className="space-y-0.5">
+                    {(() => {
+                      const row = 'flex h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-[13px] font-semibold transition-colors hover:bg-accent';
+                      const done = (fn: () => void) => () => { setMoreOpen(false); fn(); };
+                      return (<>
+                        {hasFloors && <button type="button" className={row} onClick={done(() => setFloorKey('overview'))}><LayoutGrid className="h-4 w-4 text-muted-foreground" /> All floors overview</button>}
+                        <button type="button" className={row} onClick={done(() => setSettingsOpen(true))} data-testid="floor-customize"><Settings2 className="h-4 w-4 text-muted-foreground" /> Customize the floor</button>
+                        <button type="button" className={row} onClick={done(() => onNewOrder('takeaway'))}><ShoppingBag className="h-4 w-4 text-muted-foreground" /> New take away order</button>
+                        <button type="button" className={row} onClick={done(() => onNewOrder('delivery'))}><Bike className="h-4 w-4 text-muted-foreground" /> New delivery order</button>
+                        <div className="flex items-center justify-between gap-2 px-3 py-1.5" role="group" aria-label="Zoom">
+                          <span className="text-[13px] font-semibold">Zoom</span>
+                          <span className="flex items-center rounded-lg border bg-background">
+                            <button className="p-2 text-muted-foreground hover:text-foreground" aria-label="Zoom out" onClick={() => setZoom(zoom - 0.1)}><Minus className="h-3.5 w-3.5" /></button>
+                            <button className="min-w-[3rem] px-1 text-[12px] font-bold tabular-nums" aria-label="Reset zoom" onClick={() => setZoom(1)}>{Math.round(zoom * 100)}%</button>
+                            <button className="p-2 text-muted-foreground hover:text-foreground" aria-label="Zoom in" onClick={() => setZoom(zoom + 0.1)}><Plus className="h-3.5 w-3.5" /></button>
+                            <button className="border-l p-2 text-muted-foreground hover:text-foreground" aria-label="Fit to screen" onClick={fit}><Maximize2 className="h-3.5 w-3.5" /></button>
+                          </span>
+                        </div>
+                      </>);
+                    })()}
+                    {moreMenu && <><div className="my-1 h-px bg-border" />{moreMenu(() => setMoreOpen(false))}</>}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
+          {statusBar}
+        </div>
+      ) : (
       <div className="flex flex-wrap items-center gap-2 rounded-2xl border bg-card p-2 shadow-card">
         <div className="flex min-w-0 basis-full items-center gap-1 overflow-x-auto sm:basis-0 sm:flex-1" role="tablist" aria-label="Floors">
           {hasFloors && (
@@ -370,6 +485,8 @@ export default function AdvancedFloorView({ tables, orders, floors, onOpenTable,
         </div>
       </div>
 
+      )}
+
       {/* ---------- body ---------- */}
       {effectiveKey === 'overview' ? (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" data-testid="floor-overview">
@@ -412,11 +529,11 @@ export default function AdvancedFloorView({ tables, orders, floors, onOpenTable,
           {overview.length === 0 && <p className="col-span-full py-10 text-center text-sm text-muted-foreground">No floors yet.</p>}
         </div>
       ) : (
-        <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <div className={cn('grid gap-3', refined ? 'xl:grid-cols-[minmax(0,1fr)_300px]' : 'xl:grid-cols-[minmax(0,1fr)_320px]')}>
           {/* canvas */}
           <div
             ref={scrollRef}
-            className="relative max-h-[calc(100vh-17rem)] min-h-[420px] overflow-auto rounded-2xl border bg-card shadow-card"
+            className={cn('relative min-h-[420px] overflow-auto rounded-2xl border shadow-card', refined ? 'max-h-[calc(100vh-15rem)] bg-[hsl(var(--dt-accent-tint))] pt-6' : 'max-h-[calc(100vh-17rem)] bg-card')}
             data-testid="advanced-floor-canvas"
           >
             <div style={{ width: canvas.width * zoom, height: canvas.height * zoom }}>
@@ -429,7 +546,7 @@ export default function AdvancedFloorView({ tables, orders, floors, onOpenTable,
                 className="relative origin-top-left"
                 style={{
                   width: canvas.width, height: canvas.height, transform: `scale(${zoom})`,
-                  backgroundImage: settings.showGrid || editing ? 'radial-gradient(circle, hsl(var(--muted-foreground) / 0.28) 1px, transparent 1.2px)' : undefined,
+                  backgroundImage: (settings.showGrid && !refined) || editing ? 'radial-gradient(circle, hsl(var(--muted-foreground) / 0.28) 1px, transparent 1.2px)' : undefined,
                   backgroundSize: `${settings.gridSize}px ${settings.gridSize}px`,
                 }}
               >
@@ -486,7 +603,45 @@ export default function AdvancedFloorView({ tables, orders, floors, onOpenTable,
             </div>
           </div>
 
-          {/* actions panel */}
+          {/* the design's panel (DT Refined, live mode): the table, what is on it, three actions */}
+          {refined && !editing ? (
+            <aside className="rounded-2xl border bg-card p-5 shadow-card" data-testid="floor-actions" data-floor-panel>
+              {selected && sv ? (
+                <div data-testid="floor-selected" className="flex h-full flex-col">
+                  <div className="flex items-start justify-between gap-2">
+                    <h2 className="min-w-0 truncate text-[20px] font-extrabold leading-tight tracking-tight">{selected.name}</h2>
+                    <button className="rounded-md p-1 text-muted-foreground hover:bg-muted" aria-label="Clear selection" onClick={() => setSelectedId(null)}><X className="h-4 w-4" /></button>
+                  </div>
+                  <p className="mt-0.5 text-[12.5px] text-muted-foreground">
+                    {[sv.guests !== null ? `${sv.guests} ${sv.guests === 1 ? 'guest' : 'guests'}` : `${selected.seats} seats`, sv.minutes !== null ? `seated ${fmtMinutes(sv.minutes)}` : FLOOR_STATE_LABEL[sv.state].toLowerCase(), sv.order ? `Bill #${sv.order.orderNumber}` : ''].filter(Boolean).join(' · ')}
+                  </p>
+                  {sv.amount !== null && (
+                    <div className="mt-3 flex items-baseline justify-between border-t pt-3"><span className="text-[14px]">Current bill</span><span className="text-[16px] font-extrabold tabular-nums">{rs(sv.amount)}</span></div>
+                  )}
+                  <div className="mt-4 space-y-2">
+                    <Button className="h-11 w-full rounded-xl" onClick={() => onOpenTable(selected)} data-testid="floor-open-table">{available ? 'Seat guests' : 'Open table'}</Button>
+                    <Button variant="outline" className="h-11 w-full rounded-xl" disabled={!hasBill || sv.state === 'pending-payment' || !onRequestBill} onClick={() => onRequestBill?.(selected)}><Receipt className="mr-2 h-4 w-4" /> Request bill</Button>
+                    <Popover open={moveOpen} onOpenChange={setMoveOpen}>
+                      <PopoverTrigger asChild><Button variant="outline" className="h-11 w-full rounded-xl" disabled={!hasBill}><ArrowRightLeft className="mr-2 h-4 w-4" /> Move / merge</Button></PopoverTrigger>
+                      <PopoverContent align="start" className="w-56 p-1.5" data-floor-move-menu>
+                        {([['transfer', 'Move table', ArrowRightLeft], ['merge', 'Merge table', Combine], ['split', 'Split checks', Split]] as const).map(([k, label, Icon]) => (
+                          <button key={k} type="button" data-floor-bill-action={k} className="flex h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-[13px] font-semibold hover:bg-accent"
+                            onClick={() => { setMoveOpen(false); onBillAction(selected, k); }}><Icon className="h-4 w-4 text-muted-foreground" /> {label}</button>
+                        ))}
+                      </PopoverContent>
+                    </Popover>
+                    {hasBill && onPay && <Button variant="outline" className="h-11 w-full rounded-xl" onClick={() => onPay(selected)}><CreditCard className="mr-2 h-4 w-4" /> Take payment</Button>}
+                  </div>
+                  <div className="mt-auto flex flex-wrap gap-1 border-t pt-3">
+                    <button type="button" className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[12.5px] font-semibold text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => onShowQr(selected)}><QrCode className="h-3.5 w-3.5" /> Table QR</button>
+                    <button type="button" className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[12.5px] font-semibold text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => onShowHistory(selected)}><History className="h-3.5 w-3.5" /> Dine history</button>
+                  </div>
+                </div>
+              ) : (
+                <p className="rounded-xl border border-dashed p-4 text-center text-[13px] text-muted-foreground">Tap a table to act on it. Double-tap to open it.</p>
+              )}
+            </aside>
+          ) : (
           <aside className="rounded-2xl border bg-card shadow-card" data-testid="floor-actions">
             <div className="flex items-center justify-between border-b px-4 py-3">
               <h3 className="text-[14px] font-extrabold tracking-tight">{editing ? 'Layout tools' : 'Floor plan actions'}</h3>
@@ -619,46 +774,11 @@ export default function AdvancedFloorView({ tables, orders, floors, onOpenTable,
               )}
             </div>
           </aside>
+          )}
         </div>
       )}
 
-      {/* ---------- status bar ---------- */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border bg-card px-3 py-2.5 shadow-card" data-testid="floor-statusbar">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
-          {FLOOR_STATES.map(s => (
-            <button
-              key={s}
-              type="button"
-              aria-pressed={focus === s}
-              title={`${FLOOR_STATE_LABEL[s]} — ${FLOOR_STATE_HINT[s]}`}
-              onClick={() => setFocus(f => (f === s ? null : s))}
-              disabled={effectiveKey === 'overview'}
-              className={cn('inline-flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[12px] font-semibold transition-colors disabled:cursor-default',
-                focus === s ? 'border-primary bg-primary/10' : 'border-transparent enabled:hover:bg-muted/60',
-                (effectiveKey === 'overview' ? countStates(allViews)[s] : counts[s]) === 0 && 'opacity-50')}
-            >
-              <span className="grid h-5 min-w-[1.35rem] place-items-center rounded px-1 text-[11px] font-extrabold tabular-nums" style={{ background: stateColour(s, settings), color: readableText(stateColour(s, settings)) }}>
-                {effectiveKey === 'overview' ? countStates(allViews)[s] : counts[s]}
-              </span>
-              {FLOOR_STATE_LABEL[s]}
-            </button>
-          ))}
-        </div>
-        <dl className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12.5px] text-muted-foreground">
-          {(() => {
-            const s = effectiveKey === 'overview' ? summarise(allViews) : summary;
-            return (
-              <>
-                <div><dt className="inline">Tables </dt><dd className="inline font-bold text-foreground tabular-nums">{s.tables}</dd></div>
-                <div><dt className="inline">In use </dt><dd className="inline font-bold text-foreground tabular-nums">{s.occupancyPct}%</dd></div>
-                <div><dt className="inline">Free seats </dt><dd className="inline font-bold text-foreground tabular-nums">{s.seatsFree}/{s.seatsTotal}</dd></div>
-                <div><dt className="inline">Guests </dt><dd className="inline font-bold text-foreground tabular-nums">{s.pax}</dd></div>
-                <div><dt className="inline">Open bills </dt><dd className="inline font-bold text-foreground tabular-nums">{rs(s.openAmount)}</dd></div>
-              </>
-            );
-          })()}
-        </dl>
-      </div>
+      {!refined && statusBar}
 
       <FloorSettingsSheet open={settingsOpen} onOpenChange={setSettingsOpen} settings={settings} onChange={updateSettings} />
     </div>
