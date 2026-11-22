@@ -1,0 +1,97 @@
+/* ============================================================
+   v1.137.0 — the Kitchen display, as the design draws it (SW-11). DT Refined only: a dark full-screen board, the stations across the top,
+   three columns — New · Cooking · Ready — of tickets whose header turns purple → amber → red as they wait, and one button each.
+   The board is portalled to <body> (components/kitchen/KitchenBoard.tsx), so it has its own dark tokens here and nothing of the shell shows.
+   ============================================================ */
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-kb-board] {
+  --kb-bg: #0f0b18; --kb-surface: #1a1426; --kb-surface2: #241c35; --kb-border: #352b4a;
+  --kb-text: #f4f1fa; --kb-muted: #b4aac6; --kb-faint: #7d7391;
+  --kb-accent: hsl(var(--primary)); --kb-ok: hsl(var(--dt-ok)); --kb-warn: hsl(var(--dt-warn)); --kb-bad: hsl(var(--dt-bad)); --kb-info: hsl(var(--dt-info));
+  position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column; overflow: hidden;
+  background: var(--kb-bg); color: var(--kb-text); font-size: 14px; line-height: 1.5; color-scheme: dark;
+}
+/* the header: the board's name, the stations, then Live · the time */
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-top {
+  display: flex; align-items: center; gap: 12px; height: 60px; padding: 0 20px; flex: none; border-bottom: 1px solid var(--kb-border);
+}
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-title { margin: 0; font-size: 18px; line-height: 26px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-grow { flex: 1; min-width: 0; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-seg { display: inline-flex; background: var(--kb-surface2); border-radius: 12px; padding: 3px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-seg::-webkit-scrollbar { display: none; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-seg > button {
+  padding: 6px 14px; border-radius: 9px; border: 0; background: transparent; color: var(--kb-muted); font: inherit; font-size: 13px; font-weight: 700; white-space: nowrap; cursor: pointer;
+}
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-seg > button[data-on] { background: var(--kb-surface); color: var(--kb-text); box-shadow: 0 1px 2px rgba(0, 0, 0, .4); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-live {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; white-space: nowrap;
+  color: var(--kb-ok); background: #12331d;
+}
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-live[data-tone="warn"] { color: #f59e0b; background: #3b2a0a; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-live[data-tone="bad"] { color: #f87171; background: #3d1414; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-late { font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: #3d1414; color: #f87171; white-space: nowrap; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-clock { font-weight: 700; font-variant-numeric: tabular-nums; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-icon {
+  display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; border: 0; background: transparent; color: var(--kb-muted); cursor: pointer; flex: none;
+}
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-icon:hover { background: var(--kb-surface2); color: var(--kb-text); }
+
+/* the three columns */
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; padding: 20px; flex: 1; overflow: auto; align-items: start; position: relative; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-col-head { display: flex; align-items: center; gap: 8px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; background: var(--kb-info); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-dot[data-column="cooking"] { background: var(--kb-warn); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-dot[data-column="ready"] { background: var(--kb-ok); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-count {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 8px; border-radius: 999px; font-size: 11.5px; font-weight: 700; background: var(--kb-surface2); color: var(--kb-muted);
+}
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-empty { padding: 18px 0; text-align: center; font-size: 12px; color: var(--kb-faint); border: 1px dashed var(--kb-border); border-radius: 14px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-all-clear {
+  position: absolute; inset: 60px 20px 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: var(--kb-muted); text-align: center; pointer-events: none;
+}
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-all-clear svg { color: var(--kb-ok); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-all-clear p { margin: 0; font-size: 16px; font-weight: 700; color: var(--kb-text); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-all-clear span { font-size: 12px; }
+
+/* a ticket */
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-ticket { border: 1px solid var(--kb-border); border-radius: 14px; background: var(--kb-surface); overflow: hidden; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-th {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 12px; font-weight: 800; color: #fff; background: var(--kb-accent);
+}
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-ticket[data-tone="warn"] .kb-th { background: var(--kb-warn); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-ticket[data-tone="bad"] .kb-th { background: var(--kb-bad); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-th-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-th-age { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; flex: none; font-variant-numeric: tabular-nums; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-hold { margin-left: 8px; font-style: normal; font-size: 10.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; padding: 1px 7px; border-radius: 999px; background: rgba(255, 255, 255, .22); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-tb { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-tb [data-kb-item] b { font-weight: 700; overflow-wrap: anywhere; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-note { font-size: 12px; line-height: 18px; color: var(--kb-warn); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-actions { display: flex; gap: 8px; }
+
+/* the one button (also the quiet "served" tick next to Recall) */
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px; flex: 1; min-width: 0; height: 40px; padding: 0 16px; border-radius: 12px; cursor: pointer;
+  border: 1px solid var(--kb-border); background: var(--kb-surface); color: var(--kb-text); font: inherit; font-size: 14px; font-weight: 700; white-space: nowrap;
+}
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-btn[data-kb-primary] { background: var(--kb-accent); border-color: var(--kb-accent); color: #fff; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-btn:hover { filter: brightness(1.12); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-btn-icon { flex: none; width: 40px; padding: 0; color: var(--kb-muted); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] [data-kb-board] :is(button):focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(167, 139, 250, .55); }
+
+/* a 10" tablet keeps three columns; a phone stacks them */
+@media (max-width: 760px) {
+  :root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-cols { grid-template-columns: minmax(0, 1fr); }
+  /* two rows: the name, Live, the time and the buttons above; the stations (they scroll sideways) below */
+  :root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-top { height: auto; flex-wrap: wrap; padding: 10px 12px; gap: 8px; }
+  :root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-title { font-size: 16px; flex: 1 1 0; }
+  :root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-grow { display: none; }
+  :root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-seg { order: 10; flex: 1 1 100%; }
+  :root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-late { display: none; }
+}
+
+/* the options menu (a popover on <body>, so it is the light theme's) and the TV-mode dialog sit above the board */
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-menu {
+  display: flex; align-items: center; gap: 10px; width: 100%; height: 38px; padding: 0 10px; border: 0; border-radius: 10px; background: transparent; font: inherit; font-size: 14px; font-weight: 600; color: hsl(var(--foreground)); cursor: pointer; text-align: left;
+}
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .kb-menu:hover { background: hsl(var(--dt-accent-tint)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] body:has([data-kb-board]) :is([data-radix-popper-content-wrapper], [data-slot="dialog-overlay"], [data-slot="dialog-content"]) { z-index: 70 !important; }

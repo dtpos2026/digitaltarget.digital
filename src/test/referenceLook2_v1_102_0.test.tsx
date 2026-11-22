@@ -1,17 +1,14 @@
 // ============================================================
 // v1.102.0 — the reference look, round 2: the Kitchen's order cards and the Dashboard's hero.
 //
-//   Kitchen (the reference's "Active Order" card): a timer ring with the minutes, a status line without emoji, quiet item lines, and the next
-//   action as ONE colour-coded full-width button (accept = accent, start = soft accent, ready = yellow, delivered = ink).
+//   Kitchen: the v1.102.0 ring-card look was replaced in v1.137.0 by the design's dark board (SW-11) — see kitchenBoard_v1_137_0.test.tsx.
+//   Here the Kitchen only has to keep its old cards for every other look.
 //   Dashboard: a hero with the day's sales, "New order" and "Kitchen", the best sellers as plates, and a sparkline under the sales, orders
 //   and average-bill cards.
-// Pinned: both mount for real under DT Refined, every other theme keeps its markup, every figure still comes from the orders,
-// and the stylesheet block is scoped to the theme.
+// Pinned: both mount for real under DT Refined, every other theme keeps its markup, every figure still comes from the orders.
 // ============================================================
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, cleanup, screen, within } from '@testing-library/react';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { HashRouter } from '@/lib/hash-router';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { setTheme, setUiStyle } from '@/lib/uiStyle';
@@ -21,7 +18,6 @@ vi.mock('@/components/PlanStatusWidget', () => ({ default: () => null }));
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), message: vi.fn(), warning: vi.fn() } }));
 globalThis.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} } as any;
 Element.prototype.scrollIntoView ??= () => {};
-const read = (p: string) => readFileSync(resolve(__dirname, '../..', p), 'utf8');
 const reload = () => window.dispatchEvent(new CustomEvent('pos-tenant-change', { detail: { from: 'test', to: 'test' } }));
 const ago = (min: number) => new Date(Date.now() - min * 60000).toISOString();
 
@@ -49,21 +45,11 @@ describe('Kitchen order cards', () => {
   afterEach(() => cleanup());
   const mount = async () => { const { default: Page } = await import('@/pages/KitchenDisplayPage'); return render(<TooltipProvider><HashRouter><Page /></HashRouter></TooltipProvider>); };
 
-  it('DT Refined: a ring with the minutes, a plain status word, one coloured action', async () => {
+  it('DT Refined: the page is the dark board, not the old card grid', async () => {
     setUiStyle('modern'); setTheme(REFINED_THEME_ID);
     const { container } = await mount();
-    const cards = [...container.querySelectorAll('[data-kds-card]')];
-    expect(cards.length).toBe(2);
-    const late = cards.find(c => c.getAttribute('data-state') === 'late')!;
-    expect(late.querySelector('[data-kds-ring]')!.getAttribute('data-state')).toBe('late');
-    expect(late.querySelector('[data-kds-ring]')!.getAttribute('aria-label')).toMatch(/^1[3-5] minutes$/);
-    expect(late.querySelector('[data-kds-timer]')!.textContent).toMatch(/Delayed/);
-    expect(late.textContent).not.toMatch(/⚠/);
-    expect(late.className).not.toMatch(/animate-pulse/);
-    expect(late.querySelector('[data-kds-action]')!.getAttribute('data-kds-action')).toBe('accept');
-    const fresh = cards.find(c => c !== late)!;
-    expect(fresh.querySelector('[data-kds-ring]')!.getAttribute('data-state')).toBe('ok');
-    expect(fresh.querySelector('[data-kds-action]')!.getAttribute('data-kds-action')).toBe('ready');
+    expect(container.querySelector('[data-kds-card]')).toBeNull();
+    expect(document.querySelector('[data-kb-board]')).not.toBeNull();
   });
 
   it('every other theme: no ring, the old timer line and pulse', async () => {
@@ -103,21 +89,5 @@ describe('Dashboard hero and sparklines', () => {
     setUiStyle('modern'); setTheme('ember');
     await mount();
     expect(screen.queryByTestId('refined-hero')).toBeNull();
-  });
-});
-
-describe('the stylesheet', () => {
-  it('the order-card block is scoped to DT Refined and restyles only the kitchen markup', () => {
-    const css = read('src/styles/ui-refined-pos.css');
-    const at = css.indexOf('Order cards (v1.102.0)');
-    const end = css.indexOf('/* The phone Order Taker runs the classic grid');
-    const block = css.slice(css.indexOf('*/', at) + 2, end > at ? end : undefined);   // the Order Taker's own rules follow the kitchen block
-    for (const sel of ['[data-kds-card]', '[data-kds-ring]', '[data-kds-action="ready"]', '[data-kds-action="delivered"]']) expect(block).toContain(sel);
-    const body = block.replace(/\/\*[\s\S]*?\*\//g, '');
-    for (const b of body.split('}')) {
-      const sel = b.split('{')[0].trim();
-      if (!sel) continue;
-      for (const one of sel.split(/,\s*(?![^()]*\))/)) expect(one.trim(), one).toMatch(/^:root\[data-ui="modern"\]\[data-ui-theme="dt-refined"\]/);
-    }
   });
 });

@@ -3162,6 +3162,23 @@ export function setOrderKitchenStatus(orderId: string, status: 'pending' | 'acce
 }
 
 /**
+ * v1.137.0 — "Recall" on the kitchen board: a ticket that was bumped to Ready goes back to Cooking.
+ * Everything "ready" said is taken back with it — the ready stamp, a delivery that was waiting for the rider — and the cooking clock
+ * restarts, so the auto-ready timer does not bump it straight back out because the bill is old.
+ */
+export function recallKitchenOrder(orderId: string) {
+  const o = loadData().orders.find(x => x.id === orderId);
+  if (!o) return;
+  const now = new Date().toISOString();
+  o.kitchenStatus = 'preparing';
+  o.kitchenStatusAt = now;
+  o.cookingStartedAt = now;
+  (o as any).readyAt = undefined;
+  if (o.deliveryStatus === 'ready') o.deliveryStatus = 'cooking';
+  saveEntity('orders', o);
+}
+
+/**
  * Phase 3 — mark an order as Void / Complimentary / Cancelled with a required reason.
  * These statuses NEVER count as paid sales (see isPaidSale in src/lib/sales.ts).
  */
