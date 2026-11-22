@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, Fragment } from 'react';
+import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
 import { useSearchParams } from '@/lib/hash-router';
 import type { SystemPrinterInfo } from '@/lib/electron';
 import { currencySymbol, currencyOptions, getCurrencyDef, formatMoney } from '@/lib/currency';
@@ -40,7 +40,9 @@ import OfflineShellCard from '@/components/settings/OfflineShellCard';
 import { countryForCurrency, taxRuleFor } from '@/lib/taxRegistration';
 import ModuleManagementCard from '@/components/settings/ModuleManagementCard';
 import { PageHeader } from '@/components/ui-kit';
-import { useUiStyle } from '@/lib/uiStyle';
+import { useThemeId, useUiStyle } from '@/lib/uiStyle';
+import { isRefinedTheme } from '@/lib/uiThemes';
+import { PageTitle } from '@/components/layout/PageFrame';
 import { isPremiumPolishOn, setPremiumPolish } from '@/lib/premiumPolish';
 import { REFERENCE_THEME_SPECS } from '@/lib/referenceThemes';
 import { themes, getActiveTheme, setActiveTheme, ThemeId } from '@/lib/themes';
@@ -82,6 +84,8 @@ function SecurityStrip() {
 
 export default function SettingsPage() {
   const modern = useUiStyle() === 'modern';
+  // v1.136.0 — DT Refined draws the design's Settings (SW-28): the section's name as the page title, its card(s), and a Discard / Save changes bar
+  const refined = modern && isRefinedTheme(useThemeId());
   // ?tab= opens a section directly (the Printing Center and other screens link here).
   const [searchParams] = useSearchParams();
   const [tab, setTab] = useState<string>(() => searchParams.get('tab') || 'general');
@@ -170,6 +174,18 @@ export default function SettingsPage() {
     const timer = window.setTimeout(() => saveSettings(settings), 500);
     return () => window.clearTimeout(timer);
   }, [settings]);
+  // The autosave above keeps every edit on this device as it is typed. "Discard" puts the settings back as they were when this page was opened (or
+  // last saved), "Save changes" confirms them with the cloud — so the bar appears only while there is something to discard or confirm.
+  const settingsJson = useMemo(() => JSON.stringify(settings), [settings]);
+  const savedJsonRef = useRef(settingsJson);
+  const dirty = settingsJson !== savedJsonRef.current;
+  const discardChanges = () => {
+    try { const back = JSON.parse(savedJsonRef.current); setSettings(back); saveSettings(back); toast.success('Changes discarded'); } catch { /* unreadable snapshot: leave as is */ }
+  };
+  const saveChanges = async () => {
+    await handleSaveSettings();
+    savedJsonRef.current = settingsJson;
+  };
   const currentUser = getCurrentUser();
   const isAdmin = currentUser?.role === 'admin';
   const [testPrintKind, setTestPrintKind] = useState<null | 'kot' | 'receipt'>(null);
@@ -315,9 +331,49 @@ export default function SettingsPage() {
     setRiders(getRiders().slice());
   };
 
+  const sectionGroups: { title: string; emoji: string; items: { v: string; label: string; emoji: string; desc: string }[] }[] = [
+          { title: 'General', emoji: '⚙️', items: [
+            { v: 'general',  label: 'General',          emoji: '🏪', desc: 'Restaurant info, currency' },
+            { v: 'theme',    label: modern ? 'Appearance' : 'Theme', emoji: '🎨', desc: modern ? 'Theme manager, look, accent colour' : 'Theme manager & colour scheme' },
+            // The Classic menu always lists every module; choosing what the menu shows is a Modern-menu feature.
+            ...(modern ? [{ v: 'modules', label: 'Modules', emoji: '🧩', desc: 'What the menu shows, and where' }] : []),
+            { v: 'location', label: 'Location & Privacy', emoji: '🔒', desc: 'GPS tracking controls' },
+          ]},
+          { title: 'Operations', emoji: '🛠️', items: [
+            { v: 'tables',  label: 'Tables',  emoji: '🪑', desc: 'Floors & dining tables' },
+            { v: 'waiters', label: 'Waiters', emoji: '👤', desc: 'Service staff list' },
+            { v: 'riders',  label: 'Riders',  emoji: '🏍️', desc: 'Delivery riders' },
+            { v: 'pickup',  label: 'Self-Pickup', emoji: '🏃', desc: 'Takeaway settings' },
+          ]},
+          { title: 'Printing', emoji: '🖨️', items: [
+            { v: 'printer',      label: 'Printer',      emoji: '🖨️', desc: 'Thermal printer setup' },
+            { v: 'receipt',      label: 'Receipt & QR', emoji: '🧾', desc: 'Receipt layout & QR' },
+            { v: 'receiptstyle', label: 'Receipt Fonts', emoji: '📝', desc: 'Receipt typography' },
+            { v: 'kot',          label: 'KOT Settings', emoji: '🍳', desc: 'Kitchen order ticket' },
+          ]},
+          { title: 'Integrations', emoji: '🔌', items: [
+            { v: 'whatsapp',    label: 'WhatsApp',       emoji: '💬', desc: 'Customer messaging' },
+            { v: 'online',      label: 'Online Order',   emoji: '🌐', desc: 'Website ordering links' },
+            { v: 'cities',      label: 'Cities',         emoji: '📍', desc: 'Active service areas' },
+            { v: 'serviceareas',label: 'Service Areas',  emoji: '🚚', desc: 'Manual delivery cities/areas' },
+            { v: 'display',     label: 'Display',        emoji: '📺', desc: 'Customer display screen' },
+          ]},
+          { title: 'Advanced', emoji: '🧩', items: [
+            { v: 'features', label: 'Features / Modules', emoji: '🧩', desc: 'Turn new features on/off' },
+            { v: 'branches', label: 'Branches', emoji: '🏢', desc: 'Multi-branch setup' },
+            { v: 'devices',  label: 'Devices',  emoji: '📱', desc: 'Approved devices' },
+            { v: 'dayclose', label: 'Day Close', emoji: '🔚', desc: 'End-of-day reset' },
+          ]},
+        ];
+
   return (
     <div className="p-4 lg:p-6 max-w-6xl pos-settings-pro">
-      {modern ? (
+      {refined ? (
+        (() => {
+          const cur = sectionGroups.flatMap(g => g.items).find(i => i.v === tab);
+          return <div className="mb-4" data-settings-title><PageTitle subtitle={cur?.desc}>{cur?.label || 'Settings'}</PageTitle></div>;
+        })()
+      ) : modern ? (
         <PageHeader description="Restaurant details, look and feel, printing, and the modules you use." />
       ) : (
       <div className="flex items-center gap-3 mb-4">
@@ -331,47 +387,14 @@ export default function SettingsPage() {
       </div>
       )}
 
-      {modern ? <SecurityStrip /> : <DataSecurityCard />}
+      {!refined && (modern ? <SecurityStrip /> : <DataSecurityCard />)}
 
 
 
       <Tabs value={tab} onValueChange={setTab} className={modern ? 'grid gap-6 lg:grid-cols-[15rem_minmax(0,1fr)] lg:items-start' : undefined}>
         {/* ===== FOLDER-STYLE GROUPED GRID (replaces cramped tabs row) ===== */}
         {(() => {
-          const groups: { title: string; emoji: string; items: { v: string; label: string; emoji: string; desc: string }[] }[] = [
-            { title: 'General', emoji: '⚙️', items: [
-              { v: 'general',  label: 'General',          emoji: '🏪', desc: 'Restaurant info, currency' },
-              { v: 'theme',    label: modern ? 'Appearance' : 'Theme', emoji: '🎨', desc: modern ? 'Theme manager, look, accent colour' : 'Theme manager & colour scheme' },
-              // The Classic menu always lists every module; choosing what the menu shows is a Modern-menu feature.
-              ...(modern ? [{ v: 'modules', label: 'Modules', emoji: '🧩', desc: 'What the menu shows, and where' }] : []),
-              { v: 'location', label: 'Location & Privacy', emoji: '🔒', desc: 'GPS tracking controls' },
-            ]},
-            { title: 'Operations', emoji: '🛠️', items: [
-              { v: 'tables',  label: 'Tables',  emoji: '🪑', desc: 'Floors & dining tables' },
-              { v: 'waiters', label: 'Waiters', emoji: '👤', desc: 'Service staff list' },
-              { v: 'riders',  label: 'Riders',  emoji: '🏍️', desc: 'Delivery riders' },
-              { v: 'pickup',  label: 'Self-Pickup', emoji: '🏃', desc: 'Takeaway settings' },
-            ]},
-            { title: 'Printing', emoji: '🖨️', items: [
-              { v: 'printer',      label: 'Printer',      emoji: '🖨️', desc: 'Thermal printer setup' },
-              { v: 'receipt',      label: 'Receipt & QR', emoji: '🧾', desc: 'Receipt layout & QR' },
-              { v: 'receiptstyle', label: 'Receipt Fonts', emoji: '📝', desc: 'Receipt typography' },
-              { v: 'kot',          label: 'KOT Settings', emoji: '🍳', desc: 'Kitchen order ticket' },
-            ]},
-            { title: 'Integrations', emoji: '🔌', items: [
-              { v: 'whatsapp',    label: 'WhatsApp',       emoji: '💬', desc: 'Customer messaging' },
-              { v: 'online',      label: 'Online Order',   emoji: '🌐', desc: 'Website ordering links' },
-              { v: 'cities',      label: 'Cities',         emoji: '📍', desc: 'Active service areas' },
-              { v: 'serviceareas',label: 'Service Areas',  emoji: '🚚', desc: 'Manual delivery cities/areas' },
-              { v: 'display',     label: 'Display',        emoji: '📺', desc: 'Customer display screen' },
-            ]},
-            { title: 'Advanced', emoji: '🧩', items: [
-              { v: 'features', label: 'Features / Modules', emoji: '🧩', desc: 'Turn new features on/off' },
-              { v: 'branches', label: 'Branches', emoji: '🏢', desc: 'Multi-branch setup' },
-              { v: 'devices',  label: 'Devices',  emoji: '📱', desc: 'Approved devices' },
-              { v: 'dayclose', label: 'Day Close', emoji: '🔚', desc: 'End-of-day reset' },
-            ]},
-          ];
+          const groups = sectionGroups;
           if (modern) {
             return (
               <nav aria-label="Settings sections" className="lg:sticky lg:top-3 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto pos-scrollbar rounded-[var(--ui-radius-card,1rem)] border bg-card p-2 shadow-sm">
@@ -2301,7 +2324,18 @@ export default function SettingsPage() {
         </TabsContent>
       </Tabs>
 
-
+      {refined && (
+        <>
+          {dirty && (
+            <div className="sticky bottom-3 z-20 mt-5 flex flex-wrap items-center justify-end gap-3 rounded-2xl border bg-card px-4 py-3 shadow-lg" data-settings-bar role="region" aria-label="Unsaved changes">
+              <span className="mr-auto text-[13px] text-muted-foreground">Unsaved changes — they are kept on this device as you type; Save changes confirms them with the cloud.</span>
+              <Button variant="outline" className="h-11 rounded-xl px-5" onClick={discardChanges} data-settings-discard>Discard</Button>
+              <Button className="h-11 rounded-xl px-5" onClick={saveChanges} disabled={savingSettings} data-settings-save>{savingSettings ? 'Saving…' : 'Save changes'}</Button>
+            </div>
+          )}
+          <div className="mt-6"><SecurityStrip /></div>
+        </>
+      )}
 
       {/* Hidden Test Print render — KitchenReceipt / ReceiptPreview with autoPrint */}
       {testPrintKind && (() => {

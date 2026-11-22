@@ -34,6 +34,8 @@ export const REFINED_ORDER: Partial<Record<PageGroup, string[]>> = {
   Accounts: ['accounts', 'parties', 'daily-wages', 'shifts'],
   Staff: ['hr', 'users', 'riders', 'staff-audit'],
   Reports: ['dashboard', 'reports-center', 'profitability', 'owner-management'],
+  // v1.136.0 — the design's Admin: Settings first, then Printing Center, Branches, Devices, Backup, Module Management
+  Admin: ['settings', 'printing-center', 'branches', 'devices', 'backup', 'moduleManagement'],
 };
 
 /** Pages grouped in the design's order, keeping each group's own order; empty groups are left out. */
