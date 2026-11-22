@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { money } from '@/lib/currency';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -86,8 +86,10 @@ function EmployeesTab({ refined = false, adding = 0, onCount }: { refined?: bool
   const [editing, setEditing] = useState<Employee | null>(null);
 
   const refresh = () => { const next = [...getEmployees()]; setEmployees(next); onCount?.(next.length); };
-  // the page header's "Add employee" (DT Refined) opens the same dialog as the card's Add
-  useEffect(() => { if (adding > 0) { setEditing(null); setOpen(true); } }, [adding]);
+  // the page header's "Add employee" (DT Refined) opens the same dialog as the card's Add; a count this tab has already seen (it was mounted after the click,
+  // coming back from another tab) must not open it again
+  const seenAdding = useRef(adding);
+  useEffect(() => { if (adding !== seenAdding.current) { seenAdding.current = adding; setEditing(null); setOpen(true); } }, [adding]);
   useEffect(() => { onCount?.(employees.length); }, [employees.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSave = (e: Employee) => {

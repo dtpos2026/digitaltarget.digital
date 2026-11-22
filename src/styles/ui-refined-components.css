@@ -170,3 +170,10 @@ html[data-ui="modern"][data-ui-theme="dt-refined"] [data-slot="tabs-list"][data-
   background: transparent; color: hsl(var(--primary-text, var(--primary))); border-bottom-color: hsl(var(--primary)); box-shadow: none;
 }
 html[data-ui="modern"][data-ui-theme="dt-refined"] [data-slot="tabs-list"][data-tabs="underline"] [data-slot="tabs-trigger"]:hover { color: hsl(var(--foreground)); }
+
+/* the underlined tabs stay on one line on a phone and scroll sideways, rather than wrapping into three rows */
+@media (max-width: 760px) {
+  html[data-ui="modern"][data-ui-theme="dt-refined"] [data-slot="tabs-list"][data-tabs="underline"] { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  html[data-ui="modern"][data-ui-theme="dt-refined"] [data-slot="tabs-list"][data-tabs="underline"]::-webkit-scrollbar { display: none; }
+  html[data-ui="modern"][data-ui-theme="dt-refined"] [data-slot="tabs-list"][data-tabs="underline"] [data-slot="tabs-trigger"] { white-space: nowrap; }
+}

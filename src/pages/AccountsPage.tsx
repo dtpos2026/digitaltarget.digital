@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { money } from '@/lib/currency';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,12 +19,18 @@ import {
   getPaymentAccounts, savePaymentAccount, deletePaymentAccount,
 } from '@/lib/store';
 import { Transaction, Party, AccountCategory, DailyCashClose, PaymentAccount, PaymentAccountType } from '@/lib/types';
-import { Plus, Trash2, Wallet, TrendingUp, TrendingDown, Users2, BookOpen, Calculator, FileText, Landmark, FileDown, Printer } from 'lucide-react';
+import { Plus, Trash2, Wallet, TrendingUp, TrendingDown, Users2, BookOpen, Calculator, FileText, Landmark, FileDown, Printer, Banknote, MoreHorizontal, ShoppingBag } from 'lucide-react';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { drawPdfHeader, drawPdfFooter, getThemePrimaryRgb } from '@/lib/pdfBrand';
 import { PageTitle } from '@/components/layout/PageFrame';
+import { useNavigate } from '@/lib/hash-router';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { useThemeId, useUiStyle } from '@/lib/uiStyle';
+import { isRefinedTheme } from '@/lib/uiThemes';
+import RefinedTxnView, { type AccountsCard } from '@/components/accounts/RefinedAccounts';
+import { bankBalance, cashOnHand, deltaCaption, deltaTone, monthFigure, monthLabel, salesThisMonth } from '@/lib/accountsBoard';
 
 function fmt(n: number) { return 'Rs. ' + Math.round(n || 0).toLocaleString(); }
 
@@ -244,16 +250,60 @@ function buildAccountsPdf80mm() {
 }
 
 export default function AccountsPage() {
-  const [tab, setTab] = useState('overview');
+  const refined = useUiStyle() === 'modern' && isRefinedTheme(useThemeId());
+  const navigate = useNavigate();
+  const [tab, setTab] = useState(refined ? 'expense' : 'overview');
+  const [adding, setAdding] = useState(0);
+  const runPdf = (build: () => void, ok: string) => { try { build(); toast.success(ok); } catch (e: any) { toast.error(e?.message || 'PDF failed'); } };
+  // v1.149.0 — DT Refined: the design's "Accounts & expenses" (SW-25): the month under the title, Daily wages and Add expense, and the expenses as the first thing you see.
+  // Every other tab (Income, Overview, Payment A/Cs, Parties, Ledger, Cash close) is one click away in the underlined tab bar; the PDF reports sit behind ⋯.
+  if (refined) {
+    return (
+      <div className="ac-root" data-ac-page>
+        <div className="ac-head">
+          <div className="ac-titles"><h1 data-ac-title>Accounts &amp; expenses</h1><p data-ac-subtitle>{monthLabel()}</p></div>
+          <div className="ac-head-actions">
+            <button type="button" className="ac-btn ac-btn-ghost" data-ac-wages onClick={() => navigate('/daily-wages')}><Banknote aria-hidden className="h-4 w-4" />Daily wages</button>
+            {(tab === 'expense' || tab === 'income') && <button type="button" className="ac-btn ac-btn-primary" data-ac-add onClick={() => setAdding(n => n + 1)}><Plus aria-hidden className="h-4 w-4" />Add {tab}</button>}
+            <Popover>
+              <PopoverTrigger asChild><button type="button" className="ac-more-btn" aria-label="More" data-ac-more-menu><MoreHorizontal className="h-4 w-4" /></button></PopoverTrigger>
+              <PopoverContent align="end" className="w-60 p-1.5" data-ac-menu>
+                <button type="button" className="ac-menu-item" data-ac-pdf-a4 onClick={() => runPdf(buildAccountsPdfA4, 'PDF report generated')}><FileDown className="h-4 w-4" />Full report (A4)</button>
+                <button type="button" className="ac-menu-item" data-ac-pdf-80 onClick={() => runPdf(buildAccountsPdf80mm, '80mm receipt generated')}><Printer className="h-4 w-4" />POS 80 mm report</button>
+              </PopoverContent>
+            </Popover>
+          </div>
+        </div>
+        <Tabs value={tab} onValueChange={setTab}>
+          <TabsList data-tabs="underline" aria-label="Accounts sections">
+            <TabsTrigger value="expense">Expenses</TabsTrigger>
+            <TabsTrigger value="income">Income</TabsTrigger>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="payaccts">Payment A/Cs</TabsTrigger>
+            <TabsTrigger value="parties">Parties</TabsTrigger>
+            <TabsTrigger value="ledger">Ledger</TabsTrigger>
+            <TabsTrigger value="cashclose">Cash Close</TabsTrigger>
+          </TabsList>
+          <TabsContent value="expense"><TxnTab type="expense" refined adding={adding} /></TabsContent>
+          <TabsContent value="income"><TxnTab type="income" refined adding={adding} /></TabsContent>
+          <TabsContent value="overview"><OverviewTab /></TabsContent>
+          <TabsContent value="payaccts"><PaymentAccountsTab /></TabsContent>
+          <TabsContent value="parties"><PartiesTab /></TabsContent>
+          <TabsContent value="ledger"><LedgerTab /></TabsContent>
+          <TabsContent value="cashclose"><CashCloseTab /></TabsContent>
+        </Tabs>
+      </div>
+    );
+  }
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center gap-3 flex-wrap">
         <PageTitle icon={Wallet} subtitle="Money in, money out and the accounts they belong to">Accounts</PageTitle>
         <div className="ml-auto flex gap-2">
-          <Button size="sm" variant="outline" onClick={() => { try { buildAccountsPdfA4(); toast.success('PDF report generated'); } catch (e: any) { toast.error(e?.message || 'PDF failed'); } }}>
+          <Button size="sm" variant="outline" onClick={() => runPdf(buildAccountsPdfA4, 'PDF report generated')}>
             <FileDown className="h-4 w-4 mr-1" /> Full Report (A4)
           </Button>
-          <Button size="sm" variant="outline" onClick={() => { try { buildAccountsPdf80mm(); toast.success('80mm receipt generated'); } catch (e: any) { toast.error(e?.message || 'PDF failed'); } }}>
+          <Button size="sm" variant="outline" onClick={() => runPdf(buildAccountsPdf80mm, '80mm receipt generated')}>
             <Printer className="h-4 w-4 mr-1" /> POS 80mm Report
           </Button>
         </div>
@@ -325,7 +375,7 @@ function OverviewTab() {
   );
 }
 
-function TxnTab({ type }: { type: 'income' | 'expense' }) {
+function TxnTab({ type, refined = false, adding = 0 }: { type: 'income' | 'expense'; refined?: boolean; adding?: number }) {
   const [txns, setTxns] = useState(getTransactions());
   const [cats, setCats] = useState(getAccountCategories());
   const parties = getParties();
@@ -338,6 +388,10 @@ function TxnTab({ type }: { type: 'income' | 'expense' }) {
 
   const refresh = () => setTxns([...getTransactions()]);
   const refreshCats = () => setCats([...getAccountCategories()]);
+  // the page header's "Add expense" / "Add income" (DT Refined) opens the same form as the card's own button; a count the tab has already seen (it was mounted
+  // after the click) must not open it again
+  const seenAdding = useRef(adding);
+  useEffect(() => { if (adding !== seenAdding.current) { seenAdding.current = adding; setOpen(true); } }, [adding]);
 
   const list = txns.filter(t => t.type === type).sort((a, b) => b.date.localeCompare(a.date));
   const typeCats = cats.filter(c => c.type === type);
@@ -359,31 +413,8 @@ function TxnTab({ type }: { type: 'income' | 'expense' }) {
     setNewCat(''); refreshCats();
   };
 
-  return (
-    <Card className="p-4">
-      <div className="flex justify-between items-center mb-3">
-        <div>
-          <h3 className="font-semibold capitalize">{type}</h3>
-          <div className="text-sm text-muted-foreground">Total: <span className="font-bold">{money(total)}</span></div>
-        </div>
-        <Button size="sm" onClick={() => setOpen(true)}><Plus className="h-4 w-4 mr-1" />Add {type}</Button>
-      </div>
-      <Table>
-        <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Category</TableHead><TableHead>Description</TableHead><TableHead>Party</TableHead><TableHead>Method</TableHead><TableHead className="text-right">Amount</TableHead><TableHead></TableHead></TableRow></TableHeader>
-        <TableBody>
-          {list.map(t => (
-            <TableRow key={t.id}>
-              <TableCell>{t.date}</TableCell><TableCell>{t.categoryName}</TableCell>
-              <TableCell>{t.description}</TableCell><TableCell>{t.partyName || '—'}</TableCell>
-              <TableCell><Badge variant="outline">{t.paymentMethod}</Badge></TableCell>
-              <TableCell className="text-right font-medium">{money(t.amount)}</TableCell>
-              <TableCell><Button aria-label="Delete" size="icon" variant="ghost" onClick={() => { if (confirm('Delete?')) { deleteTransaction(t.id); refresh(); } }}><Trash2 className="h-3 w-3 text-destructive" /></Button></TableCell>
-            </TableRow>
-          ))}
-          {list.length === 0 && <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">No entries</TableCell></TableRow>}
-        </TableBody>
-      </Table>
-      <Dialog open={open} onOpenChange={setOpen}>
+  const dialog = (
+    <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Add {type}</DialogTitle></DialogHeader>
           <div className="space-y-3">
@@ -428,7 +459,58 @@ function TxnTab({ type }: { type: 'income' | 'expense' }) {
           </div>
           <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button onClick={handleSave}>Save</Button></DialogFooter>
         </DialogContent>
-      </Dialog>
+    </Dialog>
+  );
+
+  if (refined) {
+    const now = new Date();
+    const orders = getOrders();
+    const fig = monthFigure(txns, type, now);
+    const spent = type === 'expense' ? fig : monthFigure(txns, 'expense', now);
+    const cards: AccountsCard[] = type === 'expense'
+      ? [
+        { label: 'Expenses this month', value: fig.total, icon: TrendingDown, caption: deltaCaption(fig.deltaPct, now), tone: deltaTone(fig.deltaPct, 'expense') },
+        { label: 'Cash on hand', value: cashOnHand(orders, txns, getDailyCashCloses(), getPaymentAccounts()), icon: Wallet },
+        { label: 'Bank', value: bankBalance(orders, txns, getPaymentAccounts()), icon: Landmark },
+      ]
+      : [
+        { label: 'Income this month', value: fig.total, icon: TrendingUp, caption: deltaCaption(fig.deltaPct, now), tone: deltaTone(fig.deltaPct, 'income') },
+        { label: 'Sales this month', value: salesThisMonth(orders, now), icon: ShoppingBag },
+        { label: 'Expenses this month', value: spent.total, icon: TrendingDown },
+      ];
+    return (
+      <>
+        <RefinedTxnView type={type} txns={txns} cats={cats} cards={cards} onDelete={t => { if (confirm('Delete?')) { deleteTransaction(t.id); refresh(); } }} />
+        {dialog}
+      </>
+    );
+  }
+
+  return (
+    <Card className="p-4">
+      <div className="flex justify-between items-center mb-3">
+        <div>
+          <h3 className="font-semibold capitalize">{type}</h3>
+          <div className="text-sm text-muted-foreground">Total: <span className="font-bold">{money(total)}</span></div>
+        </div>
+        <Button size="sm" onClick={() => setOpen(true)}><Plus className="h-4 w-4 mr-1" />Add {type}</Button>
+      </div>
+      <Table>
+        <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Category</TableHead><TableHead>Description</TableHead><TableHead>Party</TableHead><TableHead>Method</TableHead><TableHead className="text-right">Amount</TableHead><TableHead></TableHead></TableRow></TableHeader>
+        <TableBody>
+          {list.map(t => (
+            <TableRow key={t.id}>
+              <TableCell>{t.date}</TableCell><TableCell>{t.categoryName}</TableCell>
+              <TableCell>{t.description}</TableCell><TableCell>{t.partyName || '—'}</TableCell>
+              <TableCell><Badge variant="outline">{t.paymentMethod}</Badge></TableCell>
+              <TableCell className="text-right font-medium">{money(t.amount)}</TableCell>
+              <TableCell><Button aria-label="Delete" size="icon" variant="ghost" onClick={() => { if (confirm('Delete?')) { deleteTransaction(t.id); refresh(); } }}><Trash2 className="h-3 w-3 text-destructive" /></Button></TableCell>
+            </TableRow>
+          ))}
+          {list.length === 0 && <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">No entries</TableCell></TableRow>}
+        </TableBody>
+      </Table>
+      {dialog}
     </Card>
   );
 }

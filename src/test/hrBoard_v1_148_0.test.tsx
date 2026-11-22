@@ -145,6 +145,18 @@ describe('the page under DT Refined', () => {
     expect(row('E-001')).not.toBeNull();
   });
 
+  it('coming back to Employees from another tab does not pop the Add form open again', async () => {
+    await mount();
+    fireEvent.click(screen.getByRole('button', { name: /Add employee/ }));
+    const dlg = await screen.findByRole('dialog');
+    fireEvent.click(within(dlg).getByRole('button', { name: 'Cancel' }));
+    goTab(/^Payslips$/);
+    expect(await screen.findByRole('tab', { name: 'Payslips', selected: true })).toBeInTheDocument();
+    goTab(/^Employees$/);
+    expect(await screen.findByRole('tab', { name: 'Employees', selected: true })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
   it('another look keeps the old page', async () => {
     cleanup(); localStorage.clear(); seed(); setUiStyle('modern'); setTheme('ember');
     await mount();
