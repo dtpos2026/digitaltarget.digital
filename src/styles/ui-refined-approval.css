@@ -1,0 +1,66 @@
+/* ============================================================
+   v1.140.0 — Online order approval, as the design draws it (SW-07). DT Refined only: "Awaiting approval · 3 orders · auto-refreshing",
+   All · Website · QR · Order taker, and a white card per order — source and age, what it is, the items, the total, Reject · Accept.
+   Markup: components/approval/RefinedApprovalBoard.tsx.
+   ============================================================ */
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-root { display: flex; flex-direction: column; gap: 16px; padding: 20px 24px; min-height: calc(100vh - var(--ui-header-h, 3.75rem)); box-sizing: border-box; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-titles h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 800; letter-spacing: -.01em; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-titles p { margin: 2px 0 0; font-size: 12.5px; line-height: 18px; color: hsl(var(--muted-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-head-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-seg { display: inline-flex; background: hsl(var(--dt-accent-tint)); border-radius: 12px; padding: 3px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-seg > button { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 9px; border: 0; background: transparent; color: hsl(var(--muted-foreground)); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-seg > button[data-on] { background: hsl(var(--card)); color: hsl(var(--foreground)); box-shadow: var(--ui-shadow-card); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-seg-n { font-style: normal; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; background: hsl(var(--dt-bad)); color: #fff; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-ghost { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px; border-radius: 12px; border: 1px solid hsl(var(--border)); background: hsl(var(--card)); color: hsl(var(--foreground)); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-ghost[aria-pressed="true"] { background: hsl(var(--dt-accent-tint)); border-color: transparent; color: hsl(var(--primary-text, var(--primary))); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-empty { padding: 48px 16px; text-align: center; font-size: 14px; color: hsl(var(--muted-foreground)); border: 1px dashed hsl(var(--border)); border-radius: 16px; background: hsl(var(--card)); }
+
+/* the cards */
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; align-items: start; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-card { background: hsl(var(--card)); border-radius: 16px; padding: 16px; box-shadow: var(--ui-shadow-card); display: flex; flex-direction: column; gap: 6px; border: 1px solid hsl(var(--border) / .6); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-top { display: flex; align-items: center; gap: 6px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-num { font-size: 14px; margin-right: auto; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-badge, :root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-age { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 999px; font-size: 11.5px; font-weight: 700; white-space: nowrap; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-badge { background: hsl(var(--dt-accent-tint)); color: hsl(var(--primary-text, var(--primary))); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-age { background: hsl(var(--muted)); color: hsl(var(--muted-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-age[data-tone="warn"] { background: hsl(var(--dt-warn-bg)); color: hsl(var(--dt-warn)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-age[data-tone="bad"] { background: hsl(var(--dt-bad-bg)); color: hsl(var(--dt-bad)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-more { display: inline-grid; place-items: center; width: 26px; height: 26px; margin-right: -6px; border-radius: 8px; border: 0; background: transparent; color: hsl(var(--muted-foreground)); cursor: pointer; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-more:hover { background: hsl(var(--dt-accent-tint)); color: hsl(var(--foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-line { font-size: 12.5px; line-height: 18px; color: hsl(var(--muted-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-items { display: flex; flex-direction: column; gap: 2px; margin: 8px 0 4px; font-size: 14px; line-height: 21px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-note { font-size: 12px; line-height: 18px; color: hsl(var(--dt-warn)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-total { display: flex; align-items: baseline; justify-content: space-between; padding-top: 10px; border-top: 1px solid hsl(var(--border)); font-size: 18px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-amount { font-size: 18px; font-variant-numeric: tabular-nums; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 12px; border: 0; cursor: pointer; font: inherit; font-size: 14px; font-weight: 700; white-space: nowrap; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-btn-primary { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-btn-bad { background: hsl(var(--dt-bad)); color: #fff; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-btn-ghost { background: hsl(var(--card)); color: hsl(var(--foreground)); border: 1px solid hsl(var(--border)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-btn:hover { filter: brightness(.95); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-result { margin-top: 6px; padding: 10px 12px; border-radius: 12px; font-size: 12.5px; line-height: 18px; background: hsl(var(--dt-ok-bg)); color: hsl(var(--dt-ok)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-result[data-rejected] { background: hsl(var(--dt-bad-bg)); color: hsl(var(--dt-bad)); }
+
+/* the ⋯ menu, the processing-mode panel and the reject dialog (portalled to <body>) */
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-menu-item { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 36px; padding: 0 10px; border: 0; border-radius: 10px; background: transparent; cursor: pointer; text-decoration: none; text-align: left; font: inherit; font-size: 13.5px; font-weight: 600; color: hsl(var(--foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-menu-item:hover { background: hsl(var(--dt-accent-tint)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-menu-danger { color: hsl(var(--dt-bad)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-menu-meta { margin: 0; padding: 6px 10px 2px; font-size: 11.5px; color: hsl(var(--muted-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-menu-addr { padding-top: 0; padding-bottom: 6px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-mode-h { margin: 0; font-size: 14px; font-weight: 800; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-mode-sub { margin: 2px 0 10px; font-size: 12px; color: hsl(var(--muted-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-mode-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 12px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-mode-pair > button { height: 36px; border-radius: 10px; border: 1px solid hsl(var(--border)); background: hsl(var(--card)); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-mode-pair > button[aria-pressed="true"] { background: hsl(var(--primary)); border-color: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-mode-grid { display: grid; gap: 8px; padding-top: 10px; border-top: 1px solid hsl(var(--border)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-mode-grid label { display: grid; grid-template-columns: 1fr 9rem; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-mode-grid select, :root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-field select, :root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-field textarea {
+  width: 100%; border: 1px solid hsl(var(--border)); border-radius: 10px; background: hsl(var(--card)); padding: 8px 10px; font: inherit; font-size: 13.5px; color: hsl(var(--foreground));
+}
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-field { display: grid; gap: 6px; font-size: 12.5px; font-weight: 700; }
+
+@media (max-width: 760px) {
+  :root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-root { padding: 16px 12px; }
+  :root[data-ui="modern"][data-ui-theme="dt-refined"] .ap-grid { grid-template-columns: minmax(0, 1fr); }
+}

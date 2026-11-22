@@ -12,6 +12,9 @@ import { Phone, MessageCircle, Check, X, Clock, Globe, QrCode, ClipboardList, Tr
 import { blockCustomer } from '@/lib/blocklist';
 import { toast } from 'sonner';
 import { PageTitle } from '@/components/layout/PageFrame';
+import { useThemeId, useUiStyle } from '@/lib/uiStyle';
+import { isRefinedTheme } from '@/lib/uiThemes';
+import RefinedApprovalBoard from '@/components/approval/RefinedApprovalBoard';
 
 const SOURCE_TABS: { key: OnlineSourceKey; label: string; Icon: typeof Globe }[] = [
   { key: 'website', label: 'Website', Icon: Globe },
@@ -34,6 +37,7 @@ function whatsappLink(phone: string, orderNo?: number) {
 }
 
 export default function OnlineOrderApprovalPage() {
+  const refined = useUiStyle() === 'modern' && isRefinedTheme(useThemeId());
   const [orders, setOrders] = useState<Order[]>(() => getOrders());
   const [tab, setTab] = useState<OnlineSourceKey>('website');
   const [showHistory, setShowHistory] = useState(false);
@@ -71,6 +75,7 @@ export default function OnlineOrderApprovalPage() {
 
   const handleApprove = (o: Order) => {
     approveOrder(o.id, currentUser);
+    setOrders(getOrders());                      // leave the queue at once; the store's own change notice is debounced
     toast.success(`Order #${o.orderNumber} approved — KOT sent`);
   };
 
@@ -78,6 +83,7 @@ export default function OnlineOrderApprovalPage() {
     if (!rejectFor) return;
     const reason = rejectNote.trim() ? `${rejectReason} — ${rejectNote.trim()}` : rejectReason;
     rejectOrder(rejectFor.id, reason, currentUser);
+    setOrders(getOrders());
     toast.success(`Order #${rejectFor.orderNumber} rejected`);
     setRejectFor(null); setRejectNote(''); setRejectReason(REJECT_REASONS[0]);
   };
@@ -93,6 +99,35 @@ export default function OnlineOrderApprovalPage() {
     saveSettings({ ...s, sourceApprovalMode: { ...(s.sourceApprovalMode || {}), [key]: m } });
     setSettingsTick(t => t + 1);
   };
+
+  // The block question, shared by both looks.
+  const askBlock = (o: Order) => {
+    const phone = o.customer?.phone || '';
+    const reason = window.prompt(`Block customer ${o.customer?.name || phone}?\n\nReason:`, 'Repeat fake orders');
+    if (!reason) return;
+    blockCustomer({ name: o.customer?.name || 'Unknown', phone, reason });
+    toast.success('Customer blocked');
+  };
+
+  // v1.140.0 — DT Refined: the design's "Awaiting approval" (SW-07). The same approving, rejecting, modes and blocking.
+  if (refined) {
+    return (
+      <RefinedApprovalBoard
+        orders={orders}
+        globalMode={globalMode}
+        sourceModes={settings.sourceApprovalMode || {}}
+        onGlobalMode={setGlobalMode}
+        onSourceMode={setSourceMode}
+        onApprove={handleApprove}
+        onReject={(o, reason, note) => {
+          rejectOrder(o.id, note ? `${reason} — ${note}` : reason, currentUser);
+          setOrders(getOrders());
+          toast.success(`Order #${o.orderNumber} rejected`);
+        }}
+        onBlock={askBlock}
+      />
+    );
+  }
 
   return (
     <div className="p-4 space-y-4 max-w-7xl mx-auto">
