@@ -10,7 +10,7 @@ import {
   RefreshCw, Hash, Calendar, Wallet,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { getOrders, saveOrder, getSettings, refreshOrdersFromCloud } from '@/lib/store';
+import { getOrders, saveOrder, getSettings, refreshOrdersFromCloud, setOrderKitchenStatus } from '@/lib/store';
 import { Order } from '@/lib/types';
 import { normalizePhone, openWhatsApp } from '@/lib/whatsapp';
 import { startVisiblePoll } from '@/lib/visiblePoll';
@@ -19,33 +19,17 @@ import ReceiptPreview from '@/components/ReceiptPreview';
 import ReadyNotificationBus from '@/components/ReadyNotificationBus';
 import ReadyOrderPoller from '@/components/ReadyOrderPoller';
 import { PageTitle } from '@/components/layout/PageFrame';
-
-/** A pickup order is a Self-Pickup / takeaway order placed from website or POS. */
-function isPickupOrder(o: Order): boolean {
-  if (o.status === 'void' || o.status === 'cancelled') return false;
-  if (o.pickupRequested) return true;
-  // P6 fix: include in-store takeaway orders so kitchen-ready ones appear here too.
-  if ((o.orderType as any) === 'takeaway') return true;
-  return false;
-}
-
-function pickupReadyAt(o: Order): number | null {
-  if (!o.pickupTime) return null;
-  // pickupTime may be "30 min" or ISO
-  const m = String(o.pickupTime).match(/(\d+)\s*min/i);
-  if (m) {
-    const created = new Date(o.createdAt).getTime();
-    return created + parseInt(m[1], 10) * 60_000;
-  }
-  const t = Date.parse(o.pickupTime);
-  return isNaN(t) ? null : t;
-}
+import { useThemeId, useUiStyle } from '@/lib/uiStyle';
+import { isRefinedTheme } from '@/lib/uiThemes';
+import RefinedPickupBoard from '@/components/pickup/RefinedPickupBoard';
+import { groupPickups, isPickupOrder, pickupDueAt as pickupReadyAt } from '@/lib/pickupBoard';
 
 function fmtClock(ms: number) {
   return new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
 export default function PickupOrdersPage() {
+  const refined = useUiStyle() === 'modern' && isRefinedTheme(useThemeId());
   const settings = getSettings();
   const [orders, setOrders] = useState<Order[]>(() => scopeToBranch(getOrders()));
   const [search, setSearch] = useState('');
@@ -105,6 +89,35 @@ export default function PickupOrdersPage() {
       .replace(/\{number\}/g, String(o.orderNumber));
     openWhatsApp(phone, msg);
   };
+
+  // The hidden mount that prints the bill the moment it is set (both looks).
+  const printMount = printOrder && (
+    <div className="fixed -left-[9999px] top-0 pointer-events-none" aria-hidden>
+      <ReceiptPreview key={printOrder.id + '_' + (printOrder.paidAt || '')} order={printOrder} settings={settings} autoPrint showPrintButton={false} />
+    </div>
+  );
+
+  // v1.139.0 — DT Refined: the design's three lanes (SW-09). Same orders, same collecting and printing, same messages.
+  if (refined) {
+    const reload = () => setOrders(scopeToBranch(getOrders()));
+    return (
+      <div data-pk-page>
+        <ReadyNotificationBus />
+        <ReadyOrderPoller types={['takeaway']} />
+        <RefinedPickupBoard
+          groups={groupPickups(orders, search)}
+          search={search}
+          onSearch={setSearch}
+          onRefresh={async () => { await refreshOrdersFromCloud(); reload(); }}
+          onMarkReady={o => { setOrderKitchenStatus(o.id, 'ready'); reload(); toast.success(`#${o.orderNumber} is ready for pickup`); }}
+          onHandedOver={collectAndPrint}
+          onReadyMessage={sendReadyMessage}
+          onReprint={setPrintOrder}
+        />
+        {printMount}
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 lg:p-6 space-y-4">
@@ -176,18 +189,7 @@ export default function PickupOrdersPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Hidden print mount — auto-prints when set */}
-      {printOrder && (
-        <div className="fixed -left-[9999px] top-0 pointer-events-none" aria-hidden>
-          <ReceiptPreview
-            key={printOrder.id + '_' + (printOrder.paidAt || '')}
-            order={printOrder}
-            settings={settings}
-            autoPrint
-            showPrintButton={false}
-          />
-        </div>
-      )}
+      {printMount}
     </div>
   );
 }
