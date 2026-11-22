@@ -26,8 +26,12 @@ import {
   type PraQueueEntry, type PraLogRecord,
 } from '@/lib/praQueue';
 import { PageTitle } from '@/components/layout/PageFrame';
+import { useThemeId, useUiStyle } from '@/lib/uiStyle';
+import { isRefinedTheme } from '@/lib/uiThemes';
+import RefinedPra from '@/components/pra/RefinedPra';
 
 export default function PraEimsSettingsPage() {
+  const refined = useUiStyle() === 'modern' && isRefinedTheme(useThemeId());
   const [settings, setSettings] = useState(() => getSettings());
   const [cfg, setCfg] = useState<PraConfig>(() => ({
     ...PRA_CONFIG_DEFAULT,
@@ -99,6 +103,28 @@ export default function PraEimsSettingsPage() {
           </p>
         </Card>
       </div>
+    );
+  }
+
+  // v1.147.0 — DT Refined: the design's page (SW-37). The same settings, queue, retry, audit export and logs.
+  if (refined) {
+    return (
+      <RefinedPra
+        cfg={cfg}
+        onCfg={persist}
+        queue={queue}
+        logs={logs}
+        showLogs={showLogs}
+        onShowLogs={setShowLogs}
+        onClearLogs={async () => { await clearPraLogs(); setLogs([]); toast.success('Logs clear'); }}
+        limitation={limitation}
+        testing={testing}
+        status={status}
+        onTest={runTest}
+        onRetry={id => { void retryPraEntry(id); }}
+        onSendPending={() => { void drainPraQueue(); }}
+        onExport={doExport}
+      />
     );
   }
 

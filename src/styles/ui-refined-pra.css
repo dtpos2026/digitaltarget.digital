@@ -1,0 +1,67 @@
+/* ============================================================
+   v1.147.0 — PRA fiscal invoicing, as the design draws it (SW-37). DT Refined only: the title with its one line, Enable, the "Not live" notice, three
+   status cards, the settings and the invoices table. Markup: components/pra/RefinedPra.tsx.
+   ============================================================ */
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-root { display: flex; flex-direction: column; gap: 16px; padding: 20px 24px; max-width: 1200px; box-sizing: border-box; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-titles h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 800; letter-spacing: -.01em; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-titles p { margin: 2px 0 0; font-size: 12.5px; line-height: 18px; color: hsl(var(--muted-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-btn { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 20px; border-radius: 12px; border: 1px solid hsl(var(--border)); background: hsl(var(--card)); color: hsl(var(--foreground)); font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-btn:disabled { opacity: .55; cursor: not-allowed; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-btn-primary { background: hsl(var(--primary)); border-color: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-btn-sm { height: 34px; padding: 0 12px; border-radius: 10px; font-size: 13px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-notice { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-radius: 14px; background: hsl(var(--dt-warn-bg)); color: hsl(var(--dt-warn)); font-size: 14px; font-weight: 700; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-notice-soft { font-weight: 500; font-size: 13px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-notice svg { flex: none; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-card { display: flex; flex-direction: column; gap: 14px; padding: 16px; text-align: left; border: 0; border-radius: 16px; background: hsl(var(--card)); box-shadow: var(--ui-shadow-card); cursor: pointer; font: inherit; color: hsl(var(--foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-card-top { display: flex; align-items: center; justify-content: space-between; font-size: 12.5px; font-weight: 700; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-card-top i { display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: hsl(var(--dt-accent-tint)); color: hsl(var(--primary-text, var(--primary))); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-card-n { font-size: 26px; line-height: 30px; font-weight: 800; letter-spacing: -.5px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-card[data-pra-card="failed"] .pr-card-n { color: hsl(var(--dt-bad)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-panel { background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: 16px; box-shadow: var(--ui-shadow-card); padding: 16px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-panel h2 { margin: 0 0 12px; font-size: 15px; font-weight: 800; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-field { display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 700; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-field input, :root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-field select { height: 42px; padding: 0 12px; border: 1px solid hsl(var(--border)); border-radius: 12px; background: hsl(var(--card)); font: inherit; font-size: 14px; font-weight: 500; color: hsl(var(--foreground)); min-width: 0; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-field input:focus, :root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-field select:focus { outline: none; border-color: hsl(var(--primary)); box-shadow: 0 0 0 3px hsl(var(--primary) / .22); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-field small { font-size: 11px; font-weight: 500; color: hsl(var(--muted-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-warn { color: hsl(var(--dt-warn)) !important; font-weight: 700 !important; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-pass { display: flex; align-items: center; gap: 0; border: 1px solid hsl(var(--border)); border-radius: 12px; background: hsl(var(--card)); height: 42px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-pass input { flex: 1; border: 0 !important; box-shadow: none !important; height: 40px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-pass button { display: inline-grid; place-items: center; width: 40px; height: 40px; border: 0; background: transparent; color: hsl(var(--muted-foreground)); cursor: pointer; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-check { display: flex; align-items: center; gap: 10px; margin-top: 14px; font-size: 13.5px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-actions { display: flex; align-items: center; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-ready { font-size: 12.5px; font-weight: 700; color: hsl(var(--dt-warn)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-ready[data-ok] { color: hsl(var(--dt-ok)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-status { display: flex; flex-direction: column; gap: 2px; margin-top: 12px; padding: 10px 12px; border-radius: 12px; font-size: 13px; background: hsl(var(--dt-bad-bg)); color: hsl(var(--dt-bad)); word-break: break-word; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-status[data-ok] { background: hsl(var(--dt-ok-bg)); color: hsl(var(--dt-ok)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-how { margin-top: 14px; font-size: 13px; color: hsl(var(--muted-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-how summary { cursor: pointer; font-weight: 700; color: hsl(var(--foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-how p { margin: 8px 0 0; line-height: 20px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-bar h2 { margin: 0; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-grow { flex: 1; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-chips { display: flex; gap: 6px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-chip { display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border-radius: 999px; border: 1px solid hsl(var(--border)); background: hsl(var(--card)); font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; color: hsl(var(--foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-chip[aria-pressed="true"] { background: hsl(var(--primary)); border-color: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-empty { margin: 0; padding: 24px 8px; text-align: center; font-size: 13.5px; color: hsl(var(--muted-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-panel th { padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: hsl(var(--muted-foreground)); border-bottom: 1px solid hsl(var(--border)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-panel td { padding: 12px; border-bottom: 1px solid hsl(var(--border)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-panel tbody tr:last-child td { border-bottom: 0; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-usin { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-weight: 700; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-err { max-width: 22rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: hsl(var(--dt-bad)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-link { color: hsl(var(--primary-text, var(--primary))); text-decoration: underline; font-family: ui-monospace, Menlo, monospace; font-size: 13px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-pill { display: inline-flex; align-items: center; height: 22px; padding: 0 9px; border-radius: 999px; font-size: 11.5px; font-weight: 700; background: hsl(var(--muted)); color: hsl(var(--muted-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-pill[data-status="sent"] { background: hsl(var(--dt-ok-bg)); color: hsl(var(--dt-ok)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-pill[data-status="pending"] { background: hsl(var(--dt-warn-bg)); color: hsl(var(--dt-warn)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-pill[data-status="failed"] { background: hsl(var(--dt-bad-bg)); color: hsl(var(--dt-bad)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-logs { display: flex; flex-direction: column; gap: 6px; max-height: 20rem; overflow: auto; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-logs details { border: 1px solid hsl(var(--border)); border-radius: 10px; padding: 6px 10px; font-size: 11.5px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-logs summary { cursor: pointer; font-family: ui-monospace, Menlo, monospace; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-logs pre { margin: 6px 0 0; white-space: pre-wrap; word-break: break-all; opacity: .85; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-bad { color: hsl(var(--dt-bad)); }
+@media (max-width: 760px) {
+  :root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-root { padding: 16px 12px; }
+  :root[data-ui="modern"][data-ui-theme="dt-refined"] .pr-cards { grid-template-columns: minmax(0, 1fr); }
+}
