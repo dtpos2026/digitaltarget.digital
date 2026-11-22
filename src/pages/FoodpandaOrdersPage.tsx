@@ -11,6 +11,10 @@ import { Bike, Power, Search, ArrowRight, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageTitle } from '@/components/layout/PageFrame';
 import { Bike as TitleIcon } from 'lucide-react';
+import { useThemeId, useUiStyle } from '@/lib/uiStyle';
+import { isRefinedTheme } from '@/lib/uiThemes';
+import { useNavigate } from '@/lib/hash-router';
+import RefinedFoodpanda from '@/components/foodpanda/RefinedFoodpanda';
 
 const PIPELINE: FoodpandaStatus[] = ['new', 'preparing', 'ready', 'picked', 'cancelled'];
 const NEXT: Record<FoodpandaStatus, FoodpandaStatus | null> = {
@@ -18,6 +22,8 @@ const NEXT: Record<FoodpandaStatus, FoodpandaStatus | null> = {
 };
 
 export default function FoodpandaOrdersPage() {
+  const refined = useUiStyle() === 'modern' && isRefinedTheme(useThemeId());
+  const navigate = useNavigate();
   const [settings, setSettings] = useState<RestaurantSettings>(() => getSettings());
   const [orders, setOrders] = useState<Order[]>(() => getOrders());
   const [tab, setTab] = useState<'all' | FoodpandaStatus>('all');
@@ -67,6 +73,20 @@ export default function FoodpandaOrdersPage() {
   };
 
   const enabled = settings.foodpandaEnabled === true;
+
+  // v1.146.0 — DT Refined: the design's lanes (SW-38). The same pipeline, the same saving, the same mode switch.
+  if (refined) {
+    const toggleMode = () => { const next = !enabled; saveSettings({ ...settings, foodpandaEnabled: next }); setSettings({ ...settings, foodpandaEnabled: next }); toast.success(`Foodpanda mode ${next ? 'enabled' : 'disabled'}`); };
+    return (
+      <RefinedFoodpanda
+        orders={orders}
+        enabled={enabled}
+        onToggleMode={toggleMode}
+        onNew={() => { if (!enabled) { toast.info('Switch Foodpanda mode on first — the POS then offers “Foodpanda” as an order type'); return; } toast.info('Pick “Foodpanda” as the order type on the POS'); navigate('/'); }}
+        onSetStatus={(o, s) => { setStatus(o, s); setOrders(getOrders().slice()); }}
+      />
+    );
+  }
 
   return (
     <div className="p-4 lg:p-6 space-y-4 max-w-7xl mx-auto">

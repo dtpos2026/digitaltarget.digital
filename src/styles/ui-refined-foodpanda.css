@@ -1,0 +1,42 @@
+/* ============================================================
+   v1.146.0 — Foodpanda orders, as the design draws it (SW-38). DT Refined only: "Foodpanda orders · Entered at the counter", New order, and four
+   lavender lanes — New · Preparing · Ready · Picked — of white cards with the reference in monospace, the amount and a "Next →" button.
+   Markup: components/foodpanda/RefinedFoodpanda.tsx.
+   ============================================================ */
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .fp-root { display: flex; flex-direction: column; gap: 16px; padding: 20px 24px; min-height: calc(100vh - var(--ui-header-h, 3.75rem)); box-sizing: border-box; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .fp-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .fp-titles h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 800; letter-spacing: -.01em; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .fp-titles p { margin: 2px 0 0; font-size: 12.5px; line-height: 18px; color: hsl(var(--muted-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .fp-head-actions { display: flex; align-items: center; gap: 10px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .fp-btn { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 20px; border-radius: 12px; border: 0; background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .fp-mode { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px; border-radius: 12px; border: 1px solid hsl(var(--border)); background: hsl(var(--card)); color: hsl(var(--muted-foreground)); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .fp-mode[data-on] { background: hsl(var(--dt-ok-bg)); border-color: transparent; color: hsl(var(--dt-ok)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .fp-banner { padding: 12px 16px; border-radius: 14px; background: hsl(var(--dt-warn-bg)); color: hsl(var(--dt-warn)); font-size: 13.5px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .fp-filters { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .fp-search { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; width: 320px; max-width: 100%; border: 1px solid hsl(var(--border)); border-radius: 12px; background: hsl(var(--card)); color: hsl(var(--muted-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .fp-search:focus-within { border-color: hsl(var(--primary)); box-shadow: 0 0 0 3px hsl(var(--primary) / .22); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .fp-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font: inherit; font-size: 14px; color: hsl(var(--foreground)); box-shadow: none; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .fp-link { border: 0; background: transparent; padding: 4px 2px; font: inherit; font-size: 12.5px; font-weight: 700; color: hsl(var(--muted-foreground)); cursor: pointer; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .fp-empty { padding: 56px 16px; text-align: center; font-size: 14px; color: hsl(var(--muted-foreground)); border: 1px dashed hsl(var(--border)); border-radius: 16px; background: hsl(var(--card)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .fp-lanes { display: grid; gap: 16px; flex: 1; align-items: stretch; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .fp-lane { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 12px; border-radius: 16px; background: hsl(var(--dt-accent-tint) / .6); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .fp-lane-head { display: flex; align-items: center; justify-content: space-between; padding: 2px 4px 0; font-size: 14px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .fp-count { font-size: 12px; font-weight: 600; color: hsl(var(--muted-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .fp-quiet { padding: 14px 8px; text-align: center; font-size: 12.5px; color: hsl(var(--muted-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .fp-card { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 12px 12px 14px 16px; background: hsl(var(--card)); border-radius: 16px; box-shadow: var(--ui-shadow-card); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .fp-card-top { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .fp-ref { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-weight: 700; font-size: 13px; letter-spacing: .02em; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .fp-amount { font-size: 15px; font-variant-numeric: tabular-nums; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .fp-sub { font-size: 11.5px; color: hsl(var(--muted-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .fp-next { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; height: 32px; padding: 0 14px; border-radius: 10px; border: 0; background: hsl(var(--dt-accent-tint)); color: hsl(var(--primary-text, var(--primary))); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .fp-more { display: inline-grid; place-items: center; width: 26px; height: 26px; margin-right: -4px; border-radius: 8px; border: 0; background: transparent; color: hsl(var(--muted-foreground)); cursor: pointer; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .fp-more:hover { background: hsl(var(--dt-accent-tint)); color: hsl(var(--foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .fp-menu-item { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 36px; padding: 0 10px; border: 0; border-radius: 10px; background: transparent; cursor: pointer; text-align: left; font: inherit; font-size: 13.5px; font-weight: 600; color: hsl(var(--foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .fp-menu-item:hover { background: hsl(var(--dt-accent-tint)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .fp-menu-danger { color: hsl(var(--dt-bad)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .fp-menu-meta { margin: 0; padding: 6px 10px; font-size: 11.5px; color: hsl(var(--muted-foreground)); }
+@media (max-width: 900px) {
+  :root[data-ui="modern"][data-ui-theme="dt-refined"] .fp-root { padding: 16px 12px; }
+  :root[data-ui="modern"][data-ui-theme="dt-refined"] .fp-lanes { grid-template-columns: minmax(0, 1fr) !important; }
+  :root[data-ui="modern"][data-ui-theme="dt-refined"] .fp-search { width: 100%; }
+}
