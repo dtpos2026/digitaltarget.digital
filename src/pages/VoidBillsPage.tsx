@@ -8,12 +8,17 @@ import { Ban, Gift, XCircle, Printer, Search } from 'lucide-react';
 import { getOrders, getSettings } from '@/lib/store';
 import { Order } from '@/lib/types';
 import { PageTitle } from '@/components/layout/PageFrame';
+import { useThemeId, useUiStyle } from '@/lib/uiStyle';
+import { isRefinedTheme } from '@/lib/uiThemes';
+import RefinedVoids from '@/components/voids/RefinedVoids';
+import { KIND_LABEL, type ExitRow } from '@/lib/voidBoard';
 
 /**
  * Phase 3 — Void / Complimentary / Cancelled bills viewer.
  * These bills are recorded with reason + staff + datetime and are EXCLUDED from paid sales.
  */
 export default function VoidBillsPage() {
+  const refined = useUiStyle() === 'modern' && isRefinedTheme(useThemeId());
   const settings = getSettings();
   const [search, setSearch] = useState('');
   const allOrders = useMemo(() => getOrders(), []);
@@ -58,6 +63,18 @@ export default function VoidBillsPage() {
       </body></html>`);
     w.document.close(); w.print();
   };
+
+  // v1.143.0 — DT Refined: the design's one table (SW-40). Print prints what the filter shows, with a Status column.
+  if (refined) {
+    const printRows = (title: string, rows: ExitRow[]) => {
+      const w = window.open('', '_blank'); if (!w) return;
+      const esc = (v: unknown) => String(v ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
+      const body = rows.map(r => `<tr><td>${esc(r.order.orderNumber)}</td><td>${esc(KIND_LABEL[r.kind])}</td><td>${esc(r.order.orderType)}</td><td>${esc(r.order.creditCustomerName || r.order.customer?.name || '-')}</td><td>${esc(money(r.order.grandTotal))}</td><td>${esc(r.reason || '-')}</td><td>${esc(r.by || '-')}</td><td>${esc(new Date(r.at).toLocaleString('en-PK'))}</td></tr>`).join('');
+      w.document.write(`<html><head><title>${esc(title)}</title><style>body{font-family:Arial;padding:18px;font-size:12px}h2{margin:0 0 8px}table{width:100%;border-collapse:collapse;margin-top:8px}th,td{border:1px solid #ddd;padding:5px 7px;text-align:left}th{background:#800020;color:#fff;font-size:11px}</style></head><body><h2>${esc(settings.name || 'DT POS')} — ${esc(title)}</h2><table><tr><th>#</th><th>Status</th><th>Type</th><th>Customer</th><th>Amount</th><th>Reason</th><th>By</th><th>Date / Time</th></tr>${body}</table></body></html>`);
+      w.document.close(); w.print();
+    };
+    return <RefinedVoids orders={allOrders} onPrint={printRows} />;
+  }
 
   return (
     <div className="p-4 lg:p-6 space-y-4">
