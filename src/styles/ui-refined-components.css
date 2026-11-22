@@ -156,3 +156,17 @@ html[data-ui="modern"][data-ui-theme="dt-refined"] table[data-roomy] tbody td { 
 html[data-ui="modern"][data-ui-theme="dt-refined"] [data-detail-panel] [data-detail-head] { border-bottom: 0; background: transparent; padding: 18px 20px 0; }
 html[data-ui="modern"][data-ui-theme="dt-refined"] [data-detail-panel] [data-detail-head] h2 { font-size: 20px; font-weight: 800; letter-spacing: -.01em; }
 html[data-ui="modern"][data-ui-theme="dt-refined"] [data-detail-panel] [data-detail-body] { padding: 8px 20px 20px; }
+
+/* ---------- v1.148.0 — the design's underlined tabs (.tabs): a page's sections, not a segmented control. A screen opts in with data-tabs="underline". ---------- */
+html[data-ui="modern"][data-ui-theme="dt-refined"] [data-slot="tabs-list"][data-tabs="underline"] {
+  display: flex; width: 100%; justify-content: flex-start; flex-wrap: wrap; gap: 4px; background: transparent; border-radius: 0; padding: 0; min-height: 0; height: auto;
+  border-bottom: 1px solid hsl(var(--border)); margin-bottom: 16px;
+}
+html[data-ui="modern"][data-ui-theme="dt-refined"] [data-slot="tabs-list"][data-tabs="underline"] [data-slot="tabs-trigger"] {
+  flex: none; height: auto; padding: 10px 14px; border-radius: 0; background: transparent; box-shadow: none; font-size: 14px; font-weight: 700; color: hsl(var(--muted-foreground));
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+html[data-ui="modern"][data-ui-theme="dt-refined"] [data-slot="tabs-list"][data-tabs="underline"] [data-slot="tabs-trigger"][data-state="active"] {
+  background: transparent; color: hsl(var(--primary-text, var(--primary))); border-bottom-color: hsl(var(--primary)); box-shadow: none;
+}
+html[data-ui="modern"][data-ui-theme="dt-refined"] [data-slot="tabs-list"][data-tabs="underline"] [data-slot="tabs-trigger"]:hover { color: hsl(var(--foreground)); }

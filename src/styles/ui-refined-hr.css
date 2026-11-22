@@ -1,0 +1,28 @@
+/* ============================================================
+   v1.148.0 — HR, as the design draws it (SW-23). DT Refined only: "HR · 3 employees on record", Add employee, underlined tabs and the employees
+   table. (The underlined tabs themselves are in ui-refined-components.css, opted into with data-tabs="underline".)
+   ============================================================ */
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .hr-root { display: flex; flex-direction: column; gap: 8px; padding: 20px 24px; min-height: calc(100vh - var(--ui-header-h, 3.75rem)); box-sizing: border-box; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .hr-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .hr-titles h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 800; letter-spacing: -.01em; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .hr-titles p { margin: 2px 0 0; font-size: 12.5px; line-height: 18px; color: hsl(var(--muted-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .hr-btn { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 20px; border-radius: 12px; border: 0; background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .hr-card { background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: 16px; box-shadow: var(--ui-shadow-card); overflow: hidden; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .hr-card th { padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: hsl(var(--muted-foreground)); border-bottom: 1px solid hsl(var(--border)); white-space: nowrap; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .hr-card th.text-right { text-align: right; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .hr-card td { padding: 14px 12px; border-bottom: 1px solid hsl(var(--border)); vertical-align: middle; white-space: nowrap; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .hr-card td.hr-cell-name { white-space: normal; min-width: 8rem; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .hr-sub.hr-sub-phone { display: none; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .hr-actions { white-space: nowrap; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .hr-card tbody tr { cursor: pointer; outline: none; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .hr-card tbody tr:hover { background: hsl(var(--accent) / .5); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .hr-card tbody tr:last-child td { border-bottom: 0; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .hr-sub { display: block; font-size: 11.5px; color: hsl(var(--muted-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .hr-empty { padding: 56px 16px; text-align: center; font-size: 14px; color: hsl(var(--muted-foreground)); }
+@media (max-width: 760px) {
+  :root[data-ui="modern"][data-ui-theme="dt-refined"] .hr-root { padding: 16px 12px; }
+  :root[data-ui="modern"][data-ui-theme="dt-refined"] .hr-card td, :root[data-ui="modern"][data-ui-theme="dt-refined"] .hr-card th { padding-left: 8px; padding-right: 8px; }
+  :root[data-ui="modern"][data-ui-theme="dt-refined"] .hr-card td.hr-cell-name { min-width: 6.5rem; }
+  :root[data-ui="modern"][data-ui-theme="dt-refined"] .hr-sub.hr-sub-phone { display: block; }
+  :root[data-ui="modern"][data-ui-theme="dt-refined"] .hr-actions button { width: 30px; height: 30px; }
+}

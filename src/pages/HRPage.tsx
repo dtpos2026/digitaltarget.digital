@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { money } from '@/lib/currency';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,9 +21,41 @@ import { Employee, Leave, Payslip, Advance, AttendanceStatus } from '@/lib/types
 import { Plus, Pencil, Trash2, Printer, Users, CalendarCheck, Wallet, FileText, Receipt } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageTitle } from '@/components/layout/PageFrame';
+import { useThemeId, useUiStyle } from '@/lib/uiStyle';
+import { isRefinedTheme } from '@/lib/uiThemes';
+import StatusBadge from '@/components/ui-kit/StatusBadge';
+import { employeeCountLine, joinedLabel } from '@/lib/hrBoard';
 
 export default function HRPage() {
+  const refined = useUiStyle() === 'modern' && isRefinedTheme(useThemeId());
   const [tab, setTab] = useState('employees');
+  const [adding, setAdding] = useState(0);
+  const [count, setCount] = useState(() => getEmployees().length);
+  // v1.148.0 — DT Refined: the design's HR (SW-23): "HR · 3 employees on record", Add employee, and underlined tabs.
+  if (refined) {
+    return (
+      <div className="hr-root" data-hr-page>
+        <div className="hr-head">
+          <div className="hr-titles"><h1 data-hr-title>HR</h1><p data-hr-subtitle>{employeeCountLine(count)}</p></div>
+          {tab === 'employees' && <button type="button" className="hr-btn" data-hr-add onClick={() => setAdding(n => n + 1)}><Plus aria-hidden className="h-4 w-4" />Add employee</button>}
+        </div>
+        <Tabs value={tab} onValueChange={setTab}>
+          <TabsList data-tabs="underline" aria-label="HR sections">
+            <TabsTrigger value="employees">Employees</TabsTrigger>
+            <TabsTrigger value="attendance">Attendance</TabsTrigger>
+            <TabsTrigger value="advances">Advances</TabsTrigger>
+            <TabsTrigger value="payslips">Payslips</TabsTrigger>
+            <TabsTrigger value="leaves">Leaves</TabsTrigger>
+          </TabsList>
+          <TabsContent value="employees"><EmployeesTab refined adding={adding} onCount={setCount} /></TabsContent>
+          <TabsContent value="attendance"><AttendanceTab /></TabsContent>
+          <TabsContent value="advances"><AdvancesTab /></TabsContent>
+          <TabsContent value="payslips"><PayslipsTab /></TabsContent>
+          <TabsContent value="leaves"><LeavesTab /></TabsContent>
+        </Tabs>
+      </div>
+    );
+  }
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center gap-3">
@@ -48,12 +80,15 @@ export default function HRPage() {
 }
 
 // ============== Employees ==============
-function EmployeesTab() {
+function EmployeesTab({ refined = false, adding = 0, onCount }: { refined?: boolean; adding?: number; onCount?: (n: number) => void }) {
   const [employees, setEmployees] = useState(getEmployees());
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Employee | null>(null);
 
-  const refresh = () => setEmployees([...getEmployees()]);
+  const refresh = () => { const next = [...getEmployees()]; setEmployees(next); onCount?.(next.length); };
+  // the page header's "Add employee" (DT Refined) opens the same dialog as the card's Add
+  useEffect(() => { if (adding > 0) { setEditing(null); setOpen(true); } }, [adding]);
+  useEffect(() => { onCount?.(employees.length); }, [employees.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSave = (e: Employee) => {
     saveEmployee(e);
@@ -68,6 +103,40 @@ function EmployeesTab() {
     refresh();
     toast.success('Deleted');
   };
+
+  if (refined) {
+    return (
+      <div className="hr-card" data-hr-employees>
+        {employees.length === 0 ? (
+          <div className="hr-empty" data-hr-empty>No employees yet. Add the first one with “Add employee”.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table data-roomy className="w-full text-[14px]">
+              <thead><tr><th className="hidden sm:table-cell">Code</th><th>Employee</th><th className="hidden sm:table-cell">Designation</th><th className="hidden md:table-cell">Joined</th><th className="text-right">Basic</th><th className="hidden text-right xl:table-cell">Allowances</th><th>Status</th><th aria-label="Actions" /></tr></thead>
+              <tbody>
+                {employees.map(e => (
+                  <tr key={e.id} data-hr-row={e.empCode} tabIndex={0} onClick={() => { setEditing(e); setOpen(true); }} onKeyDown={ev => { if (ev.key === 'Enter') { setEditing(e); setOpen(true); } }}>
+                    <td className="hidden sm:table-cell">{e.empCode}</td>
+                    <td className="hr-cell-name"><b>{e.name}</b>{e.phone && <span className="hr-sub">{e.phone}</span>}<span className="hr-sub hr-sub-phone">{[e.empCode, e.designation].filter(Boolean).join(' · ')}</span></td>
+                    <td className="hidden sm:table-cell">{e.designation || '—'}</td>
+                    <td className="hidden md:table-cell">{joinedLabel(e.joiningDate)}</td>
+                    <td className="text-right tabular-nums">{money(e.basicSalary)}</td>
+                    <td className="hidden text-right tabular-nums xl:table-cell">{money(e.allowances || 0)}</td>
+                    <td><StatusBadge tone={e.status === 'active' ? 'success' : 'neutral'} dot={false} className="px-2 py-[3px] text-[11.5px] font-bold">{e.status === 'active' ? 'Active' : 'Inactive'}</StatusBadge></td>
+                    <td className="hr-actions text-right" onClick={ev => ev.stopPropagation()}>
+                      <Button aria-label="Edit" size="icon" variant="ghost" onClick={() => { setEditing(e); setOpen(true); }}><Pencil className="h-3.5 w-3.5" /></Button>
+                      <Button aria-label="Delete" size="icon" variant="ghost" onClick={() => handleDelete(e.id)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {open && <EmployeeDialog employee={editing} onSave={handleSave} onClose={() => setOpen(false)} />}
+      </div>
+    );
+  }
 
   return (
     <Card className="p-4">
