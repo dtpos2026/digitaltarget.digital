@@ -53,7 +53,9 @@ describe('the numbers', () => {
 const STORE_KEY = 'desi-pos-data';
 const seed = () => {
   localStorage.clear();
-  const logs = [log('l1', 'fl', 'sale', 14, 3, 'Sale • Order #7'), log('l2', 'fl', 'in', 40, 6, 'GRN'), log('l3', 'fl', 'out', 14, 9, 'Stock Out')];
+  // the screen reads the real clock, so these movements are dated from the real "now" (a fixed date made this test fail once the 9-day-old movement left the 14-day window)
+  const real = (id: string, type: StockLog['type'], quantity: number, ago: number, note: string): StockLog => ({ ...log(id, 'fl', type, quantity, 0, note), date: new Date(Date.now() - ago * 86_400_000).toISOString() });
+  const logs = [real('l1', 'sale', 14, 3, 'Sale • Order #7'), real('l2', 'in', 40, 6, 'GRN'), real('l3', 'out', 14, 9, 'Stock Out')];
   localStorage.setItem(STORE_KEY, JSON.stringify({
     settings: { name: 'Butt Bakers', currencySymbol: 'Rs ', costTrackingEnabled: true },
     users: [{ id: 'u-admin', name: 'Ayesha', username: 'admin', password: 'x', role: 'admin', isActive: true }],

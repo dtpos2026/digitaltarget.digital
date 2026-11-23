@@ -1,15 +1,22 @@
 import { useMemo, useState } from 'react';
 import { money } from '@/lib/currency';
-import { getOrders, getRecipes, getInventory, getWastages, getMenuItems } from '@/lib/store';
+import { getOrders, getRecipes, getInventory, getWastages, getMenuItems, getTransactions } from '@/lib/store';
 import { Recipe, InventoryItem, Wastage, CartItem } from '@/lib/types';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { TrendingUp, TrendingDown, DollarSign, Trash2, Percent, Award } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Trash2, Percent, Award, Download } from 'lucide-react';
 import DateTimeRangeFilter, { DateTimeRange } from '@/components/DateTimeRangeFilter';
 import { getCurrentBusinessDay, getBusinessDayRange } from '@/lib/businessDay';
 
 import { recipeCostPerUnit, recipeFor } from '@/lib/recipeCosting';
 import { PageTitle } from '@/components/layout/PageFrame';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import ReportActions from '@/components/ReportActions';
+import RefinedProfit from '@/components/profit/RefinedProfit';
+import { useThemeId, useUiStyle } from '@/lib/uiStyle';
+import { isRefinedTheme } from '@/lib/uiThemes';
+import type { ReportDoc } from '@/lib/reportExport';
+import { expensesIn, itemRows, plSummary, rangeLabel, soldLabel } from '@/lib/profitBoard';
 
 function lineFoodCost(line: CartItem, recipes: Recipe[], inv: InventoryItem[]): number {
   // the variant's own recipe when it has one, else the item's default — and the same cost the Costing page shows (waste and packaging included)
@@ -21,6 +28,7 @@ function lineFoodCost(line: CartItem, recipes: Recipe[], inv: InventoryItem[]): 
 }
 
 export default function ProfitabilityPage() {
+  const refined = useUiStyle() === 'modern' && isRefinedTheme(useThemeId());
   const [range, setRange] = useState<DateTimeRange>(() => {
     const w = getBusinessDayRange(30);
     const today = getCurrentBusinessDay();
@@ -86,6 +94,38 @@ export default function ProfitabilityPage() {
 
   const fmt = (n: number) => `${money(Math.round(n))}`;
   const pct = (n: number) => `${n.toFixed(1)}%`;
+
+  // v1.150.0 — DT Refined: the design's "Profit & loss" (SW-27): a Summary beside "Margin by item". The date range, the recipe-coverage warning and Print / PDF / POS / JPG
+  // (behind Export) are all kept; the old page's best-margin and low-margin lists are the "Best margin" and "Lowest margin" orders of the item table.
+  if (refined) {
+    const txns = getTransactions();
+    const summary = plSummary({ revenue: stats.revenue, foodCost: stats.foodCost, wastage: stats.wastageCost, expenses: expensesIn(txns, range.startMs, range.endMs), recipeRevenue: stats.withRecipeRevenue });
+    const subtitle = rangeLabel(range.startMs, range.endMs, range.preset);
+    const activeItems = menuItems.filter(m => m.isActive).length;
+    const reportDoc = (): ReportDoc => ({
+      title: 'Profit & loss', subtitle,
+      meta: [
+        { label: 'Net sales', value: fmt(summary.netSales) }, { label: 'Food cost', value: fmt(summary.foodCost) }, { label: 'Gross profit', value: fmt(summary.grossProfit) },
+        { label: 'Wastage', value: fmt(summary.wastage) }, { label: 'Expenses', value: fmt(summary.expenses) }, { label: 'Net profit', value: `${fmt(summary.netProfit)} (${summary.marginPct}%)` },
+      ],
+      columns: [{ key: 'item', label: 'Item' }, { key: 'sold', label: 'Sold', align: 'right' }, { key: 'price', label: 'Price', align: 'right' }, { key: 'cost', label: 'Cost', align: 'right' }, { key: 'margin', label: 'Margin', align: 'right' }],
+      rows: itemRows(stats.itemRows, 'sold').map(r => ({ item: r.name, sold: soldLabel(r.qty), price: fmt(r.price), cost: r.unitCost == null ? 'no recipe' : fmt(r.unitCost), margin: r.margin == null ? '—' : `${r.margin}%` })),
+      filename: `profit-and-loss-${new Date().toISOString().slice(0, 10)}`,
+    });
+    return (
+      <RefinedProfit
+        summary={summary} items={stats.itemRows} subtitle={subtitle} bills={paidOrders.length}
+        coverage={recipeCoverage < 50 ? { withRecipes: recipes.length, active: activeItems } : null}
+        filter={<DateTimeRangeFilter value={range} onChange={setRange} />}
+        exportMenu={(
+          <Popover>
+            <PopoverTrigger asChild><button type="button" className="pl-btn" data-pl-export><Download aria-hidden className="h-4 w-4" />Export</button></PopoverTrigger>
+            <PopoverContent align="end" className="w-auto p-3" data-pl-export-menu><ReportActions build={reportDoc} disabled={stats.itemRows.length === 0} /></PopoverContent>
+          </Popover>
+        )}
+      />
+    );
+  }
 
   const marginColor = (m: number) => m >= 50 ? 'text-emerald-600' : m >= 30 ? 'text-amber-600' : 'text-destructive';
   const fcpColor = stats.foodCostPct === 0 ? 'text-muted-foreground' : stats.foodCostPct <= 35 ? 'text-emerald-600' : stats.foodCostPct <= 45 ? 'text-amber-600' : 'text-destructive';
