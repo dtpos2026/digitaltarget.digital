@@ -16,6 +16,9 @@ import { Globe, Copy, ExternalLink, ShoppingBag, MapPin, Bike, Users, Power, Tru
 import { PageTitle } from '@/components/layout/PageFrame';
 import OpeningHoursEditor from '@/components/website/OpeningHoursEditor';
 import { Globe as TitleIcon } from 'lucide-react';
+import RefinedPortal from '@/components/portal/RefinedPortal';
+import { useThemeId, useUiStyle } from '@/lib/uiStyle';
+import { isRefinedTheme } from '@/lib/uiThemes';
 
 /**
  * Customer Portal / Online Website module — single dashboard from where
@@ -23,6 +26,7 @@ import { Globe as TitleIcon } from 'lucide-react';
  * manages online customer accounts. Per-tenant (each restaurant separate).
  */
 export default function OnlinePortalPage() {
+  const refined = useUiStyle() === 'modern' && isRefinedTheme(useThemeId());
   const navigate = useNavigate();
   const [settings, setSettings] = useState<RestaurantSettings>(() => getSettings());
   const [orders, setOrders] = useState<Order[]>(() => scopeToBranch(getOrders()));
@@ -155,8 +159,25 @@ export default function OnlinePortalPage() {
 
   const masterOn = settings.onlineOrderEnabled !== false;
 
+  // v1.152.0 — DT Refined: the design's "Customer website & app" (SW-35) on top: four channel cards, Branding, Delivery rules, Story & contact. The old header, master switches
+  // and branding card are replaced by it (same settings, same switches); the links, opening hours, live orders and customers follow below, as before.
+  const uploadImage = async (kind: 'logo' | 'banner', file: File | null) => {
+    const key = kind === 'logo' ? 'webPortalLogo' : 'onlineBanner';
+    if (!file) { persist({ [key]: '' } as Partial<RestaurantSettings>); return; }
+    if (file.size > 2_000_000) { toast.error(kind === 'logo' ? 'Logo max 2 MB' : 'Banner max 2 MB'); return; }
+    try { persist({ [key]: await uploadTenantImage(file, kind === 'logo' ? 'web-portal-logo' : 'online-banner') } as Partial<RestaurantSettings>); }
+    catch (err: any) { toast.error(err?.message || 'Upload failed'); }
+  };
+  const websiteUrl = `${origin}/#/order${tidSeg}`;
+
   return (
-    <div className="p-3 lg:p-6 space-y-4 max-w-7xl mx-auto">
+    <>
+      {refined && (
+        <RefinedPortal settings={settings} persist={persist} shareUrl={websiteUrl} onCopy={u => copy(u, 'Website')}
+          onPreview={() => window.open(websiteUrl, '_blank', 'noopener')} onUpload={uploadImage} />
+      )}
+    <div className={refined ? 'px-3 lg:px-6 pb-6 space-y-4 max-w-7xl mx-auto' : 'p-3 lg:p-6 space-y-4 max-w-7xl mx-auto'}>
+      {!refined && (<>
       {/* Header */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 text-white flex items-center justify-center shadow-md">
@@ -193,6 +214,8 @@ export default function OnlinePortalPage() {
             on={settings.allowGuestCheckout !== false} onChange={v => persist({ allowGuestCheckout: v })} disabled={!masterOn} />
         </div>
       </Card>
+
+      </>)}
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -267,6 +290,7 @@ export default function OnlinePortalPage() {
       {/* v1.115.0 — opening hours, pause (busy mode) and the links the website's About page shows */}
       <OpeningHoursEditor settings={settings} persist={persist} />
 
+      {!refined && (<>
       {/* Website Branding & Design */}
       <Card className="p-4 space-y-3">
         <div className="flex items-center gap-2">
@@ -381,6 +405,7 @@ export default function OnlinePortalPage() {
           </div>
         </div>
       </Card>
+      </>)}
 
       {/* Active website orders */}
       <Card className="p-4 space-y-3">
@@ -460,6 +485,7 @@ export default function OnlinePortalPage() {
         )}
       </Card>
     </div>
+    </>
   );
 }
 
