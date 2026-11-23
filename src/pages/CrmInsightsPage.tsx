@@ -3,9 +3,16 @@ import { money } from '@/lib/currency';
 import { Card } from '@/components/ui/card';
 import { Users, ShoppingBag, TrendingUp, Repeat } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
-import { getCustomers, getOrders, getBranches } from '@/lib/store';
+import { getCustomers, getOrders, getBranches, getPromoCodes, getSettings } from '@/lib/store';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PageTitle } from '@/components/layout/PageFrame';
+import { toast } from 'sonner';
+import { useNavigate } from '@/lib/hash-router';
+import { useThemeId, useUiStyle } from '@/lib/uiStyle';
+import { isRefinedTheme } from '@/lib/uiThemes';
+import { addToPendingQueue, normalizePhone } from '@/lib/whatsapp';
+import RefinedCrm, { type OfferMessage } from '@/components/crm/RefinedCrm';
+import { atRiskList, birthdayCustomers, crmFigures, peopleIn, signupsByMonth, DAY_MS, WINDOW_DAYS } from '@/lib/crmBoard';
 
 // ===== v1.57.0 — "customer tu CRM module click karein to atak jata hai" =====
 //
@@ -27,6 +34,9 @@ import { PageTitle } from '@/components/layout/PageFrame';
 // Read once, into state. The page is a report over a point in time, so a
 // stable snapshot is also the more correct thing to render.
 export default function CrmInsightsPage() {
+  const refined = useUiStyle() === 'modern' && isRefinedTheme(useThemeId());
+  const navigate = useNavigate();
+  const [nowMs] = useState(() => Date.now());
   const [customers] = useState(() => getCustomers());
   const [branches] = useState(() => getBranches());
   const [branchId, setBranchId] = useState<string>('all');
@@ -70,6 +80,35 @@ export default function CrmInsightsPage() {
 
     return { totalCustomers, totalOrders, totalGmv, avgBasket, repeatPct, freqData, signupData, top };
   }, [customers, orders]);
+
+  // v1.151.0 — DT Refined: the design's "CRM insights" (SW-20): four cards, "Orders per customer" and "At risk — send an offer". Worked out from the paid bills of the
+  // last 90 days (see lib/crmBoard.ts); the old totals, top customers and sign-ups are kept below; the branch picker is kept.
+  const crm = useMemo(() => {
+    if (!refined) return null;
+    const people = peopleIn(orders, nowMs - WINDOW_DAYS * DAY_MS, nowMs + 1, nowMs);
+    return { people, atRisk: atRiskList(people), figures: crmFigures(orders, customers, nowMs), birthdays: birthdayCustomers(customers, new Date(nowMs)), signups: signupsByMonth(customers) };
+  }, [refined, orders, customers, nowMs]);
+  if (refined && crm) {
+    const queue = (msgs: OfferMessage[]) => {
+      let n = 0;
+      for (const m of msgs) { const phone = normalizePhone(m.phone) || m.phone.replace(/\D/g, ''); if (phone) { addToPendingQueue(phone, m.message, m.name); n += 1; } }
+      toast.success(`${n} ${n === 1 ? 'message' : 'messages'} added to the WhatsApp queue`, { action: { label: 'Open WhatsApp', onClick: () => navigate('/whatsapp') } });
+    };
+    return (
+      <RefinedCrm
+        figures={crm.figures} people={crm.people} atRisk={crm.atRisk} birthdays={crm.birthdays} signups={crm.signups}
+        totals={{ customers: insights.totalCustomers, orders: insights.totalOrders, sales: insights.totalGmv, avgBasket: insights.avgBasket }}
+        top={insights.top} restaurant={getSettings().name || ''} promoCodes={getPromoCodes().filter(c => c.code && (c as any).isActive !== false).map(c => c.code)}
+        branchPicker={branches.length > 0 ? (
+          <select className="crm-branch" aria-label="Branch" value={branchId} onChange={e => setBranchId(e.target.value)}>
+            <option value="all">All branches</option>{branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </select>
+        ) : null}
+        onQueue={queue}
+        onChat={(phone, message) => navigate(`/whatsapp?phone=${encodeURIComponent(phone)}&message=${encodeURIComponent(message)}`)}
+      />
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">

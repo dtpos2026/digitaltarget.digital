@@ -1,0 +1,62 @@
+/* ============================================================
+   v1.151.0 — CRM insights, as the design draws it (SW-20). DT Refined only: "CRM insights · Last 90 days", Send offer, four figure cards, the bars of
+   "Orders per customer" and the list "At risk — send an offer" with "Message all N". Markup: components/crm/RefinedCrm.tsx.
+   ============================================================ */
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-root { display: flex; flex-direction: column; gap: 16px; padding: 20px 24px; min-height: calc(100vh - var(--ui-header-h, 3.75rem)); box-sizing: border-box; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-titles h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 800; letter-spacing: -.01em; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-titles p { margin: 2px 0 0; font-size: 12.5px; line-height: 18px; color: hsl(var(--muted-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-head-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 12px; border: 1px solid transparent; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-btn-lg { height: 44px; padding: 0 20px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-btn-primary { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-btn-ghost { background: hsl(var(--card)); border-color: hsl(var(--border)); color: hsl(var(--foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); gap: 16px; align-items: stretch; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-grid-low { grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-card { background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: 16px; box-shadow: var(--ui-shadow-card); padding: 20px; min-width: 0; display: flex; flex-direction: column; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-card h2 { margin: 0 0 14px; font-size: 15px; font-weight: 800; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-table-card { padding: 20px 4px 8px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-table-card h2 { padding: 0 16px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-bars { display: flex; align-items: flex-end; gap: 14px; height: 220px; padding: 8px 4px 0; margin-bottom: 28px; border-bottom: 1px dashed hsl(var(--border)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-bar-col { position: relative; flex: 1; min-width: 0; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: stretch; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-bar { display: block; width: 100%; border-radius: 6px 6px 2px 2px; background: hsl(var(--primary) / .55); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-bar[data-last] { background: hsl(var(--primary)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-bar-col span { position: absolute; left: 0; right: 0; bottom: -22px; text-align: center; font-size: 12px; color: hsl(var(--muted-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-list button { display: flex; align-items: center; gap: 12px; width: 100%; padding: 8px 6px; border: 0; border-radius: 10px; background: transparent; font: inherit; font-size: 14px; text-align: left; cursor: pointer; color: hsl(var(--foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-list button:hover:not(:disabled) { background: hsl(var(--accent) / .6); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-list button:disabled { cursor: default; opacity: .6; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-avatar { display: grid; place-items: center; flex: none; width: 30px; height: 30px; border-radius: 999px; background: hsl(var(--dt-accent-tint)); color: hsl(var(--primary-text, var(--primary))); font-style: normal; font-size: 12px; font-weight: 800; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-person { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-list em { font-style: normal; font-size: 13px; color: hsl(var(--muted-foreground)); font-variant-numeric: tabular-nums; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-all { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 40px; margin-top: 12px; border: 0; border-radius: 10px; background: hsl(var(--dt-accent-tint)); color: hsl(var(--primary-text, var(--primary))); font: inherit; font-size: 14px; font-weight: 800; cursor: pointer; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-empty { padding: 40px 12px; text-align: center; font-size: 13.5px; color: hsl(var(--muted-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-totals { display: flex; flex-wrap: wrap; gap: 8px 28px; padding: 2px 4px; font-size: 13px; color: hsl(var(--muted-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-totals b { color: hsl(var(--foreground)); font-weight: 800; font-variant-numeric: tabular-nums; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-table-card th { padding: 10px 16px; text-align: left; font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: hsl(var(--muted-foreground)); border-bottom: 1px solid hsl(var(--border)); white-space: nowrap; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-table-card th.text-right { text-align: right; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-table-card td { padding: 12px 16px; border-bottom: 1px solid hsl(var(--border)); vertical-align: middle; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-table-card tbody tr:last-child td { border-bottom: 0; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-table-card td.crm-person { font-weight: 700; white-space: normal; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-aud { display: flex; flex-wrap: wrap; gap: 8px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-aud button { height: 34px; padding: 0 14px; border-radius: 999px; border: 1px solid hsl(var(--border)); background: hsl(var(--card)); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; color: hsl(var(--foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-aud button[aria-pressed="true"] { background: hsl(var(--primary)); border-color: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-field span { color: hsl(var(--muted-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-field select, :root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-field textarea { border: 1px solid hsl(var(--border)); border-radius: 10px; background: hsl(var(--background)); padding: 8px 10px; font: inherit; font-size: 14px; color: hsl(var(--foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-count { margin: 0; font-size: 12.5px; color: hsl(var(--muted-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-branch { height: 44px; padding: 0 12px; border-radius: 12px; border: 1px solid hsl(var(--border)); background: hsl(var(--card)); font: inherit; font-size: 14px; font-weight: 600; color: hsl(var(--foreground)); }
+@media (max-width: 1180px) {
+  :root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  :root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-grid, :root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-grid-low { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 760px) {
+  :root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-root { padding: 16px 12px; }
+  :root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-kpis { gap: 10px; }
+  :root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-kpis [data-kpi] { padding: 14px; }
+  :root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-kpis [data-kpi] .truncate { font-size: 22px; }
+  :root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-bars { gap: 8px; height: 180px; }
+  :root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-table-card th, :root[data-ui="modern"][data-ui-theme="dt-refined"] .crm-table-card td { padding-left: 10px; padding-right: 10px; }
+}
