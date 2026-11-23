@@ -1,0 +1,38 @@
+/* ============================================================
+   v1.153.0 — Deals & combos, as the design draws it (SW-15). DT Refined only: "Deals & combos · N active deals", New deal, and a card per deal — a coloured
+   banner, the name with a switch, the combo price against the regular price with "Save Rs X", and the ticked list. Markup: components/deals/RefinedDeals.tsx.
+   ============================================================ */
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-root { display: flex; flex-direction: column; gap: 16px; padding: 20px 24px; min-height: calc(100vh - var(--ui-header-h, 3.75rem)); box-sizing: border-box; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-titles h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 800; letter-spacing: -.01em; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-titles p { margin: 2px 0 0; font-size: 12.5px; line-height: 18px; color: hsl(var(--muted-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-btn { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 20px; border-radius: 12px; border: 0; background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: start; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-card { background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: 16px; box-shadow: var(--ui-shadow-card); padding: 16px; min-width: 0; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-card[data-off] .dl-price, :root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-card[data-off] .dl-lines { opacity: .55; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-banner { position: relative; display: grid; place-items: center; height: 90px; border-radius: 12px; color: rgb(255 255 255 / .92); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-banner[data-tone="red"] { background: linear-gradient(135deg, #ef4444, #7f1d1d); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-banner[data-tone="green"] { background: linear-gradient(135deg, #22c55e, #14532d); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-banner[data-tone="purple"] { background: linear-gradient(135deg, #8b5cf6, #3b0764); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-banner[data-tone="orange"] { background: linear-gradient(135deg, #fb923c, #9a3412); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-banner[data-tone="teal"] { background: linear-gradient(135deg, #14b8a6, #134e4a); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-banner[data-tone="blue"] { background: linear-gradient(135deg, #60a5fa, #1e3a8a); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-banner-actions { position: absolute; top: 8px; right: 8px; display: flex; gap: 6px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-banner-actions button { display: grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 8px; background: rgb(0 0 0 / .28); color: #fff; cursor: pointer; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-banner-actions button:hover { background: rgb(0 0 0 / .45); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-name { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-name b { font-size: 18px; font-weight: 800; letter-spacing: -.01em; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-switch { position: relative; flex: none; width: 44px; height: 26px; border-radius: 999px; border: 0; background: hsl(var(--muted-foreground) / .35); cursor: pointer; padding: 0; transition: background .15s; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-switch[aria-checked="true"] { background: hsl(var(--primary)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-switch i { position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 999px; background: #fff; transition: transform .15s; box-shadow: 0 1px 2px rgb(0 0 0 / .25); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-switch[aria-checked="true"] i { transform: translateX(18px); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-price { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-top: 4px; padding-bottom: 12px; border-bottom: 1px solid hsl(var(--border)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-price b { font-size: 22px; font-weight: 800; color: hsl(var(--primary-text, var(--primary))); font-variant-numeric: tabular-nums; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-price del { font-size: 13px; color: hsl(var(--muted-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-save { font-size: 11.5px; font-weight: 800; padding: 3px 9px; border-radius: 999px; background: hsl(var(--dt-ok-bg)); color: hsl(var(--dt-ok)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-lines { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-lines li { display: flex; align-items: center; gap: 8px; }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-lines svg { flex: none; color: hsl(var(--muted-foreground)); }
+:root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-empty { padding: 56px 16px; text-align: center; border: 1px dashed hsl(var(--border)); border-radius: 16px; font-size: 14px; color: hsl(var(--muted-foreground)); }
+@media (max-width: 1180px) { :root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 760px) { :root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-root { padding: 16px 12px; } :root[data-ui="modern"][data-ui-theme="dt-refined"] .dl-grid { grid-template-columns: minmax(0, 1fr); } }

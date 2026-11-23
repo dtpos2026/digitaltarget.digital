@@ -13,6 +13,9 @@ import {
 } from '@/lib/store';
 import { Category, MenuItem, Deal } from '@/lib/types';
 import { PageTitle } from '@/components/layout/PageFrame';
+import RefinedDeals from '@/components/deals/RefinedDeals';
+import { useThemeId, useUiStyle } from '@/lib/uiStyle';
+import { isRefinedTheme } from '@/lib/uiThemes';
 
 const DEALS_CATEGORY_ID = 'cat-deals';
 
@@ -45,6 +48,7 @@ const blankDeal = (): Deal => ({ id: genId(), name: '', items: [], price: 0, isA
 type VariantPick = { name: string; type: 'size' | 'inch' };
 
 export default function VariationsDealsPage() {
+  const refined = useUiStyle() === 'modern' && isRefinedTheme(useThemeId());
   const [items, setItems] = useState<MenuItem[]>(() => getMenuItems().filter(i => i.categoryId !== DEALS_CATEGORY_ID));
   const [deals, setDeals] = useState<Deal[]>(() => getDeals());
   const [dOpen, setDOpen] = useState(false);
@@ -113,7 +117,7 @@ export default function VariationsDealsPage() {
     if (!editD.name || editD.items.length === 0) { toast.error('Name + items required'); return; }
     saveDeal(editD);
     syncDealToMenu(editD);
-    setDeals(getDeals());
+    setDeals(getDeals().slice());
     setDOpen(false);
     toast.success('Deal saved & added to Menu → Deals category');
   };
@@ -122,7 +126,7 @@ export default function VariationsDealsPage() {
     if (!confirm(`Delete "${d.name}"? It will be removed from the menu as well.`)) return;
     deleteDeal(d.id);
     deleteMenuItem(d.id);
-    setDeals(getDeals());
+    setDeals(getDeals().slice());
     toast.success('Deal deleted');
   };
 
@@ -132,42 +136,8 @@ export default function VariationsDealsPage() {
   const itemSelectedCount = (i: MenuItem) =>
     editD.items.filter(x => x.menuItemId === i.id).reduce((a, b) => a + b.quantity, 0);
 
-  return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <PageTitle icon={Package}>Deals / Combos</PageTitle>
-          <p className="text-sm text-muted-foreground">Combo deals banayein — automatic Menu → <b>Deals</b> category me add ho jayengi aur POS se bill ho sakegi.</p>
-        </div>
-        <Button onClick={() => { setEditD(blankDeal()); setDOpen(true); }}><Plus className="h-4 w-4 mr-1" /> Add Deal</Button>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {deals.length === 0 && (
-          <p className="text-muted-foreground col-span-3 text-center p-6 border rounded-xl border-dashed">
-            Koi deal nahi. "Add Deal" se naya combo banayein.
-          </p>
-        )}
-        {deals.map(d => (
-          <Card key={d.id} className="p-4 space-y-2">
-            <div className="flex items-start justify-between">
-              <div>
-                <h3 className="font-bold">{d.name}</h3>
-                <p className="text-2xl font-bold text-primary">{money(d.price)}</p>
-                {!d.isActive && <span className="text-[10px] uppercase bg-muted px-1.5 py-0.5 rounded">Inactive</span>}
-              </div>
-              <div className="flex gap-1">
-                <Button size="sm" variant="ghost" onClick={() => { setEditD(d); setDOpen(true); }}><Pencil className="h-4 w-4" /></Button>
-                <Button size="sm" variant="ghost" onClick={() => handleDelete(d)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-              </div>
-            </div>
-            <ul className="text-xs space-y-0.5 text-muted-foreground border-t pt-2">
-              {d.items.map((di, idx) => <li key={idx}>• {di.quantity}× {displayLine(di)}</li>)}
-            </ul>
-          </Card>
-        ))}
-      </div>
-
+  const dialogs = (
+    <>
       {/* Deal dialog */}
       <Dialog open={dOpen} onOpenChange={setDOpen}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
@@ -293,6 +263,62 @@ export default function VariationsDealsPage() {
           )}
         </DialogContent>
       </Dialog>
+    </>
+  );
+
+  // v1.153.0 — DT Refined: the design's "Deals & combos" (SW-15). The form, the variant picker and the saving are the page's own, below, and are the same in every look.
+  const setActive = (d: Deal, on: boolean) => {
+    const next = { ...d, isActive: on };
+    saveDeal(next);
+    syncDealToMenu(next);
+    setDeals(getDeals().slice());
+  };
+  if (refined) {
+    return (
+      <>
+        <RefinedDeals deals={deals} items={items} onNew={() => { setEditD(blankDeal()); setDOpen(true); }} onEdit={d => { setEditD(d); setDOpen(true); }} onDelete={handleDelete} onToggle={setActive} />
+        {dialogs}
+      </>
+    );
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <PageTitle icon={Package}>Deals / Combos</PageTitle>
+          <p className="text-sm text-muted-foreground">Combo deals banayein — automatic Menu → <b>Deals</b> category me add ho jayengi aur POS se bill ho sakegi.</p>
+        </div>
+        <Button onClick={() => { setEditD(blankDeal()); setDOpen(true); }}><Plus className="h-4 w-4 mr-1" /> Add Deal</Button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {deals.length === 0 && (
+          <p className="text-muted-foreground col-span-3 text-center p-6 border rounded-xl border-dashed">
+            Koi deal nahi. "Add Deal" se naya combo banayein.
+          </p>
+        )}
+        {deals.map(d => (
+          <Card key={d.id} className="p-4 space-y-2">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="font-bold">{d.name}</h3>
+                <p className="text-2xl font-bold text-primary">{money(d.price)}</p>
+                {!d.isActive && <span className="text-[10px] uppercase bg-muted px-1.5 py-0.5 rounded">Inactive</span>}
+              </div>
+              <div className="flex gap-1">
+                <Button size="sm" variant="ghost" onClick={() => { setEditD(d); setDOpen(true); }}><Pencil className="h-4 w-4" /></Button>
+                <Button size="sm" variant="ghost" onClick={() => handleDelete(d)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+              </div>
+            </div>
+            <ul className="text-xs space-y-0.5 text-muted-foreground border-t pt-2">
+              {d.items.map((di, idx) => <li key={idx}>• {di.quantity}× {displayLine(di)}</li>)}
+            </ul>
+          </Card>
+        ))}
+      </div>
+
+      {dialogs}
     </div>
   );
 }
